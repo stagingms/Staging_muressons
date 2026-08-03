@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import PasswordInput from './PasswordInput';
+import Dialog from './Dialog';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -94,11 +95,19 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
     };
 
     return (
-        <div style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+        /* A11Y-3 (UX audit #18): dialog semantics, Escape, focus trap +
+           restore. When isForced the password change is mandatory, so Escape
+           and backdrop-click are suppressed — the form is the only way out. */
+        <Dialog
+            onClose={onClose}
+            dismissible={!isForced}
+            labelledBy="change-password-title"
+            style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+        >
             <div style={{
                 background: '#fff', borderRadius: '14px', width: '90%', maxWidth: '420px',
                 boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden',
@@ -109,7 +118,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                     background: isForced ? '#fef3c7' : '#f8fafc',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
-                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: isForced ? '#92400e' : '#1e293b' }}>
+                    <h2 id="change-password-title" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: isForced ? '#92400e' : '#1e293b' }}>
                         {isForced ? '🔒 Set Your New Password' : '🔑 Change Password'}
                     </h2>
                     {!isForced && (
@@ -242,7 +251,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                     )}
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }
 

@@ -5,7 +5,19 @@
  */
 import { useState } from 'react';
 
-/* ── Sub-component: Archive Accordion for previous rounds ── */
+/* ── Sub-component: Archive Accordion for previous rounds ──
+ *
+ * A11Y-M4 (WCAG 1.4.3) — real-browser pass, 2026-08-02.
+ * Every surface and every colour in here was hard-coded light: #f7f8fc and
+ * #eef4ff headers, a #fafbff message row, slate text. Inside a rail that is
+ * #0e1222 in dark mode, this rendered as a white slab holding the ARCHIVE of
+ * the very messages listed above it in theme-aware colours — the same
+ * conversation in two different themes, six pixels apart. Its own header
+ * label also measured 4.13:1 on its own light background, so it failed in
+ * light mode too.
+ *
+ * Everything now runs through the token tiers used by the live mailbox item,
+ * so the archive matches the list it archives. */
 export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead, onExpand }) {
   const [open, setOpen] = useState(false);
   const handleToggle = (e) => {
@@ -16,7 +28,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
   return (
     <div style={{
       marginTop: 6,
-      borderTop: '1px solid #eef0f6',
+      borderTop: '1px solid var(--ck-border, rgba(148,163,184,0.12))',
     }}>
       <button
         onClick={handleToggle}
@@ -27,13 +39,13 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '8px 10px',
-          background: open ? '#eef4ff' : '#f7f8fc',
-          border: open ? '1px solid #c7d2fe' : '1px solid transparent',
+          background: open ? 'rgba(99, 102, 241, 0.14)' : 'var(--ck-surface-2, rgba(255,255,255,0.03))',
+          border: open ? '1px solid rgba(99, 102, 241, 0.40)' : '1px solid transparent',
           borderRadius: 5,
           cursor: 'pointer',
           fontSize: '0.65rem',
           fontWeight: 700,
-          color: open ? '#3b5998' : '#6b7a8d',
+          color: open ? 'var(--accent-text)' : 'var(--text-secondary)',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
           fontFamily: 'Inter, sans-serif',
@@ -43,8 +55,8 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
         <span>{open ? '▾' : '▸'} {roundLabel || `Round ${round}`}</span>
         <span style={{
           fontSize: '0.68rem',
-          background: open ? '#c7d2fe' : '#e2e8f0',
-          color: open ? '#3b5998' : '#475569',
+          background: open ? 'rgba(99, 102, 241, 0.22)' : 'var(--ck-surface-2, rgba(255,255,255,0.06))',
+          color: open ? 'var(--accent-text)' : 'var(--text-secondary)',
           padding: '2px 6px',
           borderRadius: 4,
           fontWeight: 700,
@@ -59,20 +71,24 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
               style={{
                 padding: '6px 10px 6px 18px',
                 fontSize: '0.65rem',
-                color: '#334155',
+                color: 'var(--text-secondary)',
                 lineHeight: 1.5,
-                borderLeft: '2px solid #c7d2fe',
+                borderLeft: '2px solid rgba(99, 102, 241, 0.45)',
                 marginLeft: 10,
                 marginBottom: 3,
                 cursor: 'pointer',
-                opacity: msg.read ? 0.7 : 1,
+                /* A11Y-M5: was 0.7. Opacity composites text toward its surface
+                   — the F8 / F16 trap — and "read" is the state a message
+                   spends the rest of the game in. 0.85 keeps the read/unread
+                   affordance and keeps the body above 4.5:1. */
+                opacity: msg.read ? 0.85 : 1,
                 borderRadius: '0 4px 4px 0',
-                background: '#fafbff',
+                background: 'var(--ck-surface-2, rgba(255,255,255,0.03))',
                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
               }}
             >
-              <strong style={{ fontSize: '0.65rem', color: '#334155' }}>{msg.title}</strong>
-              <p style={{ margin: '2px 0 0', fontSize: '0.6rem', color: '#475569' }}>
+              <strong style={{ fontSize: '0.65rem', color: 'var(--text-primary)' }}>{msg.title}</strong>
+              <p style={{ margin: '2px 0 0', fontSize: '0.62rem', color: 'var(--text-secondary)' }}>
                 {msg.body?.substring(0, 80)}...
               </p>
             </div>

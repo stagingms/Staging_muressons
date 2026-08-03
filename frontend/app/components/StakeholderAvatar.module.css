@@ -57,7 +57,9 @@
   font-family: var(--font-numeral, 'JetBrains Mono', monospace);
   font-size: 10px;
   font-weight: 700;
-  color: #cbd5e1;
+  /* A11Y-F21: #cbd5e1 is a DARK-theme neutral; on the light agent card it
+     measured 1.43:1 -- the tolerance number, invisible. */
+  color: var(--text-secondary);
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }

@@ -188,7 +188,44 @@ def _get_commit_lock(session_id: str) -> _asyncio.Lock:
     return _commit_locks[session_id]
 
 
-async def _assert_player_owns_session(request: Request, session_id: str) -> None:
+# ═══════════════════════════════════════════════════════════════════════════
+#  TEAM SEATS (UX audit #7, revised 2026-08-02 after client correction)
+#
+#  A team is REAL: up to 6 people, but exactly ONE of them drives.
+#
+#    • DRIVER   — holds the team's player credential (MUR-004). Unchanged: one
+#                 session, one company, full read/write. The credential IS the
+#                 driver seat, so handing over to another team member is just
+#                 signing in as MUR-004 on their laptop.
+#    • OBSERVER — holds the team's shared VIEW CODE (MUR-004-VIEW). Resolves to
+#                 the SAME session and sees the same live board, but every
+#                 mutating endpoint refuses it.
+#
+#  Architecture note: this adds NO new session, NO new game state and NO engine
+#  change. An observer is a read-only identity pointed at an existing session,
+#  which is why the whole feature is additive over a validated engine.
+#
+#  Security posture is FAIL-CLOSED: _assert_player_owns_session (used by all 28
+#  player routes) rejects observers by default. A route must opt in with
+#  allow_observer=True to be readable by a team's watchers — so any route added
+#  later is driver-only until someone deliberately opens it.
+# ═══════════════════════════════════════════════════════════════════════════
+
+VIEW_CODE_SUFFIX = "-VIEW"
+
+
+def _is_view_code(player_id: str) -> bool:
+    return bool(player_id) and player_id.strip().upper().endswith(VIEW_CODE_SUFFIX)
+
+
+def driver_id_for_view_code(view_code: str) -> str:
+    """MUR-004-VIEW -> MUR-004. Pure string op; callers still verify that the
+    driver record exists AND that the code matches the one actually issued."""
+    vc = (view_code or "").strip().upper()
+    return vc[: -len(VIEW_CODE_SUFFIX)] if vc.endswith(VIEW_CODE_SUFFIX) else vc
+
+
+async def _assert_player_owns_session(request: Request, session_id: str, allow_observer: bool = False) -> None:
     """Bind the caller to the session it is acting on (SEC-3 / audit #9).
 
     Rules:
@@ -213,12 +250,22 @@ async def _assert_player_owns_session(request: Request, session_id: str) -> None
 
     player_id_header = request.headers.get("X-Player-Id", "").strip()
     if player_id_header:
-        if session_owner != player_id_header:
+        if session_owner == player_id_header:
+            return  # Correct owner (the team's driver).
+        # TEAM-1: a team observer presents the shared view code, which resolves
+        # to this session's driver. Only routes that opted in are readable;
+        # everything else — every mutation — refuses. Fail-closed by default.
+        if _is_view_code(player_id_header) and driver_id_for_view_code(player_id_header) == (session_owner or "").upper():
+            if allow_observer:
+                return
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Player is not the owner of this session.",
+                detail="You are signed in as a team observer. Only your team's driver can change or commit decisions.",
             )
-        return  # Correct owner.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Player is not the owner of this session.",
+        )
 
     # No X-Player-Id on an owned session: allow only an authenticated facilitator
     # (observer/console), reject anonymous UUID-only callers.
@@ -322,7 +369,10 @@ def _auto_commit_request(global_state: dict, bu_states: list, round_number: int)
         decisions.append(BUDecision(
             bu_id=bu_id, investment_ratio=inv, capex_allocated=capex,
             choice_selected=choice, decision_node_id=f"round_{round_number}_{bu_id}",
-            time_to_decision_seconds=0, team_consensus="majority", pillar_decisions=None,
+            time_to_decision_seconds=0,
+            # TEAM-3 (UX audit #7): an auto-commit is the canonical "no team
+            # answered" case — recording 'majority' here was the fiction.
+            team_consensus="not_recorded", pillar_decisions=None,
         ))
     return CommitTurnRequest(
         dividends_paid=0.0, crisis_severity=0.0, imitation_decay_rate=0.05,
@@ -611,9 +661,17 @@ async def player_login(request: Request, req: PlayerLoginRequest):
 
     from admin_shared import _player_registry
 
+    # TEAM-1 (UX audit #7): a team's OBSERVERS sign in with the shared view code
+    # (MUR-004-VIEW). Resolve it to the driver's record so they land on the same
+    # session, then mark the response is_observer so the client renders
+    # read-only and every mutating route refuses them server-side.
+    _requested_id = (req.player_id or "").strip()
+    _as_observer = _is_view_code(_requested_id)
+    _lookup_id = driver_id_for_view_code(_requested_id) if _as_observer else _requested_id
+
     # Find the player in the registry
     player_record = next(
-        (p for p in _player_registry if p.get("player_id") == req.player_id),
+        (p for p in _player_registry if p.get("player_id") == _lookup_id),
         None
     )
     
@@ -621,16 +679,16 @@ async def player_login(request: Request, req: PlayerLoginRequest):
         import database as db
         for sid, sess in db._sessions.items():
             # Check player's own sub-session
-            if sess.get("player_id") == req.player_id:
-                player_record = {"player_id": req.player_id, "session_id": sess.get("parent_cohort_id")}
+            if sess.get("player_id") == _lookup_id:
+                player_record = {"player_id": _lookup_id, "session_id": sess.get("parent_cohort_id")}
                 break
             # Check pre-generated players in registered_players (survives server restart)
             for rp in sess.get("registered_players", []):
-                if rp.get("player_id") == req.player_id:
+                if rp.get("player_id") == _lookup_id:
                     player_record = rp
                     # Re-hydrate into _player_registry so future logins are fast
                     from admin_shared import _player_registry as _reg
-                    if not any(p.get("player_id") == req.player_id for p in _reg):
+                    if not any(p.get("player_id") == _lookup_id for p in _reg):
                         _reg.append(rp)
                     break
             if player_record:
@@ -638,8 +696,8 @@ async def player_login(request: Request, req: PlayerLoginRequest):
             # allowed_player_ids: player was pre-generated via generate-player endpoint.
             # Their actual password is stored in _player_registry (added by generate_player_id).
             # Fall back to an empty stored_pw so the password check below handles it.
-            if req.player_id in sess.get("allowed_player_ids", []):
-                player_record = {"player_id": req.player_id, "session_id": sid, "password": ""}
+            if _lookup_id in sess.get("allowed_player_ids", []):
+                player_record = {"player_id": _lookup_id, "session_id": sid, "password": ""}
                 break
 
     if not player_record:
@@ -661,7 +719,7 @@ async def player_login(request: Request, req: PlayerLoginRequest):
         try:
             from admin_shared import _player_registry as _reg
             real_pw = next(
-                (p.get("password", "") for p in _reg if p.get("player_id") == req.player_id),
+                (p.get("password", "") for p in _reg if p.get("player_id") == _lookup_id),
                 "",
             )
             if real_pw:
@@ -687,13 +745,30 @@ async def player_login(request: Request, req: PlayerLoginRequest):
             detail="Player not assigned to any cohort yet. Ask your facilitator to assign you."
         )
 
-    # Delegate to the existing join logic
+    # TEAM-1: an observer authenticates against the team's VIEW CODE password,
+    # never the driver's. Checked here (before the join delegation) so a wrong
+    # view code can never fall through to the driver's credential path.
+    if _as_observer:
+        _vc_issued = (player_record.get("team_view_code") or "").upper()
+        _vc_hash = player_record.get("team_view_password") or ""
+        if not _vc_issued or _vc_issued != _requested_id.upper():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No observer seat is open for this team. Ask your facilitator for the team's view code.",
+            )
+        if _vc_hash and not _verify_pw(req.password, _vc_hash):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect view-code password.")
+
+    # Delegate to the existing join logic. Observers join with the DRIVER's id
+    # so they attach to the team's existing session rather than minting one —
+    # an observer never creates game state.
     join_req = JoinSessionRequest(
-        player_id=req.player_id,
+        player_id=_lookup_id,
         password=req.password,
         player_name=player_record.get("name", ""),
     )
-    join_result = await join_session(cohort_session_id, join_req)
+    join_result = await _join_session_impl(cohort_session_id, join_req,
+                                           bypass_password=_as_observer)
 
     # Fetch current round so frontend can resume
     player_sid = join_result.get("session_id") if isinstance(join_result, dict) else join_result["session_id"]
@@ -711,7 +786,7 @@ async def player_login(request: Request, req: PlayerLoginRequest):
     ws_ticket = ""
     try:
         from auth_jwt import create_player_ws_ticket
-        ws_ticket = create_player_ws_ticket(player_sid, req.player_id)
+        ws_ticket = create_player_ws_ticket(player_sid, _requested_id)
     except Exception:
         ws_ticket = ""
 
@@ -724,13 +799,19 @@ async def player_login(request: Request, req: PlayerLoginRequest):
         "username": player_record.get("username", ""),
         "current_round": current_round,
         "ws_ticket": ws_ticket,
+        # TEAM-1: the client renders a read-only cockpit when this is true. The
+        # server does not rely on it — every mutation is refused independently.
+        "is_observer": _as_observer,
+        "player_id": _requested_id,
+        "team_driver_id": _lookup_id if _as_observer else None,
         # Signal the frontend to force a password change on first login
-        "must_change_password": bool(player_record.get("must_change_password", False)),
+        # (never for an observer — the view code is a shared, rotatable token).
+        "must_change_password": (not _as_observer) and bool(player_record.get("must_change_password", False)),
     }
 
 
-@router.post("/public/sessions/{session_id}/join", summary="Join an active session")
-async def join_session(session_id: str, req: JoinSessionRequest):
+async def _join_session_impl(session_id: str, req: JoinSessionRequest, *,
+                             bypass_password: bool = False):
     """
     Registers a player into a cohort by creating an independent session for them.
     Each player gets their own game state starting at Round 1.
@@ -759,9 +840,13 @@ async def join_session(session_id: str, req: JoinSessionRequest):
                 if rp.get("player_id") == req.player_id:
                     player_record = rp
                     break
-        if player_record and player_record.get("password"):
+        if player_record and player_record.get("password") and not bypass_password:
             # LOW-003: bcrypt-aware comparison
             # P6: player unlock uses the SEPARATE player master secret.
+            # `bypass_password` is keyword-only and this function has NO route, so
+            # it is reachable ONLY from player_login, which sets it after verifying
+            # a team view code against team_view_password. It cannot come from the
+            # wire in any form — see the note on join_session below.
             master_ok = verify_player_master_password(req.password)
             if not master_ok and not _verify_pw(req.password, player_record["password"]):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password.")
@@ -1045,6 +1130,23 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         "session_id": player_sid,
         "player_count": len(players),
     }
+
+
+@router.post("/public/sessions/{session_id}/join", summary="Join an active session")
+async def join_session(session_id: str, req: JoinSessionRequest):
+    """Public join endpoint. Thin wrapper: the password check is NEVER skippable
+    from the wire.
+
+    SEC-2026-08-02: this used to be the implementation itself, with a
+    `_bypass_password: bool = False` parameter. FastAPI binds a non-path,
+    non-Pydantic scalar with a default as a QUERY parameter (a leading
+    underscore is not filtered), so `?_bypass_password=true` skipped the bcrypt
+    check for anyone who knew a player id. The bypass now lives on a private
+    keyword-only argument of `_join_session_impl`, which has no route and
+    therefore no wire representation. Do NOT add parameters to this signature:
+    anything added here becomes part of the public API surface.
+    """
+    return await _join_session_impl(session_id, req, bypass_password=False)
 
 
 @router.get(
@@ -1782,7 +1884,10 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
     # present it must match the session owner, else 403. Facilitators/observers
     # (JWT auth, no X-Player-Id) are unaffected, and clients that omit the
     # header keep the UUID-as-bearer behaviour.
-    await _assert_player_owns_session(request, session_id)
+    # TEAM-1: allow_observer=True — a team's watchers (MUR-004-VIEW) read the
+    # SAME board as their driver. This is the ONLY player route opened to them;
+    # every other route stays driver-only by default (fail-closed).
+    await _assert_player_owns_session(request, session_id, allow_observer=True)
 
     latest = await db.fetch_latest_state(session_id)
     if latest is None:

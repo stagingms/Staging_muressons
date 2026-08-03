@@ -222,7 +222,7 @@
 
 .typeMemo {
     background: #fffbeb;
-    color: #d97706;
+    color: var(--kpi-warn-on-light);
     border: 1px solid #fde68a;
 }
 
@@ -495,7 +495,7 @@
 
 .nbHubCt_quiz {
     background: #ecfdf5;
-    color: #059669;
+    color: var(--kpi-good-on-light);
     border-color: #a7f3d0;
 }
 

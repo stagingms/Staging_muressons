@@ -1,11 +1,14 @@
 import React from 'react';
 import styles from './DecisionModal.module.css';
+import Dialog from './Dialog';
 
 export default function CFOOverrideModal({ onConfirm, onCancel, errorText }) {
     return (
-        <div className={styles.modalOverlay}>
+        /* A11Y-3 (UX audit #18): dialog semantics, Escape, focus trap +
+            restore via the shared Dialog primitive. Markup/styling unchanged. */
+        <Dialog className={styles.modalOverlay} onClose={onCancel} labelledBy="cfo-override-title">
             <div className={styles.modalContent} style={{ maxWidth: '500px' }}>
-                <h2 style={{ color: '#ff4d4f', borderBottom: '1px solid #333', paddingBottom: '10px' }}>⚠️ CFO Validation Override</h2>
+                <h2 id="cfo-override-title" style={{ color: '#ff4d4f', borderBottom: '1px solid #333', paddingBottom: '10px' }}>⚠️ CFO Validation Override</h2>
 
                 <p style={{ marginTop: '20px', fontSize: '0.95rem', color: '#ccc', lineHeight: '1.5' }}>
                     The finance department has flagged your budget allocation:
@@ -37,6 +40,6 @@ export default function CFOOverrideModal({ onConfirm, onCancel, errorText }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }

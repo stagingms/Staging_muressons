@@ -462,7 +462,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #059669 !important;
+    color: var(--kpi-good) !important;
 }
 
 /* â”€â”€ Flag Dependency Chain â”€â”€ */
@@ -576,7 +576,7 @@
 }
 .statusOn {
     background: rgba(16, 185, 129, 0.1);
-    color: #059669;
+    color: var(--kpi-good);
     border: 1px solid rgba(16, 185, 129, 0.2);
 }
 .statusOff {

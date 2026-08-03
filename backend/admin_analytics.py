@@ -80,20 +80,16 @@ _analytics_visibility: dict = {
         "materiality_matrix": True,
         "technical_reference": True,
         # ── Live cohort monitoring ──
-        "cohort_pulse": True,          # live health/engagement pulse
-        "leaderboard_matrix": True,    # team ranking matrix
-        "session_health": True,        # connection / commit / pacing health
-        "engine_event_feed": True,     # complexity / engine event stream
-        # ── Deep-dive & audit ──
-        "consequence_dna": True,       # decision→outcome causal DNA
-        "decision_timeline": True,     # per-team decision chronology
-        "stakeholder_map": True,       # Mendelow stakeholder grid
-        "audit_trail": True,           # facilitator action / override log
-        "shadow_board_audit": False,   # advanced governance audit (Executive+)
-        # ── ESG / disclosure dashboards ──
-        "sdg_alignment": True,         # SDG alignment radar
-        "tcfd_dashboard": False,       # TCFD climate-scenario dashboard
-        "peer_evaluation": False,      # inter-team peer evaluation results
+        "cohort_pulse": True,          # live KPI heatmap + per-team commit status
+        # VIS-1 (UX audit #16a, 2026-08-02): eleven further keys used to live
+        # here — leaderboard_matrix, session_health, engine_event_feed,
+        # consequence_dna, decision_timeline, stakeholder_map, audit_trail,
+        # shadow_board_audit, sdg_alignment, tcfd_dashboard, peer_evaluation.
+        # They rendered a toggle in cohort setup and gated NOTHING: no surface
+        # read them, so flipping one changed nothing a facilitator could see.
+        # Removed together with their frontend entries in
+        # analyticsRegistry.js::EXTENDED_VISIBILITY_CARDS (same commit, per this
+        # file's own sync rule). Re-add a key ONLY alongside its consumer.
     },
     "player": {
         # ── Core analytics (shipped) ──

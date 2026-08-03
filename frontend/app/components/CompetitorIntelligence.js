@@ -1,6 +1,22 @@
 import React from 'react';
 
-const pulse = `@keyframes ci-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }`;
+/* A11Y-F22 (WCAG 1.4.3, 2.2.2): this used to be
+     @keyframes ci-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+   which is the third instance in this codebase of animating the OPACITY of
+   something that carries text (see F18 on the rail badge, and the shared
+   `pulse` keyframe in globals.css). At the 50% frame the "Trailing (0.82x)"
+   label composited to roughly 60% of its measured contrast, twice every two
+   seconds. A ring outside the chip draws the same eye without touching the
+   glyph, and stops entirely for a reduced-motion user. */
+const pulse = `
+@keyframes ci-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.45); }
+  70%  { box-shadow: 0 0 0 5px rgba(244, 63, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [style*="ci-pulse"] { animation: none !important; }
+}`;
 
 function TrendArrow({ current, previous }) {
   if (previous == null || previous <= 0) return null;
@@ -25,11 +41,16 @@ export default function CompetitorIntelligence({ globalState, ebitda, roundNumbe
   const hasData = ebitda > 0;
   const maxVal = Math.max(ebitda, competitorEbitda, 1);
 
+  /* A11Y-F21 (WCAG 1.4.3): all three states used a 500/600-weight hue as text
+     on their own tinted chip. Measured on the dark rail, the tied state read
+     #64748b on #1c2234 = 3.32:1. The text tier flips per theme by design, so
+     one value covers both; the boxShadow moves onto the animation, which now
+     draws the ring instead of dimming the label. */
   const badgeStyle = isTied
-    ? { background: 'rgba(148,163,184,0.1)', color: '#64748b' }
+    ? { background: 'rgba(148,163,184,0.1)', color: 'var(--text-secondary)' }
     : isTrailing
-      ? { background: 'rgba(244,63,94,0.15)', color: '#e11d48', boxShadow: '0 0 8px rgba(244,63,94,0.2)', animation: 'ci-pulse 2s ease-in-out infinite' }
-      : { background: 'rgba(16,185,129,0.15)', color: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.2)' };
+      ? { background: 'rgba(244,63,94,0.15)', color: 'var(--danger-text)', animation: 'ci-pulse 2s ease-out infinite' }
+      : { background: 'rgba(16,185,129,0.15)', color: 'var(--positive-text)', boxShadow: '0 0 8px rgba(16,185,129,0.2)' };
 
   const barRow = (label, value, color) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

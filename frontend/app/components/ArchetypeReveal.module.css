@@ -8,7 +8,7 @@
 .root {
   position: fixed;
   inset: 0;
-  z-index: 9999; /* Above every stacking context incl. --z-briefing:9001 */
+  z-index: var(--z-gate); /* 9200 — above --z-briefing (9001), as before */
   overflow: hidden;
   font-family: var(--font-sans, 'DM Sans', -apple-system, sans-serif);
   color: #e2e8f0;

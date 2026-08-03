@@ -136,6 +136,17 @@
   margin-top: 1px;
 }
 
+/* UX audit #21 — the plain-English "why did this happen" sentence.
+   Prose, so it deliberately does not use the monospace .nodeValue treatment. */
+.nodeExplain {
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-secondary, var(--neutral));
+  opacity: 0.92;
+  margin-top: 3px;
+}
+
 .nodeTypeBadge {
   font-size: 0.5rem;
   font-weight: 800;

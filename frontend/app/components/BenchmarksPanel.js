@@ -54,7 +54,11 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
           <span>📈</span> FTSE 100 ESG Benchmarks
         </span>
         <span style={{
-          fontSize: '0.65rem', color: '#64748b',
+          /* A11Y-F21: #64748b is the LIGHT-theme neutral. The globals.css
+             shim rewrites it in light mode, so it looked fine there and
+             measured 3.76:1 in dark, where no shim runs. The token is
+             defined for both. */
+          fontSize: '0.65rem', color: 'var(--text-muted)',
           transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
           transition: 'transform 0.2s',
         }}>
@@ -65,7 +69,7 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
       {expanded && (
         <div style={{ padding: '0 14px 12px' }}>
           {loading && (
-            <div style={{ fontSize: '0.68rem', color: '#64748b', padding: '8px 0' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', padding: '8px 0' }}>
               Loading benchmark data…
             </div>
           )}
@@ -114,7 +118,7 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
                       </div>
                       <div style={{
                         display: 'flex', justifyContent: 'space-between',
-                        fontSize: '0.68rem', color: '#64748b',
+                        fontSize: '0.68rem', color: 'var(--text-muted)',
                       }}>
                         <span>Your value: <strong style={{ color: '#e2e8f0' }}>{bm.your_value} {bm.unit}</strong></span>
                         <span>{bm.insight?.split('—')[0]}</span>
@@ -123,7 +127,7 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
                   );
                 })}
               </div>
-              <div style={{ fontSize: '0.5rem', color: '#475569', fontStyle: 'italic' }}>
+              <div style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                 {data.data_source} · {data.note}
               </div>
             </>

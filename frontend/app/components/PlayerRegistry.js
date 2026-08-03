@@ -225,6 +225,42 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
         }
     };
 
+    // TEAM-1 (UX audit #7): a team is up to 6 people — 1 driver (this player
+    // credential) + up to 5 observers sharing one -VIEW code. Issuing/rotating
+    // the code returns its password ONCE, same contract as generate-player.
+    const handleTeamSeats = async (playerId) => {
+        const raw = window.prompt(
+            `Team size for ${playerId} — how many people, including the driver?\n\n` +
+            `1 = solo (no observer seats)\n6 = maximum (driver + 5 observers)\n\n` +
+            `The driver signs in as ${playerId}. Observers share ${playerId}-VIEW and can watch but not commit.`,
+            '6',
+        );
+        if (raw === null) return;
+        const size = Math.max(1, Math.min(6, parseInt(raw, 10) || 1));
+        try {
+            const res = await fetch(`${API}/api/admin/players/${playerId}/team-seats`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ team_size: size, rotate_code: true }),
+            });
+            if (!res.ok) {
+                alert(`Could not configure team seats: ${res.status} — ${await res.text()}`);
+                return;
+            }
+            const d = await res.json();
+            alert(
+                `Team ${playerId} — ${d.team_size} member(s), ${d.observer_seats} observer seat(s).\n\n` +
+                `OBSERVER LOGIN (share with the ${d.observer_seats} watchers):\n` +
+                `  ID:       ${d.team_view_code}\n` +
+                `  Password: ${d.view_password || '(unchanged)'}\n\n` +
+                `Shown once. Observers see the live board read-only; only ${playerId} can commit.`,
+            );
+        } catch {
+            alert('Connection error — team seats were not changed.');
+        }
+    };
+
     const handleResetPassword = async (playerId, sessionId) => {
         if (!confirm(`Reset password for ${playerId}? A new random password will be generated. You must share it with the player.`)) return;
         try {
@@ -743,6 +779,17 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.1)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.3)'; }}
                                                                     title={`Reset password for ${p.player_id} — generates a new random password`}
                                                                 >🔄 Reset Pwd</button>
+                                                                <button
+                                                                    onClick={() => handleTeamSeats(p.player_id)}
+                                                                    style={{
+                                                                        background: 'rgba(99,102,241,0.1)',
+                                                                        border: '1px solid rgba(99,102,241,0.3)',
+                                                                        borderRadius: '5px', cursor: 'pointer',
+                                                                        padding: '3px 8px', fontSize: '0.7rem',
+                                                                        fontWeight: 600, color: '#a5b4fc', whiteSpace: 'nowrap',
+                                                                    }}
+                                                                    title={`Team seats for ${p.player_id} — set team size (max 6) and issue the shared observer view code. The driver commits; observers watch.`}
+                                                                >👥 Seats</button>
                                                                 <button
                                                                     onClick={() => handleDeletePlayer(p.player_id)}
                                                                     style={{

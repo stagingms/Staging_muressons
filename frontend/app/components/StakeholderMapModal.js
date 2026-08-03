@@ -12,6 +12,8 @@ import {
     useSensors,
     closestCenter,
 } from '@dnd-kit/core';
+import { droppableKeyboardCoordinates } from '../lib/dndDroppableKeyboardCoordinates';
+import Dialog from './Dialog';
 import styles from './StakeholderMapModal.module.css';
 import { playerIdHeader } from '../hooks/useSimulation';
 
@@ -66,13 +68,35 @@ function DraggableChip({ stakeholder, isDragging }) {
             ref={setNodeRef}
             {...listeners}
             {...attributes}
+            /* A11Y-F11: append our dossier id to whatever dnd-kit already set,
+               so a screen reader hears the intel without any hover. */
+            aria-describedby={[attributes['aria-describedby'], hasDossier ? `dossier-${stakeholder.id}` : null].filter(Boolean).join(' ') || undefined}
             className={`${styles.chip} ${isDragging ? styles.chipDragging : ''}`}
             style={{ ...style, position: 'relative' }}
+            /* A11Y-F11 (WCAG 2.1.1): the intel dossier — the reasoning material
+               for placing this stakeholder — is mouse-only. The 📋 marker is
+               visible to everyone; its CONTENT was reachable only by hovering.
+               NOTE: opening it on focus was tried and REVERTED — this chip is
+               dnd-kit's drag handle, and mounting the dossier on focus broke the
+               keyboard lift (verified in a real browser: the live region went
+               silent). The dossier text is instead exposed through
+               aria-describedby below, which changes no DOM on focus and cannot
+               interfere with the drag. */
             onMouseEnter={() => hasDossier && setShowDossier(true)}
             onMouseLeave={() => setShowDossier(false)}
         >
             <span className={styles.chipIcon}>{stakeholder.icon}</span>
             <span className={styles.chipName}>{stakeholder.name}</span>
+            {/* A11Y-F11: always present, never visible, no state — so it cannot
+                perturb the drag. This is the hover-only dossier, spoken. */}
+            {hasDossier && (
+              <span
+                id={`dossier-${stakeholder.id}`}
+                style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+              >
+                {`Intel: ${stakeholder.intel_dossier.map((d) => (typeof d === 'string' ? d : (d.text || d.label || ''))).filter(Boolean).join('. ')}`}
+              </span>
+            )}
             {hasDossier && <span style={{ fontSize: '0.68rem', color: '#60a5fa', marginLeft: 'auto', flexShrink: 0 }}>📋</span>}
             {/* C15: Intel Dossier Tooltip */}
             {showDossier && hasDossier && (
@@ -156,7 +180,10 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(KeyboardSensor)
+        // A11Y-F20 (WCAG 2.1.1): snap between zones instead of dnd-kit's
+        // default 25px-per-press nudge, which made this gate take ~200 key
+        // presses to complete. See lib/dndDroppableKeyboardCoordinates.js.
+        useSensor(KeyboardSensor, { coordinateGetter: droppableKeyboardCoordinates })
     );
 
     // Load stakeholder list (session-aware for vertical BU substitutions)
@@ -290,7 +317,10 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
             .filter(Boolean);
 
     return (
-        <div className={styles.overlay}>
+        /* A11Y-3 (UX audit #18): dialog semantics + focus trap/restore.
+            dismissible=false — this is the R1 gate; it closes on submit, not
+            on a stray Escape that would lose the player's placements. */
+        <Dialog className={styles.overlay} label="Stakeholder power and interest grid" dismissible={false} onClose={() => {}}>
             <div className={styles.modal}>
                 {/* ── Header ── */}
                 <header className={styles.header}>
@@ -629,7 +659,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                     </div>
                 )}
             </div>
-        </div>
+        </Dialog>
     );
 }
 

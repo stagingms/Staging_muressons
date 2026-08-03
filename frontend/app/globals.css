@@ -19,6 +19,10 @@
   --accent-cyan: #06b6d4;
   --accent-purple: #8b5cf6;
   --accent-gold: #f59e0b;
+  /* Rank medal, NOT a semantic warning. Kept separate from --accent-gold on
+     purpose: leaderboard 1st/3rd place must stay two distinguishable colours,
+     and mapping bronze onto the warn/gold token collapses them into one. */
+  --medal-bronze: #d97706;
 
   /* Semantic â€” gauge thresholds */
   --gauge-green: #10b981;
@@ -119,6 +123,31 @@
   --z-crisis:   800;   /* crisis alerts — always topmost          */
   --z-top:      9000;  /* join overlay, full-screen takeovers     */
 
+  /* ── Above-takeover band (UX audit #20, 2026-08-02) ───────────────────────
+     The scale used to stop at --z-top/--z-briefing, so twelve component files
+     invented their own numbers between 9500 and 21500 to get above a
+     full-screen takeover. These tiers exist so that nothing has to invent one
+     again. The ORDER below is the order those files already had — migrating a
+     file to these tokens is meant to be a no-op on screen.
+
+     Two adjacent tiers differ by 1 on purpose (--z-drawer-scrim / --z-drawer):
+     a scrim and the panel it dims are one unit, not two tiers.
+
+     KNOWN GAP: several *inline* JS z-indexes still sit above this whole band
+     (ConfirmModal 25000, ShockwaveOverlay 99999, and assorted 9998/9999/12000/
+     20000 literals in component JS). Those are outside this CSS migration; a
+     CSS tier here will NOT out-stack them. See IMPLEMENTATION notes.         */
+  --z-modal-under-gate: 9100;  /* modal owned by the screen beneath a gate   */
+  --z-gate:             9200;  /* join gate, terminal-state takeover, scrim  */
+  --z-modal-over-gate:  9300;  /* modal opened on top of a gate-level screen
+                                  (also: the dialog surface whose own scrim
+                                  sits at --z-gate)                          */
+  --z-friction:         9400;  /* pre-commit friction gate — outranks a gate */
+  --z-drawer-scrim:     9500;  /* slide-over scrim                           */
+  --z-drawer:           9501;  /* the panel it dims — deliberate adjacency   */
+  --z-coach:            9600;  /* onboarding coach overlay, global toast     */
+  --z-portal:           9700;  /* regulator/filing portal — top CSS tier     */
+
   /* color-scheme: tells browsers to adapt native controls (scrollbars,
      inputs, selects) to match the active theme. */
   color-scheme: dark;
@@ -140,6 +169,11 @@
   --accent-cyan: #0e7490;   /* A11Y-1 (UX audit #11): was #0891b2, 3.36:1 on f1f5f9 -> 4.89:1 */
   --accent-purple: #7c3aed;
   --accent-gold: #b45309;   /* A11Y-1: was #d97706, 2.91:1 on f1f5f9 -> 4.58:1 */
+  --medal-bronze: #92400e;  /* A11Y-1: bronze was #d97706 (2.91:1) -> 6.5:1, and
+                               stays distinct from --accent-gold (#b45309).
+                               NEEDS AN EYEBALL: gold vs bronze are two dark
+                               oranges in light mode; the ramp step may be too
+                               small to read as 1st vs 3rd place. */
 
   /* Semantic â€” gauge thresholds (unchanged, high contrast) */
   --gauge-green: #047857;   /* A11Y-1: was #059669, 3.44:1 on f1f5f9 -> 5.01:1 */
@@ -202,6 +236,26 @@
   --ck-accent-border: rgba(2, 132, 199, 0.15);
   --ck-danger: #dc2626;
   --ck-success: #16a34a;
+}
+
+/* ── Semantic colour on a PERMANENTLY LIGHT surface ────────────────────────
+   A few panels are hardcoded white/pastel and do NOT follow data-theme:
+   the facilitator debrief panel, the round-pacing panel and the resource
+   sidebar all paint `background: #fff` in both themes, with hardcoded slate
+   text on top.
+
+   Semantic text on those panels must NOT flip with the theme. Using
+   var(--kpi-good) there looks fine in light mode and then renders the DARK
+   value (#10b981 / #f59e0b) on white in dark mode — 2.2–2.5:1, i.e. worse
+   than the raw hex it replaced. So these two tokens are deliberately declared
+   once, outside both theme blocks, and carry the WCAG-corrected LIGHT values
+   (A11Y-1, 2026-08-02).
+
+   They are a bridge, not a pattern: the real fix is to make those three panels
+   theme-aware, at which point these go away and var(--kpi-*) is used.        */
+:root {
+  --kpi-good-on-light: #047857;  /* 5.5:1 on #fff, 5.3:1 on #ecfdf5 */
+  --kpi-warn-on-light: #b45309;  /* 5.1:1 on #fff, 4.9:1 on #fffbeb */
 }
 
 /* â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -378,6 +432,23 @@ body.theme-transitioning::before {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+/* A11Y-F18 (WCAG 1.4.3, 2.2.2): `pulse` above animates OPACITY, which is fine
+   for a dot but not for anything carrying a glyph — at the 50% keyframe the
+   text composites to roughly a third of its measured contrast, so a badge that
+   passes at rest fails for half of every cycle. badgePulse animates a ring
+   outside the element instead, leaving the glyph at full opacity throughout,
+   and stops entirely for a reduced-motion user. Use this for any pulsing
+   element that contains text. */
+@keyframes badgePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
+  70%  { box-shadow: 0 0 0 5px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="badgePulse"] { animation: none !important; }
 }
 
 @keyframes slideDown {
@@ -1058,10 +1129,71 @@ textarea:focus-visible {
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* â”€â”€ Semi-transparent white text (rgba(255,â€¦)) â†’ readable dark â”€â”€ */
+/* A11Y-F9 (WCAG 1.4.3) — real-browser axe pass, 2026-08-02.
+   The 2026-05 migration note above claims the neutral text colours were
+   replaced everywhere and their rules removed from this shim. Chromium says
+   otherwise: 21 nodes on the player cockpit still serialize dark-theme
+   neutrals into inline styles and render them on light surfaces —
+     rgb(241,245,249) #f1f5f9 on #f7f9fc  = 1.03:1  (effectively invisible)
+     rgb(203,213,225) #cbd5e1 on #f7f9fc  = 1.40:1
+     rgb(148,163,184) #94a3b8 on #f7f9fc  = 2.27:1
+   jsdom cannot see this (no cascade) and a token audit cannot either (these
+   are inline, not CSS). Restoring the neutral rules is the smallest change
+   that makes the light theme legible; the durable fix is still to replace the
+   inline styles, which is why the migration note stays.
+   ──────────────────────────────────────────────────────────────────────── */
+[data-theme="light"] [style*="color: rgb(241, 245, 249)"],
+[data-theme="light"] [style*="color: rgb(226, 232, 240)"] {
+  color: var(--text-primary) !important;   /* was 1.03:1 — unreadable */
+}
+[data-theme="light"] [style*="color: rgb(203, 213, 225)"] {
+  color: var(--text-secondary) !important; /* was 1.40:1 */
+}
+[data-theme="light"] [style*="color: rgb(148, 163, 184)"] {
+  color: var(--text-muted) !important;     /* was 2.27:1 */
+}
+
 [data-theme="light"] [style*="color: rgba(255"] {
   color: #334155 !important;
 }
 
+/* A11Y-F21 (WCAG 1.4.3) - real-browser pass, 2026-08-02.
+   TEN of the sixteen replacement values below did not themselves reach AA on
+   the surfaces this block exists to make them readable on. The rules were
+   right about the problem (a dark-theme pastel is unreadable on white) and
+   wrong about the answer: each replacement was picked at the 600 weight, and
+   600 on a light surface lands between 2.91:1 and 4.47:1.
+
+   The damning part is that THIS FILE ALREADY KNEW. An earlier pass -- see the
+   "A11Y-1 (UX audit #11)" comments in the light token block above -- measured
+   the identical hues and corrected them there:
+       --accent-cyan  #0891b2 -> #0e7490   "3.36:1 on f1f5f9 -> 4.89:1"
+       --gauge-green  #059669 -> #047857
+       --gauge-red    #dc2626 -> #b91c1c
+       --accent-gold  #d97706 -> #b45309
+   The tokens were fixed and the shim was not, so the same colour was right in
+   one half of the file and wrong in the other. That is what a duplicated
+   palette costs.
+
+   Measured against #ffffff / #f8fafc / #f1f5f9, the three light surfaces
+   these actually land on:
+     green-400   #16a34a -> 3.30 / 3.15 / 3.01   now #15803d  5.02 / 4.79 / 4.58
+     emerald-3/4 #059669 -> 3.77 / 3.60 / 3.44   now #047857  5.48 / 5.24 / 5.01
+     sky-400     #0284c7 -> 4.10 / 3.91 / 3.74   now #0369a1  5.93 / 5.67 / 5.42
+     amber-300   #d97706 -> 3.19 / 3.04 / 2.91   now #b45309  5.02 / 4.80 / 4.58
+     orange      #ea580c -> 3.56 / 3.40 / 3.25   now #c2410c  5.18 / 4.95 / 4.73
+     cyan        #0891b2 -> 3.68 / 3.52 / 3.36   now #0e7490  5.36 / 5.12 / 4.89
+     red-3/4     #dc2626 -> 4.83 / 4.62 / 4.41   now #b91c1c  6.47 / 6.18 / 5.91
+     indigo-300  #6366f1 -> 4.47 / 4.27 / 4.08   now #4f46e5  6.29 / 6.01 / 5.74
+
+   Every new value is the 700 weight of the same hue, and every one of them is
+   a value already in use elsewhere in this file -- no new colour is
+   introduced. #dc2626 and #6366f1 cleared white and missed only on #f1f5f9;
+   they move anyway, because a rule that passes on one light surface and fails
+   on another is exactly how this survived three audits.
+
+   The four that already passed (#4f46e5, #7c3aed, #0369a1, #334155) are
+   untouched. */
 /* â”€â”€ ACCENT COLORS (too washed-out on white) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* Indigo-400: #818cf8 â†’ rgb(129, 140, 248) */
 [data-theme="light"] [style*="color: rgb(129, 140, 248)"] {
@@ -1070,7 +1202,7 @@ textarea:focus-visible {
 
 /* Indigo-300: #a5b4fc â†’ rgb(165, 180, 252) */
 [data-theme="light"] [style*="color: rgb(165, 180, 252)"] {
-  color: #6366f1 !important;
+  color: #4f46e5 !important;
 }
 
 /* Violet-300: #c4b5fd â†’ rgb(196, 181, 253) */
@@ -1085,7 +1217,7 @@ textarea:focus-visible {
 
 /* Sky-400: #38bdf8 â†’ rgb(56, 189, 248) */
 [data-theme="light"] [style*="color: rgb(56, 189, 248)"] {
-  color: #0284c7 !important;
+  color: #0369a1 !important;
 }
 
 /* Sky-300: #7dd3fc â†’ rgb(125, 211, 252) */
@@ -1100,48 +1232,113 @@ textarea:focus-visible {
 
 /* Emerald-300: #6ee7b7 â†’ rgb(110, 231, 183) */
 [data-theme="light"] [style*="color: rgb(110, 231, 183)"] {
-  color: #059669 !important;
+  color: #047857 !important;
 }
 
 /* Emerald-400: #34d399 â†’ rgb(52, 211, 153) */
 [data-theme="light"] [style*="color: rgb(52, 211, 153)"] {
-  color: #059669 !important;
+  color: #047857 !important;
 }
 
 /* Green-400: #4ade80 â†’ rgb(74, 222, 128) */
 [data-theme="light"] [style*="color: rgb(74, 222, 128)"] {
-  color: #16a34a !important;
+  color: #15803d !important;
 }
 
 /* Red-300: #fca5a5 â†’ rgb(252, 165, 165) */
 [data-theme="light"] [style*="color: rgb(252, 165, 165)"] {
-  color: #dc2626 !important;
+  color: #b91c1c !important;
 }
 
 /* Red-400: #f87171 â†’ rgb(248, 113, 113) */
 [data-theme="light"] [style*="color: rgb(248, 113, 113)"] {
-  color: #dc2626 !important;
+  color: #b91c1c !important;
 }
 
 /* Amber-300: #fcd34d â†’ rgb(252, 211, 77) */
 [data-theme="light"] [style*="color: rgb(252, 211, 77)"] {
-  color: #d97706 !important;
+  color: #b45309 !important;
+}
+
+/* A11Y-F16 (WCAG 1.4.3): amber-400 and amber-500 had no rule here, so the
+   left rail's Focus Mode control kept #fbbf24 when its panel became light —
+   1.60:1. #b45309 is the value already chosen for --kpi-warn-on-light and
+   measures 5.2:1 on #f8fafc and 4.9:1 on the control's own amber-tinted
+   chip. */
+/* Amber-400: #fbbf24 â†’ rgb(251, 191, 36) */
+[data-theme="light"] [style*="color: rgb(251, 191, 36)"] {
+  color: #b45309 !important;
+}
+
+/* Amber-500: #f59e0b â†’ rgb(245, 158, 11) */
+[data-theme="light"] [style*="color: rgb(245, 158, 11)"] {
+  color: #92400e !important;  /* amber-800: #b45309 is 4.48:1 on the stage badge's own amber tint */
 }
 
 /* Orange: #fb923c â†’ rgb(251, 146, 60) */
 [data-theme="light"] [style*="color: rgb(251, 146, 60)"] {
-  color: #ea580c !important;
+  color: #c2410c !important;
 }
 
 /* Cyan: #22d3ee â†’ rgb(34, 211, 238) */
 [data-theme="light"] [style*="color: rgb(34, 211, 238)"] {
-  color: #0891b2 !important;
+  color: #0e7490 !important;
 }
 
 /* Purple: #e9d5ff â†’ rgb(233, 213, 255) */
 [data-theme="light"] [style*="color: rgb(233, 213, 255)"] {
   color: #7c3aed !important;
 }
+
+/* A11Y-F21b: the block above covers the 300 and 400 weights of each family
+   because those are what a dark theme uses for TEXT. It never covered the
+   500s — the weight a component reaches for when it wants a colour to read as
+   the colour itself (a status dot, a stage badge, a negative number). Those
+   are just as unreadable on white, and the omission is why the stakeholder
+   panel's DORMANT badge measured 2.23:1 and an option's cost 3.76:1 in light
+   mode after everything else in this file was correct.
+   Same rule as above: the 700 weight of the same hue. */
+
+/* Emerald-500: #10b981 -> rgb(16, 185, 129) */
+[data-theme="light"] [style*="color: rgb(16, 185, 129)"] {
+  color: #047857 !important;
+}
+
+/* Green-500: #22c55e -> rgb(34, 197, 94) */
+[data-theme="light"] [style*="color: rgb(34, 197, 94)"] {
+  color: #15803d !important;
+}
+
+/* Red-500: #ef4444 -> rgb(239, 68, 68) */
+[data-theme="light"] [style*="color: rgb(239, 68, 68)"] {
+  color: #b91c1c !important;
+}
+
+/* Orange-500: #f97316 -> rgb(249, 115, 22) */
+[data-theme="light"] [style*="color: rgb(249, 115, 22)"] {
+  color: #c2410c !important;
+}
+
+/* Teal-500: #14b8a6 -> rgb(20, 184, 166) */
+[data-theme="light"] [style*="color: rgb(20, 184, 166)"] {
+  color: #0f766e !important;
+}
+
+/* Violet-500: #8b5cf6 -> rgb(139, 92, 246) */
+[data-theme="light"] [style*="color: rgb(139, 92, 246)"] {
+  color: #6d28d9 !important;
+}
+
+/* Sky-500: #0ea5e9 -> rgb(14, 165, 233) */
+[data-theme="light"] [style*="color: rgb(14, 165, 233)"] {
+  color: #0369a1 !important;
+}
+
+/* Rose-600: #e11d48 -> rgb(225, 29, 72) */
+[data-theme="light"] [style*="color: rgb(225, 29, 72)"] {
+  color: #be123c !important;
+}
+
 
 /* â”€â”€ BACKGROUND OVERRIDES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* Dark navy: #0f172a â†’ rgb(15, 23, 42) */
@@ -1193,6 +1390,42 @@ textarea:focus-visible {
 [data-theme="light"] [style*="background: rgba(30, 41, 59"],
 [data-theme="light"] [style*="background-color: rgba(30, 41, 59"] {
   background: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* A11Y-F14 (WCAG 1.4.3) — real-browser pass, 2026-08-02.
+   ────────────────────────────────────────────────────────────────────────
+   THE STRUCTURAL DEFECT IN THIS BLOCK, and the rule that closes it.
+
+   The colour rules above rewrite a FOREGROUND assuming the surface is light.
+   The background rules just above rewrite a SURFACE and say nothing about the
+   text on it. Neither half knows what the other did, so the block has two
+   failure modes and the cockpit had both:
+
+     surface rewritten, text not  →  the round's commit button. Its inline
+       `background: rgb(30,41,59)` became #fff here while its class kept
+       `color: #fff`. White on white, 1:1, on the primary action of the round.
+
+     text rewritten, surface not  →  the market ticker. Its `#e2e8f0` price
+       text was darkened by the neutral rule, but its `#000000` strip is not
+       one of the darks listed above, so the surface stayed black. 1:1 again,
+       across every number on the bar. (Fixed at source in MarketTicker.js —
+       a permanently black surface now carries a permanently light palette.)
+
+   The rule below closes the first mode: if we force an element's surface
+   light, we must also give it a foreground that survives on it. `:not([style
+   *="color"])` keeps it off anything that states its own inline colour, so
+   the accent rules above still own those cases.
+
+   It cannot close the second mode — no CSS selector can enumerate the darks
+   nobody wrote down. That one is only ever fixed at the source, which is why
+   the migration note at the top of this block still stands. */
+[data-theme="light"] [style*="background: rgb(15, 23, 42)"]:not([style*="color"]),
+[data-theme="light"] [style*="background-color: rgb(15, 23, 42)"]:not([style*="color"]),
+[data-theme="light"] [style*="background: rgb(17, 24, 39)"]:not([style*="color"]),
+[data-theme="light"] [style*="background-color: rgb(17, 24, 39)"]:not([style*="color"]),
+[data-theme="light"] [style*="background: rgb(30, 41, 59)"]:not([style*="color"]),
+[data-theme="light"] [style*="background-color: rgb(30, 41, 59)"]:not([style*="color"]) {
+  color: var(--text-primary) !important;
 }
 
 /* â”€â”€ BORDER OVERRIDES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */

@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import styles from './ExecutiveCockpit.module.css';
+import Dialog from './Dialog';
 
 /**
  * BalanceSheetModal — Full IFRS Statement of Financial Position
@@ -104,11 +105,14 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
   );
 
   return (
-    <div className={styles.bsModalOverlay} onClick={onClose}>
+    /* A11Y-3 (UX audit #18): was a bare div with a backdrop onClick — no
+       dialog role, no Escape, no focus management. Dialog supplies all of it
+       and keeps the existing backdrop-click-to-close behaviour. */
+    <Dialog className={styles.bsModalOverlay} onClose={onClose} labelledBy="bs-modal-title">
       <div className={styles.bsModalPanel} onClick={(e) => e.stopPropagation()}>
         <div className={styles.bsModalHeader}>
           <div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#38bdf8' }}>
+            <div id="bs-modal-title" style={{ fontSize: '0.88rem', fontWeight: 800, color: '#38bdf8' }}>
               📊 Statement of Financial Position
             </div>
             <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>
@@ -320,6 +324,6 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
           </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

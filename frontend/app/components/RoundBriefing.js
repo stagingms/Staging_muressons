@@ -209,6 +209,11 @@ export default function RoundBriefing({
   prevRoundData, activeFlags, globalState, businessUnits, sessionMeta,
   briefingVideoUrl,
   onLogout,
+  // TIMER-2 (UX audit #15): the briefing is an early return that unmounts the
+  // cockpit header, so a timed round's countdown would vanish while a player
+  // reads. The page passes its pacing chip in here so the clock stays on
+  // screen through the sub-flow.
+  pacingChip = null,
   // Cohort player-visibility check, threaded from the page. Defaults to
   // fail-open so the briefing renders in full when mounted standalone.
   isPlayerVisible = () => true,
@@ -625,6 +630,11 @@ export default function RoundBriefing({
 
         {/* ── Proceed Button ── */}
         <div className={styles.footer}>
+          {pacingChip && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+              {pacingChip}
+            </div>
+          )}
           {/* OBJ-1 (UX audit #10): the scored objective, stated where every
               player will read it — previously it surfaced nowhere before
               Round 10. One sentence, first briefing only. */}

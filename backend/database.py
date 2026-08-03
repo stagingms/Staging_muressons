@@ -154,7 +154,7 @@ async def get_pool() -> asyncpg.Pool:
                     choice_selected         VARCHAR(200)    NOT NULL,
                     capex_allocated         NUMERIC(18,2)   DEFAULT 0,
                     time_to_decision_seconds INTEGER        DEFAULT 0,
-                    team_consensus          consensus_level NOT NULL DEFAULT 'majority',
+                    team_consensus          consensus_level NULL DEFAULT NULL,   -- TEAM-3: NULL = not recorded
                     metadata                JSONB           DEFAULT '{}',
                     created_at              TIMESTAMPTZ     NOT NULL DEFAULT now()
                 );
@@ -241,6 +241,37 @@ async def get_pool() -> asyncpg.Pool:
         # Ensure metadata column exists (for DBs created by older init.sql without it)
         async with _pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
             await conn.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
+
+        # ── TEAM-3 (UX audit #7, 2026-08-02): team_consensus becomes nullable ──
+        # The client used to hardcode 'majority' on every commit, so the audit
+        # log asserted a consensus nobody recorded. The driver now answers in the
+        # review modal, but rounds committed before this shipped — and every
+        # server auto-commit — have no answer, and that must be distinguishable
+        # from a real 'majority'.
+        #
+        # Idempotent and forward-only, matching the metadata pattern above:
+        #   • add 'not_recorded' to the enum if missing
+        #   • drop the NOT NULL and the 'majority' default
+        # Existing rows are NOT rewritten — backfilling them to 'not_recorded'
+        # would be a guess about history, and these rows sit behind an
+        # immutability trigger. Old rows keep 'majority'; new ones tell the truth.
+        async with _pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+            try:
+                await conn.execute(
+                    "ALTER TYPE consensus_level ADD VALUE IF NOT EXISTS 'not_recorded';"
+                )
+            except Exception as _enum_exc:
+                print(f"[POSTGRES] consensus_level enum extend skipped (non-fatal): {_enum_exc}")
+            try:
+                await conn.execute(
+                    "ALTER TABLE decision_audit_log ALTER COLUMN team_consensus DROP NOT NULL;"
+                )
+                await conn.execute(
+                    "ALTER TABLE decision_audit_log ALTER COLUMN team_consensus DROP DEFAULT;"
+                )
+                print("[POSTGRES] TEAM-3: team_consensus is nullable (NULL = not recorded).")
+            except Exception as _tc_exc:
+                print(f"[POSTGRES] team_consensus nullability migration skipped (non-fatal): {_tc_exc}")
         
         # Populate database_memory._sessions from DB for synchronous access parity
         try:
@@ -830,7 +861,10 @@ async def get_decision_log(session_id: str) -> list[dict]:
                     "capex_allocated": float(row["capex_allocated"] or 0),
                     "player_id": meta.get("player_id") or "unknown",
                     "time_to_decision_seconds": int(row["time_to_decision_seconds"] or 0),
-                    "team_consensus": str(row["team_consensus"] or "majority"),
+                    # TEAM-3: NULL stays NULL — the debrief must be able to say
+                    # "not recorded" instead of reporting a consensus that never
+                    # happened.
+                    "team_consensus": (str(row["team_consensus"]) if row["team_consensus"] else None),
                     "cohort_name": meta.get("cohort_name", ""),
                 })
     results.sort(key=lambda x: (x.get("round_number", 0), x.get("player_id", "")))
@@ -1163,7 +1197,10 @@ async def insert_next_round(
                     dec.get("choice_selected", ""),
                     dec.get("capex_allocated", 0),
                     dec.get("time_to_decision_seconds", 0),
-                    dec.get("team_consensus", "majority"),
+                    # TEAM-3: no coercion. A missing value means the team did
+                    # not record how it decided; write NULL and say so, rather
+                    # than inventing 'majority'.
+                    dec.get("team_consensus") or None,
                 )
 
     return global_state_id

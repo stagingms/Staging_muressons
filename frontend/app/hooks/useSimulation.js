@@ -44,6 +44,10 @@ export default function useSimulation() {
     const [commitResults, setCommitResults] = useState(null); // Holds results after commit, before advance
     const [practiceReset, setPracticeReset] = useState(false); // True when practice round reset occurs
     const [mustChangePassword, setMustChangePassword] = useState(false); // True when player must change password
+    // TEAM-1 (UX audit #7): true when signed in with the team's VIEW CODE
+    // (MUR-NNN-VIEW). The cockpit renders read-only. Advisory only — the
+    // server refuses every mutation from an observer independently.
+    const [isObserver, setIsObserver] = useState(false);
     // Session metadata: cohort_name, simulation_mode, etc. — populated from session-info API by page.js
     const [sessionMeta, setSessionMeta] = useState({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null });
     const commitInProgressRef = useRef(false); // Guard against double-submit
@@ -377,6 +381,13 @@ export default function useSimulation() {
             if (loginData.must_change_password) {
                 setMustChangePassword(true);
             }
+            // TEAM-1: observer seat — read-only cockpit. Persisted so a refresh
+            // does not silently promote a watcher into the driver's UI.
+            setIsObserver(!!loginData.is_observer);
+            if (typeof window !== 'undefined') {
+                if (loginData.is_observer) localStorage.setItem('muressons_is_observer', 'true');
+                else localStorage.removeItem('muressons_is_observer');
+            }
             const dashData = await fetchDashboard(playerSessionId);
             if (dashData?.current_round && dashData.current_round <= 10) {
                 await fetchRoundConfig(dashData.current_round);
@@ -682,6 +693,13 @@ export default function useSimulation() {
     // ── Resume Session from Storage ───────────────────────────
     const resumeSession = useCallback(async (sid) => {
         setSessionId(sid);
+        // TEAM-1: restore observer status on refresh BEFORE the board renders,
+        // so a watcher never briefly sees a writable cockpit.
+        try {
+            if (typeof window !== 'undefined') {
+                setIsObserver(localStorage.getItem('muressons_is_observer') === 'true');
+            }
+        } catch { /* private mode */ }
         try {
             const data = await fetchDashboard(sid);
             if (data?.current_round && data.current_round <= 10) {
@@ -757,6 +775,8 @@ export default function useSimulation() {
         setAutoAdvanceDetected,
         practiceReset,
         mustChangePassword,
+        isObserver,
+        setIsObserver,
         setMustChangePassword,
         sessionMeta,
         setSessionMeta,

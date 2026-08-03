@@ -86,7 +86,7 @@
 .statusValWarning {
     font-size: 1rem;
     font-weight: 700;
-    color: #d97706;
+    color: var(--kpi-warn-on-light);
     margin-top: 0.1rem;
 }
 

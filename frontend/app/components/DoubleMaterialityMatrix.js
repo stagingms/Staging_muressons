@@ -12,6 +12,7 @@ import {
     useSensors,
     DragOverlay
 } from '@dnd-kit/core';
+import { droppableKeyboardCoordinates } from '../lib/dndDroppableKeyboardCoordinates';
 import styles from './DoubleMaterialityMatrix.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -467,7 +468,10 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(KeyboardSensor)
+        // A11Y-F20 (WCAG 2.1.1): snap between zones instead of dnd-kit's
+        // default 25px-per-press nudge, which made this gate take ~200 key
+        // presses to complete. See lib/dndDroppableKeyboardCoordinates.js.
+        useSensor(KeyboardSensor, { coordinateGetter: droppableKeyboardCoordinates })
     );
 
     const handleDragStart = (event) => {

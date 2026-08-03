@@ -24,6 +24,10 @@ class ConsensusLevel(str, Enum):
     majority = "majority"
     split = "split"
     facilitator_override = "facilitator_override"
+    # TEAM-3 (UX audit #7, 2026-08-02): mirrors the Postgres enum. Reserved for
+    # rows where the team genuinely did not answer — a server auto-commit, or a
+    # round committed before the review-modal selector shipped.
+    not_recorded = "not_recorded"
 
 
 class MaterialityImpact(str, Enum):
@@ -258,7 +262,11 @@ class BUDecision(BaseModel):
     choice_selected: str = ""
     decision_node_id: str = ""
     time_to_decision_seconds: int = Field(0, ge=0)
-    team_consensus: ConsensusLevel = ConsensusLevel.majority
+    # TEAM-3 (UX audit #7): was `= ConsensusLevel.majority`, so EVERY commit
+    # asserted a majority decision — including solo play and server auto-commits.
+    # Optional with no default: absent means "not recorded", which is written as
+    # NULL and reported as such rather than invented.
+    team_consensus: Optional[ConsensusLevel] = None
     pillar_decisions: Optional[dict] = None  # {energy, operations, supply_chain, offsetting}
 
 

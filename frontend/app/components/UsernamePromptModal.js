@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Dialog from './Dialog';
 import styles from './JoinCohortModal.module.css'; // Re-use the cool styling
 
 export default function UsernamePromptModal({ userId, role, onComplete }) {
@@ -51,7 +52,10 @@ export default function UsernamePromptModal({ userId, role, onComplete }) {
     };
 
     return (
-        <div className={styles.overlay}>
+        /* A11Y-3 (UX audit #18): dialog semantics + focus management.
+            dismissible=false — a player MUST set a username to proceed, so
+            Escape/backdrop must not dismiss it; the form is the way out. */
+        <Dialog className={styles.overlay} label="Choose your username" dismissible={false} onClose={() => {}}>
             {/* Scan-line overlay */}
             <div className={styles.scanlines} />
 
@@ -72,8 +76,15 @@ export default function UsernamePromptModal({ userId, role, onComplete }) {
 
                     <form onSubmit={handleSubmit} className={styles.form} style={{ marginTop: '2rem' }}>
                         <div className={styles.field}>
-                            <label className={styles.label}>DESIRED USERNAME</label>
+                            {/* A11Y-F10 (WCAG 1.3.1, 3.3.2): same defect class as
+                                JoinCohortModal — a visible label with no
+                                association, so the field's only accessible name
+                                was its placeholder, which disappears on the first
+                                keystroke. Found while driving the real browser
+                                through the sign-in flow. */}
+                            <label className={styles.label} htmlFor="username-desired">DESIRED USERNAME</label>
                             <input
+                                id="username-desired"
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
@@ -103,6 +114,6 @@ export default function UsernamePromptModal({ userId, role, onComplete }) {
                     </form>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Dialog from './Dialog';
 import styles from './JoinCohortModal.module.css';
 import ChangePasswordModal from './ChangePasswordModal';
 import PasswordInput from './PasswordInput';
@@ -75,7 +76,11 @@ export default function JoinCohortModal({ sim }) {
 
 
     return (
-        <div className={styles.overlay}>
+        /* A11Y-3 (UX audit #18): the FIRST screen every participant sees had
+            no dialog role, no focus management and no Escape. dismissible=false
+            because there is nothing behind it to return to — signing in is the
+            only exit. */
+        <Dialog className={styles.overlay} label="Sign in to Muressons" dismissible={false} onClose={() => {}}>
             {/* Scan-line overlay */}
             <div className={styles.scanlines} />
 
@@ -109,8 +114,15 @@ export default function JoinCohortModal({ sim }) {
 
                     <form onSubmit={handleLogin} className={styles.form}>
                         <div className={styles.field}>
-                            <label className={styles.label}>EXECUTIVE IDENTIFIER</label>
+                            {/* A11Y-F1 (WCAG 1.3.1, 3.3.2): the label was visually
+                                present but not ASSOCIATED — no htmlFor, no id, no
+                                wrapping. axe passed it only because the placeholder
+                                supplied an accessible name, which disappears the
+                                moment the user types. First screen every
+                                participant sees. */}
+                            <label className={styles.label} htmlFor="join-player-id">EXECUTIVE IDENTIFIER</label>
                             <input
+                                id="join-player-id"
                                 type="text"
                                 value={playerId}
                                 onChange={(e) => setPlayerId(e.target.value.toUpperCase())}
@@ -128,8 +140,9 @@ export default function JoinCohortModal({ sim }) {
                         </div>
 
                         <div className={styles.field}>
-                            <label className={styles.label}>CLEARANCE CIPHER</label>
+                            <label className={styles.label} htmlFor="join-password">CLEARANCE CIPHER</label>
                             <PasswordInput
+                                id="join-password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"
@@ -145,7 +158,7 @@ export default function JoinCohortModal({ sim }) {
                                 a participant ever sees; removed. In its place,
                                 the one fact worth stating here: */}
                             <span style={{ fontSize: '0.68rem', color: '#94a3b8', letterSpacing: '0.03em' }}>
-                                One login per person — you run your own company.
+                                Driver enters the team ID. Observers use the team&apos;s -VIEW code.
                             </span>
                             <button
                                 type="button"
@@ -233,6 +246,6 @@ export default function JoinCohortModal({ sim }) {
                     if (sim.setMustChangePassword) sim.setMustChangePassword(false);
                 }}
             />
-        </div>
+        </Dialog>
     );
 }

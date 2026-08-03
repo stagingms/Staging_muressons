@@ -4,7 +4,23 @@ import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
 
 /**
  * MarketTicker — Enhanced scrolling stock ticker bar.
- * Supports dark (default) and light themes.
+ *
+ * A11Y-F15 (WCAG 1.4.3) — real-browser pass, 2026-08-02.
+ * This strip is PERMANENTLY BLACK: `bg` below is '#000000' with no theme
+ * branch, in both themes, by design — it is the trading-terminal ribbon.
+ * Its text was nevertheless drawn from theme-dependent sources, so in light
+ * mode the whole ticker went black-on-black:
+ *   symbol  var(--neutral)      -> #334155 on #000000 = 2.03:1
+ *   price   '#e2e8f0' inline    -> caught by the globals.css light shim,
+ *                                  rewritten to var(--text-primary) = 1:1
+ *   delta   var(--positive-text)-> #15803d on the pale-green chip = 3.70:1
+ * 16 nodes, every number on the bar, invisible. The old header claimed the
+ * component "supports dark and light themes"; it does not, and should not —
+ * a surface that never changes needs a palette that never changes.
+ *
+ * The palette therefore lives in the component's own <style> block as
+ * classes, not as inline colours: inline is exactly what the light-mode shim
+ * pattern-matches on, and a class it cannot see cannot be rewritten.
  *
  * W-A (W1): the ticker is now LIVE. Every symbol is derived from real engine
  * state already on the client (globalState / history / businessUnits props) —
@@ -51,7 +67,6 @@ function deriveMetrics(gs, bus) {
 
 export default function MarketTicker({ roundNumber = 1, globalState, history, businessUnits }) {
   const scrollRef = useRef(null);
-  const [isDark, setIsDark] = useState(true);
   // Phase B (F-P7): ambient theatrics yield to concentration — the ticker
   // dims while the allocation/commit stage is open. The cockpit flags the
   // stage on <html data-allocation-open>; observed here with the same
@@ -101,17 +116,11 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
     return [...out, ...out]; // duplicate for seamless scroll
   }, [globalState, businessUnits, history]);
 
-  // Listen for theme changes
-  useEffect(() => {
-    const checkTheme = () => {
-      const theme = document.documentElement.getAttribute('data-theme');
-      setIsDark(theme !== 'light');
-    };
-    checkTheme();
-    const observer = new MutationObserver(checkTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
+  // A11Y-F15: the theme observer that used to live here is gone with the
+  // theme-dependent colours it fed. `isDark` had already stopped being read
+  // by anything that renders — keeping an observer that re-renders the bar on
+  // every theme flip, for a bar that is black in both themes, would only
+  // reintroduce the belief that this surface follows the theme.
 
   // Phase B: observe the allocation flag set by ExecutiveCockpit
   useEffect(() => {
@@ -126,9 +135,11 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
   const border = '1px solid rgba(255, 255, 255, 0.08)';
   const fadeL = 'linear-gradient(90deg, #000000, transparent)';
   const fadeR = 'linear-gradient(270deg, #000000, transparent)';
-  const symColor = 'var(--neutral)';
-  const priceColor = '#e2e8f0';
-  const dotColor = 'rgba(148, 163, 184, 0.3)';
+  /* Contrast against the fixed #000 strip, measured in Chromium:
+       .tkSym   #cbd5e1 -> 13.6:1
+       .tkPrice #e2e8f0 -> 16.0:1
+       .tkUp    #4ade80 on rgba(74,222,128,0.1) over #000  -> 10.8:1
+       .tkDown  #f87171 on rgba(248,113,113,0.1) over #000 ->  7.6:1 */
 
   if (items.length === 0) return null;
 
@@ -171,31 +182,31 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
             fontSize: '0.66rem', fontWeight: 600,
             display: 'inline-flex', alignItems: 'center', gap: 6,
           }}>
-            <span style={{ color: symColor, fontWeight: 700, letterSpacing: '0.02em' }}>
+            <span className="tkSym" style={{ fontWeight: 700, letterSpacing: '0.02em' }}>
               {item.symbol}
             </span>
-            <span style={{ color: priceColor, fontVariantNumeric: 'tabular-nums' }}>
+            <span className="tkPrice" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {item.price}
             </span>
             {/* Pill badge for change — colour = good/bad, arrow = direction.
                 (For emissions/WACC/CPI a falling print renders green.) */}
             {item.change != null && (
-              <span style={{
-                color: item.good ? 'var(--positive-text)' : 'var(--danger-text)',
+              <span className={item.good ? 'tkUp' : 'tkDown'} style={{
                 fontSize: '0.68rem',
                 fontWeight: 700,
-                background: item.good ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)',
-                border: `1px solid ${item.good ? 'rgba(74, 222, 128, 0.25)' : 'rgba(248, 113, 113, 0.25)'}`,
                 borderRadius: 3,
                 padding: '1px 5px',
               }}>
                 {item.rising ? '▲' : '▼'} {item.change}
               </span>
             )}
-            {/* Separator dot */}
+            {/* Separator dot. Pure decoration — it carries no information a
+                sighted user gets either, so it is hidden from assistive tech
+                rather than recoloured. WCAG 1.4.3 exempts pure decoration;
+                lifting its hue would be a restyle of the strip's rhythm. */}
             {i < items.length - 1 && (
-              <span style={{
-                color: dotColor, fontSize: '0.5rem', margin: '0 4px',
+              <span aria-hidden="true" className="tkDot" style={{
+                fontSize: '0.5rem', margin: '0 4px',
               }}>●</span>
             )}
           </span>
@@ -209,6 +220,15 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
         @media (prefers-reduced-motion: reduce) {
           .tickerScrollRow { animation: none !important; }
         }
+        /* A11Y-F15: theme-invariant, because the strip is theme-invariant.
+           Deliberately NOT tokens and NOT inline — a token follows the theme
+           this surface does not have, and an inline colour is what the
+           light-mode shim in globals.css rewrites. */
+        .tkSym   { color: #cbd5e1; }
+        .tkPrice { color: #e2e8f0; }
+        .tkDot   { color: rgba(148, 163, 184, 0.3); }
+        .tkUp    { color: #4ade80; background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.25); }
+        .tkDown  { color: #f87171; background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.25); }
       `}</style>
     </div>
   );

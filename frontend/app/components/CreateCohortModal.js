@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Dialog from './Dialog';
 import styles from './CreateCohortModal.module.css';
 import { CURRENCIES } from '../contexts/CurrencyContext';
 import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META } from '../lib/verticalCatalog';
@@ -804,6 +805,49 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         return steps;
     };
 
+    // ── PRE-LOCK PREVIEW (UX audit #19) ──────────────────────────────────
+    // The permanent choices used to be described only in prose next to a
+    // button reading "Permanently Lock & Create Cohort". This asks the SERVER
+    // what it would apply — dry_run applies nothing — so the facilitator sees
+    // the actual resolved configuration before committing to it. Requires an
+    // existing cohort id, so it is offered in edit mode and after create;
+    // on a fresh create the summary accordion remains the pre-lock view.
+    const previewSetup = async (sid) => {
+        try {
+            const res = await fetch(`${API}/api/admin/cohort/${sid}/apply-setup`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...buildApplyPayload(), dry_run: true }),
+            });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch {
+            return null;
+        }
+    };
+
+    // Single-call equivalent of the 10-step browser chain. Returns the server's
+    // per-section report; the caller falls back to the legacy chain if the
+    // endpoint is unavailable (older backend), so this can never be a
+    // regression for a deployment that hasn't picked up the new route.
+    const buildApplyPayload = () => ({
+        visibility: hasVisibilityOverrides() ? visibility : null,
+        pedagogical_settings: {
+            experience_level: selectedExperienceLevel,
+            difficulty_tier: (scenarioPresets.find(pr => pr.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
+            ...pedagogicalToggles,
+            ...engineModuleToggles,
+            ...(roundTimerSeconds > 0 ? {
+                decision_timer_enabled: true,
+                decision_timer_seconds: roundTimerSeconds,
+            } : {}),
+        },
+        briefing_video_base: briefingVideoBase.trim() || null,
+        ceo_interview: { ceo_interview_enabled: ceoInterviewEnabled, ceo_interview_voice_gender: ceoVoiceGender },
+        side_tracks: selectedSideTracks.length > 0 ? selectedSideTracks : null,
+    });
+
     const runOneStep = async (step) => {
         try {
             const subRes = await fetch(step.url, {
@@ -993,7 +1037,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     };
 
     return (
-        <div className={styles.overlay}>
+        /* A11Y-3 (UX audit #18): dialog semantics + focus trap/restore.
+            dismissible=false — this form holds up to 84 fields of unsaved
+            configuration; a stray Escape must never discard it. Close via the
+            explicit Cancel control. */
+        <Dialog className={styles.overlay} label="Create or edit cohort" dismissible={false} onClose={onClose}>
             <div className={styles.modal} style={{ position: 'relative' }}>
                 {/* ═══ Phase R3 (V2-3): setup-integrity panel ═══
                     Shown when any sub-config step failed. The cohort EXISTS
@@ -3259,6 +3307,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     </form>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }

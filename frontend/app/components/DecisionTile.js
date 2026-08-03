@@ -84,8 +84,40 @@ export default function DecisionTile({
       tabIndex={0}
       aria-pressed={isActive}
       aria-label={`${meta.label}: ${option.title}`}
+      /* A11Y-F4 (WCAG 1.3.1, 4.1.2): role="button" is children-presentational
+         per WAI-ARIA, so EVERYTHING inside this tile — the description, the
+         projected trade-off, the cost, the $0-CapEx warning — was stripped from
+         the accessibility tree. A screen-reader user made the central decision
+         of the product hearing only "Option A: Retrofit the Lyon plant".
+         aria-describedby is computed from the referenced node's text content and
+         is NOT suppressed by children-presentational, so it restores exactly the
+         reasoning material a sighted player gets. */
+      aria-describedby={`tile-desc-${optId}`}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(optId); } }}
     >
+      {/* A11Y-F4: the same content a sighted player reads, flattened into one
+          describable node. Visually hidden — this is a parallel channel, not a
+          duplicate on screen. */}
+      <span
+        id={`tile-desc-${optId}`}
+        style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+      >
+        {(() => {
+          const parts = [detailedDesc || option.description];
+          const to = buildTradeoff(option.impacts);
+          if (to) {
+            if (to.good.length) parts.push(`Projected upside: ${to.good.join(', ')}.`);
+            if (to.bad.length) parts.push(`Projected downside: ${to.bad.join(', ')}.`);
+          }
+          if (typeof costVal === 'number' && costVal !== 0 && fmtCurrency) {
+            parts.push(`${costVal < 0 ? 'Frees' : 'Costs'} ${fmtCurrency(Math.abs(costVal))}.`);
+          } else if (costVal === 0) {
+            parts.push('No capital expenditure.');
+          }
+          parts.push(isActive ? 'Currently selected.' : 'Not selected.');
+          return parts.filter(Boolean).join(' ');
+        })()}
+      </span>
       {/* Header: Icon + Label */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: compact ? 2 : 4 }}>
         <span style={{ fontSize: compact ? '0.85rem' : '1rem' }}>{meta.icon}</span>

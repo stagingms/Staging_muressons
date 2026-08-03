@@ -135,6 +135,16 @@ async def _assert_session_ownership(request: Request, session_id: str) -> None:
         return  # super_admin / god_mode can touch any session
     session_info = await db.get_session_info(session_id)
     if session_info and not owns_session(fac, session_info):
+        # CO-FAC-1 (UX audit #22): a co-facilitator/TA on this cohort gets a
+        # message that names their actual standing instead of a flat denial.
+        # They are still REFUSED here — this guard fronts write paths, and an
+        # observer must not be able to advance, override or grade a run.
+        if can_observe_session(fac, session_info):
+            raise HTTPException(
+                status_code=403,
+                detail=("You are a co-facilitator on this cohort — you can view it, "
+                        "but only its owning facilitator can change or advance the run."),
+            )
         raise HTTPException(
             status_code=403,
             detail="Access denied: you do not own this session",
@@ -255,6 +265,8 @@ from admin_shared import (
     # 3-tier role model
     ROLE_HIERARCHY, ROLE_ALLOWED_TABS,
     get_role, has_role_level, get_allowed_tabs, can_access_tab, owns_session,
+    # CO-FAC-1 (UX audit #22): READ-ONLY co-facilitator/TA visibility.
+    can_observe_session, session_observers,
     # C6/C1: god_mode-aware admin check + role-assignment allow-lists
     is_admin_role, _ASSIGNABLE_ROLES, assignable_roles_for,
     # SEC-1: token-version revocation kill-switch
@@ -3167,7 +3179,10 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
                 "choice_selected": "option_b",
                 "decision_node_id": f"auto_round_{current_round}_{bu_id}",
                 "time_to_decision_seconds": 0,
-                "team_consensus": "auto_default",
+                # TEAM-3 (UX audit #7): "auto_default" is NOT a member of the
+                # consensus_level enum — on Postgres this would violate the type.
+                # A server auto-commit is precisely the "no team answered" case.
+                "team_consensus": "not_recorded",
                 "player_id": "",
             }
             for bu_id in bu_ids
@@ -3487,47 +3502,16 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
     pacing["_fa_round"] = None
     pacing["_fa_deadline_at"] = None
 
-    # PACING-1 (2026-08-02): entering a GATED mode must actually close the gate.
-    #
-    # Both gated branches used to do `max(pacing["unlocked_round"], 1)`, which
-    # can only ever raise the ceiling — it never lowers one. Every cohort starts
-    # at the free-play sentinel 999 (_get_pacing default, and what "free" and
-    # "Unlock all rounds" write), so switching to Manual computed max(999, 1) =
-    # 999 and left EVERY round open. The mode label changed, the badge read
-    # "Manual", and nothing was gated: reported as "manual mode implemented but
-    # not working", with the panel showing MODE Manual / UNLOCKED UP TO Round ∞.
-    # Scheduled/timed carried the identical defect.
-    #
-    # The clamp below distinguishes the two ways a ceiling can arise:
-    #   * > SIM_ROUNDS  — the free-play sentinel (or Unlock-All). NOT a
-    #     deliberate gate, so entering a gated mode clamps it to the round the
-    #     cohort is actually on: the round in progress stays playable, the next
-    #     one waits for the facilitator (or the timer).
-    #   * <= SIM_ROUNDS — a real ceiling a facilitator chose while already
-    #     gated. Preserved, so re-applying a mode never silently revokes rounds
-    #     a class has been told are open.
-    _current_round = 1
-    try:
-        _current_round = int(await db.fetch_latest_round(session_id) or 1)
-    except Exception:
-        _current_round = 1  # never block a mode change over a lookup failure
-
-    def _gated_ceiling() -> int:
-        existing = int(pacing.get("unlocked_round", 999) or 0)
-        if existing > SIM_ROUNDS:
-            return max(_current_round, 1)
-        return max(existing, 1)
-
     if body.mode == "free":
         pacing["unlocked_round"] = 999
         pacing["next_unlock_at"] = None
         pacing["schedule"] = []
     elif body.mode == "manual":
-        pacing["unlocked_round"] = _gated_ceiling()
+        pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
         pacing["next_unlock_at"] = None
         pacing["schedule"] = []
     elif body.mode == "timed":
-        pacing["unlocked_round"] = _gated_ceiling()
+        pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
 
         # ── Multi-round schedule (new feature) ──────────────────
         if body.schedule:
@@ -4076,6 +4060,397 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
 
 
 
+# ═════════════════════════════════════════════════════════════════
+#  COHORT SETUP — SERVER-SIDE APPLY (UX audit #19)
+#
+#  Creating a cohort used to be ONE create call followed by up to TEN further
+#  PUT/POST calls fired sequentially from the browser. Any one of them could
+#  fail after the cohort already existed, leaving a half-configured cohort and
+#  a repair panel the facilitator had to work through by hand — the highest
+#  anxiety screen in the product, at the moment of maximum irreversibility.
+#
+#  This endpoint moves that chain SERVER-SIDE. The client posts the whole
+#  config once; the server applies each section in-process, in order, and
+#  returns a per-section report. Two properties the browser chain could not
+#  offer:
+#
+#    1. No partial state from a dropped connection mid-chain — one request.
+#    2. dry_run=true applies NOTHING and returns exactly what WOULD change,
+#       which is the pre-lock preview the audit asked for. A facilitator can
+#       see the permanent choices spelled out before committing to them.
+#
+#  Deliberately NOT a database transaction: these sections write to different
+#  stores (session metadata, cohort_settings, pacing) and the honest guarantee
+#  is "one round trip, ordered, fully reported", not ACID. The report says
+#  exactly what applied, so recovery is targeted rather than guesswork.
+# ═════════════════════════════════════════════════════════════════
+
+class CohortSetupApplyRequest(BaseModel):
+    dry_run: bool = False
+    visibility: Optional[dict] = None
+    pedagogical_settings: Optional[dict] = None
+    briefing_video_base: Optional[str] = None
+    ceo_interview: Optional[dict] = None
+    side_tracks: Optional[list] = None
+    pacing: Optional[dict] = None
+    switchboard: Optional[dict] = None
+    bu_substitutions: Optional[dict] = None
+
+
+@admin_router.post(
+    "/cohort/{session_id}/apply-setup",
+    summary="Apply a cohort's full configuration in ONE call (or preview it with dry_run)",
+)
+async def apply_cohort_setup(
+    session_id: str,
+    body: CohortSetupApplyRequest,
+    request: Request,
+    _guard: None = Depends(require_facilitator),
+):
+    await _assert_session_ownership(request, session_id)
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(404, f"Cohort {session_id} not found.")
+
+    dry = bool(body.dry_run)
+    report: list[dict] = []
+
+    def _note(name: str, applied: bool, detail: str = "", error: str = ""):
+        report.append({
+            "name": name,
+            "status": "preview" if (dry and not error) else ("ok" if applied and not error else ("error" if error else "skipped")),
+            "detail": detail,
+            "error": error or None,
+        })
+
+    async def _section(name: str, value, describe, apply_fn):
+        """Run one config section. Never raises — a failure is REPORTED so the
+        remaining sections still apply and the caller sees the whole picture."""
+        if value is None:
+            _note(name, False, "not provided")
+            return
+        try:
+            desc = describe(value)
+            if dry:
+                _note(name, False, desc)
+                return
+            await apply_fn(value)
+            _note(name, True, desc)
+        except HTTPException as exc:
+            _note(name, False, "", f"{exc.status_code}: {exc.detail}")
+        except Exception as exc:
+            _note(name, False, "", str(exc))
+
+    # ── Analytics visibility ──
+    async def _apply_vis(v):
+        await db.update_session_metadata(session_id, {"analytics_visibility_override": v})
+    await _section("Visibility", body.visibility,
+                   lambda v: f"{len(v or {})} visibility override(s)", _apply_vis)
+
+    # ── Pedagogical settings (experience level, toggles, timer) ──
+    async def _apply_ped(v):
+        cohort_settings.setdefault(session_id, {}).update(v)
+        mark_cohort_settings_dirty(session_id)
+        await db.update_session_metadata(session_id, {"pedagogical_overrides": v})
+    await _section("Pedagogical Settings", body.pedagogical_settings,
+                   lambda v: f"{len(v or {})} setting(s); level={v.get('experience_level', '—')}", _apply_ped)
+
+    # ── Briefing videos ──
+    async def _apply_video(v):
+        await db.update_session_metadata(session_id, {"briefing_video_base": (v or "").strip()})
+    await _section("Briefing Videos", body.briefing_video_base,
+                   lambda v: f"base URL {'set' if (v or '').strip() else 'cleared'}", _apply_video)
+
+    # ── CEO interview ──
+    async def _apply_ceo(v):
+        await db.update_session_metadata(session_id, {
+            "ceo_interview_enabled": bool(v.get("ceo_interview_enabled", False)),
+            "ceo_interview_voice_gender": v.get("ceo_interview_voice_gender", "female"),
+        })
+    await _section("CEO Interview", body.ceo_interview,
+                   lambda v: f"{'enabled' if v.get('ceo_interview_enabled') else 'disabled'}", _apply_ceo)
+
+    # ── Side tracks ──
+    async def _apply_tracks(v):
+        await db.update_session_metadata(session_id, {"side_tracks": list(v or [])})
+    await _section("Side Tracks", body.side_tracks,
+                   lambda v: ", ".join(v) if v else "none", _apply_tracks)
+
+    # ── Pacing defaults ──
+    async def _apply_pacing(v):
+        await db.update_session_metadata(session_id, {
+            "pacing_mode": v.get("pacing_mode", "free_play"),
+            "max_unlocked_round": int(v.get("max_unlocked_round", SIM_ROUNDS) or SIM_ROUNDS),
+        })
+    await _section("Pacing", body.pacing,
+                   lambda v: f"mode={v.get('pacing_mode', 'free_play')}", _apply_pacing)
+
+    # ── Switchboard / climate overrides ──
+    async def _apply_switch(v):
+        cohort_settings.setdefault(session_id, {}).update(
+            normalize_advanced_cohort_settings(v)
+        )
+        mark_cohort_settings_dirty(session_id)
+    await _section("Switchboard", body.switchboard,
+                   lambda v: f"{len(v or {})} engine override(s)", _apply_switch)
+
+    # ── BU substitutions (single-business mode) ──
+    async def _apply_bu(v):
+        await db.update_session_metadata(session_id, {"bu_substitutions": v})
+    await _section("BU Substitutions", body.bu_substitutions,
+                   lambda v: f"{len(v or {})} slot(s) substituted", _apply_bu)
+
+    failures = [r for r in report if r["status"] == "error"]
+    return {
+        "session_id": session_id,
+        "dry_run": dry,
+        "applied": 0 if dry else len([r for r in report if r["status"] == "ok"]),
+        "failed": len(failures),
+        "all_ok": len(failures) == 0,
+        "sections": report,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  CO-FACILITATORS / TAs (UX audit #22)
+#
+#  A cohort has exactly ONE owning facilitator — that does not change, because
+#  a live run needs one unambiguous accountable operator. What changes is that
+#  a second named person (co-facilitator in the room, or a TA on a course) can
+#  now be granted READ-ONLY visibility of that cohort instead of being handed
+#  the owner's credentials, which is what the arrangement required before and
+#  which `must_change_password` actively fights.
+#
+#  Boundary: co-facilitators satisfy can_observe_session (reads) and NEVER
+#  owns_session (writes). Every existing write guard therefore stays closed to
+#  them with no change at those call sites — the fail-closed property.
+# ═════════════════════════════════════════════════════════════════
+
+MAX_CO_FACILITATORS = 3
+
+
+def _caller_fac_id(request: Request) -> str:
+    """Audit attribution for the co-facilitator endpoints. get_facilitator_from_request
+    is imported lazily elsewhere in this module, so keep that pattern here."""
+    try:
+        from auth_jwt import get_facilitator_from_request
+        return get_facilitator_from_request(request) or "unknown"
+    except Exception:
+        return "unknown"
+
+
+class CoFacilitatorRequest(BaseModel):
+    facilitator_id: str
+
+
+@admin_router.get("/sessions/{session_id}/co-facilitators", summary="List a cohort's read-only co-facilitators")
+async def list_co_facilitators(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+    ids = session_observers(sess)
+    out = []
+    for fid in ids:
+        rec = next((f for f in _facilitator_registry
+                    if f.get("facilitator_id") == fid and not f.get("deleted_at")), None)
+        out.append({
+            "facilitator_id": fid,
+            "name": (rec or {}).get("name", ""),
+            "enabled": bool((rec or {}).get("enabled", True)),
+            "exists": rec is not None,
+        })
+    return {"session_id": session_id, "co_facilitators": out, "max": MAX_CO_FACILITATORS}
+
+
+@admin_router.post("/sessions/{session_id}/co-facilitators", summary="Grant a facilitator read-only access to this cohort")
+async def add_co_facilitator(
+    session_id: str,
+    body: CoFacilitatorRequest,
+    request: Request,
+    _guard: None = Depends(require_sim_manager),
+):
+    """Only the cohort's OWNER (or an admin) may grant observer access — the
+    ownership assert below is what enforces that."""
+    await _assert_session_ownership(request, session_id)
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+
+    fid = (body.facilitator_id or "").strip()
+    if not fid:
+        raise HTTPException(400, "facilitator_id is required.")
+
+    target = next((f for f in _facilitator_registry
+                   if f.get("facilitator_id") == fid and not f.get("deleted_at")), None)
+    if target is None:
+        raise HTTPException(404, f"Facilitator {fid} not found.")
+    if not target.get("enabled", True):
+        raise HTTPException(400, f"Facilitator {fid} is disabled.")
+    if fid == sess.get("facilitator_id"):
+        raise HTTPException(400, "That facilitator already OWNS this cohort.")
+    # project_admin is a provisioning role off the run ladder — it has no
+    # business observing a live run (RBAC-F5b), so refuse it explicitly.
+    if get_role(target) == "project_admin":
+        raise HTTPException(400, "project_admin provisions cohorts; it cannot observe a live run.")
+
+    ids = session_observers(sess)
+    if fid in ids:
+        return {"session_id": session_id, "co_facilitators": ids, "status": "already_granted"}
+    if len(ids) >= MAX_CO_FACILITATORS:
+        raise HTTPException(400, f"At most {MAX_CO_FACILITATORS} co-facilitators per cohort.")
+
+    ids.append(fid)
+    await db.update_session_metadata(session_id, {"co_facilitator_ids": ids})
+    _capped_append(_god_mode_audit_log, {
+        "action": "co_facilitator_added", "session_id": session_id,
+        "facilitator_id": fid, "by": _caller_fac_id(request),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"session_id": session_id, "co_facilitators": ids, "status": "granted"}
+
+
+@admin_router.delete("/sessions/{session_id}/co-facilitators/{facilitator_id}", summary="Revoke read-only access")
+async def remove_co_facilitator(
+    session_id: str,
+    facilitator_id: str,
+    request: Request,
+    _guard: None = Depends(require_sim_manager),
+):
+    await _assert_session_ownership(request, session_id)
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+    ids = [i for i in session_observers(sess) if i != facilitator_id]
+    await db.update_session_metadata(session_id, {"co_facilitator_ids": ids})
+    _capped_append(_god_mode_audit_log, {
+        "action": "co_facilitator_removed", "session_id": session_id,
+        "facilitator_id": facilitator_id, "by": _caller_fac_id(request),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"session_id": session_id, "co_facilitators": ids, "status": "revoked"}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  TEAM SEATS (UX audit #7, revised 2026-08-02)
+#
+#  A team is up to 6 people: 1 DRIVER (holds the player credential, commits
+#  decisions) + up to 5 OBSERVERS sharing one view code (MUR-004-VIEW), who see
+#  the same live board read-only. Additive over the existing roster — the team
+#  is still exactly one session and one company, so nothing about scoring,
+#  pacing or the engine changes.
+#
+#  "Reassigning the driver" needs no special endpoint: the credential IS the
+#  seat, so whoever signs in as MUR-004 drives. If the driver must be locked
+#  out (they left, or two people are fighting over it), rotate the driver
+#  password with the existing reset-password control; rotate the OBSERVERS'
+#  access with POST .../team-seats below.
+# ═════════════════════════════════════════════════════════════════
+
+TEAM_MAX_MEMBERS = 6          # 1 driver + 5 observers
+TEAM_MAX_OBSERVERS = TEAM_MAX_MEMBERS - 1
+
+
+class TeamSeatsRequest(BaseModel):
+    team_size: int = TEAM_MAX_MEMBERS      # total people incl. the driver (1..6)
+    member_names: list[str] = []           # optional, display-only roster note
+    rotate_code: bool = False              # mint a fresh view-code password
+
+
+@admin_router.post(
+    "/players/{player_id}/team-seats",
+    summary="Configure a team's observer seats (max 6 members incl. the driver)",
+)
+async def set_team_seats(
+    player_id: str,
+    body: TeamSeatsRequest,
+    request: Request,
+    _guard: None = Depends(require_sim_manager),
+):
+    """Issue or rotate a team's shared VIEW CODE and record its size.
+
+    Returns the view-code password in PLAINTEXT exactly once (same contract as
+    generate-player) so the facilitator can hand it to the team. Only the hash
+    is stored."""
+    player = next((p for p in _player_registry if p.get("player_id") == player_id), None)
+    if not player:
+        raise HTTPException(404, f"Player {player_id} not found")
+
+    sid = player.get("session_id")
+    if sid:
+        await _assert_session_ownership(request, sid)
+
+    size = int(body.team_size or 1)
+    if size < 1 or size > TEAM_MAX_MEMBERS:
+        raise HTTPException(400, f"Team size must be between 1 and {TEAM_MAX_MEMBERS} (1 driver + up to {TEAM_MAX_OBSERVERS} observers).")
+
+    names = [n.strip() for n in (body.member_names or []) if n and n.strip()][:TEAM_MAX_MEMBERS]
+
+    view_code = f"{player_id}-VIEW"
+    plaintext = None
+    # Mint a password when none exists yet, or when explicitly rotating.
+    if body.rotate_code or not player.get("team_view_password"):
+        # Same credential factory the roster uses, keyed on the VIEW code so a
+        # team's observer password is never equal to its driver password.
+        plaintext, plaintext_hash = make_player_credentials(view_code)
+        player["team_view_password"] = plaintext_hash
+
+    player["team_view_code"] = view_code
+    player["team_size"] = size
+    player["team_observer_seats"] = max(0, size - 1)
+    player["team_member_names"] = names
+
+    # Mirror into the cohort's registered_players so it survives a restart —
+    # same durability path generate-player uses.
+    try:
+        sess = await db.get_session_info(sid) if sid else None
+        if sess:
+            registered = sess.get("registered_players") or []
+            for rp in registered:
+                if rp.get("player_id") == player_id:
+                    rp["team_view_code"] = view_code
+                    rp["team_size"] = size
+                    rp["team_observer_seats"] = player["team_observer_seats"]
+                    rp["team_member_names"] = names
+                    if plaintext is not None:
+                        rp["team_view_password"] = player["team_view_password"]
+                    break
+            await db.update_session_metadata(sid, {"registered_players": registered})
+    except Exception as exc:
+        _ar_log.warning(f"[TEAM-SEATS] durable mirror failed for {player_id}: {exc}")
+
+    return {
+        "player_id": player_id,
+        "team_view_code": view_code,
+        "team_size": size,
+        "observer_seats": player["team_observer_seats"],
+        "member_names": names,
+        # Shown once. Absent when the code was not rotated.
+        "view_password": plaintext,
+    }
+
+
+@admin_router.get(
+    "/players/{player_id}/team-seats",
+    summary="Read a team's seat configuration (never returns the password)",
+)
+async def get_team_seats(player_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
+    player = next((p for p in _player_registry if p.get("player_id") == player_id), None)
+    if not player:
+        raise HTTPException(404, f"Player {player_id} not found")
+    sid = player.get("session_id")
+    if sid:
+        await _assert_session_ownership(request, sid)
+    return {
+        "player_id": player_id,
+        "team_view_code": player.get("team_view_code"),
+        "team_size": player.get("team_size", 1),
+        "observer_seats": player.get("team_observer_seats", 0),
+        "member_names": player.get("team_member_names", []),
+        "code_issued": bool(player.get("team_view_password")),
+    }
+
+
 @admin_router.post("/players/{player_id}/assign", summary="Assign a player to a session")
 async def assign_player_to_session(player_id: str, session_id: str, _guard: None = Depends(require_sim_manager)):
     player = next((p for p in _player_registry if p["player_id"] == player_id), None)
@@ -4560,10 +4935,18 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
     sessions = await db.fetch_all_sessions()
 
     if facilitator_id:
+        # CO-FAC-1 (UX audit #22): a facilitator's list now includes cohorts
+        # they OWN plus cohorts they were added to as a co-facilitator/TA.
+        # Read-only — every write path still gates on owns_session, and the
+        # rows carry is_observed so the UI can label them.
         sessions = [
             s for s in sessions
             if s.get("facilitator_id") == facilitator_id
+            or facilitator_id in session_observers(s)
         ]
+        for s in sessions:
+            if s.get("facilitator_id") != facilitator_id:
+                s["is_observed"] = True
 
     # Enrich each cohort with its EFFECTIVE climate settings (global default +
     # any per-cohort override) so UI surfaces like the Cohort Summary hover can
@@ -5308,6 +5691,21 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             sparkline_data = [terminal_value]
 
         flags = gs.get("active_event_flags", {})
+
+        # AC-3 (UX audit #9): scan the round history for auto-committed rounds.
+        # `history` is already fetched above for the sparkline, so this costs
+        # nothing extra. Read-only over a flag the engine already set.
+        _auto_rounds = []
+        try:
+            for _h in (history or []):
+                if ((_h.get("global_state") or {}).get("active_event_flags") or {}).get("auto_committed"):
+                    _auto_rounds.append(_h.get("round_number"))
+            if flags.get("auto_committed") and latest["round_number"] not in _auto_rounds:
+                _auto_rounds.append(latest["round_number"])
+        except Exception:
+            _auto_rounds = []
+        _auto_rounds = sorted(r for r in _auto_rounds if r is not None)
+
         active_traps = []
         if flags.get("cfo_austerity_active"): active_traps.append("🛑 Austerity")
         if flags.get("supplier_defection", {}).get("active"): active_traps.append("🏭 Defection")
@@ -5351,6 +5749,14 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             "avg_social_license": round(avg_sl, 2),
             "talent_flight_risk": talent_penalty > 1.25,
             "talent_penalty_multiplier": talent_penalty,
+            # AC-3 (UX audit #9): which rounds were AUTO-committed rather than
+            # played. Without this a defaulted round (Option B, $1/BU) is
+            # indistinguishable from a deliberate conservative strategy in the
+            # timeline and in any grading export. Read-only over flags the
+            # engine already wrote.
+            "auto_committed_rounds": _auto_rounds,
+            "auto_committed_count": len(_auto_rounds),
+            "auto_committed_now": bool(flags.get("auto_committed", False)),
             "active_flags": list(flags.keys()),
             "active_traps": active_traps,
             "shadow_board_archetype": flags.get("shadow_board_archetype"),

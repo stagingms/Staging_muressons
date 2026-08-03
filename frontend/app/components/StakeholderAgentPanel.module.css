@@ -39,7 +39,11 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--accent-purple);
+  /* A11Y-F21d: --accent-purple is violet-500 (#8b5cf6) in dark -- 4.40:1 on
+     the rail, one tenth short. Violet-400 is 6.84:1 and is the weight the
+     dark theme uses for text elsewhere. The light override below already
+     goes the other way to #6d28d9, so only the dark value was wrong. */
+  color: #a78bfa;
   font-family: var(--font-mono);
 }
 
@@ -82,6 +86,19 @@
   border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
+
+/* A11Y-F21c (WCAG 1.4.3): the three panel badges above are CLASS-based, so
+   the inline-style shim in globals.css cannot see them, and they kept their
+   dark-theme pastels in light mode:
+     .badgeWatch     #fcd34d on its amber tint  = 1.30:1
+     .badgeCritical  #fca5a5 on its red tint    = 1.68:1
+     .badgeHostile   #fca5a5 on its red tint    = 1.68:1
+   These count the stakeholders about to escalate -- the number a player
+   watches to decide whether to act this round. 700-weight on the same tint
+   measures 6.39:1 and 5.74:1. */
+:global([data-theme="light"]) .badgeWatch { color: #92400e; }
+:global([data-theme="light"]) .badgeCritical,
+:global([data-theme="light"]) .badgeHostile { color: #b91c1c; }
 .collapseArrow {
   font-size: 0.5rem;
   color: var(--text-secondary);
@@ -118,8 +135,12 @@
 .viewToggleBtn:hover {
   color: var(--text-secondary, #cbd5e1);
 }
+/* A11Y-F21: white on indigo-500 is 4.47:1 -- three hundredths short, which
+   is still a fail. Indigo-600 carries white at 6.29:1 and is the value this
+   codebase already uses for indigo text in light mode. */
 .viewToggleActive {
-  background: var(--accent, #6366f1);
+  /* NOT var(--accent): that token IS #6366f1, so a fallback never fires. */
+  background: #4f46e5;
   color: #fff;
 }
 
@@ -539,9 +560,18 @@
 }
 
 /* â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* A11Y-F21c (WCAG 1.4.3, 2.2.2): this dipped the badge's OPACITY to 0.75 --
+   the fourth instance of animating opacity on something that carries a glyph
+   (F18, ci-pulse, the shared `pulse`). A ring draws the same eye and leaves
+   the count legible at every frame. */
 @keyframes criticalPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.75; }
+  0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+  70%  { box-shadow: 0 0 0 5px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badgeCritical { animation: none; }
 }
 
 @keyframes triggeredGlow {

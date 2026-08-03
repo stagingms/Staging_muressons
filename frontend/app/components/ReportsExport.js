@@ -198,6 +198,9 @@ export default function ReportsExport({ leaderboard = [] }) {
         synergy: s.group_synergy || 1,
         bonus: s.bonus_score || 0,
         talent_risk: s.talent_flight_risk || false,
+        // AC-3 (UX audit #9): rounds the server auto-committed rather than the
+        // team playing them — carried into CSV/JSON so grading can see it.
+        auto_committed_rounds: s.auto_committed_rounds || [],
         ending_pathway: s.ending_pathway || '—',
         facilitator: s.facilitator_id || 'N/A',
         difficulty: s.difficulty_tier || '—',
@@ -222,13 +225,18 @@ export default function ReportsExport({ leaderboard = [] }) {
     }, [sorted]);
 
     const handleExportCSV = useCallback(() => {
-        const headers = ['Cohort', 'Session ID', 'Round', 'Terminal Value', 'Treasury', 'Reputation', 'Avg SLO', 'Avg NCD', 'Synergy', 'Bonus', 'Talent Risk', 'Ending', 'Difficulty', 'Facilitator'];
+        // AC-3 (UX audit #9): grading needs to distinguish a round the team
+        // PLAYED from one the server auto-committed on their behalf (Option B,
+        // $1/BU). Without these two columns the two are identical in the export.
+        const headers = ['Cohort', 'Session ID', 'Round', 'Terminal Value', 'Treasury', 'Reputation', 'Avg SLO', 'Avg NCD', 'Synergy', 'Bonus', 'Talent Risk', 'Auto-Committed Rounds', 'Auto-Committed Count', 'Ending', 'Difficulty', 'Facilitator'];
         const rows = sorted.map(d => [
             `"${d.cohort}"`, d.session_id, d.round,
             d.terminal_value.toFixed(0), d.treasury.toFixed(0),
             d.reputation.toFixed(1), d.avg_slo.toFixed(1),
             d.avg_ncd.toFixed(0), d.synergy.toFixed(3),
             d.bonus, d.talent_risk ? 'YES' : 'no',
+            `"${(d.auto_committed_rounds || []).join(' ')}"`,
+            (d.auto_committed_rounds || []).length,
             d.ending_pathway, d.difficulty, d.facilitator,
         ]);
         const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -328,6 +336,14 @@ export default function ReportsExport({ leaderboard = [] }) {
                                         <td>
                                             {d.active_flags > 0 && <span style={{ fontSize: '0.65rem', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: '4px' }}>{d.active_flags} active</span>}
                                             {d.talent_risk && <span style={{ fontSize: '0.65rem', color: '#ef4444', marginLeft: '3px' }}>⚠️ talent</span>}
+                                            {/* AC-3: auto-committed rounds are a grading caveat, so they
+                                                are visible on screen and not only in the export. */}
+                                            {d.auto_committed_rounds?.length > 0 && (
+                                                <span
+                                                    title={`Auto-committed (not played) in round(s): ${d.auto_committed_rounds.join(', ')}. The server submitted defaults or a saved draft because the round closed first.`}
+                                                    style={{ fontSize: '0.65rem', color: '#fbbf24', marginLeft: '4px', fontWeight: 700 }}
+                                                >⏱ auto×{d.auto_committed_rounds.length}</span>
+                                            )}
                                         </td>
                                         <td><span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '1px 5px', borderRadius: '4px' }}>{d.difficulty}</span></td>
                                         <td style={{ color: '#60a5fa', fontSize: '0.75rem', fontWeight: 600 }}>{expandedSession === d.session_id ? '▲ Close' : '▼ Expand'}</td>

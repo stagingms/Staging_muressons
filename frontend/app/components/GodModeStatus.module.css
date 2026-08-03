@@ -305,7 +305,7 @@
     line-height: 1.5;
     letter-spacing: 0.01em;
     white-space: normal;
-    z-index: 9999;
+    z-index: var(--z-dropdown);
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.2s ease, transform 0.2s ease;
@@ -318,7 +318,7 @@
     left: 12px;
     border: 5px solid transparent;
     border-top-color: rgba(15, 23, 42, 0.95);
-    z-index: 9999;
+    z-index: var(--z-dropdown);
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.2s ease;

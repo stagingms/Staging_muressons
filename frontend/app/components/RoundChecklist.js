@@ -92,13 +92,24 @@ export default function RoundChecklist({
               <span className="checklist-icon">{step.done ? '✅' : step.icon}</span>
               {step.label}
             </div>
+            {/* A11Y-F19: the arrow is a visual rhythm mark between steps — the
+                step order is already conveyed by the order of the items, so it
+                carries nothing a sighted user gets either. Hidden from
+                assistive tech as pure decoration (WCAG 1.4.3 exempts that)
+                rather than darkened, which would turn a hairline separator
+                into a second row of chevrons. */}
             {i < steps.length - 1 && (
-              <span className="checklist-arrow" style={{ color: step.done ? '#bbf7d0' : '#d1d5db' }}>→</span>
+              <span aria-hidden="true" className="checklist-arrow" style={{ color: step.done ? '#bbf7d0' : '#d1d5db' }}>→</span>
             )}
           </div>
         ))}
         {/* V-C (V-6): ✕ removed — a flow indicator is not dismissible. */}
-        <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginLeft: 4, fontWeight: 700 }}>
+        {/* A11Y-F19 (WCAG 1.4.3): "2/5" is the one piece of INFORMATION on this
+            strip that is not repeated anywhere else, and it sat at 2.56:1 on
+            the card's white. This wrapper is deliberately light in both themes
+            (see .checklist-wrapper), so the fix is a value that works on white,
+            not a theme token. #475569 measures 7.4:1. */}
+        <span style={{ fontSize: '0.65rem', color: '#475569', marginLeft: 4, fontWeight: 700 }}>
           {completed}/{steps.length}
         </span>
       </div>

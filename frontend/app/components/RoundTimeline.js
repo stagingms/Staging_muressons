@@ -220,19 +220,36 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
                                                 <div key={p.session_id} className={styles.playerMiniRow}>
                                                     <span className={styles.playerMiniName} title={pName}>{pName}</span>
                                                     <div className={styles.miniTimeline}>
-                                                        {ROUNDS.map(r => (
-                                                            <div
-                                                                key={r}
-                                                                className={`${styles.miniDot} ${
-                                                                    r < pRound ? styles.miniComplete :
-                                                                    r === pRound ? styles.miniActive :
-                                                                    styles.miniLocked
-                                                                }`}
-                                                                title={roundTitles[r] ? `R${r}: ${roundTitles[r]}` : `R${r}`}
-                                                            />
-                                                        ))}
+                                                        {ROUNDS.map(r => {
+                                                            // AC-3 (UX audit #9): a round the server auto-committed
+                                                            // is NOT a round the team played. Mark it here so the
+                                                            // facilitator sees it on the timeline they already read,
+                                                            // rather than only in the export.
+                                                            const wasAuto = (p.auto_committed_rounds || []).includes(r);
+                                                            return (
+                                                                <div
+                                                                    key={r}
+                                                                    className={`${styles.miniDot} ${
+                                                                        r < pRound ? styles.miniComplete :
+                                                                        r === pRound ? styles.miniActive :
+                                                                        styles.miniLocked
+                                                                    }`}
+                                                                    style={wasAuto ? { boxShadow: 'inset 0 0 0 2px #fbbf24' } : undefined}
+                                                                    title={
+                                                                        (roundTitles[r] ? `R${r}: ${roundTitles[r]}` : `R${r}`) +
+                                                                        (wasAuto ? ' — AUTO-COMMITTED (not played by the team)' : '')
+                                                                    }
+                                                                />
+                                                            );
+                                                        })}
                                                     </div>
                                                     <span className={styles.playerMiniRound}>R{pRound}</span>
+                                                    {(p.auto_committed_rounds || []).length > 0 && (
+                                                        <span
+                                                            title={`Auto-committed round(s): ${p.auto_committed_rounds.join(', ')} — the server submitted a saved draft or defaults because the round closed first. Relevant to grading.`}
+                                                            style={{ fontSize: '0.6rem', fontWeight: 800, color: '#fbbf24', marginLeft: 4, whiteSpace: 'nowrap' }}
+                                                        >⏱{p.auto_committed_rounds.length}</span>
+                                                    )}
                                                 </div>
                                             );
                                         })}

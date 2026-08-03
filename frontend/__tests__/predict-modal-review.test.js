@@ -4,9 +4,15 @@
  * History this test exists to stop repeating:
  *   17111b0 retired the separate 'Review Your Decisions' modal, folding its
  *   two unique elements into the Predict screen: the per-BU allocation
- *   breakdown and the 'Go Back & Edit' action (close WITHOUT committing).
+ *   breakdown and the 'Go back' action (close WITHOUT committing).
+ *
+ *   UX audit 7.4 (2026-08-02) renamed these: the escape hatch and an
+ *   irreversible commit shared a visual class AND the word 'Skip', which is a
+ *   misclick trap on the highest-stakes click in the product. Labels are now
+ *   'Go back' / 'Commit without predicting' / 'Commit decisions' — the two
+ *   commit actions name the SAME verb so neither reads as a dismissal.
  *   1ef5c98 (a squashed session commit) then dropped both during a rewrite of
- *   the modal, leaving players with only Skip & Commit / Confirm & Commit —
+ *   the modal, leaving players with only the two commit actions —
  *   i.e. no way to review details or back out to change decisions. That is
  *   exactly the regression 17111b0's own commit message promised would not
  *   happen, and it shipped invisibly because nothing pinned the contract.
@@ -37,7 +43,7 @@ describe('Predict-Before-You-Commit modal', () => {
   test('offers Go Back & Edit — closing WITHOUT committing', () => {
     // Anchor on the BUTTON LABEL (with the arrow), not the phrase — comments
     // also mention 'Go Back & Edit' and must not satisfy this pin.
-    const label = modal.indexOf('← Go Back');
+    const label = modal.indexOf('← Go back');
     expect(label).toBeGreaterThan(-1);
     // The button's onClick precedes its label inside the JSX: it must close
     // the modal and must NOT call onCommit (that is Skip & Commit's job).
@@ -47,7 +53,7 @@ describe('Predict-Before-You-Commit modal', () => {
   });
 
   test('still offers both commit paths', () => {
-    expect(modal).toContain('Skip & Commit');
+    expect(modal).toContain('Commit without predicting');
     expect(modal).toContain('Confirm & Commit');
   });
 
@@ -58,7 +64,7 @@ describe('Predict-Before-You-Commit modal', () => {
 
   test('all three actions live inside predictionActions', () => {
     const actions = modal.slice(modal.indexOf('predictionActions'));
-    for (const label of ['Go Back', 'Skip & Commit', 'Confirm & Commit']) {
+    for (const label of ['Go back', 'Commit without predicting', 'Commit decisions']) {
       expect(actions).toContain(label);
     }
   });

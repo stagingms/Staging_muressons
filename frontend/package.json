@@ -38,6 +38,7 @@
     "eslint-config-next": "16.1.6",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.3.0",
+    "jest-axe": "^11.0.0",
     "jest-environment-jsdom": "^30.3.0"
   }
 }

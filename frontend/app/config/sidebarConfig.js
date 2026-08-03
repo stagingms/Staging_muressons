@@ -9,6 +9,15 @@
  * tooltip promising features the tab didn't have. When you change what a tab
  * contains, update its tooltip in the same commit.
  *
+ * LIVE-ROUND SUBSET (UX audit #13): an item carrying `liveRound: true` is one a
+ * facilitator reaches for WHILE a round is being run in the room. The flag is
+ * presentation only — it never widens access, and it is applied AFTER role
+ * filtering (see filterSidebarForLiveRound). Keep the set TIGHT: the whole
+ * point of the mode is fewer surfaces, so analytics, configuration and
+ * reference tabs stay out even when they are useful before or after a round.
+ * Same discipline as the tooltip convention above — if a tab stops being a
+ * during-the-round tool, drop its flag in the same commit.
+ *
  * Architecture (Audit §9.1):
  *   admin_shared.py  ─── ROLE_ALLOWED_TABS (backend enforcement)
  *   sidebarConfig.js ─── Tab definitions + role filtering (frontend display)
@@ -107,10 +116,14 @@ export const FACILITATOR_SIDEBAR = [
         icon: '🎯',
         id: 'command',
         items: [
-            { id: 'dashboard_home', label: 'Dashboard Home',      icon: '🏠', tooltip: 'At-a-glance overview: active cohort count, enrolled players, average round progression, and KPI health alerts (lagging teams, low treasury, low reputation). Includes quick-action buttons and the current round\'s Teleprompter briefing card. Answers: "What\'s the overall state of my simulation right now?"' },
-            { id: 'timeline',       label: 'Round Timeline',       icon: '📅', tooltip: 'Visual timeline of round progression across all cohorts, plus the per-cohort Session Setup group: round pacing, quiz difficulty & availability, and the CEO Interview toggle. Answers: "Which cohorts are ahead or behind, and how is each session configured?"' },
-            { id: 'teleprompter',   label: 'Teleprompter',         icon: '🎤', tooltip: 'Full-screen teleprompter with round-by-round facilitator briefing scripts: talking points to deliver, engines likely to fire, discussion prompts for class debate, and key themes. Answers: "What should I say to the class before this round?"' },
-            { id: 'leaderboard',    label: 'Leaderboard',          icon: '🏆', tooltip: 'Ranked matrix of all cohorts and players showing Treasury, Reputation, Synergy, EBITDA, round progress, and terminal value scores. Sortable and searchable with delete/reset controls per session. Answers: "Who\'s winning and who needs help?"' },
+            // UX audit #13: dashboard_home / timeline / teleprompter / leaderboard
+            // are the four Command Center surfaces used mid-round (state of play,
+            // round pacing, what to say next, who is where). dry_run is a
+            // pre-flight tool — deliberately NOT in the live-round subset.
+            { id: 'dashboard_home', label: 'Dashboard Home',      icon: '🏠', liveRound: true, tooltip: 'At-a-glance overview: active cohort count, enrolled players, average round progression, and KPI health alerts (lagging teams, low treasury, low reputation). Includes quick-action buttons and the current round\'s Teleprompter briefing card. Answers: "What\'s the overall state of my simulation right now?"' },
+            { id: 'timeline',       label: 'Round Timeline',       icon: '📅', liveRound: true, tooltip: 'Visual timeline of round progression across all cohorts, plus the per-cohort Session Setup group: round pacing, quiz difficulty & availability, and the CEO Interview toggle. Answers: "Which cohorts are ahead or behind, and how is each session configured?"' },
+            { id: 'teleprompter',   label: 'Teleprompter',         icon: '🎤', liveRound: true, tooltip: 'Full-screen teleprompter with round-by-round facilitator briefing scripts: talking points to deliver, engines likely to fire, discussion prompts for class debate, and key themes. Answers: "What should I say to the class before this round?"' },
+            { id: 'leaderboard',    label: 'Leaderboard',          icon: '🏆', liveRound: true, tooltip: 'Ranked matrix of all cohorts and players showing Treasury, Reputation, Synergy, EBITDA, round progress, and terminal value scores. Sortable and searchable with delete/reset controls per session. Answers: "Who\'s winning and who needs help?"' },
             { id: 'dry_run',        label: 'Dry-Run Simulator',    icon: '🛫', tooltip: 'Pre-flight check: plays four bot strategies (aggressive-green, extractive, balanced, chaotic) headlessly through the real engine from the selected cohort\'s current state to Round 10, several seeded repetitions each, WITHOUT touching the cohort. Reports a difficulty grade, bankruptcy risk and KPI trajectories per strategy, which crises bite hardest, and config warnings. Answers: "Is this cohort configuration survivable — and does strategy actually matter — before my class plays it?"' },
         ]
     },
@@ -119,19 +132,29 @@ export const FACILITATOR_SIDEBAR = [
         icon: '👥',
         id: 'classroom',
         items: [
+            // UX audit #13: every item here is a live-round tool EXCEPT
+            // intervention_config, which decides which tools a cohort gets —
+            // a setup decision made before the room fills, not mid-round.
             // TT-1 (UX audit #17): tooltip previously promised "active/inactive
             // connection status" — the component renders no such column.
-            { id: 'registry',       label: 'Player Registry',      icon: '📋', tooltip: 'Full registry of all enrolled players with session IDs, parent cohort assignment, player names, and join timestamps. Answers: "Who has joined and which cohort are they in?"' },
-            { id: 'session_viewer', label: 'Session Viewer',        icon: '👁️', tooltip: 'Deep-dive inspector for any individual session: full KPI breakdown (Treasury, Reputation, Synergy, EBITDA, CO₂), complete round history with decisions made, and real-time state. Answers: "What exactly is happening inside this specific session?"' },
-            { id: 'impersonate',    label: 'Team Impersonation',   icon: '🎭', tooltip: 'View the simulation cockpit exactly as a specific player sees it — their dashboard, mailbox, decision interface, and KPI readouts. Useful for live debugging, classroom walkthroughs, or demonstrating the player experience. Answers: "What does this player\'s screen look like right now?"' },
-            { id: 'swipe_file',     label: 'Swipe File / Inbox',   icon: '📬', tooltip: 'Send pre-written narrative swipe files or compose custom in-game messages to individual teams. Messages appear in the player\'s mailbox as stakeholder communications, board directives, or crisis alerts. Answers: "How do I inject narrative events into a specific team\'s experience?"' },
-            { id: 'broadcast',      label: 'Bulk Messaging',        icon: '📢', tooltip: 'Send announcements, narrative events, or system messages to all cohorts simultaneously or to selected cohort groups. Supports both pre-written templates and custom messages. Answers: "How do I communicate with all teams at once?"' },
+            { id: 'registry',       label: 'Player Registry',      icon: '📋', liveRound: true, tooltip: 'Full registry of all enrolled players with session IDs, parent cohort assignment, player names, and join timestamps. Answers: "Who has joined and which cohort are they in?"' },
+            { id: 'session_viewer', label: 'Session Viewer',        icon: '👁️', liveRound: true, tooltip: 'Deep-dive inspector for any individual session: full KPI breakdown (Treasury, Reputation, Synergy, EBITDA, CO₂), complete round history with decisions made, and real-time state. Answers: "What exactly is happening inside this specific session?"' },
+            { id: 'impersonate',    label: 'Team Impersonation',   icon: '🎭', liveRound: true, tooltip: 'View the simulation cockpit exactly as a specific player sees it — their dashboard, mailbox, decision interface, and KPI readouts. Useful for live debugging, classroom walkthroughs, or demonstrating the player experience. Answers: "What does this player\'s screen look like right now?"' },
+            { id: 'swipe_file',     label: 'Swipe File / Inbox',   icon: '📬', liveRound: true, tooltip: 'Send pre-written narrative swipe files or compose custom in-game messages to individual teams. Messages appear in the player\'s mailbox as stakeholder communications, board directives, or crisis alerts. Answers: "How do I inject narrative events into a specific team\'s experience?"' },
+            { id: 'broadcast',      label: 'Bulk Messaging',        icon: '📢', liveRound: true, tooltip: 'Send announcements, narrative events, or system messages to all cohorts simultaneously or to selected cohort groups. Supports both pre-written templates and custom messages. Answers: "How do I communicate with all teams at once?"' },
             // TT-1 (UX audit #17): tooltip previously promised generic
             // absolute/delta KPI edits — the backend applies exactly three
             // preset narrative overrides (see admin_router.apply_override).
-            { id: 'manual_override',label: 'Manual Overrides',      icon: '⚡', tooltip: 'Apply one of three preset narrative overrides to a session — Carbon Tax (treasury shock), Omni-Tech Poach (talent raid), or Force Strike (labour action) — each with its scripted KPI impact. Answers: "How do I hit this session with a preset intervention?"', requiredRole: 'lead_facilitator' },
+            { id: 'manual_override',label: 'Manual Overrides',      icon: '⚡', liveRound: true, tooltip: 'Apply one of three preset narrative overrides to a session — Carbon Tax (treasury shock), Omni-Tech Poach (talent raid), or Force Strike (labour action) — each with its scripted KPI impact. Answers: "How do I hit this session with a preset intervention?"', requiredRole: 'lead_facilitator' },
+            // UX-7.6: moved here from Configuration. Advancing a round lives in
+            // Live Classroom, so its inverse must too — a facilitator who
+            // over-advances in front of a cohort should not have to change
+            // sidebar category to find the fix. showDisabled renders it (greyed,
+            // with the reason) for base facilitators so the escalation path is
+            // discoverable rather than invisible.
+            { id: 'undo_round',     label: 'Undo Round',           icon: '↩️', liveRound: true, tooltip: 'Roll back the last completed round for a selected session, restoring all KPIs to their previous state. Use after an accidental advance or a teaching do-over. Tiered confirmation; cohort-wide rollback requires typing ROLL BACK. Answers: "How do I reverse a round that went wrong?"', requiredRole: 'lead_facilitator', showDisabled: true, disabledReason: 'Lead facilitator or above can roll a round back — ask them to undo it for this cohort.' },
             { id: 'intervention_config', label: 'Interventions',    icon: '🎮', tooltip: 'Configure which master interventions (manual overrides and narrative swipe files) are available for each cohort. Controls the intervention toolkit available during live facilitation. Answers: "Which intervention tools should this cohort have access to?"' },
-            { id: 'custom_black_swan', label: 'Black Swan Injector', icon: '🦢', tooltip: 'Compose a custom crisis (title, narrative, treasury / reputation / social-licence / natural-capital-debt deltas) and inject it into ONE selected cohort, with an injection history below the form. Lists only cohorts a super admin has enabled for the injector. Answers: "How do I hit this specific cohort with a crisis of my own design?"', requiredRole: 'lead_facilitator' },
+            { id: 'custom_black_swan', label: 'Black Swan Injector', icon: '🦢', liveRound: true, tooltip: 'Compose a custom crisis (title, narrative, treasury / reputation / social-licence / natural-capital-debt deltas) and inject it into ONE selected cohort, with an injection history below the form. Lists only cohorts a super admin has enabled for the injector. Answers: "How do I hit this specific cohort with a crisis of my own design?"', requiredRole: 'lead_facilitator' },
         ]
     },
     {
@@ -163,7 +186,6 @@ export const FACILITATOR_SIDEBAR = [
         id: 'config',
         items: [
             { id: 'auto_pause',          label: 'Auto-Pause Triggers',   icon: '⏸️', tooltip: 'Configure automatic pause conditions that halt round progression for facilitator intervention: low treasury thresholds, reputation floor breaches, bankruptcy detection, or custom KPI triggers. Answers: "When should the simulation automatically pause for my attention?"', requiredRole: 'lead_facilitator' },
-            { id: 'undo_round',          label: 'Undo Round',             icon: '↩️', tooltip: 'Roll back the last completed round for a selected session, restoring all KPIs to their previous state. Useful for correcting data entry errors or re-running a round after a teaching moment. Requires confirmation. Answers: "How do I reverse a round that went wrong?"', requiredRole: 'lead_facilitator' },
             { id: 'regulatory_sandbox',  label: 'Regulatory Sandbox',     icon: '⚖️', tooltip: 'Dynamically inject regulatory instruments (e.g., Carbon Tax, Due Diligence) into the simulation to test resilience.', requiredRole: 'lead_facilitator' },
             // I2 (Workstream C): read-only view of each owned cohort's effective
             // climate settings vs the global default, and where its BU scope is
@@ -217,16 +239,56 @@ export function filterSidebarForRole(sidebarConfig, role, allowedTabs = ['*']) {
     return sidebarConfig
         .map(group => ({
             ...group,
-            items: group.items.filter(item => {
-                // Check role requirement on the item itself
-                if (item.requiredRole) {
-                    const requiredLevel = ROLE_HIERARCHY[item.requiredRole] || 0;
-                    if (userLevel < requiredLevel) return false;
-                }
-                // Check backend-provided allowed tabs
-                if (!allAllowed && !allowedTabs.includes(item.id)) return false;
-                return true;
-            }),
+            items: group.items
+                .map(item => {
+                    // UX-7.6: an item marked showDisabled stays VISIBLE below its
+                    // role tier, rendered inert with a reason, so the user can see
+                    // that the capability exists and who to ask. Everything else
+                    // keeps the previous hide-entirely behaviour.
+                    if (item.requiredRole) {
+                        const requiredLevel = ROLE_HIERARCHY[item.requiredRole] || 0;
+                        if (userLevel < requiredLevel) {
+                            return item.showDisabled ? { ...item, _locked: true } : null;
+                        }
+                    }
+                    return item;
+                })
+                .filter(item => {
+                    if (!item) return false;
+                    // Check backend-provided allowed tabs. A locked item is a
+                    // signpost, not a route, so it survives this check.
+                    if (item._locked) return true;
+                    if (!allAllowed && !allowedTabs.includes(item.id)) return false;
+                    return true;
+                }),
+        }))
+        .filter(group => group.items.length > 0);
+}
+
+/**
+ * UX audit #13 — Live Round mode.
+ * Reduce a sidebar config to the tabs a facilitator needs WHILE a round is
+ * being run (see the LIVE-ROUND SUBSET note in the file header).
+ *
+ * Composition contract: this runs AFTER filterSidebarForRole and only ever
+ * REMOVES items, so every role decision that function made survives intact —
+ * including `_locked` signpost items (UX-7.6), which stay visible-but-inert in
+ * live-round mode when they carry the flag. It never re-admits a tab the role
+ * filter dropped, so it cannot widen access; ROLE_ALLOWED_TABS semantics are
+ * untouched.
+ *
+ * The caller keeps its own access gate (canAccessTab) on the ROLE-filtered
+ * list, not on this one — hiding a tab from the sidebar must never blank a
+ * workspace the user is already looking at.
+ *
+ * @param {Array} sidebarConfig - Sidebar config array (normally already role-filtered)
+ * @returns {Array} Only items flagged `liveRound`, group structure preserved, empty groups removed
+ */
+export function filterSidebarForLiveRound(sidebarConfig) {
+    return sidebarConfig
+        .map(group => ({
+            ...group,
+            items: group.items.filter(item => item && item.liveRound === true),
         }))
         .filter(group => group.items.length > 0);
 }

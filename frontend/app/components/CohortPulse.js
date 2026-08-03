@@ -120,7 +120,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
           <div>
             <h3 className={styles.headerTitle}>Cohort Pulse</h3>
             <span className={styles.headerSubtitle}>
-              {teams.length} player{teams.length !== 1 ? 's' : ''} · Live data
+              {teams.length} team{teams.length !== 1 ? 's' : ''} · Live data
               {progress && progress.total_players > 0 && (
                 <>
                   {' · '}
@@ -187,12 +187,12 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
 
       {/* Heatmap Grid */}
       {teams.length === 0 ? (
-        <div className={styles.empty}>No players in this cohort yet.</div>
+        <div className={styles.empty}>No teams in this cohort yet.</div>
       ) : (
         <div className={styles.heatmapGrid}>
           {/* Header row */}
           <div className={styles.heatmapHeaderRow}>
-            <div className={styles.heatmapTeamHeader} title="One row per player in this cohort (each player runs their own company). ✓ committed · ◐ draft saved · ○ nothing saved. Hover any cell for the exact value that round.">Player</div>
+            <div className={styles.heatmapTeamHeader} title="One row per TEAM in this cohort (each team runs one company; its driver commits). ✓ committed · ◐ draft saved · ○ nothing saved. Hover any cell for the exact value that round.">Team</div>
             {Array.from({ length: 10 }, (_, i) => (
               <div key={i} className={styles.heatmapRoundHeader} title={`Round ${i + 1} — the selected metric's committed value at the end of round ${i + 1}. Empty = not yet played.`}>R{i + 1}</div>
             ))}
@@ -209,7 +209,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
                   title={team.committed ? `Committed R${progress?.target_round ?? ''}` : team.has_saved_draft ? 'Not committed — has a saved draft' : 'Not committed — no draft saved'}
                   style={{ marginRight: 5, fontWeight: 800, color: team.committed ? '#4ade80' : team.has_saved_draft ? '#fbbf24' : '#94a3b8' }}
                 >{team.committed ? '✓' : team.has_saved_draft ? '◐' : '○'}</span>
-                {team.name?.substring(0, 12) || `Player ${ti + 1}`}
+                {team.name?.substring(0, 12) || `Team ${ti + 1}`}
                 {team.auto_committed_last_round && (
                   <span title="Last round was auto-committed, not played" style={{ marginLeft: 5, fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 999, background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.4)', color: '#fbbf24' }}>auto</span>
                 )}

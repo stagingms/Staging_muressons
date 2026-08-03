@@ -121,6 +121,7 @@ const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { 
 const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false, loading: FullScreenLoader });
 import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
+import DecisionPressureTimer from './components/DecisionPressureTimer';
 import CrisisAlerts, { CrisisScreen } from './components/CrisisAlerts';
 import useSimulation, { playerIdHeader } from './hooks/useSimulation';
 import useSessionLatch from './hooks/useSessionLatch';
@@ -702,6 +703,10 @@ export default function CockpitPage() {
 
   // Block alert state
   const [blockAlert, setBlockAlert] = useState(null);
+  // TEAM-2/TEAM-3: how the team actually decided this round (the driver's
+  // answer). Starts UNSET — pre-selecting 'majority' would put a default answer
+  // in the audit log for a driver who never looked at the question.
+  const [teamConsensus, setTeamConsensus] = useState(null);
 
   // ── Crisis Screen state — lifted from CrisisAlerts ───────────
   // crisisFiredRef tracks which alerts have fired per round. It lives HERE
@@ -789,13 +794,15 @@ export default function CockpitPage() {
       choice_selected: isPillarMode ? '' : (decisionChoice || 'option_b'),
       decision_node_id: `round_${roundNumber}_${bu.bu_id}`,
       time_to_decision_seconds: 0,
-      // TF-2 (UX audit §7.7): previously hardcoded team_consensus:'majority' —
-      // a fabricated value written into the graded audit log for decisions no
-      // team made (one login per person, confirmed). Omitted here; NOTE the
-      // backend model still defaults the column to 'majority' (NOT NULL enum
-      // in Postgres) — making it truly null requires a schema migration,
-      // tracked as follow-up. This change documents intent and stops the
-      // client asserting a consensus that never happened.
+      // TEAM-2 (UX audit §7.7, revised 2026-08-02): teams ARE real — up to 6
+      // members, one driver. This was a hardcoded 'majority' asserting a
+      // consensus nobody recorded; it now carries the driver's actual answer
+      // from the review modal, which makes the debrief question "how did you
+      // decide?" answerable from data instead of memory.
+      // TEAM-3 (UX audit #7): no fallback. If the driver did not answer, the
+      // field is omitted and the server records "not recorded" — inventing
+      // 'majority' is exactly the fiction this removed.
+      ...(teamConsensus ? { team_consensus: teamConsensus } : {}),
       pillar_decisions: isPillarMode ? pillarSelections : null,
     }));
 
@@ -1294,6 +1301,12 @@ export default function CockpitPage() {
   // otherwise surfaces the blocker (with its resolving surface) and returns
   // false. attemptCommitTurn re-runs it as a defensive backstop.
   const preflightCommit = () => {
+    // TEAM-1: an observer must never reach the commit path. The server refuses
+    // independently — this only produces a clear message instead of a 403.
+    if (sim.isObserver) {
+      setBlockAlert("You are signed in as a team observer. Your team's driver enters and commits the decisions — decide together, one person clicks.");
+      return false;
+    }
     if (sideTrackInfo?.mainBlocked) {
       setBlockAlert("A Side Track requires your attention before you can advance to the next round. Complete the active side track first.");
       setSideTracksOpen(true);
@@ -1401,6 +1414,12 @@ export default function CockpitPage() {
         activeFlags={Object.keys(globalState?.active_event_flags || {})}
         isPlayerVisible={isPlayerVisible}
         onLogout={sim.logout}
+        /* TIMER-2 (UX audit #15): the briefing is an architectural EARLY RETURN
+           — the whole cockpit tree, including the header timer, is unmounted
+           while it is open. A timed round could therefore run down entirely
+           inside the briefing with no deadline on screen. The briefing now
+           carries the same pacing chip so the clock is never invisible. */
+        pacingChip={<DecisionPressureTimer sessionId={sim.sessionId} isCommitted={!!sim.commitResults} />}
       />
     );
   }
@@ -1676,6 +1695,9 @@ export default function CockpitPage() {
         decisionChoice={decisionChoice}
         onCommit={attemptCommitTurn}
         onPreflight={preflightCommit}
+        isObserver={sim.isObserver}
+        teamConsensus={teamConsensus}
+        onTeamConsensusChange={setTeamConsensus}
         onAdvance={handleAdvance}
         commitResults={sim.commitResults}
         isCommitBlocked={isCommitBlocked}

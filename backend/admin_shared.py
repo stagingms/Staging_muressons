@@ -223,13 +223,42 @@ def can_access_tab(fac: dict, tab_id: str) -> bool:
 
 
 def owns_session(fac: dict, session: dict) -> bool:
-    """Check if a facilitator owns a session (multi-tenancy enforcement).
-    Super admins (and god_mode) can access all sessions."""
+    """Check if a facilitator OWNS a session (multi-tenancy enforcement).
+    Super admins (and god_mode) can access all sessions.
+
+    CO-FAC-1 (UX audit #22): ownership stays SINGLE — exactly one facilitator
+    is accountable for a run. A co-facilitator/TA is a separate, weaker thing
+    (see can_observe_session) and deliberately does NOT satisfy this predicate,
+    so every write path that already gates on ownership stays closed to them
+    without any of those call sites changing."""
     if is_admin_role(get_role(fac)):
         return True
     fac_id = fac.get("facilitator_id", "")
     session_fac = session.get("facilitator_id", "")
     return session_fac == fac_id
+
+
+def session_observers(session: dict) -> list[str]:
+    """Facilitator ids granted READ-ONLY visibility of this session."""
+    raw = (session or {}).get("co_facilitator_ids") or []
+    return [str(x) for x in raw if x]
+
+
+def can_observe_session(fac: dict, session: dict) -> bool:
+    """CO-FAC-1 (UX audit #22): may this facilitator SEE this run?
+
+    True for the owner, for admins, and for anyone on the session's
+    co_facilitator_ids list. This is a strictly READ predicate — it is used by
+    listing/monitoring endpoints only. It must never be substituted for
+    owns_session on a write path: the audit's requirement was a TA who can
+    watch the room, not a second person who can advance rounds.
+
+    Today a co-facilitator has to be handed the owner's credentials, which
+    `must_change_password` actively fights; this makes the real arrangement
+    expressible without giving away run control."""
+    if owns_session(fac, session):
+        return True
+    return fac.get("facilitator_id", "") in session_observers(session)
 
 
 def _migrate_facilitator_roles(registry: list[dict]) -> list[dict]:

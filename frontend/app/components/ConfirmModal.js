@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import Dialog from './Dialog';
 
 /**
  * ConfirmModal / useConfirm — Phase 5 (F4): ONE confirmation pattern for the
@@ -60,24 +61,20 @@ export default function ConfirmModal({
     const unlocked = !requirePhrase
         || phrase.trim().toUpperCase() === String(requirePhrase).trim().toUpperCase();
 
-    useEffect(() => {
-        const onKey = (e) => { if (e.key === 'Escape') onClose(false); };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
+    // A11Y-3 (UX audit #18): Escape, focus trap and focus restore now come from
+    // the shared Dialog primitive — this component's own bespoke Escape handler
+    // (which had no trap and no restore) is gone. Behaviour is a superset.
 
     const accent = danger ? '#ef4444' : '#10b981';
 
     return (
-        <div
+        <Dialog
+            onClose={() => onClose(false)}
             style={{
                 position: 'fixed', inset: 0, zIndex: 25000,
                 background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            onClick={(e) => { if (e.target === e.currentTarget) onClose(false); }}
-            role="dialog"
-            aria-modal="true"
             aria-label={typeof title === 'string' ? title : 'Confirm action'}
         >
             <div style={{
@@ -110,17 +107,30 @@ export default function ConfirmModal({
 
                 {requirePhrase && (
                     <div style={{ marginBottom: '1.25rem' }}>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem' }}>
+                        {/* A11Y-F2 (WCAG 1.3.1, 3.3.2): the instruction was an
+                            unassociated sibling and the input's only accessible
+                            name was its placeholder — which vanishes on first
+                            keystroke. This is the highest-consequence control in
+                            the admin surface (cohort deletion, factory reset), so
+                            it gets a real label and a programmatic description. */}
+                        <label
+                            id="confirm-phrase-label"
+                            htmlFor="confirm-phrase-input"
+                            style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem' }}
+                        >
                             Type <code style={{
                                 background: 'rgba(239,68,68,0.12)', color: '#ef4444', padding: '2px 6px',
                                 borderRadius: '3px', fontWeight: 700, fontSize: '0.72rem',
                             }}>{requirePhrase}</code> to unlock:
-                        </div>
+                        </label>
                         <input
+                            id="confirm-phrase-input"
                             type="text"
                             autoFocus
                             value={phrase}
                             onChange={(e) => setPhrase(e.target.value)}
+                            aria-labelledby="confirm-phrase-label"
+                            aria-describedby="confirm-phrase-status"
                             placeholder={requirePhrase}
                             style={{
                                 width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.9rem',
@@ -134,6 +144,21 @@ export default function ConfirmModal({
                 )}
 
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                    {requirePhrase && (
+                        <span
+                            id="confirm-phrase-status"
+                            role="status"
+                            aria-live="polite"
+                            style={{
+                                position: 'absolute', width: 1, height: 1, overflow: 'hidden',
+                                clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {unlocked
+                                ? `Phrase matched. ${confirmLabel} is now unlocked.`
+                                : `Type ${requirePhrase} to unlock ${confirmLabel}.`}
+                        </span>
+                    )}
                     <button
                         type="button"
                         autoFocus={!requirePhrase}
@@ -148,7 +173,14 @@ export default function ConfirmModal({
                     </button>
                     <button
                         type="button"
-                        disabled={!unlocked}
+                        /* A11Y-F3 (WCAG 4.1.2, 3.3.1): this used `disabled`, which
+                           removes the control from the tab order entirely — a
+                           keyboard user could not reach it to discover WHY it was
+                           locked, and unlocking was never announced. aria-disabled
+                           keeps it focusable and discoverable; the click handler
+                           still refuses while locked, so behaviour is unchanged. */
+                        aria-disabled={!unlocked}
+                        aria-describedby={requirePhrase ? 'confirm-phrase-status' : undefined}
                         onClick={() => unlocked && onClose(true)}
                         style={{
                             background: unlocked ? accent : `${accent}33`,
@@ -162,6 +194,6 @@ export default function ConfirmModal({
                     </button>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }

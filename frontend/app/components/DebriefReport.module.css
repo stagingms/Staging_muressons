@@ -307,7 +307,7 @@
     font-weight: 700;
 }
 
-.deltaPositive { color: #059669; }
+.deltaPositive { color: var(--kpi-good-on-light); }
 .deltaNegative { color: #dc2626; }
 .deltaZero { color: #94a3b8; }
 

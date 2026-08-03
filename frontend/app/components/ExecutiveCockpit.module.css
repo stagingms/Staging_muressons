@@ -641,12 +641,17 @@
   transform: translateY(-1px);
 }
 
+/* A11Y-F21 (WCAG 1.4.3): --ck-text-3 is the MUTED tier (#8899a6 in dark),
+   which measured 3.06:1 on the elevated KPI card. A KPI's label is not
+   decoration -- it is the only thing that says what the number means -- so it
+   belongs in the secondary tier: 4.71:1 on the elevated card, 8.3:1 on the
+   resting one. */
 .resourceLabel {
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--ck-text-3);
+  color: var(--ck-text-2);
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -801,6 +806,11 @@
   50% { opacity: 0.7; box-shadow: 0 0 12px rgba(16, 185, 129, 0.3); }
 }
 
+/* A11Y-F21d: the header separator between LIVE / Round / Year / Module.
+   It carries no information -- the items either side are self-labelling --
+   so it is pure decoration and exempt from 1.4.3. It is marked aria-hidden
+   at the call site rather than darkened, because raising a punctuation dot
+   to 4.5:1 makes it compete with the labels it separates. */
 .liveStatusSep {
   color: rgba(148, 163, 184, 0.5);
   font-weight: 400;
@@ -1378,10 +1388,15 @@
   border-bottom: 1px solid var(--ck-border);
 }
 
+/* A11Y-M3 (WCAG 1.4.3): --danger-text is the TEXT tier -- in dark it is
+   #f87171, a bright pastel meant to be read ON a dark surface, not to be one.
+   White on it measured 2.77:1. Same defect as F18 on the rail tab badge, in
+   the second badge nobody checked; red-600 carries white at 4.83:1 in both
+   themes, which is why this is a fixed value and not a token. */
 .mailboxBadge {
   font-size: 0.68rem;
   font-weight: 700;
-  background: var(--danger-text);
+  background: #dc2626;
   color: #fff;
   padding: 1px 5px;
   border-radius: 3px;
@@ -1489,7 +1504,11 @@
 .joinOverlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  /* was 9999. NOT --z-top(9000): the scale documents --z-briefing(9001) as
+     sitting ABOVE the join overlay, but this file has shipped above it since
+     the 9999 was written. --z-gate preserves what is on screen today; the
+     doc/implementation mismatch is a design call, not a token call. */
+  z-index: var(--z-gate);
   background: var(--bg-primary);
 }
 
@@ -1501,14 +1520,44 @@
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LIGHT MODE â€” Design Token Overrides
-   NOTE: --ck-* variable overrides live in globals.css [data-theme="light"]
-   since :root variables can only be overridden at the :root level.
-   The individual class overrides below handle component-specific styling.
+   See A11Y-F12 below for why the --ck-* light values that live in
+   globals.css never reached this component.
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
+/* A11Y-F12 (WCAG 1.4.3) -- real-browser pass, 2026-08-02.
+   The note that used to sit above said the --ck-* light overrides "live in
+   globals.css [data-theme=light] since :root variables can only be overridden
+   at the :root level". That belief was wrong, and it cost the light theme its
+   left rail.
+
+   The --ck-* set is NOT declared on :root -- it is declared on `.cockpit`
+   itself (top of this file). A declaration on the element always beats an
+   inherited one, so globals.css's [data-theme="light"] block, which lands on
+   <html>, could never win for anything inside the cockpit. The light values
+   have been sitting in globals.css since the light theme shipped, inert.
+
+   The effect was a half-converted rail: --ck-text-* are written as
+   var(--text-*) REFERENCES, so they did follow the theme, while --ck-surface-*
+   are hard-coded darks, so they did not. Light mode therefore painted
+   light-theme slate text onto dark-theme navy surfaces:
+     KPI / Charts / Metrics tab labels   #334155 on #0e1222  = 1.80:1
+     active tab label                    #0f766e on #142330  = 2.91:1
+   Overriding the same properties HERE -- same element, higher specificity --
+   is what makes the values already declared in globals.css take effect.
+
+   --ck-accent is deliberately NOT overridden: it resolves through
+   var(--brand-text), which already switches to #0f766e in light mode, and the
+   per-class light rules below are written against that teal. Forcing
+   globals.css's #0284c7 here would recolour the whole rail blue -- a restyle,
+   not a contrast fix. */
 :global([data-theme="light"]) .cockpit {
   background: #f8fafc;
   color: #0f172a;
+
+  --ck-surface-0: #f8fafc;
+  --ck-surface-1: #f1f5f9;
+  --ck-surface-2: rgba(0, 0, 0, 0.02);
+  --ck-border: rgba(0, 0, 0, 0.10);
 }
 
 :global([data-theme="light"]) .header {
@@ -1850,8 +1899,11 @@
 :global([data-theme="light"]) .resourcesPillLabel {
   color: #1e293b;
 }
+/* A11Y-F21d: --brand is the chrome teal (3.42:1 as text here); --brand-text
+   is the same identity in the tier meant for text. Same fix as
+   .buTickerName. */
 :global([data-theme="light"]) .resourcesPillArrow {
-  color: var(--brand);
+  color: var(--brand-text);
 }
 :global([data-theme="light"]) .reflectivePrompt {
   background: rgba(99, 102, 241, 0.06);
@@ -1970,7 +2022,7 @@
 .predictionOverlay {
   position: fixed;
   inset: 0;
-  z-index: 12000;
+  z-index: var(--z-friction); /* was 12000 — above the join gate */
   background: rgba(10, 14, 26, 0.95);
   display: flex;
   align-items: center;
@@ -2302,7 +2354,10 @@
 /* â•â•â• Phase 3.2 â€” ROUND CONTEXT CARD â•â•â• */
 .roundContextCard { padding: 12px 14px; background: linear-gradient(135deg, rgba(14,20,36,0.8), rgba(6,182,212,0.04)); border-bottom: 1px solid rgba(0,229,195,0.12); }
 .roundContextBadge { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.roundContextTier { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brand-bright); }
+/* A11Y-F21d: --brand-bright is the MINT emphasis token (#00e5c3) and it does
+   not switch -- on the light round-context chip it measured 1.48:1. The
+   text tier does switch, and keeps the tier badge teal in both themes. */
+.roundContextTier { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brand-text); }
 .roundContextRound { font-size: var(--type-caption); font-weight: 700; color: var(--text-muted); font-family: var(--font-mono); }
 .roundContextTitle { font-size: var(--type-body); font-weight: 800; color: var(--text-primary); line-height: 1.3; margin-bottom: 4px; }
 .roundContextDesc { font-size: var(--type-caption); color: var(--text-muted); line-height: 1.4; }
@@ -2555,7 +2610,11 @@
 :global([data-theme="light"]) .buTicker { background: #f1f5f9; border-top-color: #f1f5f9; }
 :global([data-theme="light"]) .buTickerItem { border-right-color: #f1f5f9; }
 :global([data-theme="light"]) .buTickerItem:hover { background: rgba(13, 148, 136, 0.04); }
-:global([data-theme="light"]) .buTickerName { color: var(--brand); }
+/* A11Y-F21: --brand is the CHROME teal (#0d9488) -- 3.41:1 as text on the
+   #f1f5f9 rail. --brand-text is the same identity in the text tier and is
+   what tokens.css says to use for text ("brighter hues reserved for text");
+   in light it resolves to teal-700 #0f766e, 5.00:1 on that surface. */
+:global([data-theme="light"]) .buTickerName { color: var(--brand-text); }
 :global([data-theme="light"]) .buTickerMetrics { color: var(--text-secondary); }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2700,7 +2759,7 @@
 .bsModalOverlay {
   position: fixed;
   inset: 0;
-  z-index: 9500;
+  z-index: var(--z-modal-under-gate); /* was 9500 — below the join gate */
   background: rgba(6, 8, 16, 0.95);
   display: flex;
   align-items: center;

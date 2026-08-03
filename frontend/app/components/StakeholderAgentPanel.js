@@ -45,9 +45,11 @@ const STAGE_META = {
 
 const TREND_ICONS = {
   improving:     { icon: '📈', label: 'Improving', color: '#10b981' },
-  stable:        { icon: '➡️', label: 'Stable',    color: '#64748b' },
+  /* A11Y-F21: #64748b measured 3.82:1 on the dark panel. The shim only runs
+     in light mode, so a light-theme neutral used in dark needs a token. */
+  stable:        { icon: '➡️', label: 'Stable',    color: 'var(--text-muted)' },
   deteriorating: { icon: '📉', label: 'Worsening', color: '#ef4444' },
-  'n/a':         { icon: '—',  label: 'N/A',       color: '#475569' },
+  'n/a':         { icon: '—',  label: 'N/A',       color: 'var(--text-muted)' },
 };
 
 function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMeeting = null, dealChips = [] }) {

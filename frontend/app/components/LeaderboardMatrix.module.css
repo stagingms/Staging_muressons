@@ -106,7 +106,7 @@
 }
 
 .bronze {
-    color: #d97706;
+    color: var(--medal-bronze);
     font-weight: 800;
 }
 

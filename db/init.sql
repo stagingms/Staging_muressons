@@ -14,7 +14,14 @@ CREATE TYPE consensus_level AS ENUM (
     'unanimous',
     'majority',
     'split',
-    'facilitator_override'
+    'facilitator_override',
+    -- TEAM-3 (UX audit #7, 2026-08-02): the client used to hardcode 'majority'
+    -- on every commit, so the audit log asserted a consensus nobody recorded.
+    -- The driver now answers in the review modal — but a round committed before
+    -- this shipped, or auto-committed by the server, has no answer. That must be
+    -- distinguishable from a real 'majority' or the debrief question "how did
+    -- you decide?" is answered with fiction.
+    'not_recorded'
 );
 
 -- ============================================================
@@ -98,7 +105,7 @@ CREATE TABLE decision_audit_log (
     choice_selected         VARCHAR(200)    NOT NULL,
     capex_allocated         NUMERIC(18,2)   DEFAULT 0,
     time_to_decision_seconds INTEGER        DEFAULT 0,
-    team_consensus          consensus_level NOT NULL DEFAULT 'majority',
+    team_consensus          consensus_level NULL DEFAULT NULL,   -- TEAM-3: NULL = not recorded
     metadata                JSONB           DEFAULT '{}',
     created_at              TIMESTAMPTZ     NOT NULL DEFAULT now()
 );

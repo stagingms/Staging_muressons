@@ -383,7 +383,7 @@
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.92);
-    z-index: 19000;
+    z-index: var(--z-drawer-scrim); /* was 19000 */
     animation: fadeInOverlay 0.2s ease;
 }
 
@@ -402,7 +402,7 @@
     background: var(--bg-card);
     border-left: 1px solid var(--border-subtle);
     box-shadow: -8px 0 40px rgba(0, 0, 0, 0.25);
-    z-index: 19001;
+    z-index: var(--z-drawer); /* was 19001 — the +1 over the scrim is kept */
     display: flex;
     flex-direction: column;
     animation: slideInDrawer 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1055,7 +1055,7 @@
     font-size: 0.82rem;
     font-weight: 600;
     animation: slideUp 0.3s ease-out;
-    z-index: 20000;
+    z-index: var(--z-coach); /* was 20000 — above the drawer */
     max-width: 360px;
     word-break: break-word;
 }

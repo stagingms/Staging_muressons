@@ -937,7 +937,9 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                     "choice_selected": dec.get("choice_selected", ""),
                     "capex": float(dec.get("capex_allocated", 0) or 0),
                     "time_to_decision_seconds": dec.get("time_to_decision_seconds", 0),
-                    "team_consensus": dec.get("team_consensus", "majority"),
+                    # TEAM-3 (UX audit #7): no coercion — NULL/None means the team
+                    # did not record how it decided. Parity with database.py.
+                    "team_consensus": dec.get("team_consensus") or None,
                 }
                 for dec in _decision_log
                 if dec.get("session_id") == session_id and dec.get("round_number") == rn
@@ -1040,7 +1042,9 @@ async def insert_next_round(
             "capex_allocated": dec.get("capex_allocated", 0),
             "player_id": dec.get("player_id", ""),
             "time_to_decision_seconds": dec.get("time_to_decision_seconds", 0),
-            "team_consensus": dec.get("team_consensus", "majority"),
+            # TEAM-3 (UX audit #7): no coercion — NULL/None means the team
+                    # did not record how it decided. Parity with database.py.
+                    "team_consensus": dec.get("team_consensus") or None,
         })
 
     # H-4 fix: Cap decision log to prevent unbounded memory growth

@@ -9,8 +9,13 @@
  * shared-dice determinism doctrine.
  */
 
-export const RIVAL = { name: 'Nordhaven Group', avatar: '🏛️', color: '#64748b' };
-export const AGENCY = { name: 'Meridian ESG Ratings', avatar: '⚖️', color: '#7c3aed' };
+/* A11Y-M2 (WCAG 1.4.3): `color` is the identity hue and stays — it paints the
+   card's 3px left border, where contrast does not apply. `textColor` is the
+   same identity in the semantic text tier, which flips per theme, and is what
+   the name label uses: as TEXT the raw hues measured 3.71:1 (rival) and
+   3.16:1 (agency) on the dark card. */
+export const RIVAL = { name: 'Nordhaven Group', avatar: '🏛️', color: '#64748b', textColor: 'var(--text-muted)' };
+export const AGENCY = { name: 'Meridian ESG Ratings', avatar: '⚖️', color: '#7c3aed', textColor: 'var(--accent-text)' };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const M = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;

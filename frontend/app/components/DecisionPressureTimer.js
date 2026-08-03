@@ -80,8 +80,52 @@ export default function DecisionPressureTimer({ sessionId, roundNumber, isCommit
     return () => clearInterval(tick);
   }, [secondsLeft]);
 
-  // Don't render if no pacing active or mode is free
-  if (!pacing || pacing.mode === 'free') return null;
+  // TIMER-1 (UX audit #15): this used to `return null` for BOTH "no pacing yet"
+  // and mode==='free', which meant the player had NO deadline surface at all in
+  // the component's own default mode — the timer was silently absent rather
+  // than honestly absent. It now renders an honest state in every mode:
+  //
+  //   timed   — countdown to the next unlock (unchanged)
+  //   manual  — no clock exists, so say so: "Facilitator paces this round"
+  //   free    — no deadline, but the X/Y commit tally still matters
+  //
+  // Rule: never imply time pressure that isn't real, and never leave the
+  // player guessing whether a clock is running.
+  if (!pacing) return null;
+
+  const hasClock = pacing.mode === 'timed' && (secondsLeft > 0 || totalSeconds > 0);
+
+  if (!hasClock) {
+    const committedN = pacing.committed_count || 0;
+    const totalN = pacing.total_count || 0;
+    const label = pacing.mode === 'manual'
+      ? 'Facilitator paces this round'
+      : 'No time limit this round';
+    return (
+      <div
+        className={styles.container}
+        role="status"
+        title={pacing.mode === 'manual'
+          ? 'There is no countdown. The facilitator opens the next round when the room is ready.'
+          : 'There is no countdown. The round advances when every team has committed.'}
+      >
+        <span aria-hidden="true" style={{ fontSize: '0.95rem', lineHeight: 1 }}>
+          {pacing.mode === 'manual' ? '🎬' : '∞'}
+        </span>
+        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+          {label}
+        </div>
+        {totalN > 0 && (
+          <div className={styles.commitBadge}>
+            <span className={styles.commitCount}>{committedN}</span>
+            <span className={styles.commitSep}>/</span>
+            <span className={styles.commitTotal}>{totalN}</span>
+            <span className={styles.commitLabel}>{isCommitted ? '✓' : '⏳'}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const urgency = urgencyLevel(secondsLeft, totalSeconds);
   const progressPct = totalSeconds > 0 ? Math.max(0, Math.min(1, secondsLeft / totalSeconds)) : 1;

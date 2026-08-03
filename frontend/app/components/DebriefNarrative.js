@@ -11,6 +11,7 @@
  */
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Dialog from './Dialog';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -64,13 +65,10 @@ function SectionCard({ title, children }) {
     if (prevFocusRef.current) prevFocusRef.current.focus();
   }, []);
 
-  useEffect(() => {
-    if (!projected) return;
-    if (closeRef.current) closeRef.current.focus();
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [projected, close]);
+  // A11Y-F5: Escape, initial focus, focus trap and focus restore now come from
+  // the shared Dialog primitive — this component's partial hand-rolled version
+  // (focus + Escape, no trap) is gone. `close()` still restores focus itself
+  // because the projecting button lives outside the dialog.
 
   return (
     <section style={styles.card}>
@@ -85,15 +83,31 @@ function SectionCard({ title, children }) {
           ⛶ Project
         </button>
       </div>
-      {children}
+      {/* A11Y-F5: children render ONCE. Previously the inline copy and the
+          projected copy both existed, so every table row was announced twice.
+          aria-hidden would have masked it; not rendering it is the fix. */}
+      {!projected && children}
+      {/* A11Y-F5 (WCAG 4.1.2, 2.4.3): this declared aria-modal="true" while
+          leaving 5 focusable controls outside it in the tab order, and rendered
+          {children} a SECOND time — so every table row was announced twice.
+          Now it uses the shared Dialog primitive (focus trap, Escape, focus
+          restore, scroll lock), and the card behind is aria-hidden while
+          projected so the duplicate content is not double-announced. */}
       {projected && (
-        <div role="dialog" aria-modal="true" aria-label={title} style={styles.overlay}>
+        <Dialog
+          onClose={close}
+          label={title}
+          className={undefined}
+          style={styles.overlay}
+          initialFocusRef={closeRef}
+          closeOnBackdrop={false}
+        >
           <button type="button" ref={closeRef} style={styles.closeBtn} onClick={close} aria-label="Close projection">
             ✕
           </button>
           <h2 style={{ margin: '0 0 24px', fontSize: 36 }}>{title}</h2>
           {children}
-        </div>
+        </Dialog>
       )}
     </section>
   );

@@ -139,7 +139,7 @@
 
 .mathBadge {
     background: rgba(16, 185, 129, 0.1);
-    color: #059669;
+    color: var(--kpi-good);
     border-color: rgba(16, 185, 129, 0.2);
 }
 

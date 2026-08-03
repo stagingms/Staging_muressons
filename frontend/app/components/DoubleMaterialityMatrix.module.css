@@ -733,7 +733,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 20000;
+    z-index: var(--z-coach); /* was 20000 */
     animation: fadeIn 0.3s ease-out;
 }
 

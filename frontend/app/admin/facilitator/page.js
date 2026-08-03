@@ -42,7 +42,7 @@ import FacilitatorTeleprompter from '../../components/FacilitatorTeleprompter';
 import FacilitatorAnnotations from '../../components/FacilitatorAnnotations';
 import TechnicalGlossary from '../../components/TechnicalGlossary';
 import RegulatorySandboxControl from '../../components/RegulatorySandboxControl';
-import { FACILITATOR_SIDEBAR, filterSidebarForRole, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
+import { FACILITATOR_SIDEBAR, filterSidebarForRole, filterSidebarForLiveRound, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
 import NotificationBell from '../../components/NotificationBell';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import CohortPulse from '../../components/CohortPulse';
@@ -66,6 +66,21 @@ const FACILITATOR_STATIC_SHORTCUTS = [
     ['?', 'Show / hide this sheet'],
     ['Esc', 'Close dialogs'],
 ];
+
+/* UX audit #13 — Live Round mode.
+ * The full facilitator sidebar is ~34 tabs plus four external consoles; while a
+ * round is actually running, the tab you need sits in the same flat list as the
+ * technical glossary. Live Round mode collapses the sidebar to the during-the-
+ * round subset (flagged `liveRound` in sidebarConfig.js). It is a VIEW filter
+ * only: role filtering, canAccessTab and the tab router are untouched, so a tab
+ * hidden here is still reachable by shortcut, deep link or the workspace it is
+ * already rendering.
+ * The choice is persisted because a mid-session refresh (projector unplugged,
+ * tab reloaded) must not silently drop the facilitator back into 34 tabs. */
+const LIVE_ROUND_STORAGE_KEY = 'muressons_live_round_mode';
+// Group ids that survive the live-round filter, derived from the config rather
+// than hardcoded — used to auto-expand those groups when the mode turns on.
+const LIVE_ROUND_GROUP_IDS = filterSidebarForLiveRound(FACILITATOR_SIDEBAR).map(g => g.id);
 
 /* F1(d): the old SEED_LEADERBOARD constant was removed — it was never wired
  * to anything, and the WS error handler falsely claimed "using seed data". */
@@ -264,12 +279,16 @@ function FacilitatorLoginGate({ onLogin }) {
                 <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
                     <a href="/admin" style={{
                         fontSize: '0.8rem',
-                        color: 'var(--text-muted)',
+                        // A11Y-F8 (WCAG 1.4.3): --text-muted already clears AA,
+                        // but `opacity: 0.7` composited it down to 4.34:1 in
+                        // light mode. Opacity on text is invisible to a token
+                        // audit and to jsdom — only a real-browser scan catches
+                        // it. Use the stronger token and drop the fade.
+                        color: 'var(--text-secondary)',
                         textDecoration: 'none',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '0.3rem',
-                        opacity: 0.7,
                     }}>
                         ← Back to Admin Portal
                     </a>
@@ -537,6 +556,34 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
     const toggleCategory = (catId) => {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
     };
+
+    /* UX audit #13: Live Round mode. Starts OFF on the server render and is
+       hydrated from localStorage in an effect — reading storage during the
+       first render would desync the server/client markup. */
+    const [liveRoundMode, setLiveRoundMode] = useState(false);
+    useEffect(() => {
+        try {
+            if (localStorage.getItem(LIVE_ROUND_STORAGE_KEY) === '1') setLiveRoundMode(true);
+        } catch { /* storage blocked (private mode) — the mode just starts off */ }
+    }, []);
+    // Turning the mode on (or restoring it after a refresh) expands the groups
+    // that survive the filter: a two-group sidebar collapsed to two headers
+    // would be a worse starting point than the list it replaced.
+    useEffect(() => {
+        if (!liveRoundMode) return;
+        setOpenCategories(prev => {
+            const next = { ...prev };
+            LIVE_ROUND_GROUP_IDS.forEach(id => { next[id] = true; });
+            return next;
+        });
+    }, [liveRoundMode]);
+    const toggleLiveRoundMode = useCallback(() => {
+        setLiveRoundMode(prev => {
+            const next = !prev;
+            try { localStorage.setItem(LIVE_ROUND_STORAGE_KEY, next ? '1' : '0'); } catch { /* non-fatal */ }
+            return next;
+        });
+    }, []);
 
     // Keyboard shortcuts — Phase 6 (F12):
     //  · Ctrl+1–4 toggles the target group WITHOUT collapsing the others
@@ -814,13 +861,32 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
         .filter(group => group.items.length > 0);
 
     // F9: ONE access gate consumed by the sidebar, the quick-action bar, and
-    // the tab router.
+    // the tab router. UX audit #13: this deliberately stays on the ROLE-filtered
+    // list — Live Round mode hides tabs from the nav, it does not revoke access.
     const visibleTabIds = new Set(FILTERED_SIDEBAR.flatMap(g => g.items.map(i => i.id)));
     const canAccessTab = (tabId) => visibleTabIds.has(tabId);
 
+    // UX audit #13: live-round filtering composes AFTER role filtering, so the
+    // subset can only ever be a subset of what this role may already see.
+    const LIVE_ROUND_SIDEBAR = filterSidebarForLiveRound(FILTERED_SIDEBAR);
+    const RENDERED_SIDEBAR = liveRoundMode ? LIVE_ROUND_SIDEBAR : FILTERED_SIDEBAR;
+    const liveRoundTabCount = LIVE_ROUND_SIDEBAR.reduce((n, g) => n + g.items.length, 0);
+    const allTabCount = visibleTabIds.size;
+    // The stranding case: the tab already on screen is not in the live subset.
+    // The workspace keeps rendering it (renderActiveComponent gates on
+    // visibleTabIds); the sidebar just says so and offers a way back.
+    const activeTabHiddenByLiveRound =
+        liveRoundMode &&
+        visibleTabIds.has(activeTab) &&
+        !LIVE_ROUND_SIDEBAR.some(g => g.items.some(i => i.id === activeTab));
+    const liveRoundHomeTab = canAccessTab('dashboard_home')
+        ? 'dashboard_home'
+        : (LIVE_ROUND_SIDEBAR[0]?.items[0]?.id || 'dashboard_home');
+
     // F-8 (v3): keep the shortcut handler's group list in sync with what the
     // sidebar renders (ref write on every render — the handler reads it live).
-    sidebarGroupIdsRef.current = FILTERED_SIDEBAR.map(g => g.id);
+    // UX audit #13: that means the live-round groups while the mode is on.
+    sidebarGroupIdsRef.current = RENDERED_SIDEBAR.map(g => g.id);
 
     const getTabMeta = (tabId) => _getTabMeta(FILTERED_SIDEBAR, tabId);
 
@@ -1286,7 +1352,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 <ShortcutSheet
                     onClose={() => setShowShortcuts(false)}
                     shortcuts={[
-                        [FILTERED_SIDEBAR.length > 1 ? `Ctrl+1…${FILTERED_SIDEBAR.length}` : 'Ctrl+1', 'Toggle sidebar group open/closed'],
+                        [RENDERED_SIDEBAR.length > 1 ? `Ctrl+1…${RENDERED_SIDEBAR.length}` : 'Ctrl+1', 'Toggle sidebar group open/closed'],
                         ...FACILITATOR_STATIC_SHORTCUTS,
                     ]}
                 />
@@ -1412,11 +1478,101 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                             </div>
                         </div>
                     )}
+
+                    {/* ── UX audit #13: Live Round mode toggle ──
+                        Sits above the category list because it changes what that
+                        list contains. State is carried by the LABEL (🎬 Live Round
+                        vs 📚 All Tabs) and the count line, never by colour alone
+                        (WCAG 1.4.1); aria-pressed exposes the same state to
+                        assistive tech. minHeight 36px clears the 32px target. */}
+                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
+                        <button
+                            type="button"
+                            onClick={toggleLiveRoundMode}
+                            aria-pressed={liveRoundMode}
+                            /* No aria-label: the visible text IS the accessible
+                               name (WCAG 2.5.3), and the count line below is
+                               wired up as the description. */
+                            aria-describedby="live-round-count"
+                            title={liveRoundMode
+                                ? 'Live Round mode is ON — showing only the tabs used while a round is running. Click for all tabs.'
+                                : 'Showing all tabs. Click for Live Round mode — only the tabs used while a round is running.'}
+                            style={{
+                                width: '100%',
+                                minHeight: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '0.74rem',
+                                fontWeight: 800,
+                                letterSpacing: '0.04em',
+                                background: liveRoundMode ? 'rgba(239,68,68,0.12)' : 'var(--bg-elevated)',
+                                border: liveRoundMode ? '1px solid rgba(239,68,68,0.45)' : '1px solid var(--border-subtle)',
+                                color: liveRoundMode ? '#f87171' : 'var(--text-primary)',
+                                transition: 'background 0.2s, color 0.2s, border-color 0.2s',
+                            }}
+                        >
+                            {liveRoundMode ? '🎬 Live Round' : '📚 All Tabs'}
+                        </button>
+                        <div id="live-round-count" style={{ marginTop: '0.35rem', fontSize: '0.66rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                            {liveRoundMode
+                                ? `${liveRoundTabCount} of ${allTabCount} tabs · showing live-round essentials`
+                                : `All ${allTabCount} tabs shown · switch to Live Round for essentials only`}
+                        </div>
+
+                        {/* Never strand the user on an invisible tab: the workspace
+                            keeps rendering whatever was open, the sidebar just
+                            explains why the nav entry vanished and offers a way back. */}
+                        {activeTabHiddenByLiveRound && (
+                            <div
+                                role="status"
+                                style={{
+                                    marginTop: '0.45rem',
+                                    padding: '0.4rem 0.5rem',
+                                    borderRadius: '6px',
+                                    background: 'var(--bg-elevated)',
+                                    border: '1px dashed var(--border-subtle)',
+                                    fontSize: '0.65rem',
+                                    color: 'var(--text-muted)',
+                                    lineHeight: 1.4,
+                                }}
+                            >
+                                Currently viewing &quot;{getTabMeta(activeTab).label}&quot; — hidden in Live Round mode
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab(liveRoundHomeTab)}
+                                    style={{
+                                        marginTop: '0.35rem',
+                                        width: '100%',
+                                        minHeight: '32px',
+                                        padding: '4px 8px',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-subtle)',
+                                        background: 'var(--bg-body)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.65rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    ← Back to Dashboard Home
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
 
                 <nav className={styles.sidebarNav} data-tour="sidebar-nav">
-                    {FILTERED_SIDEBAR.map((group) => (
+                    {/* UX audit #13: RENDERED_SIDEBAR is the role-filtered list,
+                        further cut to the live-round subset while the mode is on.
+                        The external consoles below the map are NOT filtered —
+                        they are live-run projector tools. */}
+                    {RENDERED_SIDEBAR.map((group) => (
                         <div key={group.id} className={styles.navCategory} data-tour={`nav-${group.id}`}>
                             <div
                                 className={styles.categoryHeader}
@@ -1431,14 +1587,24 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
 
                             <div className={`${styles.categoryItems} ${openCategories[group.id] ? styles.categoryOpen : ''}`}>
                                 {group.items.map((item) => (
+                                    /* UX-7.6: `_locked` items (currently Undo Round for a
+                                       base facilitator) render VISIBLE but inert with the
+                                       reason, so someone who over-advances can see the fix
+                                       exists and who to ask, instead of the tab simply not
+                                       being there. Not a security control — the backend
+                                       guard is. */
                                     <button
                                         key={item.id}
                                         className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
-                                        onClick={() => setActiveTab(item.id)}
-                                        data-tooltip={item.tooltip}
+                                        onClick={() => { if (!item._locked) setActiveTab(item.id); }}
+                                        disabled={!!item._locked}
+                                        aria-disabled={item._locked ? 'true' : undefined}
+                                        data-tooltip={item._locked ? (item.disabledReason || 'Not available for your role') : item.tooltip}
+                                        style={item._locked ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                                     >
                                         {item.icon && <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>{item.icon}</span>}
                                         <span>{item.label}</span>
+                                        {item._locked && <span aria-hidden="true" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>🔒</span>}
                                     </button>
                                 ))}
                             </div>
@@ -1676,7 +1842,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
 
                 {/* Keyboard shortcut hints — F-8 (v3): count matches this role's groups */}
                 <span className="fac-bar-hint" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
-                    Ctrl+1–{FILTERED_SIDEBAR.length}: toggle groups · Ctrl+Shift+B: broadcast · ?: shortcuts
+                    Ctrl+1–{RENDERED_SIDEBAR.length}: toggle groups · Ctrl+Shift+B: broadcast · ?: shortcuts
                 </span>
             </div>
 

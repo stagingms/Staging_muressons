@@ -184,6 +184,9 @@ export default function ExecutiveCockpit({
   decisionChoice,
   onCommit,
   onPreflight = null,  // 7.4 (UX audit): full readiness check BEFORE the review modal
+  isObserver = false,  // TEAM-1: read-only seat (team's -VIEW code)
+  teamConsensus = 'majority',           // TEAM-2: how the team decided
+  onTeamConsensusChange = null,
   onAdvance,
   commitResults,
   isCommitBlocked,
@@ -1191,15 +1194,15 @@ export default function ExecutiveCockpit({
           <div className={styles.liveStatusBadge}>
             <span className={styles.liveStatusDot} />
             <span style={{ color: '#10b981', fontWeight: 700 }}>LIVE</span>
-            <span className={styles.liveStatusSep}>·</span>
+            <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
             <span style={{ color: '#e2e8f0', fontWeight: 700 }}>Round {roundNumber}</span>
-            <span className={styles.liveStatusSep}>·</span>
+            <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
             <span>{getRoundLabel(roundNumber)}</span>
-            <span className={styles.liveStatusSep}>·</span>
+            <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
             <span>{activeRoundTitles[roundNumber] || ''}</span>
             {tippingPointActive && (
               <>
-                <span className={styles.liveStatusSep}>·</span>
+                <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
                 <motion.span
                   animate={{ opacity: [1, 0.5, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
@@ -1211,7 +1214,7 @@ export default function ExecutiveCockpit({
             )}
             {activeRegulations.length > 0 && (
               <>
-                <span className={styles.liveStatusSep}>·</span>
+                <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
                 <span
                   title={`${activeRegulations.length} active regulation(s): ${activeRegulations.map(r => r.name).join(', ')}`}
                   style={{ color: '#a5b4fc', cursor: 'help' }}
@@ -1265,6 +1268,29 @@ export default function ExecutiveCockpit({
 
       {/* ═══ MAIN CONTENT (3 COLUMNS) ═══ */}
       <div className={`${styles.mainContent} ${isFocusActive ? focusStyles.dashboardFaded : ''}`}>
+
+        {/* TEAM-1 (UX audit #7) — Slot: Canvas stage. Read-only seat notice.
+            The team's driver holds the controls; observers watch the same live
+            board. Server-enforced too — this banner is the explanation, not
+            the guard. */}
+        {isObserver && (
+          <div
+            role="status"
+            style={{
+              gridColumn: '1 / -1',
+              margin: '8px 12px 0',
+              padding: '10px 14px', borderRadius: 10,
+              background: 'rgba(99,102,241,0.10)',
+              border: '1px solid rgba(99,102,241,0.40)',
+              fontSize: '0.74rem', lineHeight: 1.5, color: '#e2e8f0',
+            }}
+          >
+            <strong style={{ color: '#a5b4fc' }}>👁 Observer view.</strong>{' '}
+            You are watching your team&apos;s board live. Your team&apos;s driver
+            selects the strategy, allocates capital and commits the round —
+            decide together, one person enters it.
+          </div>
+        )}
 
         {/* AC-2 (UX audit §7.8) — Slot: Canvas stage (round-scoped disclosure).
             When the previous round closed without this player committing, the
@@ -1347,7 +1373,12 @@ export default function ExecutiveCockpit({
 
           {/* ── TAB: KPIs (Resources + Advanced Metrics) ── */}
           {leftPanelTab === 'kpis' && (
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          /* A11Y-F7 (WCAG 2.1.1): a scrollable region with no focusable content
+             must itself be focusable, or a keyboard user cannot scroll it.
+             tabIndex={0} + a group role and label make it reachable and
+             announced. Found by the real-browser axe pass; jsdom has no
+             scroll geometry, so this was invisible to the jest floor. */
+          <div style={{ flex: 1, overflowY: 'auto' }} tabIndex={0} role="group" aria-label="Key performance indicators">
           <div style={{ background: 'var(--ck-surface-0, #0b0f1a)', borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', paddingTop: 10, paddingBottom: 10 }}>
           <div className={styles.resourcesPanel} aria-live="polite" aria-label="Key Performance Indicators">
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
@@ -1382,7 +1413,12 @@ export default function ExecutiveCockpit({
             })()}
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>🌍 Reputation</div>
-              <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
+              {/* A11Y-F21 (WCAG 1.4.3): every KPI unit suffix was #475569 — a
+                  LIGHT-theme neutral — sitting on the dark KPI card: 2.35:1.
+                  A carbon figure whose "t" cannot be read is a number with no
+                  unit, which is the whole point of the number. All 7
+                  occurrences moved to the token. */}
+              <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span></div>
               {(() => { const prev = previousGlobalState?.group_reputation; const d = prev != null ? reputation - prev : 0; return d !== 0 ? (
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
               ) : null; })()}
@@ -1395,7 +1431,7 @@ export default function ExecutiveCockpit({
             {!isHealthcare && (
               <div className={styles.resourceCard}>
                 <div className={styles.resourceLabel}>🏭 Carbon</div>
-                <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>t</span></div>
+                <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>t</span></div>
                 {(() => { const prev = previousGlobalState?.tco2e_emissions; const d = prev != null ? tco2e - prev : 0; return d !== 0 ? (
                   <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#4ade80' : '#f87171', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
                 ) : null; })()}
@@ -1413,13 +1449,13 @@ export default function ExecutiveCockpit({
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🩺 Avg Burnout</div>
                   <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? '#ef4444' : systemBurnout > 50 ? '#f59e0b' : '#10b981' }}>
-                    {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                    {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🛏️ Bed Util.</div>
                   <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? '#ef4444' : totalBedCapacity > 70 ? '#f59e0b' : '#10b981' }}>
-                    {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>%</span>
+                    {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>%</span>
                   </div>
                 </div>
               </>
@@ -1429,13 +1465,13 @@ export default function ExecutiveCockpit({
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🏛️ Political Capital</div>
                   <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? '#10b981' : politicalCapital > 30 ? '#f59e0b' : '#ef4444' }}>
-                    {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                    {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🤝 Community Trust</div>
                   <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? '#10b981' : communityTrust > 30 ? '#f59e0b' : '#ef4444' }}>
-                    {communityTrust.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                    {communityTrust.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
@@ -1456,7 +1492,7 @@ export default function ExecutiveCockpit({
                 <div className={styles.resourceLabel}>⚖️ Reg. Active</div>
                 <div className={styles.resourceValue} style={{ color: '#a5b4fc' }}>
                   {activeRegulations.length}
-                  <span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>instr.</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>instr.</span>
                 </div>
                 <div style={{ fontSize: '0.68rem', color: regulatoryComplexity > 60 ? '#fbbf24' : '#6366f1', marginTop: 2, lineHeight: 1.3 }}>
                   Complexity {regulatoryComplexity.toFixed(0)}/100
@@ -1506,7 +1542,7 @@ export default function ExecutiveCockpit({
               {/* #3: BU Health Leaderboard — Deep Dive only */}
               {isDeepDive && businessUnits?.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 4 }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', marginBottom: 2 }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 2 }}>
                     📊 BU Health Rankings
                   </div>
                   {[...businessUnits]
@@ -1614,9 +1650,17 @@ export default function ExecutiveCockpit({
 
           {/* Action Toolbar placed at the bottom of the left panel */}
           {actionToolbar && (
+            /* A11Y-F13 (WCAG 1.4.3): this panel used a hard-coded '#0a0e1a',
+               which is not one of the darks the globals.css light-mode shim
+               knows how to rewrite. In light mode the surface therefore stayed
+               navy while the shim darkened the text sitting on it — "⋯ More"
+               measured 1.21:1 and the paradigm label 2.66:1. Using the cockpit
+               surface token is the migration that shim's own header prescribes:
+               it resolves to the same near-black in dark mode and follows the
+               theme in light. */
             <div id="tour-player-guides-target" style={{
               borderTop: '1px solid rgba(0, 229, 195, 0.2)',
-              background: '#0a0e1a',
+              background: 'var(--ck-surface-0, #0a0e1a)',
               padding: '10px 6px',
               display: 'flex',
               flexDirection: 'column',
@@ -1689,8 +1733,14 @@ export default function ExecutiveCockpit({
                         boxShadow: '0 0 6px rgba(245, 158, 11, 0.5)',
                       }} />
                     )}
+                    {/* A11Y-F16: the de-emphasis here was `opacity: 0.7`, which
+                        composites the label toward the surface and is invisible
+                        both to a token audit and to jsdom — the same trap as F8
+                        ("Back to Admin Portal", 4.34:1). The label is already
+                        de-emphasised by being 0.6rem; the opacity only cost
+                        contrast. */}
                     {isFocusActive && (
-                      <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>ACTIVE</span>
+                      <span style={{ fontSize: '0.6rem' }}>ACTIVE</span>
                     )}
                   </button>
                 </div>
@@ -1831,7 +1881,7 @@ export default function ExecutiveCockpit({
                     <div
                       key={optId}
                       className={`${styles.decisionTile} ${isActive ? styles.decisionTileActive : ''}`}
-                      onClick={() => handleLegacySelect(optId)}
+                      onClick={() => { if (isObserver) return; handleLegacySelect(optId); }}
                       /* A11Y-2 (UX audit #8): the core decision was mouse-only —
                          no role/tabIndex/key handler. Same pattern as
                          DecisionTile.js, which already did this correctly. */
@@ -1839,8 +1889,9 @@ export default function ExecutiveCockpit({
                       tabIndex={0}
                       aria-pressed={isActive}
                       aria-label={`${optMeta.label}: ${opt.title || optId}`}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLegacySelect(optId); } }}
-                      style={{ flex: '1 1 0', minWidth: 0 }}
+                      onKeyDown={(e) => { if (isObserver) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLegacySelect(optId); } }}
+                      aria-disabled={isObserver || undefined}
+                      style={{ flex: '1 1 0', minWidth: 0, ...(isObserver ? { opacity: 0.65, cursor: 'not-allowed' } : {}) }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <span style={{ fontSize: '1rem' }}>{optMeta.icon}</span>
@@ -1850,7 +1901,7 @@ export default function ExecutiveCockpit({
                       <p className={styles.tileDesc}>{opt.description}</p>
                       {costVal ? (
                         <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6rem' }}>
-                          <span style={{ color: '#64748b', fontWeight: 600 }}>💰 Cost</span>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>💰 Cost</span>
                           <span style={{ fontSize: '0.72rem', fontWeight: 800, color: costVal < 0 ? '#ef4444' : '#16a34a' }}>{fmtCurrency(costVal)}</span>
                         </div>
                       ) : (
@@ -2008,6 +2059,7 @@ export default function ExecutiveCockpit({
                 // footer — instead of dismissing to the dashboard first. The
                 // 'Review Your Decisions' modal already provides review +
                 // Go-Back-&-Edit, so the dashboard detour was a redundant step.
+                if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
                 if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
                 const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
                 if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
@@ -2124,7 +2176,7 @@ export default function ExecutiveCockpit({
                           <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cColor[bsF.covenant_status] || '#38bdf8', marginTop: 2 }}>
                             {cIcon[bsF.covenant_status] || '📊'} D/E: {(bsF.debt_to_equity || 0).toFixed(2)}×
                           </div>
-                          <div style={{ fontSize: '0.55rem', color: '#64748b', marginTop: 4, fontWeight: 600 }}>🔍 Click to expand</div>
+                          <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 4, fontWeight: 600 }}>🔍 Click to expand</div>
                         </div>
                       );
                     })()}
@@ -2238,8 +2290,8 @@ export default function ExecutiveCockpit({
                   ))}
                 </div>
                 {peerLeaderboard.length > 5 && (
-                  <div style={{ fontSize: '0.6rem', color: '#64748b', textAlign: 'center', marginTop: 6 }}>
-                    +{peerLeaderboard.length - 5} more players
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 6 }}>
+                    +{peerLeaderboard.length - 5} more teams
                   </div>
                 )}
               </div>
@@ -2259,7 +2311,7 @@ export default function ExecutiveCockpit({
                 return (
                   <div style={{ padding: '12px 16px', borderRadius: 10, textAlign: 'center', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
                     <div style={{ fontSize: '1rem', marginBottom: 4 }}>⏳</div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>Waiting for Other Players</div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>Waiting for Other Teams</div>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{commitsCount}/{teamCount} committed</div>
                   </div>
                 );
@@ -2299,6 +2351,12 @@ export default function ExecutiveCockpit({
                 <select
                   value={filterBU}
                   onChange={(e) => { const v = e.target.value; if (v === 'all') { exitDeepDive(); } else { enterDeepDive(v); } }}
+                  /* A11Y-F6 (WCAG 4.1.2, CRITICAL — found by the real-browser
+                     axe pass, invisible to jsdom): this select had NO accessible
+                     name at all. A screen reader announced it as an unnamed
+                     combo box, so the control that switches the whole cockpit
+                     between business units was unusable without sight. */
+                  aria-label="Filter cockpit by business unit"
                   style={{
                     padding: '4px 8px', borderRadius: 6, fontSize: '0.68rem', fontWeight: 700,
                     background: 'rgba(14,20,36,0.6)', color: '#94a3b8', border: '1px solid rgba(148,163,184,0.15)',
@@ -2347,7 +2405,7 @@ export default function ExecutiveCockpit({
                 }}
               >
                 ⚡ Skip to Decisions
-                <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>(Quick Resume)</span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 500 }}>(Quick Resume)</span>
               </button>
             )}
 
@@ -2746,7 +2804,7 @@ export default function ExecutiveCockpit({
                           )}
                         </div>
                       ))}
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', padding: '2px 2px 0' }}>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '2px 2px 0' }}>
                         🔒 {unlockHint} — full details and the comparison matrix appear here once it&apos;s done.
                       </div>
                     </>
@@ -2833,7 +2891,7 @@ export default function ExecutiveCockpit({
                         fontFamily: "'Courier New', monospace",
                         fontSize: '0.65rem',
                         lineHeight: '1.5',
-                        color: '#475569',
+                        color: 'var(--text-secondary)',
                         letterSpacing: '0.01em',
                       }}>
                         <div style={{ fontWeight: 700, fontSize: '0.6rem', color: '#1a365d', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -2845,7 +2903,7 @@ export default function ExecutiveCockpit({
                   </div>
                 ) : decisionParadigm === 'legacy_abc' ? (
                   <div style={{ marginTop: 4 }}>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#64748b', marginBottom: 6 }}>Comparison Matrix</div>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>Comparison Matrix</div>
                     <table style={{ width: '100%', fontSize: '0.68rem', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
@@ -3133,7 +3191,13 @@ export default function ExecutiveCockpit({
             <div style={{
               position: 'sticky', top: 0, zIndex: 10,
               display: 'flex', gap: 0,
-              background: 'var(--bg-sidebar, #ffffff)',
+              /* A11Y-F17 (WCAG 1.4.3): `--bg-sidebar` is not defined anywhere
+                 in this codebase, so this token always fell through to its
+                 #ffffff fallback — the rail's tab strip was hard white in BOTH
+                 themes, which is why the mailbox tab measured the same failing
+                 3.35:1 in dark as in light. --ck-surface-1 is the cockpit
+                 surface token that actually switches. */
+              background: 'var(--ck-surface-1, #0e1222)',
               borderBottom: '1px solid var(--border-subtle, #e2e8f0)',
             }}>
               {/* Rail tabs are cohort-gated (2026-07-20). Each tab maps to a
@@ -3142,10 +3206,16 @@ export default function ExecutiveCockpit({
                   decision_history key — one surface, one switch. Fail-open: an
                   unconfigured cohort shows everything, exactly as before. */}
               {[
-                { id: 'mailbox', vis: 'rail_mailbox', label: '📬 Mailbox', color: '#3b82f6', badge: unreadCount > 0 ? unreadCount : null },
-                { id: 'decisions', vis: 'decision_history', label: '📜 Decisions', color: '#6366f1', badge: (!commitResults && hasDecision) ? '⏳' : null },
-                { id: 'engines', vis: 'rail_engines', label: '🌎 Engines', color: '#10b981', badge: (events && Object.keys(events).length > 0 && !commitResults) ? '•' : null },
-                { id: 'climate', vis: 'rail_climate', label: '🌡️ Climate', color: '#38bdf8', badge: null },
+                /* A11Y-F17: `color` stays the tab's identity hue — it paints the
+                   underline and the 8%-alpha tint, where contrast does not
+                   apply. The LABEL needs its own pair, because no single value
+                   clears 4.5:1 against that tint in both themes: the 500-weight
+                   hue reads 3.35:1 on the light tint and 3.6:1 on the dark one.
+                   Measured on the tinted background, not on the rail. */
+                { id: 'mailbox', vis: 'rail_mailbox', label: '📬 Mailbox', color: '#3b82f6', onDark: '#93c5fd', onLight: '#1d4ed8', badge: unreadCount > 0 ? unreadCount : null },
+                { id: 'decisions', vis: 'decision_history', label: '📜 Decisions', color: '#6366f1', onDark: '#a5b4fc', onLight: '#4338ca', badge: (!commitResults && hasDecision) ? '⏳' : null },
+                { id: 'engines', vis: 'rail_engines', label: '🌎 Engines', color: '#10b981', onDark: '#6ee7b7', onLight: '#047857', badge: (events && Object.keys(events).length > 0 && !commitResults) ? '•' : null },
+                { id: 'climate', vis: 'rail_climate', label: '🌡️ Climate', color: '#38bdf8', onDark: '#7dd3fc', onLight: '#0369a1', badge: null },
               ].filter(tab => isPlayerVisible(tab.vis)).map(tab => {
                 const isActive = rightPanelTab === tab.id;
                 return (
@@ -3162,7 +3232,9 @@ export default function ExecutiveCockpit({
                       fontSize: '0.66rem', fontWeight: isActive ? 800 : 600, textTransform: 'uppercase',
                       letterSpacing: '0.04em', border: 'none',
                       background: isActive ? `${tab.color}15` : 'transparent',
-                      color: isActive ? tab.color : '#64748b',
+                      color: isActive
+                        ? (isDark ? tab.onDark : tab.onLight)
+                        : (isDark ? '#94a3b8' : '#475569'),
                       borderBottom: `3px solid ${isActive ? tab.color : 'transparent'}`,
                       transition: 'all 0.15s ease',
                       position: 'relative',
@@ -3174,13 +3246,20 @@ export default function ExecutiveCockpit({
                       <span style={{
                         fontSize: typeof tab.badge === 'number' ? '0.6rem' : '0.5rem',
                         fontWeight: 800,
-                        background: typeof tab.badge === 'number' ? '#f87171' : `${tab.color}25`,
-                        color: typeof tab.badge === 'number' ? '#fff' : tab.color,
+                        /* A11Y-F18 (WCAG 1.4.3, 2.2.2): the numeric unread count
+                           was #fff on red-400 — 2.68:1 at rest — and the shared
+                           `pulse` keyframe drops opacity to 0.3, so twice a
+                           second it fell to roughly 1.4:1. A count nobody can
+                           read is not a notification. red-600 carries white at
+                           4.83:1, and badgePulse animates a ring instead of the
+                           glyph, so the number is legible at every frame. */
+                        background: typeof tab.badge === 'number' ? '#dc2626' : `${tab.color}25`,
+                        color: typeof tab.badge === 'number' ? '#fff' : (isDark ? tab.onDark : tab.onLight),
                         padding: typeof tab.badge === 'number' ? '1px 5px' : '0 3px',
                         borderRadius: 3,
                         minWidth: typeof tab.badge === 'number' ? 14 : 'auto',
                         textAlign: 'center',
-                        animation: typeof tab.badge === 'number' ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                        animation: typeof tab.badge === 'number' ? 'badgePulse 1.5s ease-out infinite' : 'none',
                       }}>
                         {tab.badge}
                       </span>
@@ -3229,22 +3308,39 @@ export default function ExecutiveCockpit({
                       key={msg.id || `msg-${idx}`}
                       className={`${styles.feedItem} ${severityClass}`}
                       onClick={() => { onMarkRead?.(msg.id); setExpandedMessage(msg); }}
-                      style={{ cursor: 'pointer', opacity: msg.read ? 0.6 : 1 }}
+                      /* A11Y-M5 (WCAG 1.4.3): was 0.6. Opacity composites the
+                         text toward its surface — the F8 lesson — and at 0.6
+                         the preview body landed at 3.8:1 in dark mode. "Read"
+                         is the state every message holds for the rest of the
+                         game, so this is the state most of the mailbox is in.
+                         0.85 keeps the affordance and holds 5.7:1. */
+                      style={{ cursor: 'pointer', opacity: msg.read ? 0.85 : 1 }}
                     >
                       {/* Improvement #4.2: AI Personas */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
                         <span style={{ fontSize: '0.7rem' }}>{persona.avatar}</span>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: persona.color }}>{persona.name}</span>
-                        {isCritical && <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em' }}>URGENT</span>}
-                        {isWarning && !isCritical && <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em' }}>ALERT</span>}
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: persona.textColor || persona.color }}>{persona.name}</span>
+                        {isCritical && <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--danger-text)', background: 'rgba(239,68,68,0.1)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em' }}>URGENT</span>}
+                        {isWarning && !isCritical && <span style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--caution-text)', background: 'rgba(245,158,11,0.1)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em' }}>ALERT</span>}
                       </div>
-                      <strong style={{ fontSize: '0.68rem', color: '#0f172a' }}>{msg.title}</strong>
-                      <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#334155' }}>{msg.body?.substring(0, 120)}...</p>
+                      {/* A11Y-M1 (WCAG 1.4.3): the subject and preview were
+                          hard-coded #0f172a and #334155 — light-theme
+                          near-blacks — on a card that is #151929 in dark mode.
+                          Measured in Chromium on a signed-in player:
+                            subject #0f172a on #151929 = 1.02:1
+                            preview #334155 on #151929 = 1.68:1
+                          Every board briefing and crisis message in the game,
+                          unreadable in dark mode. The globals.css shim only
+                          runs the other way (dark values on light surfaces),
+                          so nothing rescued this. The text tier flips both
+                          ways by design. */}
+                      <strong style={{ fontSize: '0.68rem', color: 'var(--text-primary)' }}>{msg.title}</strong>
+                      <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{msg.body?.substring(0, 120)}...</p>
                     </div>
                     );
                   })}
                   {currentMessages.length === 0 && (
-                    <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center' }}>No messages this round</div>
+                    <div className={styles.feedItem} style={{ color: 'var(--text-muted)', textAlign: 'center' }}>No messages this round</div>
                   )}
 
                   {/* W-B: Market Intelligence — client-derived rival press +
@@ -3505,12 +3601,29 @@ export default function ExecutiveCockpit({
                     unlockLabel = new Date(nextUnlockAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                   } catch { unlockLabel = null; }
                 }
+                // TEAM-1: an observer never sees a live commit control.
+                if (isObserver && !commitResults) {
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button
+                        className={styles.commitBtn}
+                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#1e293b', color: '#e2e8f0', border: '1px solid #4f46e5', opacity: 0.85, cursor: 'not-allowed' }}
+                        disabled
+                      >
+                        👁 Observer — driver commits
+                      </button>
+                      <div style={{ fontSize: '0.62rem', color: '#a5b4fc', textAlign: 'center' }}>
+                        Your team&apos;s driver holds the controls this round.
+                      </div>
+                    </div>
+                  );
+                }
                 if (roundLocked && !commitResults) {
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <button
                         className={styles.commitBtn}
-                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#1e293b', border: '1px solid #475569', opacity: 0.85, cursor: 'not-allowed' }}
+                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#1e293b', color: '#e2e8f0', border: '1px solid #475569', opacity: 0.85, cursor: 'not-allowed' }}
                         disabled
                       >
                         🔒 Round Locked{unlockLabel ? ` — opens ${unlockLabel}` : ''}
@@ -3531,7 +3644,7 @@ export default function ExecutiveCockpit({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <button
                         className={styles.commitBtn}
-                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#3730a3', border: '1px solid #4f46e5', opacity: 0.9, cursor: 'not-allowed' }}
+                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#3730a3', color: '#e0e7ff', border: '1px solid #4f46e5', opacity: 0.9, cursor: 'not-allowed' }}
                         disabled
                       >
                         🧩 Complete the Quiz First
@@ -3542,15 +3655,31 @@ export default function ExecutiveCockpit({
                     </div>
                   );
                 }
+                // A11Y-F14 (WCAG 1.4.3): every branch here overrides the
+                // button's BACKGROUND inline but used to leave its colour to
+                // the .commitBtn class, which is `var(--ck-surface-0)` —
+                // near-black, chosen for the teal gradient that these
+                // overrides replace. The round's primary action was therefore
+                // illegible in the two flat-slate states, in BOTH themes:
+                //   dark  : #0b0f1a on #1e293b = 1.31:1
+                //   light : the globals.css shim rewrites `background:
+                //           rgb(30,41,59)` to #fff but leaves the class's
+                //           `color: #fff` alone — 1:1, white on white.
+                // Measured in Chromium on a signed-in player, round 1.
+                // Each branch now carries the foreground that belongs with its
+                // background, so neither the class default nor the shim can
+                // decide it. #e2e8f0 is itself a shim-known neutral, so on the
+                // slate states light mode darkens text and lightens surface
+                // together instead of one without the other.
                 const btnStyle = commitResults
-                  ? { background: '#1e293b', borderColor: '#334155' }
+                  ? { background: '#1e293b', color: '#e2e8f0', borderColor: '#334155' }
                   : overAllocated
-                    ? { background: 'linear-gradient(135deg, #991b1b, #7f1d1d)', borderColor: '#ef4444', boxShadow: '0 0 12px rgba(239,68,68,0.25)' }
+                    ? { background: 'linear-gradient(135deg, #991b1b, #7f1d1d)', color: '#ffffff', borderColor: '#ef4444', boxShadow: '0 0 12px rgba(239,68,68,0.25)' }
                     : fullyReady
-                      ? { background: 'linear-gradient(135deg, #059669, #047857)', borderColor: '#10b981', boxShadow: '0 0 12px rgba(16,185,129,0.3)' }
+                      ? { background: 'linear-gradient(135deg, #059669, #047857)', color: '#ffffff', borderColor: '#10b981', boxShadow: '0 0 12px rgba(16,185,129,0.3)' }
                       : partialReady
-                        ? { background: 'linear-gradient(135deg, #92400e, #78350f)', borderColor: '#f59e0b' }
-                        : { background: '#1e293b', borderColor: '#475569' };
+                        ? { background: 'linear-gradient(135deg, #92400e, #78350f)', color: '#ffffff', borderColor: '#f59e0b' }
+                        : { background: '#1e293b', color: '#e2e8f0', borderColor: '#475569' };
                 const btnIcon = commitResults ? '✅' : overAllocated ? '⚠️' : fullyReady ? '▶' : partialReady ? '⏳' : '🔒';
                 return (
                   <motion.button
@@ -3559,6 +3688,7 @@ export default function ExecutiveCockpit({
                     disabled={!!commitResults}
                     onClick={() => {
                       if (!commitResults) {
+                        if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
                         if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
                         if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
                         // 7.4 (UX audit): full gates before review, not after.
@@ -3620,7 +3750,7 @@ export default function ExecutiveCockpit({
             >
               <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#5eead4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 ⌨ Keyboard Shortcuts
-                <span onClick={() => setShowKeyboardHelp(false)} style={{ marginLeft: 'auto', cursor: 'pointer', color: '#64748b', fontSize: '1rem' }}>✕</span>
+                <span onClick={() => setShowKeyboardHelp(false)} style={{ marginLeft: 'auto', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem' }}>✕</span>
               </div>
               {[
                 { keys: ['1', '2', '3'], desc: 'Select Strategic Option A / B / C' },
@@ -3641,8 +3771,8 @@ export default function ExecutiveCockpit({
                   <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{desc}</span>
                 </div>
               ))}
-              <div style={{ marginTop: 12, fontSize: '0.68rem', color: '#475569', textAlign: 'center' }}>
-                Press <kbd style={{ padding: '1px 5px', borderRadius: 3, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.15)', color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>?</kbd> or click outside to close
+              <div style={{ marginTop: 12, fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                Press <kbd style={{ padding: '1px 5px', borderRadius: 3, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.15)', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>?</kbd> or click outside to close
               </div>
             </div>
           </div>,
@@ -3695,7 +3825,7 @@ export default function ExecutiveCockpit({
                     background: '#f1f5f9', border: 'none', borderRadius: '50%',
                     width: 28, height: 28, cursor: 'pointer', fontSize: '0.85rem',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#64748b', fontWeight: 700,
+                    color: 'var(--text-muted)', fontWeight: 700,
                   }}
                 >✕</button>
               </div>
@@ -3816,6 +3946,46 @@ export default function ExecutiveCockpit({
                 })}
               </div>
             </div>
+
+            {/* TEAM-2 (UX audit §7.7, revised): teams are real, so record how
+                this one decided. Four options, one click, written to the
+                decision audit log — this is what makes "how did you decide?"
+                answerable in the debrief from data rather than memory. */}
+            {onTeamConsensusChange && (
+              <div style={{ marginTop: 14, marginBottom: 4 }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', marginBottom: 6 }}>
+                  How did your team decide this round?
+                </div>
+                <div role="radiogroup" aria-label="How did your team decide this round?" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'unanimous', label: 'Unanimous' },
+                    { id: 'majority', label: 'Majority' },
+                    { id: 'split', label: 'Split / unresolved' },
+                    { id: 'facilitator_override', label: 'Facilitator call' },
+                  ].map((opt) => {
+                    const on = teamConsensus === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => onTeamConsensusChange(opt.id)}
+                        style={{
+                          padding: '5px 11px', borderRadius: 999, cursor: 'pointer',
+                          fontSize: '0.7rem', fontWeight: 700, minHeight: 28,
+                          background: on ? 'rgba(99,102,241,0.22)' : 'rgba(30,41,59,0.7)',
+                          border: `1px solid ${on ? '#818cf8' : 'rgba(148,163,184,0.3)'}`,
+                          color: on ? '#c7d2fe' : '#cbd5e1',
+                        }}
+                      >
+                        {on ? '● ' : '○ '}{opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className={styles.predictionActions}>
               {/* 7.4 (UX audit): renamed from "Go Back & Edit / Skip & Commit /
@@ -3987,7 +4157,7 @@ export default function ExecutiveCockpit({
                                 {cIcons[cStatus] || '📊'} {cStatus}
                               </span>
                             </div>
-                            <div style={{ fontSize: '0.58rem', color: '#64748b', marginTop: 5, fontWeight: 600, letterSpacing: '0.03em' }}>
+                            <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: 5, fontWeight: 600, letterSpacing: '0.03em' }}>
                               🔍 Click to expand
                             </div>
                           </div>
@@ -4049,7 +4219,7 @@ export default function ExecutiveCockpit({
                         <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }} className={styles.resultCardLabel}>
                           {label}
                           {key === 'ebitda' && (
-                            <span style={{ marginLeft: 6, fontSize: '0.56rem', fontWeight: 600, color: '#64748b', textTransform: 'none', letterSpacing: 0 }}>· ⋯ Nordhaven</span>
+                            <span style={{ marginLeft: 6, fontSize: '0.56rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0 }}>· ⋯ Nordhaven</span>
                           )}
                         </div>
                         <ResponsiveContainer width="100%" height={72}>
@@ -4267,12 +4437,12 @@ export default function ExecutiveCockpit({
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                        <th style={{ textAlign: 'left', padding: '4px 6px', color: '#64748b', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>#</th>
-                        <th style={{ textAlign: 'left', padding: '4px 6px', color: '#64748b', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Team</th>
-                        <th style={{ textAlign: 'right', padding: '4px 6px', color: '#64748b', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Treasury</th>
-                        <th style={{ textAlign: 'right', padding: '4px 6px', color: '#64748b', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Rep</th>
-                        <th style={{ textAlign: 'right', padding: '4px 6px', color: '#64748b', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>CO₂</th>
-                        <th style={{ textAlign: 'center', padding: '4px 6px', color: '#64748b', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Trend</th>
+                        <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>#</th>
+                        <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Team</th>
+                        <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Treasury</th>
+                        <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Rep</th>
+                        <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>CO₂</th>
+                        <th style={{ textAlign: 'center', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Trend</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4315,7 +4485,7 @@ export default function ExecutiveCockpit({
                 </div>
               )}
               {peerLoading && (
-                <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#64748b', padding: '8px 0' }}>Loading peer data…</div>
+                <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', padding: '8px 0' }}>Loading peer data…</div>
               )}
 
               {/* Pedagogical: Post-Commit Scaffolding */}
@@ -4412,10 +4582,10 @@ export default function ExecutiveCockpit({
                     }}>
                       <div style={{ fontSize: '1rem', marginBottom: 4 }}>⏳</div>
                       <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>
-                        Waiting for Other Players
+                        Waiting for Other Teams
                       </div>
                       <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
-                        {commitsCount}/{teamCount} players committed
+                        {commitsCount}/{teamCount} teams committed
                         {secsLeft != null
                           ? ` — auto-advances in ~${secsLeft}s`
                           : ' — cannot advance yet'}

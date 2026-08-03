@@ -7,7 +7,7 @@
   position: fixed;
   inset: 0;
   background: rgba(10, 14, 26, 0.92);
-  z-index: 21500;
+  z-index: var(--z-portal); /* was 21500 — highest CSS tier */
   display: flex;
   align-items: center;
   justify-content: center;
