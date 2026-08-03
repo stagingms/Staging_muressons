@@ -39,11 +39,56 @@ from router import _commit_timestamps  # noqa: E402
 
 
 def _run(coro):
+    """Run an async body on a private event loop, disposing of any asyncpg pool
+    that body created BEFORE the loop is closed.
+
+    Why this is not simply `asyncio.run(...)`: `database.get_pool()` caches the
+    pool in a MODULE GLOBAL, and an asyncpg pool is bound to the event loop it
+    was created on. Close that loop and open a fresh one for the next test and
+    the global still points at connections whose loop is dead — asyncpg then
+    reports "Event loop is closed", or "cannot perform operation: another
+    operation is in progress" when its half-finished state is re-entered.
+
+    In memory mode there is no pool, so nothing notices. That is exactly why
+    this defect survived until the suite first met real Postgres in CI: the
+    harness encoded an assumption ("event loops are disposable") that only
+    holds for the backend production does not use. test_postgres_parity.py hits
+    the same hazard and works around it the same way — see its `saved_pool`
+    block and the comment about the app's pool being bound to the client's loop.
+    """
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
     finally:
+        try:
+            import database as _active_db     # memory module or the real one
+            if getattr(_active_db, "_pool", None) is not None:
+                loop.run_until_complete(_active_db.close_pool())
+        except Exception:                     # noqa: BLE001 — teardown only
+            pass
         loop.close()
+
+
+def _active_store():
+    """The storage module the app is ACTUALLY using on this run.
+
+    main.py rebinds `sys.modules["database"]` to `database_memory` when
+    USE_MEMORY_DB is on, so `import database` yields whichever backend is live.
+    Importing `database_memory` DIRECTLY reads the memory dicts even when the
+    app is writing to PostgreSQL — which is precisely how these assertions came
+    to report "a completed 10-round game produced an empty decision log" in the
+    first Postgres CI run, while Postgres itself held all ten rounds:
+
+        round_number | count
+        -------------+-------
+                   1 |    40
+                  ...
+                  10 |    36
+
+    The product was right; the test was reading the wrong drawer.
+    """
+    import database
+    return database
 
 
 def _solo_session():
@@ -53,8 +98,11 @@ def _solo_session():
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
             r = await ac.post("/api/simulations/solo-start",
                               json={"player_name": "PHASE0", "decision_paradigm": "legacy_abc"})
+            # Assert BEFORE parsing — see the note in test_full_run_e2e.py.
+            assert r.status_code in (200, 201), f"solo-start failed: {r.status_code} {r.text[:300]}"
             sid = r.json()["session_id"]
             dash = await ac.get(f"/api/simulations/{sid}/dashboard")
+            assert dash.status_code == 200, f"dashboard failed: {dash.status_code} {dash.text[:300]}"
             return sid, dash.json()["business_units"]
 
     return _run(_setup())
@@ -104,12 +152,13 @@ def test_game_over_blocks_a_further_commit():
     terminal state and compounded treasury, emissions and terminal valuation."""
     sid, bus = _solo_session()
 
-    state = _run(db.fetch_latest_state(sid))
+    store = _active_store()
+    state = _run(store.fetch_latest_state(sid))
     gs = dict(state["global_state"])
     gs["game_over"] = True
     gs["game_over_reason"] = "simulation_complete_r10"
-    _run(db.update_latest_global_state(session_id=sid, global_state=gs,
-                                       bu_states=state["bu_states"]))
+    _run(store.update_latest_global_state(session_id=sid, global_state=gs,
+                                          bu_states=state["bu_states"]))
 
     _commit_timestamps[sid] = 0.0
     payload = {
@@ -148,13 +197,14 @@ def test_r10_decisions_reach_the_audit_log():
     assert "log_decisions" in src, "R10 decisions are still not being written"
 
     sid, _ = _solo_session()
-    before = len(_run(db.get_decision_log(sid)))
-    written = _run(db.log_decisions(session_id=sid, round_number=10, decisions=[
+    store = _active_store()
+    before = len(_run(store.get_decision_log(sid)))
+    written = _run(store.log_decisions(session_id=sid, round_number=10, decisions=[
         {"bu_id": "pharma", "choice_selected": "option_c", "capex_allocated": 42,
          "player_id": "MUR-001", "decision_node_id": "r10"},
     ]))
     assert written == 1
-    after = _run(db.get_decision_log(sid))
+    after = _run(store.get_decision_log(sid))
     assert len(after) == before + 1
     assert after[-1]["choice_selected"] == "option_c"
 

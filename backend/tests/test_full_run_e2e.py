@@ -55,11 +55,56 @@ _ROUNDS = 10
 
 
 def _run(coro):
+    """Run an async body on a private event loop, disposing of any asyncpg pool
+    that body created BEFORE the loop is closed.
+
+    Why this is not simply `asyncio.run(...)`: `database.get_pool()` caches the
+    pool in a MODULE GLOBAL, and an asyncpg pool is bound to the event loop it
+    was created on. Close that loop and open a fresh one for the next test and
+    the global still points at connections whose loop is dead — asyncpg then
+    reports "Event loop is closed", or "cannot perform operation: another
+    operation is in progress" when its half-finished state is re-entered.
+
+    In memory mode there is no pool, so nothing notices. That is exactly why
+    this defect survived until the suite first met real Postgres in CI: the
+    harness encoded an assumption ("event loops are disposable") that only
+    holds for the backend production does not use. test_postgres_parity.py hits
+    the same hazard and works around it the same way — see its `saved_pool`
+    block and the comment about the app's pool being bound to the client's loop.
+    """
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
     finally:
+        try:
+            import database as _active_db     # memory module or the real one
+            if getattr(_active_db, "_pool", None) is not None:
+                loop.run_until_complete(_active_db.close_pool())
+        except Exception:                     # noqa: BLE001 — teardown only
+            pass
         loop.close()
+
+
+def _active_store():
+    """The storage module the app is ACTUALLY using on this run.
+
+    main.py rebinds `sys.modules["database"]` to `database_memory` when
+    USE_MEMORY_DB is on, so `import database` yields whichever backend is live.
+    Importing `database_memory` DIRECTLY reads the memory dicts even when the
+    app is writing to PostgreSQL — which is precisely how these assertions came
+    to report "a completed 10-round game produced an empty decision log" in the
+    first Postgres CI run, while Postgres itself held all ten rounds:
+
+        round_number | count
+        -------------+-------
+                   1 |    40
+                  ...
+                  10 |    36
+
+    The product was right; the test was reading the wrong drawer.
+    """
+    import database
+    return database
 
 
 async def _play(ac, rounds=_ROUNDS):
@@ -198,7 +243,7 @@ def test_every_round_including_the_finale_is_in_the_decision_log():
     Note what this asserts: TEN distinct rounds carry decision rows. It does not
     assert WHICH round each set is filed under — see the xfail below.
     """
-    import database_memory as db
+    db = _active_store()
 
     async def go():
         async with _client() as ac:
@@ -229,7 +274,7 @@ def test_decisions_are_attributed_to_the_round_they_were_made_in():
     were not backfilled — decision_audit_log is append-only behind an
     immutability trigger, and no score had been graded from them.
     """
-    import database_memory as db
+    db = _active_store()
 
     async def go():
         async with _client() as ac:
@@ -272,6 +317,10 @@ def test_a_stale_expected_round_is_refused():
         async with _client() as ac:
             r = await ac.post("/api/simulations/solo-start",
                               json={"player_name": "STALE", "decision_paradigm": "legacy_abc"})
+            # Assert BEFORE parsing. Reading ["session_id"] off an error body
+            # raises KeyError and buries the actual 500 detail, which is how the
+            # first Postgres CI run reported a pool defect as a missing key.
+            assert r.status_code in (200, 201), f"solo-start failed: {r.status_code} {r.text[:300]}"
             sid = r.json()["session_id"]
             dash = await ac.get(f"/api/simulations/{sid}/dashboard")
             bus = dash.json()["business_units"]
