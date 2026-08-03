@@ -6640,8 +6640,12 @@ async def inject_message(session_id: str, body: MessageInjectRequest, request: R
     summary="Get all facilitator messages for a session",
     status_code=status.HTTP_200_OK,
 )
-async def get_session_messages(session_id: str):
+async def get_session_messages(session_id: str, request: Request,
+                               _guard: None = Depends(require_sim_manager)):
     """Return all facilitator-injected messages for a session (for frontend polling)."""
+    # SEC-2026-08-02: this route had NO guard and NO tenancy check — facilitator interventions injected into a live run.
+    # Pinned by tests/test_admin_route_guards.py.
+    await _assert_session_ownership(request, session_id)
     return {"messages": _session_messages.get(session_id, [])}
 
 
@@ -8025,13 +8029,17 @@ async def get_audit_trail(session_id: str, _guard: None = Depends(require_facili
     "/{session_id}/debrief",
     summary="Get round-by-round debrief report for a cohort",
 )
-async def get_debrief(session_id: str):
+async def get_debrief(session_id: str, request: Request,
+                      _guard: None = Depends(require_sim_manager)):
     """
     Compiles a structured debrief for the facilitator.
     For each completed round: crisis context, decision made,
     metric snapshots with deltas, triggered flags, and per-BU capex.
     Aggregates across all child player sessions.
     """
+    # SEC-2026-08-02: this route had NO guard and NO tenancy check — returns every completed round's decisions across ALL child player sessions.
+    # Pinned by tests/test_admin_route_guards.py.
+    await _assert_session_ownership(request, session_id)
     from round_configs import get_round_config
 
     session_info = await db.get_session_info(session_id)
@@ -9209,7 +9217,11 @@ class StudentBonusRequest(BaseModel):
     "/{session_id}/bonuses",
     summary="List bonuses for a session",
 )
-async def list_bonuses(session_id: str):
+async def list_bonuses(session_id: str, request: Request,
+                       _guard: None = Depends(require_sim_manager)):
+    # SEC-2026-08-02: this route had NO guard and NO tenancy check — named awards per student — assessment data.
+    # Pinned by tests/test_admin_route_guards.py.
+    await _assert_session_ownership(request, session_id)
     return {
         "bonuses": _student_bonuses.get(session_id, []),
         "badge_presets": BADGE_PRESETS,
@@ -9278,7 +9290,11 @@ class PeerEvaluationRequest(BaseModel):
     "/{session_id}/peer-evaluations",
     summary="List peer evaluations for a session",
 )
-async def list_peer_evaluations(session_id: str):
+async def list_peer_evaluations(session_id: str, request: Request,
+                                _guard: None = Depends(require_sim_manager)):
+    # SEC-2026-08-02: this route had NO guard and NO tenancy check — named peer ratings of teammates — PII and assessment data.
+    # Pinned by tests/test_admin_route_guards.py.
+    await _assert_session_ownership(request, session_id)
     evals = _peer_evaluations.get(session_id, [])
 
     # Compute averages per target
@@ -11109,7 +11125,11 @@ _annotations = {}  # session_id → [annotation dicts]
 
 
 @admin_router.get("/annotations/{session_id}", summary="Get annotations for a session")
-async def get_annotations(session_id: str):
+async def get_annotations(session_id: str, request: Request,
+                          _guard: None = Depends(require_sim_manager)):
+    # SEC-2026-08-02: this route had NO guard and NO tenancy check — includes entries flagged visible_to_students=False, which the player route filters.
+    # Pinned by tests/test_admin_route_guards.py.
+    await _assert_session_ownership(request, session_id)
     return {"annotations": _annotations.get(session_id, [])}
 
 

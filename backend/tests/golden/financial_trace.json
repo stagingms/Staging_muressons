@@ -1,0 +1,449 @@
+[
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 32.6,
+        "natural_capital_debt": 49.75,
+        "opex_base": 10585774.94,
+        "revenue_base": 13309125.5
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 46.7,
+        "natural_capital_debt": 47.75,
+        "opex_base": 13201512.78,
+        "revenue_base": 15505384.81
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 27.9,
+        "natural_capital_debt": 45.75,
+        "opex_base": 14112266.76,
+        "revenue_base": 17724382.72
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 9.1,
+        "natural_capital_debt": 51.75,
+        "opex_base": 12750598.15,
+        "revenue_base": 19330694.66
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 61669907.69,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 15219435.06,
+      "synergy_multiplier": 0.336,
+      "tco2e_emissions": 1828.4,
+      "total_ncd": 0.0
+    },
+    "round": 1
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 24.64,
+        "natural_capital_debt": 56.95,
+        "opex_base": 10267032.78,
+        "revenue_base": 9892520.41
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 37.9,
+        "natural_capital_debt": 52.55,
+        "opex_base": 12744793.89,
+        "revenue_base": 11710517.17
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 20.23,
+        "natural_capital_debt": 48.15,
+        "opex_base": 12851349.03,
+        "revenue_base": 14071994.81
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 2.55,
+        "natural_capital_debt": 61.35,
+        "opex_base": 18074513.42,
+        "revenue_base": 15566993.1
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 67441188.82,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -2695663.63,
+      "synergy_multiplier": 0.3226,
+      "tco2e_emissions": 1012.0,
+      "total_ncd": 0.0
+    },
+    "round": 2
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 24.16,
+        "natural_capital_debt": 71.16,
+        "opex_base": 9395786.07,
+        "revenue_base": 9416577.41
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 36.63,
+        "natural_capital_debt": 63.84,
+        "opex_base": 11478753.42,
+        "revenue_base": 10916708.79
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 20.02,
+        "natural_capital_debt": 56.51,
+        "opex_base": 10680576.4,
+        "revenue_base": 13380525.04
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 3.4,
+        "natural_capital_debt": 78.5,
+        "opex_base": 24720455.95,
+        "revenue_base": 14755923.0
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 56344383.62,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -7805837.6,
+      "synergy_multiplier": 0.3097,
+      "tco2e_emissions": 945.4,
+      "total_ncd": 0.0
+    },
+    "round": 3
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 15.71,
+        "natural_capital_debt": 83.4,
+        "opex_base": 8807913.41,
+        "revenue_base": 8231340.73
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 27.43,
+        "natural_capital_debt": 72.52,
+        "opex_base": 10573681.31,
+        "revenue_base": 9372047.74
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 11.82,
+        "natural_capital_debt": 61.63,
+        "opex_base": 9024380.06,
+        "revenue_base": 11893100.1
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 94.32,
+        "opex_base": 34602331.76,
+        "revenue_base": 13090004.8
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 31751917.1,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -20421813.17,
+      "synergy_multiplier": 0.2973,
+      "tco2e_emissions": 527.0,
+      "total_ncd": 0.0
+    },
+    "round": 4
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 8.77,
+        "natural_capital_debt": 98.28,
+        "opex_base": 8089444.52,
+        "revenue_base": 8486646.07
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 19.78,
+        "natural_capital_debt": 83.05,
+        "opex_base": 9549034.31,
+        "revenue_base": 9602850.9
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 5.11,
+        "natural_capital_debt": 67.84,
+        "opex_base": 7472602.51,
+        "revenue_base": 12200005.57
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 113.57,
+        "opex_base": 47341782.4,
+        "revenue_base": 13496667.04
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": -1307635.46,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -28666694.16,
+      "synergy_multiplier": 0.2854,
+      "tco2e_emissions": 326.7,
+      "total_ncd": 0.0
+    },
+    "round": 5
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 10.24,
+        "natural_capital_debt": 117.38,
+        "opex_base": 7507469.94,
+        "revenue_base": 7992666.46
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 20.59,
+        "natural_capital_debt": 96.68,
+        "opex_base": 8733467.66,
+        "revenue_base": 9039896.16
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 6.8,
+        "natural_capital_debt": 76.05,
+        "opex_base": 6290579.8,
+        "revenue_base": 11711612.66
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 2.0,
+        "natural_capital_debt": 138.21,
+        "opex_base": 68786553.46,
+        "revenue_base": 13067210.16
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": -51731554.75,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -49506685.42,
+      "synergy_multiplier": 0.274,
+      "tco2e_emissions": 373.7,
+      "total_ncd": 0.0
+    },
+    "round": 6
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 122.57,
+        "opex_base": 6405765.96,
+        "revenue_base": 8353110.28
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 6.35,
+        "natural_capital_debt": 98.15,
+        "opex_base": 7204050.28,
+        "revenue_base": 9166201.43
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 71.48,
+        "opex_base": 4936824.54,
+        "revenue_base": 11804280.51
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 147.45,
+        "opex_base": 89401662.99,
+        "revenue_base": 13033770.49
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": -168687906.86,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -65590941.06,
+      "synergy_multiplier": 0.263,
+      "tco2e_emissions": 58.2,
+      "total_ncd": 0.0
+    },
+    "round": 7
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 2.0,
+        "natural_capital_debt": 149.81,
+        "opex_base": 8826443.2,
+        "revenue_base": 6729249.17
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 7.97,
+        "natural_capital_debt": 120.36,
+        "opex_base": 9928481.95,
+        "revenue_base": 7275262.46
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 2.0,
+        "natural_capital_debt": 87.0,
+        "opex_base": 6802843.21,
+        "revenue_base": 9697743.16
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 2.0,
+        "natural_capital_debt": 180.59,
+        "opex_base": 172990159.77,
+        "revenue_base": 10724568.74
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": -365317111.82,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -164121104.6,
+      "synergy_multiplier": 0.2525,
+      "tco2e_emissions": 112.3,
+      "total_ncd": 0.0
+    },
+    "round": 8
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 0.88,
+        "natural_capital_debt": 184.46,
+        "opex_base": 10574858.37,
+        "revenue_base": 6837616.53
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 6.49,
+        "natural_capital_debt": 148.49,
+        "opex_base": 11897415.06,
+        "revenue_base": 7410741.09
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 0.88,
+        "natural_capital_debt": 106.66,
+        "opex_base": 8150622.64,
+        "revenue_base": 9840312.29
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.88,
+        "natural_capital_debt": 222.88,
+        "opex_base": 291064048.59,
+        "revenue_base": 10973596.24
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": -435351996.52,
+      "cost_of_capital": 0.2,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -286624678.51,
+      "synergy_multiplier": 0.2424,
+      "tco2e_emissions": 72.4,
+      "total_ncd": 0.0
+    },
+    "round": 9
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 228.53,
+        "opex_base": 12285342.72,
+        "revenue_base": 7433577.24
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 0.1,
+        "natural_capital_debt": 184.01,
+        "opex_base": 13821823.08,
+        "revenue_base": 7833199.22
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 131.35,
+        "opex_base": 9468986.64,
+        "revenue_base": 10273941.82
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 276.97,
+        "opex_base": 0.0,
+        "revenue_base": 1000000.0
+      }
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": -385518021.51,
+      "cost_of_capital": 0.22,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": -9035434.16,
+      "synergy_multiplier": 0.2327,
+      "tco2e_emissions": 0.8,
+      "total_ncd": 0.0
+    },
+    "round": 10
+  },
+  {
+    "terminal": {
+      "archetype": "derisked_safe_haven",
+      "m_r": 1.2,
+      "terminal_valuation": 0.0
+    }
+  }
+]

@@ -59,15 +59,17 @@ Everything else is elastic. These are not.
 
 ---
 
-## Phase 2 — The safety net (D+2 to D+7) — **the gate for everything after**
+## Phase 2 — The safety net (D+2 to D+7) — 🟡 **3 of 7 done, 2026-08-02**
+
+*Done: 2.1 financial golden trace, 2.3 RNG restore fixture, 2.5 route-guard ratchet + 5 PII routes fixed. Remaining: 2.2, 2.4, 2.6, 2.7. Suite: **1,893 passed**, 2 pre-existing sandbox failures.*
 
 | # | Task | Effort | Status |
 |---|---|---|---|
-| 2.1 | **#9 Financial golden trace.** Clone `test_stakeholder_golden_trace.py` onto the money surface: treasury, EBITDA, tCO₂e, synergy, per-BU revenue/opex/CI, plus final M_R and terminal valuation. Synthetic committed script (you have no recorded run — §9.6). Pin to `tests/golden/financial_trace.json`, same rebaseline ritual | 2 days | 🔴 **Highest value in the plan** |
+| 2.1 | ✅ **Done.** `tests/test_financial_golden_trace.py` + `tests/golden/financial_trace.json`, 6 tests, deterministic. **Building it found that a faithful money oracle must replicate `post_tick` AND the router's reporting-truth resync** — without the resync the engine's mid-pipeline `historical_ebitda` persists and compounds to −26bn on a zero-capex run. Also: I claimed it covered the three unseeded engines, then instrumented and counted — a full run makes exactly **3** bare-`random` draws and those engines never fire. Claim corrected; the count is now a pinned invariant that fails in both directions. **#9 Financial golden trace.** Clone `test_stakeholder_golden_trace.py` onto the money surface: treasury, EBITDA, tCO₂e, synergy, per-BU revenue/opex/CI, plus final M_R and terminal valuation. Synthetic committed script (you have no recorded run — §9.6). Pin to `tests/golden/financial_trace.json`, same rebaseline ritual | 2 days | 🔴 **Highest value in the plan** |
 | 2.2 | **#10** Replace the tautological INV-1 with the real treasury waterfall equation. `RoundLedger` already records every term | 3 h | 🔴 |
-| 2.3 | **#32** Autouse fixture that snapshots/restores `random.getstate()`. 18 files seed the global RNG; none restore. Without this a green run is not evidence the next run is green | 1 h | 🔴 |
+| 2.3 | ✅ **Done** in `tests/conftest.py`. **#32** Autouse fixture that snapshots/restores `random.getstate()`. 18 files seed the global RNG; none restore. Without this a green run is not evidence the next run is green | 1 h | 🔴 |
 | 2.4 | **#40** Run the golden traces under **Postgres** in the existing `backend-postgres` CI job. Production is Postgres; all 1,853 tests are memory-mode | 4 h | 🔴 |
-| 2.5 | **#7** Two RBAC tripwires: every `@admin_router` route has a `Depends(require_*)`; every route with `{session_id}`/`{cohort_id}` calls `_assert_session_ownership`. Allowlist the deliberate exceptions | 3 h + fixes | 🟠 |
+| 2.5 | ✅ **Done** as a **ratchet** — `tests/test_admin_route_guards.py`, 11 tests. Measured: of **286** admin routes, **69 had no role guard** and **68 session-scoped routes never checked ownership**. Fixing 137 gaps five days before a cohort would be reckless (a wrongly tightened guard locks a facilitator out mid-workshop), so the counts are ceilings that may only go down, with a slack check so progress gets banked. **Fixed outright**: `/{session_id}/debrief`, `/{session_id}/peer-evaluations`, `/{session_id}/bonuses`, `/annotations/{session_id}`, `/{session_id}/messages` — all served student PII or assessment data with no check of any kind. Ratchet mutation-verified. **#7** Two RBAC tripwires: every `@admin_router` route has a `Depends(require_*)`; every route with `{session_id}`/`{cohort_id}` calls `_assert_session_ownership`. Allowlist the deliberate exceptions | 3 h + fixes | 🟠 |
 | 2.6 | **#31** Port `test_e2e_full_flow.py` into `backend/tests/` as real pytest — patch `_commit_timestamps` instead of `time.sleep(5.2)`, delete every `if r.status_code == 200:` guard, assert *values* at game over | 1 day | 🟠 |
 | 2.7 | Confirm CI is actually gating (branch protection + Railway "Wait for CI"). **The 6 red pacing tests on your disk are the argument**: a tripwire nothing runs is not a control | 1 h | 🔴 |
 

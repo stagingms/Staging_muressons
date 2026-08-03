@@ -110,6 +110,32 @@ except Exception:
 
 
 @pytest.fixture(autouse=True)
+def restore_global_rng():
+    """Snapshot and restore the global RNG around every test.
+
+    RNG-1 (2026-08-02). Eighteen test files call `random.seed(...)`; none of
+    them restore it. The engine has twelve sites that draw from that same global
+    stream, so whether a given tick sees a capex overrun, a micro-strike or a
+    black swan depended on which test happened to run before it.
+
+    Two consequences, both bad and both invisible: results changed under `-k`,
+    `-p xdist` or `pytest-randomly`, and a green run was not evidence that the
+    next run would be green. The golden traces depend on exactly the property
+    this fixture provides, so it has to be autouse rather than opt-in.
+
+    This is a workaround, not the fix. The fix is remediation #15 — route every
+    draw through the seeded `event_rng` stream, at which point the global RNG
+    stops being load-bearing at all.
+    """
+    import random as _random
+    state = _random.getstate()
+    try:
+        yield
+    finally:
+        _random.setstate(state)
+
+
+@pytest.fixture(autouse=True)
 def clear_memory_db():
     """Clear transient global state before every test so nothing cascades."""
     try:
