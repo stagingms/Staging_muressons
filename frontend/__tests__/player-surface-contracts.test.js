@@ -451,3 +451,27 @@ describe('results deep dives', () => {
   });
 });
 
+// ── one position indicator per screen ───────────────────────────────────────
+
+describe('where-am-I is stated once', () => {
+  const fo = read('app/components/FocusOverlay.js');
+
+  test('the canvas drops the breadcrumb; the takeover keeps it', () => {
+    // The action bar's step row names all five steps directly beneath the
+    // canvas. Three emoji dots above it were the third statement of position
+    // on one screen. But the takeover variant is the CANVAS_FIRST rollback —
+    // a fullscreen overlay that COVERS the action bar — so removing the
+    // breadcrumb outright would leave that path with no indicator at all.
+    expect(fo).toMatch(/\{variant !== 'inline' && \(/);
+    expect(fo).toMatch(/styles\.breadcrumb/);
+  });
+
+  test('the header still names nothing, and the step row still names everything', () => {
+    const rc = read('app/components/RoundChecklist.js');
+    expect(fo).not.toMatch(/styles\.stepLabel/);
+    for (const step of ['Briefing', 'Decision', 'Capital', 'Commit']) {
+      expect(rc).toContain(step);
+    }
+  });
+});
+

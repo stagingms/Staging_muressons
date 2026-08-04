@@ -94,7 +94,21 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
         {children}
       </div>
 
-      {/* ── Step Breadcrumb ── */}
+      {/* ── Step Breadcrumb ──
+          INLINE ONLY DROPS IT. In the canvas the action bar's step row sits
+          directly beneath this — "Briefing · Materiality assessment · Decision
+          · Capital · Commit", named and marked — so three emoji dots above it
+          were the third statement of where you are on one screen, after the
+          header (now gone) and the bar. Named steps beat dotted ones anyway:
+          a dot tells you there are five things and you are on the third; the
+          words tell you the third is Decision.
+
+          TAKEOVER KEEPS IT. That variant is the CANVAS_FIRST rollback — a
+          fullscreen overlay covering the cockpit, and therefore covering the
+          action bar. Removing the breadcrumb there would leave a player with
+          no position indicator at all, which is a worse screen than the one
+          this change improves. */}
+      {variant !== 'inline' && (
       <div className={styles.breadcrumb}>
         {steps.flatMap((s, i) => {
           const els = [
@@ -123,6 +137,7 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
           return els;
         })}
       </div>
+      )}
     </>
   ) : null;
 
