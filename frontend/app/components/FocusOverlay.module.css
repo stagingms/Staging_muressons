@@ -1020,6 +1020,7 @@
 @media (prefers-reduced-motion: reduce) {
   .constraintLine { transition: none; }
 }
+<<<<<<< HEAD
 
 /* ═══════════════════════════════════════════════════════════════════
    THE OPTION CARDS.
@@ -1153,3 +1154,5 @@
   .opt { transition: none; }
 }
 
+=======
+>>>>>>> ui/player-surface-phases-0-4

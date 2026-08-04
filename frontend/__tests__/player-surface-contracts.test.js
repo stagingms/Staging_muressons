@@ -236,7 +236,11 @@ describe('currency symbol has exactly one source', () => {
     }
     // Fails in BOTH directions, like the ui-budgets ledger: converting copy to
     // the session currency is welcome, but it must lower this number on purpose.
+<<<<<<< HEAD
     expect(count).toBe(116);
+=======
+    expect(count).toBe(117);
+>>>>>>> ui/player-surface-phases-0-4
   });
 
   test('format.js carries the fixed-unit formatters the components now share', () => {

@@ -112,7 +112,11 @@ function subTwelve(file) {
 }
 
 const TYPE_FLOOR_DEBT = {
+<<<<<<< HEAD
   'app/components/ExecutiveCockpit.js': 136,
+=======
+  'app/components/ExecutiveCockpit.js': 140,
+>>>>>>> ui/player-surface-phases-0-4
   'app/components/ExecutiveCockpit.module.css': 36,
   'app/components/FocusOverlay.module.css': 8,
   'app/components/RoundBriefing.js': 12,
@@ -309,7 +313,11 @@ const SEMANTIC_HEX = new RegExp(
   ].join('|') + ')\\b', 'gi');
 
 const HUE_DEBT = {
+<<<<<<< HEAD
   'app/components/ExecutiveCockpit.js': 164,
+=======
+  'app/components/ExecutiveCockpit.js': 171,
+>>>>>>> ui/player-surface-phases-0-4
   'app/components/ExecutiveCockpit.module.css': 7,
   'app/components/FocusOverlay.js': 2,
   'app/components/RoundBriefing.js': 14,
