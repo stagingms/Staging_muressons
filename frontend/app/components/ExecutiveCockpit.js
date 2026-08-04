@@ -102,6 +102,25 @@ const CANVAS_FIRST = true;
    only its host and its layout are. */
 const ACTION_BAR = true;
 
+/* SINGLE_CTA — one primary action per screen, in the bar, whose label and
+   behaviour follow the stage.
+
+   Before: the canvas ended in "Lock Decision & Continue →" and the bar below
+   it said "Allocate your capital next". Two buttons, 100px apart, one of them
+   the round's primary action and the other ALSO presenting as primary — and
+   the bar's one described a state rather than offering the act, because its
+   click always meant "commit" whatever stage you were on. A team reads two
+   buttons as a choice; there was no choice.
+
+   After: the bar's button ADVANCES while there is a stage left and COMMITS
+   when there is not, so the label is always the next thing you do. The
+   in-canvas button stops rendering for the stages the bar now covers.
+
+   One-line rollback, same pattern as CANVAS_FIRST and ACTION_BAR. This is the
+   change to revert first if the commit flow misbehaves, because it is the only
+   one that touches what the primary button DOES. */
+const SINGLE_CTA = true;
+
 /**
  * ExecutiveCockpit — Premium enterprise dashboard layout.
  *
@@ -2106,13 +2125,15 @@ export default function ExecutiveCockpit({
               );
             })()}
 
-            <button
-              className={focusStyles.actionButton}
-              disabled={!hasDecision}
-              onClick={() => handleFocusAdvance('allocation')}
-            >
-              {hasDecision ? 'Lock Decision & Continue →' : 'Select an option above to continue'}
-            </button>
+            {!SINGLE_CTA && (
+              <button
+                className={focusStyles.actionButton}
+                disabled={!hasDecision}
+                onClick={() => handleFocusAdvance('allocation')}
+              >
+                {hasDecision ? 'Lock Decision & Continue →' : 'Select an option above to continue'}
+              </button>
+            )}
           </div>
         )}
 
@@ -2210,27 +2231,29 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
-            <button
-              className={focusStyles.actionButton}
-              disabled={Object.keys(allocations).length === 0}
-              onClick={() => {
-                // Go straight to the confirm flow — same trigger as the cockpit
-                // footer — instead of dismissing to the dashboard first. The
-                // 'Review Your Decisions' modal already provides review +
-                // Go-Back-&-Edit, so the dashboard detour was a redundant step.
-                if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
-                if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
-                const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
-                if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
-                // 7.4 (UX audit): run the FULL gate set (side-track, R1 map,
-                // R2 matrix, quiz) before the review modal — never let the
-                // player review+confirm and only then be refused.
-                if (onPreflight && !onPreflight()) return;
-                setShowPredictionModal(true);
-              }}
-            >
-              {Object.keys(allocations).length > 0 ? 'Review & Commit →' : 'Allocate capital to at least one BU'}
-            </button>
+            {!SINGLE_CTA && (
+              <button
+                className={focusStyles.actionButton}
+                disabled={Object.keys(allocations).length === 0}
+                onClick={() => {
+                  // Go straight to the confirm flow — same trigger as the cockpit
+                  // footer — instead of dismissing to the dashboard first. The
+                  // 'Review Your Decisions' modal already provides review +
+                  // Go-Back-&-Edit, so the dashboard detour was a redundant step.
+                  if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
+                  if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
+                  const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
+                  if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
+                  // 7.4 (UX audit): run the FULL gate set (side-track, R1 map,
+                  // R2 matrix, quiz) before the review modal — never let the
+                  // player review+confirm and only then be refused.
+                  if (onPreflight && !onPreflight()) return;
+                  setShowPredictionModal(true);
+                }}
+              >
+                {Object.keys(allocations).length > 0 ? 'Review & Commit →' : 'Allocate capital to at least one BU'}
+              </button>
+            )}
           </div>
         )}
 
@@ -3488,25 +3511,55 @@ export default function ExecutiveCockpit({
                           ? { background: 'linear-gradient(135deg, #92400e, #78350f)', color: '#ffffff', borderColor: '#f59e0b' }
                           : { background: '#1e293b', color: '#e2e8f0', borderColor: '#475569' };
                   const btnIcon = commitResults ? '✅' : overAllocated ? '⚠️' : fullyReady ? '▶' : partialReady ? '⏳' : '🔒';
+
+                  /* THE ONE ACTION. Under SINGLE_CTA this button advances while
+                     there is a stage left and commits when there is not, so its
+                     label is always the next thing the player does rather than a
+                     description of what is missing. `advanceTo` is null when the
+                     button means "commit".
+
+                     Guarded on isFocusActive as well as focusStep: with the
+                     canvas dismissed there is no stage to advance THROUGH, and
+                     the bar must keep its original meaning — commit — or a
+                     player on the dashboard would press a button that silently
+                     did nothing. */
+                  const advanceTo = (SINGLE_CTA && isFocusActive && !commitResults)
+                    ? (focusStep === 'strategy' && hasDecision ? 'allocation' : null)
+                    : null;
+                  const ctaLabel = commitResults ? 'Committed'
+                    : advanceTo ? 'Continue to capital →'
+                    : SINGLE_CTA && isFocusActive && focusStep === 'strategy' ? 'Choose a strategic option'
+                    : overAllocated ? 'Reduce your allocation to commit'
+                    : fullyReady ? 'Commit this round'
+                    : partialReady ? 'Allocate your capital next'
+                    : hasDecision ? 'Allocate your capital next'
+                    : hasReadBriefing ? 'Choose a strategic option'
+                    : 'Read the briefing to begin';
+                  const ctaIcon = advanceTo ? '▶' : btnIcon;
+
                   return (
                     <motion.button
                       className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
                       style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, letterSpacing: 0, textTransform: 'none', ...btnStyle, border: `1px solid ${btnStyle.borderColor}`, transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }}
                       disabled={!!commitResults}
                       onClick={() => {
-                        if (!commitResults) {
-                          if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
-                          if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
-                          if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
-                          // 7.4 (UX audit): full gates before review, not after.
-                          if (onPreflight && !onPreflight()) return;
-                          setShowPredictionModal(true);
-                        }
+                        if (commitResults) return;
+                        if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
+                        /* Advancing is not committing: it runs no gates, because
+                           moving from the decision to the allocation is not the
+                           irreversible act. The gates below still guard the
+                           commit itself, unchanged. */
+                        if (advanceTo) { handleFocusAdvance(advanceTo); return; }
+                        if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
+                        if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
+                        // 7.4 (UX audit): full gates before review, not after.
+                        if (onPreflight && !onPreflight()) return;
+                        setShowPredictionModal(true);
                       }}
                       whileHover={{ scale: commitResults ? 1 : 1.02 }}
                       whileTap={{ scale: commitResults ? 1 : 0.98 }}
                     >
-                      {btnIcon} {commitResults ? 'Committed' : overAllocated ? 'Reduce your allocation to commit' : fullyReady ? 'Commit this round' : partialReady ? 'Allocate your capital next' : hasDecision ? 'Allocate your capital next' : hasReadBriefing ? 'Choose a strategic option' : 'Read the briefing to begin'}
+                      {ctaIcon} {ctaLabel}
                     </motion.button>
                   );
                 })()}

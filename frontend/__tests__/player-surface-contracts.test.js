@@ -272,3 +272,54 @@ describe('currency symbol has exactly one source', () => {
   });
 });
 
+// ── one primary action, and every gate still on it ──────────────────────────
+
+describe('the single CTA', () => {
+  const src = read(COCKPIT);
+
+  test('it is a one-line rollback, like the two before it', () => {
+    expect(src).toMatch(/const SINGLE_CTA = true;/);
+    // the two stage buttons it replaces must be GUARDED, not deleted, or the
+    // flag rolls back to a screen with no way forward at all
+    expect((src.match(/\{!SINGLE_CTA && \(/g) || []).length).toBe(2);
+  });
+
+  test('advancing runs no gates; committing runs all of them', () => {
+    // Moving from the decision to the allocation is not the irreversible act,
+    // so it must not be gated. The commit still is — and the order matters:
+    // observer, then decision, then allocation, then preflight, then modal.
+    const onClick = src.slice(src.indexOf('if (commitResults) return;'));
+    const iObserver  = onClick.indexOf('showStageWarning(\'Observer view');
+    const iAdvance   = onClick.indexOf('if (advanceTo)');
+    const iDecision  = onClick.indexOf('Select a Strategic Option');
+    const iAlloc     = onClick.indexOf('Allocate capital across');
+    const iPreflight = onClick.indexOf('onPreflight()');
+    const iModal     = onClick.indexOf('setShowPredictionModal(true)');
+    for (const [name, i] of Object.entries({ iObserver, iAdvance, iDecision, iAlloc, iPreflight, iModal })) {
+      expect({ [name]: i > -1 }).toEqual({ [name]: true });
+    }
+    // observer refusal precedes everything, including the advance
+    expect(iObserver).toBeLessThan(iAdvance);
+    // and the advance returns before any commit gate is consulted
+    expect(iAdvance).toBeLessThan(iDecision);
+    expect(iDecision).toBeLessThan(iAlloc);
+    expect(iAlloc).toBeLessThan(iPreflight);
+    expect(iPreflight).toBeLessThan(iModal);
+  });
+
+  test('the bar still means COMMIT when there is no canvas to advance through', () => {
+    // With the canvas dismissed there is no stage machine on screen. If the
+    // button kept trying to advance, a player on the dashboard would press the
+    // round's primary action and watch nothing happen.
+    expect(src).toMatch(/const advanceTo = \(SINGLE_CTA && isFocusActive && !commitResults\)/);
+  });
+
+  test('the label names the next act, never the missing state, while advancing', () => {
+    expect(src).toContain("'Continue to capital →'");
+    // and the old in-canvas duplicate wording is gone from the live path
+    expect(src).toContain("'Lock Decision & Continue →'");   // still present, but behind !SINGLE_CTA
+    const guarded = src.slice(src.indexOf('{!SINGLE_CTA && ('));
+    expect(guarded).toContain('Lock Decision & Continue →');
+  });
+});
+
