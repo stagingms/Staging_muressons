@@ -236,7 +236,10 @@ export function KPIStrip({
      round-1 player has no history, and inventing a zero would state that
      nothing changed rather than that nothing is known yet. */
   const move = (now, then, format, higherIsBetter = true) => {
-    if (then == null || now == null) return { text: prevRound, dir: null };
+    /* No prior snapshot — round 1, or a session whose history has not yet
+       accumulated one. An empty line is honest; "vs R1" alone reads as a
+       comparison that was made and came back blank. */
+    if (then == null || now == null) return { text: '', dir: null };
     const d = now - then;
     if (d === 0) return { text: `unchanged ${prevRound}`, dir: null };
     return {
@@ -259,12 +262,16 @@ export function KPIStrip({
       text: 'teams', dir: null,
     });
   }
+  /* SIGN. projectedCost is opt.impacts.treasury, and the engine writes a
+     COST as a NEGATIVE treasury delta — Option A's -2.5M means 2.5M leaves.
+     I had this inverted, so a decision that spent 2.5M announced itself as
+     "freed this round" in the positive colour. */
   if (projectedCost !== 0 && projectedCost != null) {
     tiles.push({
       label: 'Staged',
       value: fmt(Math.abs(projectedCost)),
-      text: projectedCost > 0 ? 'to spend this round' : 'freed this round',
-      dir: projectedCost > 0 ? 'down' : 'up',
+      text: projectedCost < 0 ? 'to spend this round' : 'freed this round',
+      dir: projectedCost < 0 ? 'down' : 'up',
     });
   }
 

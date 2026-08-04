@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
 import styles from './InvestmentMatrix.module.css';
 import { Abbr } from './Glossary';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -70,37 +69,6 @@ function PoolDonut({ pctUsed }) {
 }
 
 /* ── BU Health Calculator ─────────────────────────────────── */
-function getBuHealth(bu) {
-    const margin = bu.revenue_base > 0 ? (bu.revenue_base - bu.opex_base) / bu.revenue_base * 100 : 0;
-    const slo = bu.social_license_score || 0;
-    const gov = bu.governance_risk_score || 0;
-    if (margin < 15 || slo < 40 || gov > 25) return 'danger';
-    if (margin < 25 || slo < 55 || gov > 15) return 'warning';
-    return 'good';
-}
-
-/* CA-C: a one-line investment thesis derived from the SAME thresholds as
-   getBuHealth — reframes the operational metrics as a "fund here because…"
-   verdict at the moment of allocation (the triple-bottom-line lesson). Purely
-   presentational; reads the same fields, invents no numbers. */
-function getBuThesis(bu) {
-    const margin = bu.revenue_base > 0 ? (bu.revenue_base - bu.opex_base) / bu.revenue_base * 100 : 0;
-    const slo = bu.social_license_score || 0;
-    const gov = bu.governance_risk_score || 0;
-    const m = Math.round(margin), s = Math.round(slo), g = Math.round(gov);
-    // danger precedence (mirrors getBuHealth)
-    if (margin < 15) return { verdict: 'At risk', reason: `Thin ${m}% margin` };
-    if (slo < 40)    return { verdict: 'At risk', reason: `Low social licence (${s}/100)` };
-    if (gov > 25)    return { verdict: 'At risk', reason: `High governance risk (${g}%)` };
-    // warning precedence
-    if (margin < 25) return { verdict: 'Watch', reason: `Modest ${m}% margin` };
-    if (slo < 55)    return { verdict: 'Watch', reason: `Social licence ${s}/100` };
-    if (gov > 15)    return { verdict: 'Watch', reason: `Elevated governance risk (${g}%)` };
-    // healthy — lead with the strongest positives
-    return { verdict: 'Healthy', reason: `Strong ${m}% margin · licence ${s}/100` };
-}
-
-/* ── Slider Color (calm→amber→red) ────────────────────────── */
 function getSliderColor(pct, accent) {
     if (pct > 100) return '#ef4444';
     if (pct > 80) return '#f59e0b';
@@ -139,10 +107,6 @@ export default function InvestmentMatrix({
     const sym = currency?.symbol || '$';
     const [csrdIssues, setCsrdIssues] = useState([]);
     const [sortBy, setSortBy] = useState('default');
-    const [hoveredMetric, setHoveredMetric] = useState(null);
-    // CA-C: which BU tiles have their detailed metric gauges expanded (the four
-    // bars are summoned, not ambient). Keyed by bu_id.
-    const [expandedBus, setExpandedBus] = useState({});
     const [draggingBu, setDraggingBu] = useState(null);
     const [shakeId, setShakeId] = useState(null);
 
@@ -215,13 +179,6 @@ export default function InvestmentMatrix({
         else if (sortBy === 'risk') arr.sort((a, b) => (b.governance_risk_score || 0) - (a.governance_risk_score || 0));
         return arr;
     }, [businessUnits, sortBy]);
-
-    // Trend helper — find previous round BU data
-    const getPrevBu = useCallback((buId) => {
-        if (historyData.length < 2) return null;
-        const prev = historyData[historyData.length - 2];
-        return prev?.business_units?.find(b => b.bu_id === buId) || null;
-    }, [historyData]);
 
     // NEW-05: Native input listener map so programmatic slider changes update counters
     // React's synthetic onChange won't fire when external JS calls:
@@ -370,33 +327,16 @@ export default function InvestmentMatrix({
                     const sliderMax = csfPool * 1.20;
                     const pct = csfPool > 0 ? (alloc / csfPool) * 100 : 0;
                     const thumbPct = sliderMax > 0 ? (alloc / sliderMax) * 100 : 0;
-                    const health = getBuHealth(bu);
                     const sliderColor = getSliderColor(pct, meta.accent);
                     const isDimmed = remaining <= 0 && alloc === 0;
                     const isDragging = draggingBu === bu.bu_id;
                     const isShaking = shakeId === bu.bu_id;
-                    const prevBu = getPrevBu(bu.bu_id);
-                    const Icon = meta.Icon;
 
                     // Metric helpers
                     const margin = bu.revenue_base > 0 ? (bu.revenue_base - bu.opex_base) / bu.revenue_base * 100 : 0;
                     const slo = bu.social_license_score || 0;
-                    const gov = bu.governance_risk_score || 0;
-                    const ncd = bu.natural_capital_debt || 0;
 
-                    // Trend arrows
-                    const trendOf = (cur, prevVal) => {
-                        if (prevVal == null) return null;
-                        const d = cur - prevVal;
-                        if (Math.abs(d) < 0.5) return 'flat';
-                        return d > 0 ? 'up' : 'down';
-                    };
 
-                    // Gauge status helper
-                    const gStatus = (val, warn, danger, invert) => {
-                        if (invert) return val > danger ? 'Danger' : val > warn ? 'Warning' : 'Good';
-                        return val < danger ? 'Danger' : val < warn ? 'Warning' : 'Good';
-                    };
 
                     // Find issues that target this BU
                     const buFundedIssues = fundedIssues.filter(issue =>
@@ -414,45 +354,41 @@ export default function InvestmentMatrix({
                         <div key={bu.bu_id} className={cardClasses}
                             style={{ '--bu-accent': meta.accent, animationDelay: `${i * 100}ms` }}>
 
-                            {/* Header */}
+                            {/* Header — five things, and the owner named all five:
+                                name, revenue and margin, social licence, the
+                                slider, the amount.
+
+                                WHAT LEFT, so it is on the record rather than in a
+                                diff: the BU glyph (decoration — the name is the
+                                identifier), the health verdict chip, the thesis
+                                line ("fund here because…"), and the revenue
+                                sparkline. Governance risk and natural-capital
+                                debt left with the metrics drawer. All of those
+                                still exist elsewhere: the comparison matrix on
+                                the decision stage carries gov risk and natural
+                                capital per OPTION, and the round retrospect
+                                carries the engine's own account. What is gone
+                                from THIS screen is the per-BU derivation of
+                                them. If the thesis line is missed, it is the one
+                                worth arguing back for — it was the only sentence
+                                on the stage that said why a unit deserved money.
+
+                                Social licence earns its place: it is the metric
+                                the funding decision most directly moves, and it
+                                gates the green premium. It reads as a score with
+                                its scale, never a bare number. */}
                             <div className={styles.sliderHeader}>
-                                <div className={styles.buIconWrap}><Icon /></div>
                                 <div className={styles.buInfo}>
-                                    {/* CA-C/CA-D: name + health verdict chip on one row
-                                        (inline, so it never collides with the alloc
-                                        amount), then revenue and the thesis line. */}
                                     <span className={styles.buNameRow}>
                                         <span className={styles.buLabel}>{meta.label}</span>
-                                        {(() => {
-                                            const thesis = getBuThesis(bu);
-                                            return (
-                                                <span className={`${styles.healthChip} ${styles[`healthChip${health.charAt(0).toUpperCase() + health.slice(1)}`]}`}
-                                                    title={`${thesis.verdict} — ${thesis.reason}`}>
-                                                    <span className={styles.healthDot} />
-                                                    <span className={styles.healthVerdict}>{thesis.verdict}</span>
-                                                </span>
-                                            );
-                                        })()}
                                     </span>
-                                    <span className={styles.buRevenue} title="Revenue — total income generated by this business unit">
-                                        Rev: {sym}{(bu.revenue_base / 1_000_000).toFixed(1)}M
+                                    <span className={styles.buRevenue} title="Revenue, operating margin, and the social licence this unit holds — the three figures that decide whether capital here compounds">
+                                        Rev {sym}{(bu.revenue_base / 1_000_000).toFixed(1)}M
+                                        <span aria-hidden="true"> · </span>
+                                        margin {margin.toFixed(0)}%
+                                        <span aria-hidden="true"> · </span>
+                                        social licence {Math.round(slo)}/100
                                     </span>
-                                    {/* CA-C: the thesis line — "fund here because…" */}
-                                    <span className={styles.buThesis} title={getBuThesis(bu).reason}>{getBuThesis(bu).reason}</span>
-                                </div>
-
-                                <div className={styles.sparkWrap}>
-                                    {historyData.length > 0 && (
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={historyData.map(h => {
-                                                const hbu = h.business_units?.find(b => b.bu_id === bu.bu_id);
-                                                return { val: hbu ? hbu.revenue_base : 0 };
-                                            })}>
-                                                <YAxis domain={['dataMin', 'dataMax']} hide />
-                                                <Line type="monotone" dataKey="val" stroke={meta.accent} strokeWidth={1.5} dot={false} isAnimationActive={false} />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    )}
                                 </div>
 
                                 <span className={styles.allocAmount}>
@@ -486,57 +422,11 @@ export default function InvestmentMatrix({
                                 </div>
                             </div>
 
-                            {/* Metric gauge bars — CA-C: summoned, not ambient.
-                                The four operational metrics (incl. any that are
-                                uniformly zero this round) live behind a toggle so
-                                the default tile leads with the health thesis and
-                                the slider, not four faint bars. */}
-                            {expandedBus[bu.bu_id] && (
-                            <div className={styles.gaugesGrid}>
-                                {[
-                                    { key: 'margin', label: 'Margin', val: margin, max: 60, display: `${margin.toFixed(1)}%`, invert: false, warn: 25, danger: 15, prev: prevBu ? (prevBu.revenue_base > 0 ? (prevBu.revenue_base - prevBu.opex_base) / prevBu.revenue_base * 100 : 0) : null },
-                                    { key: 'slo', label: 'Social Lic.', val: slo, max: 100, display: `${Math.round(slo)}/100`, invert: false, warn: 55, danger: 40, prev: prevBu?.social_license_score },
-                                    { key: 'gov', label: 'Gov Risk', val: gov, max: 50, display: `${Math.round(gov)}%`, invert: true, warn: 15, danger: 25, prev: prevBu?.governance_risk_score },
-                                    { key: 'ncd', label: 'Nat. Debt', val: ncd / 1_000_000, max: 5, display: `${sym}${(ncd / 1_000_000).toFixed(1)}M`, invert: true, warn: 0.5, danger: 2, prev: prevBu ? (prevBu.natural_capital_debt || 0) / 1_000_000 : null },
-                                ].map(m => {
-                                    const status = gStatus(m.val, m.warn, m.danger, m.invert);
-                                    const trend = trendOf(m.val, m.prev);
-                                    const highlighted = hoveredMetric === m.key;
-                                    return (
-                                        <div key={m.key}
-                                            className={`${styles.gauge} ${highlighted ? styles.gaugeHighlighted : ''}`}
-                                            onMouseEnter={() => setHoveredMetric(m.key)}
-                                            onMouseLeave={() => setHoveredMetric(null)}>
-                                            <div className={styles.gaugeHeader}>
-                                                <span className={styles.gaugeLabel}>{m.label}</span>
-                                                <span className={`${styles.gaugeValue} ${styles[`gaugeValue${status}`]}`}>
-                                                    {m.display}
-                                                    {trend && <span className={`${styles.trendArrow} ${styles[`trend${trend.charAt(0).toUpperCase() + trend.slice(1)}`]}`}>
-                                                        {trend === 'up' ? '▲' : trend === 'down' ? '▼' : '—'}
-                                                    </span>}
-                                                </span>
-                                            </div>
-                                            <div className={styles.gaugeTrack}>
-                                                <div className={`${styles.gaugeFill} ${styles[`gaugeFill${status}`]}`}
-                                                    style={{ width: `${Math.min(100, (m.val / m.max) * 100)}%` }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            )}
-
-                            {/* Footer — % of pool + the metrics expand toggle */}
+                            {/* Footer — how much of the pool this unit is taking.
+                                The metrics drawer went with the four gauges it
+                                held; see the header note. */}
                             <div className={styles.sliderFooter}>
                                 <span className={styles.footerLabel}>{pct.toFixed(1)}% of pool</span>
-                                <button
-                                    type="button"
-                                    className={styles.metricsToggle}
-                                    aria-expanded={!!expandedBus[bu.bu_id]}
-                                    onClick={() => setExpandedBus(prev => ({ ...prev, [bu.bu_id]: !prev[bu.bu_id] }))}
-                                >
-                                    {expandedBus[bu.bu_id] ? 'Hide metrics ▴' : 'Metrics ▾'}
-                                </button>
                             </div>
 
                             {/* Render Funded Mitigations for this BU */}

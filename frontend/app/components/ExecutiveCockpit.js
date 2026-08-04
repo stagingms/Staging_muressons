@@ -502,6 +502,17 @@ export default function ExecutiveCockpit({
   const foreshadowingSignals = events?.foreshadowing_signals || commitResults?.events?.foreshadowing_signals || [];
   const previousGlobalState = history?.length > 0 ? history[history.length - 1]?.global_state : {};
 
+  /* THE ACTUAL PREVIOUS ROUND. previousGlobalState above is history's LAST
+     entry, which is this round's own snapshot — so every delta computed from
+     it is zero. The belt printed "unchanged vs R1" across the board on a
+     screen where treasury had moved by millions, which is how the bug became
+     visible: the older KPI chips render nothing when d === 0, so they had
+     been silently showing no movement for as long as they have existed.
+     InvestmentMatrix already knew this — getPrevBu reads length - 2. */
+  const priorRoundState = history?.length > 1
+    ? history[history.length - 2]?.global_state
+    : null;
+
   // Regulatory Sandbox — active instruments visible to player as "Regulatory Environment"
   const sandboxState = globalState?.regulatory_sandbox || {};
   const activeRegulations = sandboxState?.active_regulations || [];
@@ -1952,7 +1963,7 @@ export default function ExecutiveCockpit({
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda}
               projectedCost={projectedCost} fmtCurrency={fmtCurrency}
-              previous={previousGlobalState} roundNumber={roundNumber}
+              previous={priorRoundState} roundNumber={roundNumber}
               cohortCommits={cohortCommits} cohortTeamCount={cohortTeamCount} />
             {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
             <TurnaroundPhaseChip active={globalState?.turnaround_mode}
@@ -2178,7 +2189,7 @@ export default function ExecutiveCockpit({
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda}
               projectedCost={projectedCost} fmtCurrency={fmtCurrency}
-              previous={previousGlobalState} roundNumber={roundNumber}
+              previous={priorRoundState} roundNumber={roundNumber}
               cohortCommits={cohortCommits} cohortTeamCount={cohortTeamCount} />
             {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
             <TurnaroundPhaseChip active={globalState?.turnaround_mode}
@@ -3555,17 +3566,27 @@ export default function ExecutiveCockpit({
                     ⚠️ Over-allocated by {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0) - (csfPool || 0))}
                   </div>
                 )}
-                {/* ── Projected Impact Widget ── */}
-                {projectedCost !== 0 && !commitResults && (
-                  <div className={`${styles.projectedImpactWidget} ${projectedCost > 0 ? styles.impactNegative : styles.impactPositive}`} style={{ padding: '3px 8px' }}>
-                    <span className={styles.projectedImpactLabel} style={{ fontSize: '0.68rem' }}>
-                      {projectedCost > 0 ? '📉 Cost' : '📈 Gain'}
-                    </span>
-                    <span className={`${styles.projectedImpactValue} ${projectedCost > 0 ? styles.lossValue : styles.gainValue}`} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80', fontSize: '0.7rem' }}>
-                      {projectedCost > 0 ? '↓' : '↑'} {fmtCurrency(Math.abs(projectedCost))}
-                    </span>
-                  </div>
-                )}
+                {/* ── Projected Impact Widget ──
+                    SIGN. projectedCost is opt.impacts.treasury, and the engine
+                    writes a COST as a NEGATIVE treasury delta. Every branch here
+                    read it the other way round, so Option A — which spends
+                    2.5M — announced itself as a GAIN, in green, directly
+                    beneath a belt tile correctly reading "to spend this round".
+                    Two readouts of one number disagreeing about its direction,
+                    on one screen, 1,000px apart. */}
+                {projectedCost !== 0 && !commitResults && (() => {
+                  const spends = projectedCost < 0;
+                  return (
+                    <div className={`${styles.projectedImpactWidget} ${spends ? styles.impactNegative : styles.impactPositive}`} style={{ padding: '3px 8px' }}>
+                      <span className={styles.projectedImpactLabel} style={{ fontSize: '0.68rem' }}>
+                        {spends ? '📉 Cost' : '📈 Frees'}
+                      </span>
+                      <span className={`${styles.projectedImpactValue} ${spends ? styles.lossValue : styles.gainValue}`} style={{ color: spends ? 'var(--danger-text)' : 'var(--positive-text)', fontSize: '0.7rem' }}>
+                        {spends ? '↓' : '↑'} {fmtCurrency(Math.abs(projectedCost))}
+                      </span>
+                    </div>
+                  );
+                })()}
                 {/* #5: Smart Commit Button — reflects decision quality */}
                 {(() => {
                   const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
@@ -3681,6 +3702,10 @@ export default function ExecutiveCockpit({
                   const ctaLabel = commitResults ? 'Committed'
                     : advanceTo ? 'Continue to capital →'
                     : SINGLE_CTA && isFocusActive && focusStep === 'strategy' ? 'Choose a strategic option'
+                    /* On the allocation stage, "Allocate your capital NEXT" is
+                       false — this IS next, the player is standing on it. The
+                       label has to name the act, not point elsewhere. */
+                    : SINGLE_CTA && isFocusActive && focusStep === 'allocation' && allocTotal <= 0 ? 'Allocate capital to commit'
                     : overAllocated ? 'Reduce your allocation to commit'
                     : fullyReady ? 'Commit this round'
                     : partialReady ? 'Allocate your capital next'
