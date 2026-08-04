@@ -554,3 +554,36 @@ describe('countdown timer', () => {
   });
 });
 
+// ── the results screen says why, in the engine's words ──────────────────────
+
+describe('results explanation', () => {
+  const src = read(COCKPIT);
+
+  test('the sentence comes from the catalog, never from the cockpit', () => {
+    // consequenceCatalog.js already maps every engine flag to an explain()
+    // written for a student. Authoring a second sentence here would be a
+    // causal claim the cockpit is not entitled to make.
+    expect(src).toMatch(/lookupConsequence\(k\)/);
+    expect(src).toMatch(/typeof x\.entry\.explain === 'function'/);
+  });
+
+  test('an unrecognised flag yields no sentence, not a guess', () => {
+    expect(src).toMatch(/if \(!pick\) return null;/);
+    expect(src).toMatch(/isIgnoredKey\(k\)/);
+  });
+
+  test('a throwing explain() cannot take the results screen down', () => {
+    // These are arbitrary functions over engine payloads. One bad shape must
+    // not be the thing standing between a team and their outcomes.
+    const block = src.slice(src.indexOf("WHY IT MOVED"), src.indexOf('THE OUTCOME TILES'));
+    expect(block).toMatch(/try \{[\s\S]*?\} catch \{ return null; \}/);
+  });
+
+  test('bad news is picked before good', () => {
+    // When a round both helped and hurt, the cost is what a team needs at the
+    // top; the upside is what they already expected.
+    const block = src.slice(src.indexOf("WHY IT MOVED"), src.indexOf('THE OUTCOME TILES'));
+    expect(block.indexOf("severity === 'bad'")).toBeLessThan(block.indexOf("severity === 'good'"));
+  });
+});
+

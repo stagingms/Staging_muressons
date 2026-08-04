@@ -87,6 +87,7 @@ import AnnualReport from './AnnualReport';
 import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
 import { currencySymbol, moneyM, price } from '../utils/format';
+import { lookupConsequence, isIgnoredKey } from './consequenceCatalog';
 
 // Phase D (player redesign): CANVAS-FIRST SHELL SWITCH — the one-line
 // rollback. true → the stage flow renders inline in the center column (the
@@ -2520,6 +2521,45 @@ export default function ExecutiveCockpit({
                 >📄 Year {Math.ceil(roundNumber / 2)} Integrated Report ready — view</button>
               </div>
             )}
+
+            {/* WHY IT MOVED, in the engine's own words.
+                The mock puts an explanation under the headline. I left it out
+                first time on the grounds that causation belongs to the
+                consequence replay — but the replay is now behind a link, so the
+                one screen whose job is "what happened" said only WHAT and never
+                WHY unless the player clicked.
+
+                This is not a new sentence. consequenceCatalog.js already maps
+                every engine flag to an explain() written for a student, and
+                ConsequenceReplay already renders them. This takes the most
+                severe one that fired and puts it under the headline. Nothing is
+                authored here and nothing is inferred: an unrecognised flag
+                yields no sentence rather than a guess.
+
+                'bad' before 'good' deliberately. When a round both helped and
+                hurt, the thing a team needs at the top is the cost — the
+                upside is what they already expected. */}
+            {(() => {
+              const ev = commitResults.events || {};
+              const ranked = Object.entries(ev)
+                .filter(([k, v]) => v !== null && v !== undefined && v !== false && v !== 0)
+                .filter(([k]) => !isIgnoredKey(k))
+                .map(([k, v]) => ({ entry: lookupConsequence(k), value: v }))
+                .filter((x) => x.entry && typeof x.entry.explain === 'function');
+              const pick = ranked.find((x) => x.entry.severity === 'bad')
+                || ranked.find((x) => x.entry.severity === 'good')
+                || ranked[0];
+              if (!pick) return null;
+              let sentence = null;
+              /* explain() is an arbitrary function over an engine payload. One
+                 bad shape must not be the thing standing between a team and
+                 their outcomes. */
+              try {
+                sentence = pick.entry.explain(pick.value, commitResults.globalState || globalState);
+              } catch { return null; }
+              if (!sentence || typeof sentence !== 'string') return null;
+              return <p className={focusStyles.stageSub}>{sentence}</p>;
+            })()}
 
             {/* THE OUTCOME TILES — WHAT MOVED, not a fixed four.
                 First version listed Treasury, EBITDA, Reputation and Carbon,
