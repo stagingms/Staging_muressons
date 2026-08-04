@@ -512,6 +512,30 @@ body.theme-transitioning::before {
   }
 }
 
+/* ── Numerals ─────────────────────────────────────────────────
+   Any element rendering a figure gets .num. Two things it buys:
+
+   TABULAR FIGURES — proportional digits change width as they change value,
+   so an animated counter visibly jitters and a column of numbers fails to
+   align on the decimal point. InvestmentMatrix applied a mono FACE without
+   this, which is why its 400ms counter tween wobbles.
+
+   ONE NUMERAL FACE — --font-numeral is declared in tokens.css for exactly
+   this and was used once in the whole product; GameOverSummary.js retypes
+   the stack as a string literal 16 times instead.
+   ──────────────────────────────────────────────────────────── */
+.num {
+  font-family: var(--font-numeral, var(--font-mono, ui-monospace, monospace));
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+/* For figures that should stay in the UI face (inline in a sentence) but
+   still align in a column. */
+.num-inline {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 /* ── Mobile Responsive (Improvement #4.6) ────────────────────── */
 @media (max-width: 768px) {
   /* Make cockpit columns stack vertically on mobile */

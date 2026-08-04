@@ -10,12 +10,12 @@
  * the canonical label + unit + delta formatting per metric key.
  */
 
-import { fmtCompact } from './formatCurrency';
+import { money, percent, score as _fmtScore, ratio as _fmtRatio, delta as _fmtDelta, direction } from './format';
 
-const _pct = (v) => (v == null || isNaN(v) ? '—' : `${Math.round(v)}%`);
-const _score = (v) => (v == null || isNaN(v) ? '—' : `${Math.round(v)}`);
-const _ratio = (v) => (v == null || isNaN(v) ? '—' : `${Number(v).toFixed(2)}×`);
-const _money = (v) => (v == null || isNaN(v) ? '—' : fmtCompact(v));
+const _pct = (v) => percent(v, { dp: 0 });
+const _score = _fmtScore;
+const _ratio = _fmtRatio;
+const _money = money;
 
 /**
  * Canonical KPI catalog. key → { label, unit, format, goodDirection }.
@@ -58,9 +58,13 @@ export function formatKpiDelta(key, delta) {
     return { text: '—', isGood: null };
   }
   const meta = KPI[key];
-  const sign = delta > 0 ? '+' : '−';
-  const magnitude = meta ? meta.format(Math.abs(delta)) : _score(Math.abs(delta));
+  /* The old line ended `.replace(/^[$]?/, (m) => m)` — a no-op that replaced
+     the currency symbol with itself. Whatever it was meant to strip, it never
+     did. utils/format.delta owns the sign glyph now (U+2212, not a hyphen, so
+     it aligns in a tabular column). */
   const dir = meta?.goodDirection ?? +1;
-  const isGood = (delta > 0 ? dir : -dir) > 0;
-  return { text: `${sign}${magnitude.replace(/^[$]?/, (m) => m)}`, isGood };
+  return {
+    text: _fmtDelta(delta, meta ? meta.format : _score),
+    isGood: direction(delta, dir > 0) > 0,
+  };
 }

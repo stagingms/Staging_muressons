@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { setCurrencySymbol } from '../utils/format';
 
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -57,6 +58,13 @@ function buildFormatter(symbol) {
 // ─── Provider ────────────────────────────────────────────────────
 export function CurrencyProvider({ children }) {
   const [currency, setCurrencyState] = useState(DEFAULT_CURRENCY);
+
+  /* Push the active symbol down to utils/format.js. Those are plain functions —
+     called from module scope and from non-React helpers — so they cannot read a
+     hook. This effect is the ONLY writer, which is what makes the symbol single-
+     sourced: before it, formatCurrency.js hard-coded '$' and a rupee cohort saw
+     both glyphs on one screen. */
+  useEffect(() => { setCurrencySymbol(currency?.symbol); }, [currency]);
   // NEW-09: Once a session-specific currency is loaded, lock it so the god-mode
   // global-settings fetch cannot silently overwrite it on re-mount between rounds.
   const sessionCurrencyLockedRef = useRef(false);

@@ -6,6 +6,7 @@ import { DM_Sans, JetBrains_Mono } from 'next/font/google';
 import ThemeToggle from './components/ThemeToggle';
 import GlobalTooltip from './components/GlobalTooltip';
 import ErrorBoundary from './components/ErrorBoundary';
+import MotionPrefs from './components/MotionPrefs';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 
 // next/font handles preloading, self-hosting, font-display, and FOUT prevention
@@ -73,9 +74,11 @@ export default function RootLayout({ children }) {
       </head>
       <body suppressHydrationWarning>
         <ErrorBoundary>
-          <CurrencyProvider>
-            {children}
-          </CurrencyProvider>
+          <MotionPrefs>
+            <CurrencyProvider>
+              {children}
+            </CurrencyProvider>
+          </MotionPrefs>
         </ErrorBoundary>
         <ThemeToggle />
         <GlobalTooltip />
