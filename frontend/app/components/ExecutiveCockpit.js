@@ -121,6 +121,11 @@ const ACTION_BAR = true;
    one that touches what the primary button DOES. */
 const SINGLE_CTA = true;
 
+/* The arc is ten rounds. It was written as a bare "10" in the left rail's
+   R2/10 chip and nowhere else; naming it means the header and the chip cannot
+   disagree, and there is one place to change if a shorter format is ever run. */
+const TOTAL_ROUNDS = 10;
+
 /**
  * ExecutiveCockpit — Premium enterprise dashboard layout.
  *
@@ -1255,7 +1260,15 @@ export default function ExecutiveCockpit({
             <span className={styles.liveStatusDot} />
             <span style={{ color: '#10b981', fontWeight: 700 }}>LIVE</span>
             <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
-            <span style={{ color: '#e2e8f0', fontWeight: 700 }}>Round {roundNumber}</span>
+            {/* "of 10" is not decoration. A player mid-session could not tell
+                from this line whether round 2 was a fifth of the way through or
+                a half — the only place the total appeared was a 10px chip in
+                the left rail, which the collapse hides during a decision. Where
+                you are in a ten-round arc changes how you play round 2. */}
+            <span style={{ color: '#e2e8f0', fontWeight: 700 }}>
+              Round {roundNumber}
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> of {TOTAL_ROUNDS}</span>
+            </span>
             <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
             <span>{getRoundLabel(roundNumber)}</span>
             <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
@@ -1434,7 +1447,7 @@ export default function ExecutiveCockpit({
               }[roundTier]}>
                 {{foundation: '🌱 FOUNDATION', crisis: '🔥 CRISIS', integration: '🔗 INTEGRATION', finale: '🏆 FINALE'}[roundTier]}
               </span>
-              <span className={styles.roundContextRound}>R{roundNumber}/10</span>
+              <span className={styles.roundContextRound}>R{roundNumber}/{TOTAL_ROUNDS}</span>
             </div>
             <div className={styles.roundContextTitle}>{activeRoundTitles[roundNumber] || `Module ${roundNumber}`}</div>
             {crisisInfo?.description && (
