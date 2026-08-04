@@ -3183,6 +3183,52 @@ class RoundPacingRequest(BaseModel):
 # is_round_unlocked imported from admin_shared
 
 
+async def _cohort_current_round(session_id: str) -> int:
+    """The highest round any team in this cohort has reached (never < 1).
+
+    A cohort id names the SHELL session; every gameplay row belongs to a player
+    SUB-session, so `fetch_latest_round(cohort_id)` reports the shell's own
+    round — 1, forever — no matter how far the class has played. Anything
+    reasoning about "what round is this cohort on" must aggregate the children.
+
+    Children are resolved through `fetch_all_sessions_raw()`, the parity API
+    that behaves identically in memory and Postgres mode, rather than router's
+    process-local `_session_players` map — which is empty in any worker that
+    did not personally handle the joins.
+
+    Falls back to the session's own round (solo / non-cohort play), then to 1.
+    Every lookup is defensive: a pacing change must never fail because a round
+    probe did.
+    """
+    rounds: list[int] = []
+    try:
+        for s in (await db.fetch_all_sessions_raw() or []):
+            if s.get("parent_cohort_id") != session_id:
+                continue
+            child = s.get("session_id")
+            if not child:
+                continue
+            try:
+                r = await db.fetch_latest_round(child)
+            except Exception:
+                continue
+            if r:
+                rounds.append(int(r))
+    except Exception as exc:
+        _ar_log.warning(f"[PACING] child-round scan failed for {session_id}: {exc}")
+
+    if not rounds:
+        # Solo session, or a cohort whose roster has not joined yet.
+        try:
+            own = await db.fetch_latest_round(session_id)
+            if own:
+                rounds.append(int(own))
+        except Exception:
+            pass
+
+    return max(rounds) if rounds else 1
+
+
 async def _auto_commit_player(player_session_id: str, current_round: int):
     """Auto-commit a single player session with default option_b."""
     try:
@@ -3572,11 +3618,25 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
     # with it, on main, the same day. tests/test_pacing_gated_modes.py has been
     # red ever since. If you are regenerating a large region of this file,
     # re-run that test before committing.
-    _current_round = 1
-    try:
-        _current_round = int(await db.fetch_latest_round(session_id) or 1)
-    except Exception:
-        _current_round = 1  # never block a mode change over a lookup failure
+    # PACING-2 (2026-08-04): the clamp above needs the round the COHORT is on,
+    # and `fetch_latest_round(cohort_id)` is not that number.
+    #
+    # A cohort id names the SHELL session. Gameplay rows belong to the player
+    # SUB-sessions, so the shell sits at round 1 forever: with two teams on
+    # round 4, fetch_latest_round(cohort) still answered 1. Applying Manual
+    # mid-run therefore clamped the ceiling to 1 and locked the round the class
+    # was actually playing — reported as "pacing still doesn't work after I
+    # re-applied it". The PACING-1 fix was right; it was fed the wrong number.
+    #
+    # This was invisible to the PACING-1 tests because every one of them applied
+    # pacing at round 1, where the wrong answer and the right answer are both 1.
+    # test_pacing_midrun.py exists so that can never be true again.
+    #
+    # MAX across teams, not min: a team that is behind must still be able to
+    # catch up inside the unlocked window (the documented free-advance
+    # behaviour), whereas a min would lock the leaders out of the round they
+    # are already in.
+    _current_round = await _cohort_current_round(session_id)
 
     def _gated_ceiling() -> int:
         existing = int(pacing.get("unlocked_round", 999) or 0)
