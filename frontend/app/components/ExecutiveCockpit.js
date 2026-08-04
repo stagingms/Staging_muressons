@@ -664,6 +664,18 @@ export default function ExecutiveCockpit({
     if (tippingPointActive) { try { playTippingWarning(); } catch (e) {} }
   }, [tippingPointActive]);
 
+  /* THE COHORT BARRIER, in one place.
+     Two copies of this predicate already existed further down — one on the
+     results advance button, one on the journey gate — and a third was about
+     to be written for the waiting stage. Same three conditions as always: a
+     multi-team cohort, not everyone in yet, and no facilitator release. */
+  const cohortTeamCount = globalState?.cohort_team_count || 0;
+  const cohortCommits = globalState?.team_commits_this_round || 0;
+  const cohortWaiting = !!commitResults
+    && cohortTeamCount > 1
+    && cohortCommits < cohortTeamCount
+    && globalState?.cohort_advance_unblocked !== true;
+
   // ── Focus Mode: Stepped Decision Overlays ──
   // Phase A: the stage machine lives in hooks/useRoundStage.js (verbatim
   // extraction). Identical bindings are destructured so every downstream
@@ -677,6 +689,7 @@ export default function ExecutiveCockpit({
     handleFocusDismiss, handleQuickResume, handleFocusReenter, handleFocusAdvance,
   } = useRoundStage({
     roundNumber,
+    cohortWaiting,
     hasReadBriefing,
     gameOver: sim?.gameOver,
     tourActive,
@@ -2256,6 +2269,70 @@ export default function ExecutiveCockpit({
             )}
           </div>
         )}
+
+        {/* ── COMMITTED, WAITING ──
+            Not a loading state: this team's outcomes were computed the moment
+            they committed. It is a deliberate hold between the act and the
+            reveal, covering the minutes a cohort spends waiting on its slowest
+            table — minutes that are currently spent staring at results already
+            known. Held only while OTHER teams are outstanding; a solo player
+            never sees it, and it releases itself the instant the last team
+            commits or the facilitator forces the round. */}
+        {focusStep === 'waiting' && commitResults && (() => {
+          const outstanding = Math.max(0, cohortTeamCount - cohortCommits);
+          const pct = cohortTeamCount > 0
+            ? Math.round((cohortCommits / cohortTeamCount) * 100) : 0;
+          const word = ['no', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'][outstanding] || String(outstanding);
+          const yourCall = isPillarMode
+            ? Object.entries(pillarSelections || {})
+                .map(([k, v]) => pillarConfig?.areas?.[k]?.options?.[v]?.title)
+                .filter(Boolean).join(' · ')
+            : `${(decisionChoice || '').replace('option_', 'Option ').toUpperCase()}${options[decisionChoice]?.title ? ` · ${options[decisionChoice].title}` : ''}`;
+          const topBu = Object.entries(allocations || {})
+            .sort((a, b) => b[1] - a[1])[0];
+          return (
+            <div>
+              <div className={focusStyles.stageHead}>
+                <div className={focusStyles.stageEyebrow}>Committed</div>
+                <h2 className={focusStyles.stageQuestion}>
+                  Your round is locked in.{' '}
+                  {outstanding === 1 ? 'One team still to commit.' : `${word} teams still to commit.`}
+                </h2>
+              </div>
+
+              <div className={focusStyles.lockedRow}>
+                <span className={focusStyles.lockedLabel}>Your call</span>
+                <span className={focusStyles.lockedValue}>
+                  {yourCall}
+                  {topBu ? ` — ${fmtCurrency(topBu[1])} to ${topBu[0]}` : ''}
+                </span>
+              </div>
+
+              <div
+                className={focusStyles.cohortBar}
+                role="progressbar"
+                aria-valuenow={cohortCommits}
+                aria-valuemin={0}
+                aria-valuemax={cohortTeamCount}
+                aria-label="Teams committed"
+              >
+                <i style={{ width: `${pct}%` }} />
+              </div>
+              <div className={focusStyles.cohortCount} aria-live="polite">
+                {cohortCommits} of {cohortTeamCount} teams committed
+              </div>
+
+              {/* The one thing this gap is good for. A prediction made after
+                  the decision is locked and before the numbers land is the
+                  only prediction in the round that can still be wrong. */}
+              <p className={focusStyles.stageSub}>
+                While you wait — what do you think happens to your reputation
+                score this round? Say it out loud as a team, then check it
+                against the result.
+              </p>
+            </div>
+          );
+        })()}
 
         {/* ── RESULTS STEP ── */}
         {focusStep === 'results' && commitResults && (

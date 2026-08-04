@@ -12,6 +12,7 @@ const STEP_META = {
   strategy:   { icon: '📋', label: 'Strategic Decision' },
   allocation: { icon: '💰', label: 'Capital Allocation' },
   commit:     { icon: '🔮', label: 'Confirm & Submit' },
+  waiting:    { icon: '⏳', label: 'Committed' },
   results:    { icon: '📊', label: 'Round Results' },
 };
 

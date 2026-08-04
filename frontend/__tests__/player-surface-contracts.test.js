@@ -376,3 +376,40 @@ describe('the single CTA', () => {
   });
 });
 
+// ── the waiting stage is a hold, never a trap ───────────────────────────────
+
+describe('committed · waiting', () => {
+  const hook = read('app/hooks/useRoundStage.js');
+
+  test('a solo player can never enter it', () => {
+    // cohortWaiting is the ONLY gate into 'waiting', and the cockpit computes
+    // it from a team count greater than one. Get this wrong and a solo session
+    // stops dead after its first commit, forever, with no button to press.
+    const src = read(COCKPIT);
+    expect(src).toMatch(/const cohortWaiting = !!commitResults\s*\n\s*&& cohortTeamCount > 1/);
+    expect(hook).toMatch(/if \(cohortWaiting\) return 'waiting';/);
+  });
+
+  test('it releases itself, and does not need a click to do it', () => {
+    // The poll that refreshes global_state flips cohortWaiting; the stage must
+    // follow it out. Without this effect a team that waited would still be
+    // waiting after the last table committed.
+    expect(hook).toMatch(/if \(focusStep === 'waiting' && !cohortWaiting\)/);
+    expect(hook).toMatch(/setFocusStep\('results'\)/);
+  });
+
+  test('the facilitator release and the timeout both dissolve it', () => {
+    // cohort_advance_unblocked is set by Force Advance and by the free-mode
+    // timeout. One absent team must not be able to hold a room.
+    const src = read(COCKPIT);
+    expect(src).toMatch(/globalState\?\.cohort_advance_unblocked !== true/);
+  });
+
+  test('the barrier is computed once, not copied a third time', () => {
+    // Two copies of this predicate already existed — the results advance
+    // button and the journey gate. A third would be the one that drifts.
+    const src = read(COCKPIT);
+    expect((src.match(/const cohortWaiting =/g) || []).length).toBe(1);
+  });
+});
+

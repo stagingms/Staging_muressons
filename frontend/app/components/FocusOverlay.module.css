@@ -966,15 +966,15 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 .stageHead {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
 }
 .stageEyebrow {
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--accent, #6366f1);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 .stageQuestion {
   font-size: 24px;
@@ -986,7 +986,7 @@
   max-width: 34ch;   /* a headline, not a paragraph */
 }
 .stageSub {
-  font-size: 17px;
+  font-size: var(--type-title);
   line-height: 1.5;
   color: var(--text-secondary);
   margin: 0;
@@ -1004,7 +1004,7 @@
 
 .constraintLine {
   margin: 16px 0 0;
-  padding: 16px 16px 16px 24px;
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
   border-left: 2px solid var(--accent, #6366f1);
   border-radius: 0 6px 6px 0;
   background: rgba(99, 102, 241, 0.06);
@@ -1048,8 +1048,8 @@
 .optGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 24px;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
 }
 @media (max-width: 900px) {
   .optGrid { grid-template-columns: 1fr; }
@@ -1058,9 +1058,9 @@
 .opt {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   text-align: left;
-  padding: 24px;
+  padding: var(--space-5);
   background: var(--ck-surface-2, rgba(255, 255, 255, 0.02));
   border: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
   border-radius: 12px;
@@ -1086,9 +1086,9 @@
   background: var(--accent-soft, rgba(99, 102, 241, 0.08));
 }
 
-.optTop { display: flex; align-items: center; gap: 8px; }
+.optTop { display: flex; align-items: center; gap: var(--space-2); }
 .optKey {
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1104,7 +1104,7 @@
 .opt[aria-checked='true'] .optCheck { opacity: 1; }
 
 .optTitle {
-  font-size: 17px;
+  font-size: var(--type-title);
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.005em;
@@ -1112,7 +1112,7 @@
   margin: 0;
 }
 .optDesc {
-  font-size: 14px;
+  font-size: var(--type-body);
   line-height: 1.5;
   color: var(--text-secondary);
   margin: 0;
@@ -1122,12 +1122,12 @@
    numbers sit on one line however long the descriptions run. */
 .optRows {
   margin: auto 0 0;
-  padding-top: 12px;
+  padding-top: var(--space-3);
   border-top: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px 12px;
-  font-size: 14px;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--type-body);
 }
 .optRowLabel { color: var(--text-muted); }
 .optRowValue {
@@ -1166,7 +1166,7 @@
 .remain {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--space-3);
   margin: 24px 0;
   flex-wrap: wrap;
 }
@@ -1180,7 +1180,7 @@
 }
 .remainBig[data-over='true'] { color: var(--danger-text); }
 .remainCap {
-  font-size: 14px;
+  font-size: var(--type-body);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1200,24 +1200,24 @@
    carries the accent so a team can see their own line at a glance.
    ═══════════════════════════════════════════════════════════════════ */
 
-.cmpWrap { margin-top: 32px; }
+.cmpWrap { margin-top: var(--space-6); }
 .cmpLabel {
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 .cmpTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--type-body);
   font-variant-numeric: tabular-nums;
 }
 .cmpTable th,
 .cmpTable td {
-  padding: 12px 8px;
+  padding: var(--space-3) var(--space-2);
   text-align: right;
   border-bottom: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
   white-space: nowrap;
@@ -1252,4 +1252,62 @@
 .cmpUp   { color: var(--positive-text); }
 .cmpDown { color: var(--danger-text); }
 .cmpFlat { color: var(--text-muted); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMMITTED, WAITING.
+
+   The wait already existed — it was a 12px chip at the FOOT of the results
+   screen reading "Waiting for Other Teams, 1/5 committed", below outcomes
+   the player had already read. So the pause was real and the screen spent
+   it on nothing. This gives it a surface.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.lockedRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-5);
+  background: var(--ck-surface-2, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  border-radius: 12px;
+}
+.lockedLabel {
+  font-size: var(--type-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
+.lockedValue {
+  font-size: 15px;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.cohortBar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ck-border, rgba(148, 163, 184, 0.12));
+  overflow: hidden;
+}
+.cohortBar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 400ms cubic-bezier(0.2, 0, 0, 1);
+}
+.cohortCount {
+  margin: 12px 0 32px;
+  font-size: var(--type-body);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cohortBar > i { transition: none; }
+}
 

@@ -24,10 +24,11 @@ export default function useRoundStage({
   allocations,
   commitResults,
   selfLearningMode,
+  cohortWaiting = false,
 }) {
   // ── Focus Mode: Stepped Decision Overlays ──
   // Optional with escape hatch — auto-opens but student can dismiss at any time
-  const [focusStep, setFocusStep] = useState(null); // null | 'gate' | 'strategy' | 'allocation' | 'results'
+  const [focusStep, setFocusStep] = useState(null); // null | 'gate' | 'strategy' | 'allocation' | 'waiting' | 'results'
   const [focusDismissed, setFocusDismissed] = useState(false);
   // D1: once an experienced player (round >= 3) opts out of the stepped focus
   // overlay, remember it so it doesn't re-interrupt every subsequent round.
@@ -59,8 +60,20 @@ export default function useRoundStage({
     // Stay on 'allocation' until the turn is committed (via the cockpit footer);
     // once commitResults lands, advance to results.
     if (!commitResults) return 'allocation';
+    /* WAITING. Committing already produced this team's outcomes, so 'waiting'
+       is not a loading state — it is a deliberate hold between the act and the
+       reveal, for the minutes a cohort spends waiting on its slowest table.
+       That gap exists today and is spent staring at numbers already known;
+       this turns it into the one moment where a prediction can still be
+       falsified.
+
+       cohortWaiting is FALSE for a solo player and false the instant the last
+       team commits or the facilitator releases the barrier, so nobody can be
+       stranded here — the same conditions the results screen's advance button
+       has always used. */
+    if (cohortWaiting) return 'waiting';
     return 'results';
-  }, [hasGate, roundPrerequisiteMet, hasDecision, commitResults]);
+  }, [hasGate, roundPrerequisiteMet, hasDecision, commitResults, cohortWaiting]);
 
   // Auto-trigger focus mode when briefing is dismissed (entering the cockpit)
   // Suppressed while the onboarding tour is active to prevent z-index conflicts
@@ -88,9 +101,17 @@ export default function useRoundStage({
   // (Also covers committing from the cockpit footer with the overlay open.)
   useEffect(() => {
     if (commitResults && focusStep === 'allocation') {
+      setFocusStep(cohortWaiting ? 'waiting' : 'results');
+    }
+  }, [focusStep, commitResults, cohortWaiting]);
+
+  /* And out again the moment the cohort is whole. The poll that refreshes
+     global_state drives this; nothing here waits on a timer of its own. */
+  useEffect(() => {
+    if (focusStep === 'waiting' && !cohortWaiting) {
       setFocusStep('results');
     }
-  }, [focusStep, commitResults]);
+  }, [focusStep, cohortWaiting]);
 
   // Reset focus mode on round change. D1: if a returning player previously
   // opted for the dashboard, keep focus dismissed instead of re-opening it.
