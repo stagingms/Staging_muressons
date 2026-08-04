@@ -2673,6 +2673,67 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         new_global["game_over"] = True
         new_global.setdefault("game_over_reason", "simulation_complete_r10")
 
+    # ── 4.8 (2026-08-03): the commit envelope ──────────────────────────────
+    #
+    # decision_audit_log has always had a `metadata` JSONB column and NOTHING
+    # has ever written to it. Only eight scalar fields survived a commit, so
+    # everything else a team submitted was discarded at the moment it stopped
+    # being a request object:
+    #
+    #     pillar_decisions      the {energy, operations, supply_chain,
+    #                           offsetting} split — an ENGINE INPUT
+    #     investment_ratio      as actually used (recomputed server-side by
+    #                           TECH-2/COR-1, so the submitted value is not
+    #                           the one that scored)
+    #     dividends_paid        moves the treasury
+    #     emergency_credit_used takes a loan at +2%
+    #     force_override_cfo    overrides a refusal
+    #     engagement_action     the F5 dialogic action
+    #     player_id             WHO decided (Postgres dropped it; the memory
+    #                           backend kept it — a silent parity gap)
+    #
+    # Every one of those changes the numbers. A round could therefore not be
+    # reconstructed from its own audit trail: you could see that a team chose
+    # option_b and spent $4M, but not how they split it, whether they took the
+    # loan, or whether a CFO refusal was overridden. That is the same class of
+    # defect as R10-2 — an audit log that looks complete and is not.
+    #
+    # Built HERE, after the engine has run, so investment_ratio is the
+    # effective value rather than the advisory one the client sent. Repeated on
+    # every row rather than normalised into a new table: rows are append-only,
+    # capped at 64 per round, and a self-describing row survives a partial
+    # export. No migration — the column has been sitting there empty.
+    _turn_envelope = {
+        "dividends_paid": body.dividends_paid,
+        "emergency_credit_used": body.emergency_credit_used,
+        "force_override_cfo": body.force_override_cfo,
+        "engagement_action": body.engagement_action,
+        "imitation_decay_rate": body.imitation_decay_rate,
+        "expected_round": body.expected_round,
+        # Found by BUILDING the replay tool (4.9): these two are engine inputs
+        # that the CLIENT never sends — the server derives them. Recording only
+        # what the client submitted therefore left a replay under-determined:
+        # crisis_severity comes from the round config plus pre_tick modifiers
+        # (TECH-1 deprecated the client's value outright), and the paradigm is
+        # resolved from the session, falling back to the parent cohort. Without
+        # them a verifier has to GUESS two inputs and would report spurious
+        # mismatches — which is worse than no verifier, because people would
+        # stop trusting the real mismatches too.
+        "crisis_severity_effective": effective_crisis,
+        "decision_paradigm": paradigm,
+    }
+    _envelope_player_id = (session_info or {}).get("player_id") or ""
+    for _dec in decisions_raw:
+        _dec["metadata"] = {
+            "schema": 1,
+            "player_id": _envelope_player_id,
+            # Effective, not submitted — see TECH-2/COR-1. The distinction is
+            # the whole point: the submitted value never scored anything.
+            "investment_ratio": _dec.get("investment_ratio"),
+            "pillar_decisions": _dec.get("pillar_decisions"),
+            "turn": _turn_envelope,
+        }
+
     try:
         if current_round == 10:
             # R10: Update existing state in-place (don't insert new round 11)
