@@ -1930,7 +1930,10 @@ export default function ExecutiveCockpit({
         {/* ── STRATEGY STEP ── */}
         {focusStep === 'strategy' && (
           <div>
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
+            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda}
+              projectedCost={projectedCost} fmtCurrency={fmtCurrency}
+              previous={previousGlobalState} roundNumber={roundNumber}
+              cohortCommits={cohortCommits} cohortTeamCount={cohortTeamCount} />
             {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
             <TurnaroundPhaseChip active={globalState?.turnaround_mode}
               phase={globalState?.active_event_flags?.turnaround_phase}
@@ -2153,7 +2156,10 @@ export default function ExecutiveCockpit({
         {/* ── ALLOCATION STEP ── */}
         {focusStep === 'allocation' && (
           <div>
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
+            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda}
+              projectedCost={projectedCost} fmtCurrency={fmtCurrency}
+              previous={previousGlobalState} roundNumber={roundNumber}
+              cohortCommits={cohortCommits} cohortTeamCount={cohortTeamCount} />
             {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
             <TurnaroundPhaseChip active={globalState?.turnaround_mode}
               phase={globalState?.active_event_flags?.turnaround_phase}

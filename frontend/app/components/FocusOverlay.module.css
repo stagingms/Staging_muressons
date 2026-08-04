@@ -1311,3 +1311,47 @@
   .cohortBar > i { transition: none; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   THE BELT. See KPIStrip in FocusOverlay.js for why the pills went.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.belt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
+  border-bottom: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+}
+.beltTile { min-width: 0; flex: 0 0 auto; }
+.beltLabel {
+  font-size: var(--type-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+.beltValue {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.beltDelta {
+  margin-top: var(--space-1);
+  font-size: var(--type-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.beltDelta[data-dir='up']   { color: var(--positive-text); }
+.beltDelta[data-dir='down'] { color: var(--danger-text); }
+
+@media (max-width: 1100px) {
+  .belt { gap: var(--space-4); }
+  .beltValue { font-size: 22px; }
+}
+

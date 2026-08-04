@@ -311,7 +311,7 @@ const SEMANTIC_HEX = new RegExp(
 const HUE_DEBT = {
   'app/components/ExecutiveCockpit.js': 150,
   'app/components/ExecutiveCockpit.module.css': 7,
-  'app/components/FocusOverlay.js': 2,
+  'app/components/FocusOverlay.js': 0,
   'app/components/RoundBriefing.js': 14,
   'app/components/DoubleMaterialityMatrix.js': 37,
   'app/components/DoubleMaterialityMatrix.module.css': 7,

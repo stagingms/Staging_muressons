@@ -208,41 +208,75 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
 }
 
 /**
- * KPIStrip — Compact horizontal KPI reference bar for use inside focus overlays.
+ * KPIStrip — the belt. What the round has done to you, above what you are
+ * about to do about it.
+ *
+ * WHAT IT REPLACED. Five bordered pills, each an emoji then a 12px label then
+ * a 12px value, all on one line. Three problems. The values were the same size
+ * as their labels, so the number a team argues about had no more presence than
+ * the word next to it. The emoji were the loudest thing in each pill and carry
+ * no information a reader does not already have from the label. And not one
+ * pill said whether the figure had MOVED — a treasury of 11.0M means nothing
+ * without last round's, and the delta was available all along in
+ * previousGlobalState, three lines away in the same component.
+ *
+ * Now: label above, value at display size in tabular figures, movement beneath
+ * in words and a sign glyph. Colour is never the only encoding — the sign
+ * travels with the number, and "vs R2" says what it is measured against
+ * instead of leaving the reader to assume.
  */
-export function KPIStrip({ treasury, reputation, carbon, ebitda, projectedCost, fmtCurrency }) {
+export function KPIStrip({
+  treasury, reputation, carbon, ebitda, projectedCost, fmtCurrency,
+  previous, roundNumber, cohortCommits, cohortTeamCount,
+}) {
   const fmt = fmtCurrency || ((v) => moneyM(Math.abs(v)));
+  const prevRound = roundNumber > 1 ? `vs R${roundNumber - 1}` : 'first round';
+
+  /* A delta is rendered ONLY when there is a previous value to subtract. A
+     round-1 player has no history, and inventing a zero would state that
+     nothing changed rather than that nothing is known yet. */
+  const move = (now, then, format, higherIsBetter = true) => {
+    if (then == null || now == null) return { text: prevRound, dir: null };
+    const d = now - then;
+    if (d === 0) return { text: `unchanged ${prevRound}`, dir: null };
+    return {
+      text: `${d > 0 ? '+' : '−'}${format(Math.abs(d))} ${prevRound}`,
+      dir: (d > 0) === higherIsBetter ? 'up' : 'down',
+    };
+  };
+
+  const num = (v) => Math.round(v).toLocaleString();
+  const tiles = [
+    { label: 'Treasury',   value: fmt(treasury),                    ...move(treasury, previous?.corporate_treasury, fmt) },
+    { label: 'EBITDA',     value: fmt(ebitda),                      ...move(ebitda, previous?.historical_ebitda, fmt) },
+    { label: 'Reputation', value: (reputation || 0).toFixed(0),     ...move(reputation, previous?.group_reputation, (v) => v.toFixed(0)) },
+    { label: 'Carbon',     value: num(carbon || 0),                 ...move(carbon, previous?.tco2e_emissions, num, false) },
+  ];
+  if (cohortTeamCount > 1) {
+    tiles.push({
+      label: 'Committed',
+      value: `${cohortCommits || 0} of ${cohortTeamCount}`,
+      text: 'teams', dir: null,
+    });
+  }
+  if (projectedCost !== 0 && projectedCost != null) {
+    tiles.push({
+      label: 'Staged',
+      value: fmt(Math.abs(projectedCost)),
+      text: projectedCost > 0 ? 'to spend this round' : 'freed this round',
+      dir: projectedCost > 0 ? 'down' : 'up',
+    });
+  }
+
   return (
-    <div className={styles.kpiStrip}>
-      <div className={styles.kpiPill}>
-        <span className={styles.kpiPillIcon}>💰</span>
-        <span className={styles.kpiPillLabel}>Treasury</span>
-        <span className={styles.kpiPillValue}>{fmt(treasury)}</span>
-      </div>
-      <div className={styles.kpiPill}>
-        <span className={styles.kpiPillIcon}>🌍</span>
-        <span className={styles.kpiPillLabel}>Reputation</span>
-        <span className={styles.kpiPillValue}>{(reputation || 0).toFixed(0)}/100</span>
-      </div>
-      <div className={styles.kpiPill}>
-        <span className={styles.kpiPillIcon}>🏭</span>
-        <span className={styles.kpiPillLabel}>Carbon</span>
-        <span className={styles.kpiPillValue}>{(carbon || 0).toLocaleString()}t</span>
-      </div>
-      <div className={styles.kpiPill}>
-        <span className={styles.kpiPillIcon}>📈</span>
-        <span className={styles.kpiPillLabel}>EBITDA</span>
-        <span className={styles.kpiPillValue}>{fmt(ebitda)}</span>
-      </div>
-      {projectedCost !== 0 && projectedCost != null && (
-        <div className={styles.kpiPill} style={{ borderColor: projectedCost > 0 ? 'rgba(248,113,113,0.25)' : 'rgba(74,222,128,0.25)' }}>
-          <span className={styles.kpiPillIcon}>{projectedCost > 0 ? '📉' : '📈'}</span>
-          <span className={styles.kpiPillLabel}>Staged</span>
-          <span className={styles.kpiPillValue} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80' }}>
-            {fmt(Math.abs(projectedCost))}
-          </span>
+    <div className={styles.belt}>
+      {tiles.map((t) => (
+        <div key={t.label} className={styles.beltTile}>
+          <div className={styles.beltLabel}>{t.label}</div>
+          <div className={styles.beltValue}>{t.value}</div>
+          <div className={styles.beltDelta} data-dir={t.dir || undefined}>{t.text}</div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
