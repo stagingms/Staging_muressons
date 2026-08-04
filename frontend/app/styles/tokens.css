@@ -44,8 +44,11 @@
     --danger-soft:     rgba(239, 68, 68, 0.12);
     --neutral:         #94a3b8;
     --neutral-soft:    rgba(148, 163, 184, 0.12);
-    --neutral-faint:   #475569;   /* slate-600 — de-emphasised unit suffixes
-                                     (/100, t, %) a tier below --neutral */
+    --neutral-faint: #7c8899;   /* de-emphasised unit suffixes (/100, t, %) a tier
+                                     below --neutral. Was slate-600 #475569, which
+                                     measured 2.46:1 on the rail surface — a token
+                                     that failed AA everywhere it was used. This
+                                     value is 5.14:1 and keeps the de-emphasis. */
 
     /* ── Text-tier variants — brighter hues reserved for text on dark
        surfaces so contrast survives the hue discipline ─── */

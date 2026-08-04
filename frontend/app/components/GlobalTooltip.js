@@ -77,6 +77,18 @@ export default function GlobalTooltip() {
         if (!mounted) return;
         document.addEventListener('mouseover', show);
         document.addEventListener('mouseout', handleOut);
+        /* Hover was the ONLY way in. A tooltip that explains what a number
+           MEANS — which is what these now carry — has to be reachable by
+           keyboard too (WCAG 2.1 SC 1.4.13). focusin/focusout bubble, so the
+           same delegation works unchanged. */
+        document.addEventListener('focusin', show);
+        document.addEventListener('focusout', handleOut);
+        /* SC 1.4.13 also requires the content be dismissible without moving
+           the pointer or the focus. */
+        const hideOnEscape = (e) => {
+            if (e.key === 'Escape') { clearTimeout(timerRef.current); setVisible(false); activeElRef.current = null; }
+        };
+        document.addEventListener('keydown', hideOnEscape);
         const hideOnScroll = () => {
             clearTimeout(timerRef.current);
             setVisible(false);
@@ -87,6 +99,9 @@ export default function GlobalTooltip() {
         return () => {
             document.removeEventListener('mouseover', show);
             document.removeEventListener('mouseout', handleOut);
+            document.removeEventListener('focusin', show);
+            document.removeEventListener('focusout', handleOut);
+            document.removeEventListener('keydown', hideOnEscape);
             document.removeEventListener('scroll', hideOnScroll, true);
             clearTimeout(timerRef.current);
         };
@@ -252,7 +267,7 @@ export default function GlobalTooltip() {
     };
 
     return createPortal(
-        <div ref={tooltipRef} style={tooltipStyle}>
+        <div ref={tooltipRef} id="global-tooltip" role="tooltip" style={tooltipStyle}>
             <div style={arrowStyle} />
             {renderContent()}
         </div>,

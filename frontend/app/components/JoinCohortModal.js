@@ -112,13 +112,12 @@ export default function JoinCohortModal({ sim }) {
                     <div className={styles.brandName} style={{ color: '#f5b942' }}>
                         MURESSONS GLOBAL
                     </div>
-                    <div className={styles.brandSubtitle}>MURESSONS GLOBAL CORPORATION</div>
                 </div>
 
                 {/* Form Section */}
                 <div className={styles.formSection}>
-                    <h2 className={styles.title} style={{ color: '#00e5c3' }}>Command Access</h2>
-                    <p className={styles.subtitle}>Enter credentials for secure terminal link.</p>
+                    <h2 className={styles.title} style={{ color: '#00e5c3' }}>Sign in</h2>
+                    <p className={styles.subtitle}>Enter the team ID and password your facilitator gave you.</p>
 
                     <form onSubmit={handleLogin} className={styles.form}>
                         <div className={styles.field}>
@@ -128,7 +127,7 @@ export default function JoinCohortModal({ sim }) {
                                 supplied an accessible name, which disappears the
                                 moment the user types. First screen every
                                 participant sees. */}
-                            <label className={styles.label} htmlFor="join-player-id">EXECUTIVE IDENTIFIER</label>
+                            <label className={styles.label} htmlFor="join-player-id">Team ID</label>
                             <input
                                 id="join-player-id"
                                 type="text"
@@ -148,7 +147,7 @@ export default function JoinCohortModal({ sim }) {
                         </div>
 
                         <div className={styles.field}>
-                            <label className={styles.label} htmlFor="join-password">CLEARANCE CIPHER</label>
+                            <label className={styles.label} htmlFor="join-password">Password</label>
                             <PasswordInput
                                 id="join-password"
                                 value={password}
@@ -166,14 +165,15 @@ export default function JoinCohortModal({ sim }) {
                                 a participant ever sees; removed. In its place,
                                 the one fact worth stating here: */}
                             <span style={{ fontSize: '0.68rem', color: '#94a3b8', letterSpacing: '0.03em' }}>
-                                Driver enters the team ID. Observers use the team&apos;s -VIEW code.
+                                One person drives and signs in with the team ID. Everyone else
+                                watches with the view-only code — the same ID with -VIEW on the end.
                             </span>
                             <button
                                 type="button"
                                 onClick={() => setShowChangePassword(true)}
                                 className={styles.lostCipher}
                             >
-                                LOST CIPHER?
+                                Forgot your password?
                             </button>
                         </div>
 
@@ -201,7 +201,7 @@ export default function JoinCohortModal({ sim }) {
                             disabled={joining || !playerId.trim()}
                             className={styles.submitBtn}
                         >
-                            {joining ? '⟳ AUTHENTICATING...' : 'ESTABLISH LINK'}
+                            {joining ? 'Signing in…' : 'Sign in'}
                         </button>
                     </form>
 
@@ -212,7 +212,7 @@ export default function JoinCohortModal({ sim }) {
                             disabled={joining}
                             className={styles.soloBtn}
                         >
-                            {joining ? '⟳ INITIALIZING...' : 'START SOLO SESSION'}
+                            {joining ? 'Starting…' : 'Play solo'}
                         </button>
                     )}
 
@@ -220,31 +220,20 @@ export default function JoinCohortModal({ sim }) {
                         marginTop: '1rem', fontSize: '0.68rem', color: '#475569',
                         textAlign: 'center', lineHeight: 1.5, letterSpacing: '0.02em'
                     }}>
-                        Your Executive Identifier (e.g. MUR-001) and your temporary <strong style={{ color: '#00e5c3' }}>Clearance Cipher</strong> are both provided by your facilitator — you will be prompted to set a personal password on your first login.
+                        Your team ID looks like <strong style={{ color: '#00e5c3' }}>MUR-001</strong>. Your facilitator gives you both it and a temporary password, and you will be asked to set your own the first time you sign in.
                     </p>
                 </div>
 
-                {/* Footer status */}
-                <div className={styles.footerStatus}>
-                    <span className={styles.statusDot} data-status="green" />
-                    <span>ENCRYPTED</span>
-                    <span className={styles.statusSep}>•</span>
-                    <span className={styles.statusDot} data-status="amber" />
-                    <span>V4.12.0</span>
-                </div>
             </div>
 
             {/* Bottom bar */}
             <div className={styles.bottomBar}>
-                <span className={styles.bottomHash}>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <span key={i}>{Math.random().toString(36).slice(2, 7).toUpperCase()} </span>
-                    ))}
-                </span>
+                {/* The five random 5-character strings that used to render here were
+                    decoration dressed as data — and, being Math.random(), a hydration
+                    mismatch on every load. */}
+                <span />
                 <span className={styles.bottomRight}>
-                    <span className={styles.bottomLabel}>LOCAL OPS</span>
                     <span className={styles.bottomTime}>{currentTime}</span>
-                    <span className={styles.themeIcon}>☾</span>
                 </span>
             </div>
 

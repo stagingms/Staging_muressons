@@ -81,8 +81,8 @@ describe('audience tagging', () => {
     expect(unknown).toEqual([]);
   });
 
-  test('all 65 keys are tagged', () => {
-    expect(Object.keys(cardAudiences())).toHaveLength(65);
+  test('all 64 keys are tagged', () => {
+    expect(Object.keys(cardAudiences())).toHaveLength(64); // 65 before market_ticker retired (Phase 1)
   });
 
   test('the derivation helper exists and is the only mapping', () => {
@@ -111,9 +111,9 @@ describe('preset profiles', () => {
   test('the profiles match the agreed design', () => {
     const n = (id) => visibleIn(id).length;
     expect(n('classroom_easy')).toBe(40);
-    expect(n('workshop_standard')).toBe(58);
-    expect(n('executive_hard')).toBe(51);
-    expect(n('chaos_mode')).toBe(45);
+    expect(n('workshop_standard')).toBe(57); // 58 before market_ticker retired (Phase 1)
+    expect(n('executive_hard')).toBe(50); // 51 before market_ticker retired (Phase 1)
+    expect(n('chaos_mode')).toBe(44); // 45 before market_ticker retired (Phase 1)
   });
 
   test('Classroom hides finance vocabulary and peer ranking', () => {

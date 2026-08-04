@@ -131,7 +131,6 @@ import { useAnalyticsVisibility } from './hooks/useAnalyticsVisibility';
 import RoundChecklist from './components/RoundChecklist';
 import GlossaryPanel from './components/GlossaryPanel';
 import OnboardingWalkthrough from './components/OnboardingWalkthrough';
-import MarketTicker from './components/MarketTicker';
 import CountdownTimer from './components/CountdownTimer';
 import AchievementBadges from './components/AchievementBadges';
 import AIAdvisor from './components/AIAdvisor';
@@ -2013,15 +2012,14 @@ export default function CockpitPage() {
 
       {/* ═══ IMPROVEMENT: Action Toolbar has been moved to ExecutiveCockpit leftSidebar ═══ */}
 
-      {/* ═══ IMPROVEMENT: Market Ticker (4.3) — W1: live engine-derived data ═══ */}
-      {sim.sessionId && !sim.gameOver && isPlayerVisible('market_ticker') && (
-        <MarketTicker
-          roundNumber={roundNumber}
-          globalState={globalState}
-          history={sim.history}
-          businessUnits={businessUnits}
-        />
-      )}
+      {/* Market Ticker removed (Phase 1). A 45s linear infinite scroll in a
+          30–60 minute round, at 10.56px, on a #000000 strip that matched no
+          surface behind it, mixing five unit conventions (%, bps, pp, $M, raw)
+          across eight adjacent items — one of which, "ESG Index", was invented
+          as reputation x 20 and presented with the same authority as the share
+          price. It also fixed itself to bottom:0 at z-index 7000, occluding the
+          bottom 32px of every other surface. The component file is still in the
+          repo; its visibility toggle is retired with it. */}
 
       {/* ═══ IMPROVEMENT: Glossary Panel (1.2) ═══ */}
       {isPlayerVisible('glossary') && (

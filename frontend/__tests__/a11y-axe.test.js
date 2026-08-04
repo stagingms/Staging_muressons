@@ -398,7 +398,7 @@ describe('JoinCohortModal (participant entry point)', () => {
         expect(dlg).toHaveAttribute('aria-modal', 'true');
         expect(dlg).toHaveAccessibleName('Sign in to Muressons');
         // Settle the on-mount global-settings fetch before unmount.
-        await screen.findByRole('button', { name: /START SOLO SESSION/i });
+        await screen.findByRole('button', { name: /Play solo/i });
     });
 
     test('focus lands inside on mount — a keyboard user is not stranded (2.4.3)', async () => {
@@ -407,7 +407,7 @@ describe('JoinCohortModal (participant entry point)', () => {
         await waitFor(() => {
             expect(dlg.contains(document.activeElement)).toBe(true);
         });
-        await screen.findByRole('button', { name: /START SOLO SESSION/i });
+        await screen.findByRole('button', { name: /Play solo/i });
     });
 
     test('no axe violations (including after the solo-mode fetch resolves)', async () => {
@@ -415,7 +415,7 @@ describe('JoinCohortModal (participant entry point)', () => {
         // Wait for the opt-in solo button so it is IN the tree we scan; a
         // conditional control that appears after a fetch is exactly the kind
         // of node an eager audit misses.
-        await screen.findByRole('button', { name: /START SOLO SESSION/i });
+        await screen.findByRole('button', { name: /Play solo/i });
         await expectNoViolations(container);
     });
 });
@@ -655,9 +655,11 @@ describe('OPEN FINDINGS — defects axe-core cannot detect', () => {
      */
     test('A11Y-F1: JoinCohortModal fields are reachable by their visible label text', async () => {
         render(<JoinCohortModal sim={sim} />);
-        await screen.findByRole('button', { name: /START SOLO SESSION/i });
-        expect(screen.getByLabelText(/EXECUTIVE IDENTIFIER/i)).toBeInTheDocument();
-        expect(screen.getByLabelText(/CLEARANCE CIPHER/i)).toBeInTheDocument();
+        await screen.findByRole('button', { name: /Play solo/i });
+        expect(screen.getByLabelText(/Team ID/i)).toBeInTheDocument();
+        // exact, not /i regex: “Forgot your password?” and the show/hide toggle
+        // also carry the word, so a loose match finds three nodes.
+        expect(screen.getByLabelText('Password')).toBeInTheDocument();
     });
 
     /**

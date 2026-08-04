@@ -8,7 +8,7 @@
  * one. Babel parsing catches syntax; only running the module catches meaning.
  *
  * This matters more than usual here because the audience field was inserted into
- * 65 existing card literals by a script, and the 19 legacy cards had a different
+ * 64 existing card literals by a script, and the 19 legacy cards had a different
  * field order from the 46 newer ones.
  */
 import {
@@ -21,8 +21,8 @@ import {
 } from '../app/config/playerVisibilityRegistry';
 
 describe('registry, executed', () => {
-  test('65 cards, every one well-formed', () => {
-    expect(PLAYER_VISIBILITY_CARDS).toHaveLength(65);
+  test('64 cards, every one well-formed', () => {
+    expect(PLAYER_VISIBILITY_CARDS).toHaveLength(64); // 65 before market_ticker retired (Phase 1)
     for (const c of PLAYER_VISIBILITY_CARDS) {
       expect(typeof c.key).toBe('string');
       expect(c.key).toMatch(/^[a-z0-9_]+$/);
@@ -41,7 +41,7 @@ describe('registry, executed', () => {
   });
 
   test('defaults cover every key and only five ship off', () => {
-    expect(Object.keys(PLAYER_VISIBILITY_DEFAULTS)).toHaveLength(65);
+    expect(Object.keys(PLAYER_VISIBILITY_DEFAULTS)).toHaveLength(64); // 65 before market_ticker retired (Phase 1)
     const off = Object.entries(PLAYER_VISIBILITY_DEFAULTS)
       .filter(([, v]) => !v).map(([k]) => k).sort();
     expect(off).toEqual(['balanced_scorecard', 'competitor_intel', 'esg_leadership',
@@ -60,18 +60,18 @@ describe('registry, executed', () => {
     const count = (tags) => Object.values(visibilityForAudiences(tags)).filter(Boolean).length;
     expect(count(['core', 'scaffold', 'narrative', 'insight', 'debrief', 'flourish'])).toBe(40);
     expect(count(['core', 'scaffold', 'narrative', 'insight', 'finance', 'causal',
-                  'compare', 'metacog', 'debrief', 'flourish'])).toBe(58);
+                  'compare', 'metacog', 'debrief', 'flourish'])).toBe(57);
     expect(count(['core', 'narrative', 'insight', 'finance', 'causal', 'specialist',
-                  'compare', 'metacog', 'debrief'])).toBe(51);
+                  'compare', 'metacog', 'debrief'])).toBe(50);
     expect(count(['core', 'narrative', 'insight', 'finance', 'causal', 'specialist',
-                  'compare', 'debrief'])).toBe(45);
+                  'compare', 'debrief'])).toBe(44);
   });
 
   test('the deriver is total and safe at the edges', () => {
     // It seeds a cohort's map, so a partial result would silently drop panels.
     for (const arg of [[], undefined, null, ['nonsense_tag']]) {
       const map = visibilityForAudiences(arg);
-      expect(Object.keys(map)).toHaveLength(65);
+      expect(Object.keys(map)).toHaveLength(64); // 65 before market_ticker retired (Phase 1)
       expect(Object.values(map).every((v) => v === false)).toBe(true);
     }
     const all = visibilityForAudiences(AUDIENCE_TAGS);

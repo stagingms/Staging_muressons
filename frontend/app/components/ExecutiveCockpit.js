@@ -94,6 +94,12 @@ import ArchiveAccordion from './ArchiveAccordion';
 // overlay above the always-rendered dense center.
 const CANVAS_FIRST = true;
 
+/* Phase 4 — ACTION BAR. The commit control, the projected impact and the round
+   step indicator render as one sticky bar under the decision, instead of at the
+   foot of the right rail. Flip to false to put them back; the JSX is unchanged,
+   only its host and its layout are. */
+const ACTION_BAR = true;
+
 /**
  * ExecutiveCockpit — Premium enterprise dashboard layout.
  *
@@ -1203,9 +1209,14 @@ export default function ExecutiveCockpit({
             {tippingPointActive && (
               <>
                 <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
+                {/* Was `repeat: Infinity` — a red label flashing to 50% opacity
+                    every 1.5s for the whole round, which also halved its contrast at
+                    the trough. A tipping point is a state, not an alarm: it arrives
+                    once and then simply stays true. */}
                 <motion.span
-                  animate={{ opacity: [1, 0.5, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.4 }}
                   style={{ color: '#fca5a5', fontWeight: 700 }}
                 >
                   ⚠️ TIPPING POINT
@@ -1267,7 +1278,13 @@ export default function ExecutiveCockpit({
       </header>
 
       {/* ═══ MAIN CONTENT (3 COLUMNS) ═══ */}
-      <div className={`${styles.mainContent} ${isFocusActive ? focusStyles.dashboardFaded : ''}`}>
+      <div
+        className={styles.mainContent}
+        /* Direction D (“The Bench”): the rails RECEDE BY COLLAPSING, not by
+           fading. See the data-rails block in ExecutiveCockpit.module.css for
+           why the opacity mechanism could not work. */
+        data-rails={isFocusActive ? 'collapsed' : 'open'}
+      >
 
         {/* TEAM-1 (UX audit #7) — Slot: Canvas stage. Read-only seat notice.
             The team's driver holds the controls; observers watch the same live
@@ -1319,7 +1336,7 @@ export default function ExecutiveCockpit({
         )}
 
         {/* ── LEFT: KPI Dashboard ─── */}
-        <aside id="tour-kpi-target" className={`${styles.leftSidebar} ${kpiFlashActive ? styles.kpiFlash : ''}`}>
+        <aside id="tour-kpi-target" aria-label="Performance data" className={`${styles.leftSidebar} ${kpiFlashActive ? styles.kpiFlash : ''}`}>
           
           {/* Phase 3.2: Round Context Card — narrative context FIRST */}
           <div className={styles.roundContextCard}>
@@ -1343,7 +1360,7 @@ export default function ExecutiveCockpit({
           </div>
 
           {/* ── Left Panel Tab Bar ── */}
-          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', background: 'var(--ck-surface-1, #0e1222)', flexShrink: 0 }}>
+          <div className={styles.leftTabBar} style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', background: 'var(--ck-surface-1, #0e1222)', flexShrink: 0 }}>
             {/* Charts is the only left tab whose CONTENT is cohort-gated, so it is
                 the only one that can lead nowhere. Offering the tab while
                 kpi_dashboard is off gave a player a button that opened an empty
@@ -3134,6 +3151,218 @@ export default function ExecutiveCockpit({
           {/* V-C (V-6): docked flow indicator — always visible at the foot of
               the center console, never overlapping content (the old 80px
               anti-overlap spacer is retired with the float). */}
+          {/* ═══ ACTION BAR (Phase 4) ═══
+              The commit control used to live at the foot of the RIGHT RAIL, below
+              ten other panels, styled with --type-caption — the token tokens.css
+              documents as "12px — labels, chips, meta". It was the button that
+              advances the simulation, wearing the metadata token, in the column the
+              eye reaches last.
+          
+              It now sits under the decision it commits, in one sticky bar with the
+              round’s step indicator, so "where am I / what is left / commit" read as
+              one object instead of three scattered ones. This also unblocks the
+              56px right-rail spine: the rail could not collapse while it held the
+              round’s only primary action.
+          
+              ACTION_BAR is the one-line rollback, same pattern as CANVAS_FIRST. ═══ */}
+          <div className={ACTION_BAR ? styles.actionBar : undefined}>
+            {/* ── Commit Footer (compact) ── */}
+            <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '8px 12px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {/* #1: Decision Confidence Nudge — reflective prompt card */}
+              {isPlayerVisible('reflective_prompt') && (
+              <div className={styles.reflectivePrompt}>
+                <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>💭</span>
+                <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.4 }}>
+                  {{
+                    foundation: 'Are you building a strong foundation for the next 7 rounds?',
+                    crisis: 'Is this a reactive fix or a proactive strategy?',
+                    integration: 'Are your BUs working together or competing for resources?',
+                    finale: 'This is your final decision. The Board will ask why.',
+                  }[roundTier]}
+                </span>
+              </div>
+              )}
+
+              {/* Decision Quality Meter */}
+              {(() => {
+                const allocTotal = Object.values(allocations).reduce((a, b) => a + b, 0);
+                let quality = 0;
+                if (hasReadBriefing) quality += 10;
+                if (isPillarMode ? Object.keys(pillarSelections || {}).length > 0 : !!decisionChoice) quality += 40;
+                quality += Math.min(50, (allocTotal / (csfPool || 1)) * 50);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+                    <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap' }}>Ready</span>
+                    <div style={{ flex: 1, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ width: `${quality}%`, height: '100%', background: quality > 80 ? '#10b981' : quality > 40 ? '#f59e0b' : '#ef4444', transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }} />
+                    </div>
+                  </div>
+                );
+              })()}
+            
+            
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: '100%' }}>
+                {/* What-If Sandbox Mode — preview decision impacts.
+                    Gated by the cohort's player-visibility toggle (what_if_simulator,
+                    disabled by default); fail-open so a missing map still shows it. */}
+                {!commitResults && options?.length > 0 && isPlayerVisible('what_if_simulator') && (
+                  <WhatIfSandbox
+                    options={options}
+                    businessUnits={businessUnits}
+                    globalState={globalState}
+                    events={events}
+                    decisionChoice={decisionChoice}
+                    allocations={allocations}
+                    csfPool={csfPool}
+                    roundNumber={roundNumber}
+                    isDark={isDark}
+                  />
+                )}
+                {stageWarning && (
+                  <span style={{ color: '#ef4444', fontSize: '0.68rem', fontWeight: 700, textAlign: 'center' }}>🔒 {stageWarning}</span>
+                )}
+                {/* UX-04: Over-allocation warning */}
+                {(Object.values(allocations || {}).reduce((s, v) => s + v, 0) > (csfPool || 0)) && (csfPool > 0) && !commitResults && (
+                  <div style={{
+                    padding: '4px 8px', borderRadius: 5, background: 'rgba(239,68,68,0.12)',
+                    border: '1px solid rgba(239,68,68,0.35)', fontSize: '0.68rem', color: '#fca5a5',
+                    textAlign: 'center', lineHeight: 1.3, width: '100%',
+                  }}>
+                    ⚠️ Over-allocated by {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0) - (csfPool || 0))}
+                  </div>
+                )}
+                {/* ── Projected Impact Widget ── */}
+                {projectedCost !== 0 && !commitResults && (
+                  <div className={`${styles.projectedImpactWidget} ${projectedCost > 0 ? styles.impactNegative : styles.impactPositive}`} style={{ padding: '3px 8px' }}>
+                    <span className={styles.projectedImpactLabel} style={{ fontSize: '0.68rem' }}>
+                      {projectedCost > 0 ? '📉 Cost' : '📈 Gain'}
+                    </span>
+                    <span className={`${styles.projectedImpactValue} ${projectedCost > 0 ? styles.lossValue : styles.gainValue}`} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80', fontSize: '0.7rem' }}>
+                      {projectedCost > 0 ? '↓' : '↑'} {fmtCurrency(Math.abs(projectedCost))}
+                    </span>
+                  </div>
+                )}
+                {/* #5: Smart Commit Button — reflects decision quality */}
+                {(() => {
+                  const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
+                  const overAllocated = allocTotal > (csfPool || 0) && (csfPool > 0);
+                  const fullyReady = hasReadBriefing && hasDecision && allocTotal > 0;
+                  const partialReady = hasDecision && allocTotal <= 0;
+                  // Facilitator-paced advance: the current round's commit is
+                  // locked until the facilitator's timer fires or they advance
+                  // the round. Decisions and allocations still save normally.
+                  const roundLocked = globalState?.cohort_round_locked === true;
+                  const nextUnlockAt = globalState?.cohort_next_unlock_at;
+                  let unlockLabel = null;
+                  if (roundLocked && nextUnlockAt) {
+                    try {
+                      unlockLabel = new Date(nextUnlockAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    } catch { unlockLabel = null; }
+                  }
+                  // TEAM-1: an observer never sees a live commit control.
+                  if (isObserver && !commitResults) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <button
+                          className={styles.commitBtn}
+                          style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, textTransform: 'none', background: 'var(--bg-elevated, #1e293b)', color: 'var(--text-secondary, #b0bec5)', border: '1px solid #4f46e5', cursor: 'not-allowed' }}
+                          disabled
+                        >
+                          👁 Observer — driver commits
+                        </button>
+                        <div style={{ fontSize: '0.62rem', color: '#a5b4fc', textAlign: 'center' }}>
+                          Your team&apos;s driver holds the controls this round.
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (roundLocked && !commitResults) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <button
+                          className={styles.commitBtn}
+                          style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, textTransform: 'none', background: 'var(--bg-elevated, #1e293b)', color: 'var(--text-secondary, #b0bec5)', border: '1px solid #475569', cursor: 'not-allowed' }}
+                          disabled
+                        >
+                          🔒 Round Locked{unlockLabel ? ` — opens ${unlockLabel}` : ''}
+                        </button>
+                        <div style={{ fontSize: '0.62rem', color: '#94a3b8', textAlign: 'center' }}>
+                          Your decisions are saved. {unlockLabel
+                            ? `The round opens at ${unlockLabel}.`
+                            : 'The facilitator will advance the round.'}
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Mandatory-quiz gate: this round's quiz must be taken before the
+                  // player can commit. Server-enforced too — this is the UX mirror.
+                  const quizGate = globalState?.quiz_gate;
+                  if (quizGate?.blocked && !commitResults) {
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <button
+                          className={styles.commitBtn}
+                          style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, textTransform: 'none', background: '#3730a3', color: '#e0e7ff', border: '1px solid #4f46e5', cursor: 'not-allowed' }}
+                          disabled
+                        >
+                          🧩 Complete the Quiz First
+                        </button>
+                        <div style={{ fontSize: '0.62rem', color: '#a5b4fc', textAlign: 'center' }}>
+                          This round requires the quiz{quizGate.required_title ? ` “${quizGate.required_title}”` : ''}. Open 📚 Resources to take it, then commit.
+                        </div>
+                      </div>
+                    );
+                  }
+                  // A11Y-F14 (WCAG 1.4.3): every branch here overrides the
+                  // button's BACKGROUND inline but used to leave its colour to
+                  // the .commitBtn class, which is `var(--ck-surface-0)` —
+                  // near-black, chosen for the teal gradient that these
+                  // overrides replace. The round's primary action was therefore
+                  // illegible in the two flat-slate states, in BOTH themes:
+                  //   dark  : #0b0f1a on #1e293b = 1.31:1
+                  //   light : the globals.css shim rewrites `background:
+                  //           rgb(30,41,59)` to #fff but leaves the class's
+                  //           `color: #fff` alone — 1:1, white on white.
+                  // Measured in Chromium on a signed-in player, round 1.
+                  // Each branch now carries the foreground that belongs with its
+                  // background, so neither the class default nor the shim can
+                  // decide it. #e2e8f0 is itself a shim-known neutral, so on the
+                  // slate states light mode darkens text and lightens surface
+                  // together instead of one without the other.
+                  const btnStyle = commitResults
+                    ? { background: '#1e293b', color: '#e2e8f0', borderColor: '#334155' }
+                    : overAllocated
+                      ? { background: 'linear-gradient(135deg, #991b1b, #7f1d1d)', color: '#ffffff', borderColor: '#ef4444', boxShadow: '0 0 12px rgba(239,68,68,0.25)' }
+                      : fullyReady
+                        ? { background: 'linear-gradient(135deg, #059669, #047857)', color: '#ffffff', borderColor: '#10b981', boxShadow: '0 0 12px rgba(16,185,129,0.3)' }
+                        : partialReady
+                          ? { background: 'linear-gradient(135deg, #92400e, #78350f)', color: '#ffffff', borderColor: '#f59e0b' }
+                          : { background: '#1e293b', color: '#e2e8f0', borderColor: '#475569' };
+                  const btnIcon = commitResults ? '✅' : overAllocated ? '⚠️' : fullyReady ? '▶' : partialReady ? '⏳' : '🔒';
+                  return (
+                    <motion.button
+                      className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
+                      style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, letterSpacing: 0, textTransform: 'none', ...btnStyle, border: `1px solid ${btnStyle.borderColor}`, transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }}
+                      disabled={!!commitResults}
+                      onClick={() => {
+                        if (!commitResults) {
+                          if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
+                          if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
+                          if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
+                          // 7.4 (UX audit): full gates before review, not after.
+                          if (onPreflight && !onPreflight()) return;
+                          setShowPredictionModal(true);
+                        }
+                      }}
+                      whileHover={{ scale: commitResults ? 1 : 1.02 }}
+                      whileTap={{ scale: commitResults ? 1 : 0.98 }}
+                    >
+                      {btnIcon} {commitResults ? 'Committed' : overAllocated ? 'Reduce your allocation to commit' : fullyReady ? 'Commit this round' : partialReady ? 'Allocate your capital next' : 'Read the briefing to begin'}
+                    </motion.button>
+                  );
+                })()}
+              </div>
+            </div>
           {roundChecklist && (
             <div style={{
               position: 'sticky', bottom: 0, zIndex: 20,
@@ -3143,10 +3372,11 @@ export default function ExecutiveCockpit({
               {roundChecklist}
             </div>
           )}
+          </div>
         </main>
 
         {/* ── RIGHT SIDEBAR ─── */}
-        <aside id="tour-intelligence-target" className={styles.rightSidebar}>
+        <aside id="tour-intelligence-target" aria-label="Messages and intelligence" className={styles.rightSidebar}>
           {/* Floating Resources Pill — the panel's only launcher besides the R
               key, so it must disappear with it. page.js passes onResourcesOpen
               as null when the resources_sidebar switch is off; rendering the
@@ -3188,7 +3418,7 @@ export default function ExecutiveCockpit({
           {railTabsVisible.length > 0 && (
           <div className={styles.rightMailbox} style={{ flex: railExpanded ? undefined : '0 0 auto', minHeight: railExpanded ? undefined : 0 }}>
             {/* Sticky Tab Header */}
-            <div style={{
+            <div className={styles.railTabStrip} role="tablist" aria-label="Rail panels" style={{
               position: 'sticky', top: 0, zIndex: 10,
               display: 'flex', gap: 0,
               /* A11Y-F17 (WCAG 1.4.3): `--bg-sidebar` is not defined anywhere
@@ -3221,6 +3451,8 @@ export default function ExecutiveCockpit({
                 return (
                   <button
                     key={tab.id}
+                    role="tab"
+                    aria-selected={isActive}
                     onClick={() => {
                       if (!railExpanded) { setRightPanelTab(tab.id); setRailExpanded(true); }
                       else if (rightPanelTab === tab.id) setRailExpanded(false);
@@ -3508,203 +3740,6 @@ export default function ExecutiveCockpit({
               pill, the stepper) answered the same intent. The left pill and
               the stepper remain; handleFocusReenter is unchanged. */}
 
-          {/* ── Commit Footer (compact) ── */}
-          <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '8px 12px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {/* #1: Decision Confidence Nudge — reflective prompt card */}
-            {isPlayerVisible('reflective_prompt') && (
-            <div className={styles.reflectivePrompt}>
-              <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>💭</span>
-              <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.4 }}>
-                {{
-                  foundation: 'Are you building a strong foundation for the next 7 rounds?',
-                  crisis: 'Is this a reactive fix or a proactive strategy?',
-                  integration: 'Are your BUs working together or competing for resources?',
-                  finale: 'This is your final decision. The Board will ask why.',
-                }[roundTier]}
-              </span>
-            </div>
-            )}
-
-            {/* Decision Quality Meter */}
-            {(() => {
-              const allocTotal = Object.values(allocations).reduce((a, b) => a + b, 0);
-              let quality = 0;
-              if (hasReadBriefing) quality += 10;
-              if (isPillarMode ? Object.keys(pillarSelections || {}).length > 0 : !!decisionChoice) quality += 40;
-              quality += Math.min(50, (allocTotal / (csfPool || 1)) * 50);
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
-                  <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap' }}>Ready</span>
-                  <div style={{ flex: 1, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ width: `${quality}%`, height: '100%', background: quality > 80 ? '#10b981' : quality > 40 ? '#f59e0b' : '#ef4444', transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }} />
-                  </div>
-                </div>
-              );
-            })()}
-            
-            
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: '100%' }}>
-              {/* What-If Sandbox Mode — preview decision impacts.
-                  Gated by the cohort's player-visibility toggle (what_if_simulator,
-                  disabled by default); fail-open so a missing map still shows it. */}
-              {!commitResults && options?.length > 0 && isPlayerVisible('what_if_simulator') && (
-                <WhatIfSandbox
-                  options={options}
-                  businessUnits={businessUnits}
-                  globalState={globalState}
-                  events={events}
-                  decisionChoice={decisionChoice}
-                  allocations={allocations}
-                  csfPool={csfPool}
-                  roundNumber={roundNumber}
-                  isDark={isDark}
-                />
-              )}
-              {stageWarning && (
-                <span style={{ color: '#ef4444', fontSize: '0.68rem', fontWeight: 700, textAlign: 'center' }}>🔒 {stageWarning}</span>
-              )}
-              {/* UX-04: Over-allocation warning */}
-              {(Object.values(allocations || {}).reduce((s, v) => s + v, 0) > (csfPool || 0)) && (csfPool > 0) && !commitResults && (
-                <div style={{
-                  padding: '4px 8px', borderRadius: 5, background: 'rgba(239,68,68,0.12)',
-                  border: '1px solid rgba(239,68,68,0.35)', fontSize: '0.68rem', color: '#fca5a5',
-                  textAlign: 'center', lineHeight: 1.3, width: '100%',
-                }}>
-                  ⚠️ Over-allocated by {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0) - (csfPool || 0))}
-                </div>
-              )}
-              {/* ── Projected Impact Widget ── */}
-              {projectedCost !== 0 && !commitResults && (
-                <div className={`${styles.projectedImpactWidget} ${projectedCost > 0 ? styles.impactNegative : styles.impactPositive}`} style={{ padding: '3px 8px' }}>
-                  <span className={styles.projectedImpactLabel} style={{ fontSize: '0.68rem' }}>
-                    {projectedCost > 0 ? '📉 Cost' : '📈 Gain'}
-                  </span>
-                  <span className={`${styles.projectedImpactValue} ${projectedCost > 0 ? styles.lossValue : styles.gainValue}`} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80', fontSize: '0.7rem' }}>
-                    {projectedCost > 0 ? '↓' : '↑'} {fmtCurrency(Math.abs(projectedCost))}
-                  </span>
-                </div>
-              )}
-              {/* #5: Smart Commit Button — reflects decision quality */}
-              {(() => {
-                const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
-                const overAllocated = allocTotal > (csfPool || 0) && (csfPool > 0);
-                const fullyReady = hasReadBriefing && hasDecision && allocTotal > 0;
-                const partialReady = hasDecision && allocTotal <= 0;
-                // Facilitator-paced advance: the current round's commit is
-                // locked until the facilitator's timer fires or they advance
-                // the round. Decisions and allocations still save normally.
-                const roundLocked = globalState?.cohort_round_locked === true;
-                const nextUnlockAt = globalState?.cohort_next_unlock_at;
-                let unlockLabel = null;
-                if (roundLocked && nextUnlockAt) {
-                  try {
-                    unlockLabel = new Date(nextUnlockAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  } catch { unlockLabel = null; }
-                }
-                // TEAM-1: an observer never sees a live commit control.
-                if (isObserver && !commitResults) {
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <button
-                        className={styles.commitBtn}
-                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#1e293b', color: '#e2e8f0', border: '1px solid #4f46e5', opacity: 0.85, cursor: 'not-allowed' }}
-                        disabled
-                      >
-                        👁 Observer — driver commits
-                      </button>
-                      <div style={{ fontSize: '0.62rem', color: '#a5b4fc', textAlign: 'center' }}>
-                        Your team&apos;s driver holds the controls this round.
-                      </div>
-                    </div>
-                  );
-                }
-                if (roundLocked && !commitResults) {
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <button
-                        className={styles.commitBtn}
-                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#1e293b', color: '#e2e8f0', border: '1px solid #475569', opacity: 0.85, cursor: 'not-allowed' }}
-                        disabled
-                      >
-                        🔒 Round Locked{unlockLabel ? ` — opens ${unlockLabel}` : ''}
-                      </button>
-                      <div style={{ fontSize: '0.62rem', color: '#94a3b8', textAlign: 'center' }}>
-                        Your decisions are saved. {unlockLabel
-                          ? `The round opens at ${unlockLabel}.`
-                          : 'The facilitator will advance the round.'}
-                      </div>
-                    </div>
-                  );
-                }
-                // Mandatory-quiz gate: this round's quiz must be taken before the
-                // player can commit. Server-enforced too — this is the UX mirror.
-                const quizGate = globalState?.quiz_gate;
-                if (quizGate?.blocked && !commitResults) {
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <button
-                        className={styles.commitBtn}
-                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#3730a3', color: '#e0e7ff', border: '1px solid #4f46e5', opacity: 0.9, cursor: 'not-allowed' }}
-                        disabled
-                      >
-                        🧩 Complete the Quiz First
-                      </button>
-                      <div style={{ fontSize: '0.62rem', color: '#a5b4fc', textAlign: 'center' }}>
-                        This round requires the quiz{quizGate.required_title ? ` “${quizGate.required_title}”` : ''}. Open 📚 Resources to take it, then commit.
-                      </div>
-                    </div>
-                  );
-                }
-                // A11Y-F14 (WCAG 1.4.3): every branch here overrides the
-                // button's BACKGROUND inline but used to leave its colour to
-                // the .commitBtn class, which is `var(--ck-surface-0)` —
-                // near-black, chosen for the teal gradient that these
-                // overrides replace. The round's primary action was therefore
-                // illegible in the two flat-slate states, in BOTH themes:
-                //   dark  : #0b0f1a on #1e293b = 1.31:1
-                //   light : the globals.css shim rewrites `background:
-                //           rgb(30,41,59)` to #fff but leaves the class's
-                //           `color: #fff` alone — 1:1, white on white.
-                // Measured in Chromium on a signed-in player, round 1.
-                // Each branch now carries the foreground that belongs with its
-                // background, so neither the class default nor the shim can
-                // decide it. #e2e8f0 is itself a shim-known neutral, so on the
-                // slate states light mode darkens text and lightens surface
-                // together instead of one without the other.
-                const btnStyle = commitResults
-                  ? { background: '#1e293b', color: '#e2e8f0', borderColor: '#334155' }
-                  : overAllocated
-                    ? { background: 'linear-gradient(135deg, #991b1b, #7f1d1d)', color: '#ffffff', borderColor: '#ef4444', boxShadow: '0 0 12px rgba(239,68,68,0.25)' }
-                    : fullyReady
-                      ? { background: 'linear-gradient(135deg, #059669, #047857)', color: '#ffffff', borderColor: '#10b981', boxShadow: '0 0 12px rgba(16,185,129,0.3)' }
-                      : partialReady
-                        ? { background: 'linear-gradient(135deg, #92400e, #78350f)', color: '#ffffff', borderColor: '#f59e0b' }
-                        : { background: '#1e293b', color: '#e2e8f0', borderColor: '#475569' };
-                const btnIcon = commitResults ? '✅' : overAllocated ? '⚠️' : fullyReady ? '▶' : partialReady ? '⏳' : '🔒';
-                return (
-                  <motion.button
-                    className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
-                    style={{ width: '100%', height: 34, fontSize: '0.75rem', ...btnStyle, border: `1px solid ${btnStyle.borderColor}`, transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }}
-                    disabled={!!commitResults}
-                    onClick={() => {
-                      if (!commitResults) {
-                        if (isObserver) { showStageWarning('Observer view — your team\u2019s driver commits the round.'); return; }
-                        if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
-                        if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
-                        // 7.4 (UX audit): full gates before review, not after.
-                        if (onPreflight && !onPreflight()) return;
-                        setShowPredictionModal(true);
-                      }
-                    }}
-                    whileHover={{ scale: commitResults ? 1 : 1.02 }}
-                    whileTap={{ scale: commitResults ? 1 : 0.98 }}
-                  >
-                    {btnIcon} {commitResults ? 'Committed' : overAllocated ? 'Over-Allocated' : fullyReady ? 'Commit Decisions' : partialReady ? 'Allocate Capital' : 'Complete Steps'}
-                  </motion.button>
-                );
-              })()}
-            </div>
-          </div>
         </aside>
 
         {/* ── Stakeholder Negotiation Room ──

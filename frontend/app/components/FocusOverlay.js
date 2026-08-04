@@ -70,7 +70,7 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
           <span className={styles.stepIcon} aria-hidden="true">{STEP_META[step]?.icon}</span>
           <span className={styles.stepLabel} ref={headingRef} tabIndex={-1} role="heading" aria-level={2}>{STEP_META[step]?.label}</span>
           <span className={styles.stepBadge}>
-            Step {currentIdx + 1} / {steps.length}
+            {currentIdx >= 0 ? `Step ${currentIdx + 1} / ${steps.length}` : 'Round complete'}
           </span>
         </div>
         <button

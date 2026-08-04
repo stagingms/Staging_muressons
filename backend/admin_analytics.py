@@ -183,7 +183,6 @@ _analytics_visibility: dict = {
         "detailed_option_descriptions": True, # Detailed Option Descriptions
         # Dock & ambient
         "dock_sdg_radar": True,               # Dock: SDG Alignment Radar
-        "market_ticker": True,                # Market Ticker
         "decision_pressure_timer": True,      # Decision Pressure Timer
     },
 }
