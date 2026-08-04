@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './PedagogicalScaffolding.module.css';
+import { currencySymbol } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -543,7 +544,7 @@ export function MidGameCheckpoint({ checkpointData }) {
                             <div className={styles.cpMetric}>
                                 <span className={styles.cpMetricLabel}>Terminal Value Range</span>
                                 <span className={styles.cpMetricValue}>
-                                    ${(projected_tv_range.low / 1e6).toFixed(0)}M – ${(projected_tv_range.high / 1e6).toFixed(0)}M
+                                   {currencySymbol()}{(projected_tv_range.low / 1e6).toFixed(0)}M – {currencySymbol()}{(projected_tv_range.high / 1e6).toFixed(0)}M
                                 </span>
                             </div>
                         )}
@@ -786,7 +787,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                             <span className={styles.mmRankPos}>{init.icon}</span>
                             <span style={{ flex: 1 }}>{init.label}</span>
                             <span style={{ fontWeight: 800, color: '#10b981' }}>
-                                ${(allocs[key] / 1_000_000).toFixed(1)}M
+                               {currencySymbol()}{(allocs[key] / 1_000_000).toFixed(1)}M
                             </span>
                         </div>
                     ))}
@@ -802,7 +803,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                 <span>♻️</span>
                 <h4>{variant.title}</h4>
                 <span className={styles.mmRound}>
-                    ${(remaining / 1_000_000).toFixed(1)}M remaining
+                   {currencySymbol()}{(remaining / 1_000_000).toFixed(1)}M remaining
                 </span>
             </div>
             <p className={styles.mmPrompt}>{variant.instruction}</p>
@@ -817,7 +818,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                             <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{init.icon} {init.label}</span>
                             <span style={{ fontWeight: 800, color: '#059669', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.9rem' }}>
-                                ${(allocs[key] / 1_000_000).toFixed(1)}M
+                               {currencySymbol()}{(allocs[key] / 1_000_000).toFixed(1)}M
                             </span>
                         </div>
                         <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: 10, lineHeight: 1.5 }}>
@@ -839,7 +840,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
             </div>
             {remaining < 0 && (
                 <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: 8 }}>
-                    ⚠️ Over budget by ${(Math.abs(remaining) / 1_000_000).toFixed(1)}M — reduce allocations
+                    ⚠️ Over budget by{currencySymbol()}{(Math.abs(remaining) / 1_000_000).toFixed(1)}M — reduce allocations
                 </div>
             )}
             <button className={styles.mmSubmitBtn} onClick={handleSubmit} disabled={remaining < 0}

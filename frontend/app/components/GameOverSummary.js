@@ -1,5 +1,5 @@
 'use client';
-import { money, price, ratio, delta } from '../utils/format';
+import { currencySymbol, delta, money, price, ratio } from '../utils/format';
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './GameOverSummary.module.css';
@@ -519,7 +519,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     </div>
                                 </div>
                                 <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#10b981' }}>
-                                    ${(greenFund / 1_000_000).toFixed(2)}M
+                                    {currencySymbol()}{(greenFund / 1_000_000).toFixed(2)}M
                                 </div>
                             </div>
 
@@ -795,7 +795,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                         fontSize: '1.2rem', fontWeight: 900,
                                         fontFamily: "'JetBrains Mono', monospace",
                                         color: '#10b981',
-                                    }}>${(vT / 1_000_000).toFixed(2)}M</span>
+                                    }}>{currencySymbol()}{(vT / 1_000_000).toFixed(2)}M</span>
                                 </div>
 
                                 {/* STRAT-010: Equity Bridge */}
@@ -814,19 +814,19 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '4px', color: '#94a3b8' }}>
                                                 <span>Net Debt</span>
                                                 <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#f87171' }}>
-                                                    −${((nd || 0) / 1_000_000).toFixed(1)}M
+                                                    −{currencySymbol()}{((nd || 0) / 1_000_000).toFixed(1)}M
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '6px' }}>
                                                 <span>Equity Value</span>
                                                 <span style={{ fontFamily: "'JetBrains Mono', monospace", color: eqVal > 0 ? '#4ade80' : '#ef4444', fontWeight: 800 }}>
-                                                    ${(eqVal / 1_000_000).toFixed(2)}M
+                                                    {currencySymbol()}{(eqVal / 1_000_000).toFixed(2)}M
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: '6px', background: `${spColor}15`, border: `1px solid ${spColor}40` }}>
                                                 <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e2e8f0' }}>📈 Share Price</span>
                                                 <span style={{ fontSize: '1.1rem', fontWeight: 900, color: spColor, fontFamily: "'JetBrains Mono', monospace" }}>
-                                                    ${pps.toFixed(2)}
+                                                    {currencySymbol()}{pps.toFixed(2)}
                                                 </span>
                                             </div>
                                         </div>
@@ -918,11 +918,11 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                 <div style={{ marginTop: '0.6rem', fontSize: '0.68rem', color: '#334155', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '0.6rem' }}>
                                     Without SDG track: V<sub>T</sub> would be{' '}
                                     <span style={{ color: '#64748b', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
-                                        ${((vT / mSdg) / 1_000_000).toFixed(2)}M
+                                        {currencySymbol()}{((vT / mSdg) / 1_000_000).toFixed(2)}M
                                     </span>{' '}
                                     — the SDG track added{' '}
                                     <span style={{ color: '#10b981', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
-                                        ${((vT - vT / mSdg) / 1_000_000).toFixed(2)}M
+                                        {currencySymbol()}{((vT - vT / mSdg) / 1_000_000).toFixed(2)}M
                                     </span>{' '}
                                     in terminal enterprise value.
                                 </div>

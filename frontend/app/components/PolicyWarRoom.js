@@ -134,7 +134,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                         </div>
                     </div>
                     <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
-                        By lobbying <em>{stanceObj.label.toLowerCase()}</em> with ${spend.toLocaleString()}, you have a {prob}% chance of shifting the regulatory landscape.
+                        By lobbying <em>{stanceObj.label.toLowerCase()}</em> with {currencySymbol()}{spend.toLocaleString()}, you have a {prob}% chance of shifting the regulatory landscape.
                     </div>
                 </div>
 
@@ -147,7 +147,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                 <div style={{ padding: '0.6rem 1rem', background: '#fff', margin: '0.5rem' }}>
                     <MarketShareChart muressons={marketShare} competitor={100 - marketShare} />
                     <div style={{ textAlign: 'center', fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                        Est. Net Profit: ${netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        Est. Net Profit:{currencySymbol()}{netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                 </div>
 
@@ -162,7 +162,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                     </div>
                     <div>
                         <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>War Chest Spend ($)</span><span style={{ fontWeight: 700 }}>${spend.toLocaleString()}</span>
+                            <span>War Chest Spend ($)</span><span style={{ fontWeight: 700 }}>{currencySymbol()}{spend.toLocaleString()}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             <input type="range" min={0} max={WAR_CHEST} step={12500} value={spend}

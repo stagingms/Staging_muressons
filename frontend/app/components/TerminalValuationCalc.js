@@ -1,6 +1,7 @@
 'use client';
 import React, { useMemo } from 'react';
 import styles from './ExecutiveCockpit.module.css';
+import { currencySymbol } from '../utils/format';
 
 /**
  * TerminalValuationCalc — Phase 3.7 (STRAT-010 update)
@@ -193,7 +194,7 @@ export default function TerminalValuationCalc({
           </span>
         </span>
         <span style={{ fontSize: '1.5rem', fontWeight: 900, color: spColor, fontFamily: "'JetBrains Mono', monospace" }}>
-          ${calc.pricePerShare.toFixed(2)}
+         {currencySymbol()}{calc.pricePerShare.toFixed(2)}
         </span>
       </div>
     </div>

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './PeerComparison.module.css';
+import { currencySymbol } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_BASE = (API || 'http://localhost:8000').replace(/^http/, 'ws');
@@ -241,7 +242,7 @@ export default function PeerComparison({ sessionId, isOpen, onClose, roundNumber
                     {team.isYou && <span className={styles.youBadge}>YOU</span>}
                   </td>
                   <td className={styles.treasuryCell}>
-                    ${(team.treasury / 1_000_000).toFixed(1)}M
+                   {currencySymbol()}{(team.treasury / 1_000_000).toFixed(1)}M
                   </td>
                   <td className={styles.reputationCell}>
                     {team.reputation.toFixed(0)}

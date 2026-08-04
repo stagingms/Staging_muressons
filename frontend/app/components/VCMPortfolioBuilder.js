@@ -231,7 +231,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                         <div key={t.id} style={{ gridColumn: i === 2 ? '1' : 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '3px' }}>
                                 <label style={{ color: '#475569', fontWeight: 600 }}>{t.label} (t)</label>
-                                <span style={{ fontWeight: 700, color: t.color }}>${(vols[i] * t.cost / 1000).toFixed(0)}k</span>
+                                <span style={{ fontWeight: 700, color: t.color }}>{currencySymbol()}{(vols[i] * t.cost / 1000).toFixed(0)}k</span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <input type="range" min={0} max={TOTAL_REQUIRED} step={500} value={vols[i]}

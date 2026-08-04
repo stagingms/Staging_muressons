@@ -84,7 +84,7 @@ function MACCurve({ funded, budgetLine }) {
                 const y = toY(v);
                 return <g key={v}>
                     <line x1={padL} y1={y} x2={W - padR} y2={y} stroke={v === 0 ? '#334155' : '#f1f5f9'} strokeWidth={v === 0 ? 1.5 : 1} />
-                    <text x={padL - 5} y={y + 3} textAnchor="end" fontSize="9" fill="#94a3b8">${v}</text>
+                    <text x={padL - 5} y={y + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{currencySymbol()}{v}</text>
                 </g>;
             })}
             {/* Carbon fee reference line */}
@@ -214,7 +214,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                     </div>
                     <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>
                         <div style={{ color: '#94a3b8', fontSize: '0.65rem' }}>REMAINING</div>
-                        <div style={{ fontWeight: 800, color: remaining < 0 ? '#ef4444' : '#34d399' }}>${(remaining / 1e6).toFixed(2)}M</div>
+                        <div style={{ fontWeight: 800, color: remaining < 0 ? '#ef4444' : '#34d399' }}>{currencySymbol()}{(remaining / 1e6).toFixed(2)}M</div>
                     </div>
                 </div>
 

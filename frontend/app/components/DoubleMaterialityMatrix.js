@@ -678,8 +678,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     {totalPanelFee > 0 && (
                         <div className={styles.panelFeeBar}>
                             <span className={styles.panelFeeLabel}>Panel Fees</span>
-                            <span className={styles.panelFeeAmount}>−${(totalPanelFee / 1_000_000).toFixed(2)}M</span>
-                            <span className={styles.netCsfAmount}>Net CSF: ${(netCsf / 1_000_000).toFixed(1)}M</span>
+                            <span className={styles.panelFeeAmount}>−{currencySymbol()}{(totalPanelFee / 1_000_000).toFixed(2)}M</span>
+                            <span className={styles.netCsfAmount}>Net CSF: {currencySymbol()}{(netCsf / 1_000_000).toFixed(1)}M</span>
                         </div>
                     )}
 
@@ -743,7 +743,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             color: isOverBudget ? '#ef4444' : totalQ1Cost > 0 ? '#f59e0b' : '#4ade80',
                             transition: 'color 0.3s ease',
                         }}>
-                            ${(totalQ1Cost / 1_000_000).toFixed(1)}M / ${(netCsf / 1_000_000).toFixed(1)}M
+                            {currencySymbol()}{(totalQ1Cost / 1_000_000).toFixed(1)}M / {currencySymbol()}{(netCsf / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
                     <button
@@ -992,7 +992,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cfg.color, marginBottom: '0.25rem' }}>{cfg.esrs_ref || 'ESRS §1.47'}</div>
                                         <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.55 }}>{cfg.description || 'Engage this stakeholder group to receive per-issue quadrant recommendations.'}</div>
                                         <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>
-                                            Fee: <strong style={{ color: cfg.color }}>${((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M</strong> (flat rate — all issues rated)
+                                            Fee: <strong style={{ color: cfg.color }}>{currencySymbol()}{((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M</strong> (flat rate — all issues rated)
                                         </div>
                                     </div>
 
@@ -1007,7 +1007,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                                 className={styles.submitBtn}
                                                 onClick={() => handleCommissionGroup(activePanelGroup)}
                                             >
-                                                Commission {cfg.label} — ${((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M
+                                                Commission {cfg.label} — {currencySymbol()}{((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M
                                             </button>
                                         )}
                                     </div>
@@ -1019,7 +1019,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         {totalPanelFee > 0 && (
                             <div style={{ padding: '0.5rem 0.75rem', background: 'rgba(245,158,11,0.06)', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.15)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{commissionedGroups.size} group{commissionedGroups.size !== 1 ? 's' : ''} commissioned</span>
-                                <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.82rem' }}>Total: −${(totalPanelFee / 1_000_000).toFixed(2)}M from CSF</span>
+                                <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.82rem' }}>Total: −{currencySymbol()}{(totalPanelFee / 1_000_000).toFixed(2)}M from CSF</span>
                             </div>
                         )}
 
@@ -1098,7 +1098,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         `= ${currencySymbol()}${submitStatus.amount?.toLocaleString()} Final Unlocked Budget`,
                                     ].filter(Boolean).join('\n') : `Allocated Budget: ${currencySymbol()}${submitStatus.amount?.toLocaleString()}`}
                                 >
-                                    + ${submitStatus.amount?.toLocaleString()} Unlocked
+                                    + {currencySymbol()}{submitStatus.amount?.toLocaleString()} Unlocked
                                 </div>
                                 {submitStatus.debrief && (
                                     <div style={{ textAlign: 'left', marginTop: '1rem', fontSize: '0.8rem' }}>
@@ -1137,7 +1137,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                                 )}
                                                 {submitStatus.debrief.clawback_applied > 0 && (
                                                     <div style={{ padding: '0.4rem 0.6rem', background: 'rgba(239,68,68,0.08)', borderRadius: '5px', borderLeft: '2px solid #ef4444', color: '#fca5a5', fontSize: '0.72rem' }}>
-                                                        ⚠ ESRS 1 §1.51: CEO-only sign-off (Option C) — ${submitStatus.debrief.clawback_applied?.toLocaleString()} clawback applied. Board committee oversight required.
+                                                        ⚠ ESRS 1 §1.51: CEO-only sign-off (Option C) — {currencySymbol()}{submitStatus.debrief.clawback_applied?.toLocaleString()} clawback applied. Board committee oversight required.
                                                     </div>
                                                 )}
                                             </div>

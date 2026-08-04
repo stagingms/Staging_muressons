@@ -86,7 +86,7 @@ import MarketIntel from './MarketIntelCards';
 import AnnualReport from './AnnualReport';
 import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
-import { moneyM, price } from '../utils/format';
+import { currencySymbol, moneyM, price } from '../utils/format';
 
 // Phase D (player redesign): CANVAS-FIRST SHELL SWITCH — the one-line
 // rollback. true → the stage flow renders inline in the center column (the
@@ -2260,10 +2260,35 @@ export default function ExecutiveCockpit({
         {/* ── RESULTS STEP ── */}
         {focusStep === 'results' && commitResults && (
           <div>
+            {/* THE OUTCOME, IN A SENTENCE. This stage opened with a 32px
+                emoji, "Round 2 Results", and "Review your outcomes before
+                advancing" — three lines announcing that results exist, which
+                the player can already see, and none saying what they were.
+                The headline now states the two movements the round's decision
+                most directly targets, in the session currency and with real
+                deltas. Derived, not authored: no causal claim is made here,
+                because the engine's reasoning belongs to the consequence
+                replay below, which knows it. */}
+            {(() => {
+              const nT = commitResults.globalState?.corporate_treasury || 0;
+              const nR = commitResults.globalState?.group_reputation || 50;
+              const dT = nT - treasury;
+              const dR = nR - reputation;
+              const verb = (d, up, down) => (d > 0 ? up : d < 0 ? down : 'held');
+              const pts = Math.abs(Math.round(dR));
+              const clause = (label, d, txt) => (d === 0 ? `${label} held` : `${label} ${txt}`);
+              return (
+                <div className={focusStyles.stageHead}>
+                  <div className={focusStyles.stageEyebrow}>Round {roundNumber} results</div>
+                  <h2 className={focusStyles.stageQuestion}>
+                    {clause('Treasury', dT, `${verb(dT, 'rose', 'fell')} ${fmtCurrency(Math.abs(dT))}`)}
+                    {' and '}
+                    {clause('reputation', dR, `${verb(dR, 'rose', 'fell')} ${pts} point${pts === 1 ? '' : 's'}`)}.
+                  </h2>
+                </div>
+              );
+            })()}
             <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <div style={{ fontSize: '2rem', marginBottom: 4 }}>📊</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
-              <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Review your outcomes before advancing.</p>
               {/* W5: ceremony stamp — pure decoration on the results card */}
               <div aria-hidden="true" className="stamp-ceremony" style={{
                 display: 'inline-block', marginTop: 10, padding: '4px 14px',
@@ -2354,7 +2379,7 @@ export default function ExecutiveCockpit({
                         <div className={focusStyles.focusResultCard} style={{ cursor: 'pointer' }} onClick={() => setResultsBsModalOpen(true)} title="Click to view full Balance Sheet">
                           <div className={focusStyles.focusResultIcon}>📊</div>
                           <div className={focusStyles.focusResultLabel}>Net Assets</div>
-                          <div className={focusStyles.focusResultValue}>${((bsF.net_assets || 0) / 1_000_000).toFixed(0)}M</div>
+                          <div className={focusStyles.focusResultValue}>{moneyM(bsF.net_assets || 0, { dp: 0 })}</div>
                           <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cColor[bsF.covenant_status] || '#38bdf8', marginTop: 2 }}>
                             {cIcon[bsF.covenant_status] || '📊'} D/E: {(bsF.debt_to_equity || 0).toFixed(2)}×
                           </div>
@@ -4496,7 +4521,7 @@ export default function ExecutiveCockpit({
                       }} className={styles.resultCardLabel}>
                         <span>📈 Stock Price</span>
                         <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                          ${latestPrice.toFixed(2)}
+                          {currencySymbol()}{latestPrice.toFixed(2)}
                         </span>
                       </div>
                       <ResponsiveContainer width="100%" height={72}>
@@ -4704,7 +4729,7 @@ export default function ExecutiveCockpit({
                             }}>YOU</span>}
                           </td>
                           <td style={{ padding: '6px', textAlign: 'right', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace" }}>
-                            ${((team.treasury || 0) / 1_000_000).toFixed(1)}M
+                            {currencySymbol()}{((team.treasury || 0) / 1_000_000).toFixed(1)}M
                           </td>
                           <td style={{ padding: '6px', textAlign: 'right', color: '#cbd5e1' }}>
                             {team.reputation?.toFixed(0) ?? '—'}

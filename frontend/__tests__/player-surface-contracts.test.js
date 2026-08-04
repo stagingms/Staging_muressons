@@ -229,6 +229,59 @@ describe('currency symbol has exactly one source', () => {
     expect(tree.some((f) => /KPIDashboard\.js$/.test(f))).toBe(true);
   });
 
+  test('no JSX text renders a bare glyph before an expression', () => {
+    // THE HOLE THE FIRST SWEEP LEFT. The check below finds `$${expr}` inside
+    // TEMPLATE literals. In JSX a hard-coded glyph looks different — literal
+    // text followed by an expression container:
+    //
+    //     <div>${(bs.net_assets / 1e6).toFixed(0)}M</div>
+    //
+    // No backticks, so the template regex never saw it. Four survived the
+    // 121-site sweep; three were caught by eye and the fourth was still in the
+    // results panel a day later.
+    //
+    // A line regex cannot tell this from `${x}` inside a multi-line template
+    // literal — 78 SVG and HTML string builders match the same shape. So this
+    // reads the AST instead: a JSXText node whose text ends in a currency
+    // glyph, immediately followed by an expression. That is the defect and
+    // nothing else is.
+    const parser = require('@babel/parser');
+    const offenders = [];
+    const GLYPHS = ['$', '£', '€', '¥', '₹'];
+
+    const walk = (node, file, onJsx) => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) { node.forEach((n) => walk(n, file, onJsx)); return; }
+      if (node.type === 'JSXElement' || node.type === 'JSXFragment') onJsx(node, file);
+      for (const k of Object.keys(node)) {
+        if (k === 'loc' || k === 'leadingComments' || k === 'trailingComments') continue;
+        walk(node[k], file, onJsx);
+      }
+    };
+
+    for (const f of tree) {
+      let ast;
+      try {
+        ast = parser.parse(fs.readFileSync(f, 'utf8'), { sourceType: 'module', plugins: ['jsx'] });
+      } catch {
+        continue;   // a parse failure is another test's problem, not this one's
+      }
+      walk(ast, f, (el) => {
+        const kids = el.children || [];
+        kids.forEach((child, i) => {
+          if (child.type !== 'JSXText') return;
+          const next = kids[i + 1];
+          if (!next || next.type !== 'JSXExpressionContainer') return;
+          const trimmed = child.value.replace(/\s+$/, '');
+          if (GLYPHS.includes(trimmed.slice(-1))) {
+            offenders.push(`${path.relative(root, f)}:${child.loc.end.line}  ${trimmed.trim().slice(-60)}{…}`);
+          }
+        });
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
   test('no component interpolates a number after a hard-coded glyph', () => {
     const offenders = [];
     for (const f of tree) {

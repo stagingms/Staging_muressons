@@ -71,7 +71,7 @@ function AreaChart({ cashFlows }) {
                 <text key={yr} x={toX(yr - 1)} y={H - padB + 16} textAnchor="middle" fontSize="8" fill="#94a3b8">{yr}</text>
             ))}
             {/* Last value label */}
-            <text x={W - padR - 4} y={toY(lastV) - 4} textAnchor="end" fontSize="9" fontWeight="700" fill="#2563eb">Yr 15: ${Math.round(lastV)}M</text>
+            <text x={W - padR - 4} y={toY(lastV) - 4} textAnchor="end" fontSize="9" fontWeight="700" fill="#2563eb">Yr 15: {currencySymbol()}{Math.round(lastV)}M</text>
             {/* Y axis */}
             <text x={10} y={H / 2} textAnchor="middle" fontSize="8" fill="#94a3b8" transform={`rotate(-90,10,${H/2})`}>↑ Annual Cash Flow ($M)</text>
             {/* X axis label */}

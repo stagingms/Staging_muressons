@@ -387,7 +387,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                                     <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>{buName}</div>
                                     <div style={{ fontSize: '0.75rem', color: isGreen ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
                                         {emissionsVal.toLocaleString()}t residual •{' '}
-                                        Cost: ${((emissionsVal * 90) / 1_000_000).toFixed(2)}M/round
+                                        Cost:{currencySymbol()}{((emissionsVal * 90) / 1_000_000).toFixed(2)}M/round
                                     </div>
                                 </div>
                                 {isGreen ? (

@@ -22,6 +22,7 @@
 'use client';
 import React, { useMemo } from 'react';
 import styles from './MirrorDebrief.module.css';
+import { currencySymbol } from '../utils/format';
 
 /**
  * M_R component catalog — maps flag keys to their M_R bonus value and
@@ -177,7 +178,7 @@ export default function MirrorDebrief({ mr, flags = {}, terminalValue, decisionH
 
         {insight.tvDelta > 0 && (
           <div className={styles.tvImpact}>
-            Terminal value impact: <strong>+${(insight.tvDelta / 1_000_000).toFixed(1)}M</strong>
+            Terminal value impact: <strong>+{currencySymbol()}{(insight.tvDelta / 1_000_000).toFixed(1)}M</strong>
           </div>
         )}
 

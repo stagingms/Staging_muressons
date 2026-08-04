@@ -78,7 +78,7 @@ function CostBars({ scoreRate, baseRate }) {
                 const y = padT + cH - bH;
                 return <g key={b.label}>
                     <rect x={x} y={y} width={barW} height={bH} fill={b.col} rx="3" style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
-                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="700" fill={b.col}>${Math.round(b.v)}M</text>
+                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="700" fill={b.col}>{currencySymbol()}{Math.round(b.v)}M</text>
                     <text x={x + barW / 2} y={H - padB + 15} textAnchor="middle" fontSize="10" fill="#64748b">{b.label}</text>
                 </g>;
             })}

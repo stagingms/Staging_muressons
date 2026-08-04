@@ -246,7 +246,7 @@ function WhatIfSimulator({ data }) {
                         <div className={styles.whatIfDeltas}>
                             <div className={`${styles.whatIfDelta} ${d.projected_treasury_diff > 0 ? styles.deltaPos : styles.deltaNeg}`}>
                                 <span>💰 Treasury</span>
-                                <strong>{d.projected_treasury_diff > 0 ? '+' : ''}${(d.projected_treasury_diff / 1_000_000).toFixed(1)}M</strong>
+                                <strong>{d.projected_treasury_diff > 0 ? '+' : ''}{currencySymbol()}{(d.projected_treasury_diff / 1_000_000).toFixed(1)}M</strong>
                             </div>
                             <div className={`${styles.whatIfDelta} ${d.projected_reputation_diff > 0 ? styles.deltaPos : styles.deltaNeg}`}>
                                 <span>⭐ Reputation</span>

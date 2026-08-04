@@ -873,7 +873,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                             <div className={styles.topCard}>
                                 <span className={styles.topLabel}>Terminal Value</span>
                                 <span className={styles.topValue}>
-                                    ${((d.terminal_value || 0) / 1_000_000).toFixed(2)}M
+                                    {currencySymbol()}{((d.terminal_value || 0) / 1_000_000).toFixed(2)}M
                                 </span>
                             </div>
                             <div className={styles.topCard}>
@@ -1713,7 +1713,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             return (
                                                 <tr key={i} className={i % 2 === 0 ? styles.evenRow : ''}>
                                                     <td className={styles.roundNum}>R{roundNum}<br/><span style={{ fontSize: '0.7em', opacity: 0.7 }}>{qLabel}</span></td>
-                                                    <td>${(cash / 1_000_000).toFixed(2)}</td>
+                                                    <td>{currencySymbol()}{(cash / 1_000_000).toFixed(2)}</td>
                                                     <td style={{ color: rep >= 65 ? '#10b981' : rep >= 45 ? '#f59e0b' : '#ef4444' }}>
                                                         {rep.toFixed(1)}
                                                     </td>
@@ -2270,7 +2270,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                 color: totalDelta >= 0 ? '#4ade80' : '#f87171',
                                                 fontFamily: "'JetBrains Mono', monospace",
                                             }}>
-                                                {totalDelta >= 0 ? '+' : ''}${(Math.abs(totalDelta) / 1_000_000).toFixed(1)}M
+                                                {totalDelta >= 0 ? '+' : ''}{currencySymbol()}{(Math.abs(totalDelta) / 1_000_000).toFixed(1)}M
                                             </span>
                                         </div>
                                     );

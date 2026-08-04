@@ -184,7 +184,7 @@ export default function Scope3ProcurementOptimizer({ sessionId, onComplete }) {
                         <div key={s.id} style={{ gridColumn: i === 2 ? '1' : 'auto' }}>
                             <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{s.label}</span>
-                                <span style={{ color: s.color }}>CO₂: {s.co2}kg · ${s.cost}/u</span>
+                                <span style={{ color: s.color }}>CO₂: {s.co2}kg · {currencySymbol()}{s.cost}/u</span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <input type="range" min={0} max={TOTAL_UNITS} step={1000} value={units[i]}

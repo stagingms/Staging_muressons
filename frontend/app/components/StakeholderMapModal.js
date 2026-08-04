@@ -16,6 +16,7 @@ import { droppableKeyboardCoordinates } from '../lib/dndDroppableKeyboardCoordin
 import Dialog from './Dialog';
 import styles from './StakeholderMapModal.module.css';
 import { playerIdHeader } from '../hooks/useSimulation';
+import { currencySymbol } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -456,7 +457,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     <div style={{ padding: '0.4rem 0.5rem', background: 'transparent', borderRadius: '8px', border: `1px solid ${result.passed ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                                         {result.scoring_tier && (<span style={{ fontSize: '0.65rem', fontWeight: 700, color: result.passed ? '#10b981' : '#f59e0b' }}>📊 {result.scoring_tier}</span>)}
                                         {result.reputation_penalty < 0 && (<span style={{ fontSize: '0.63rem', fontWeight: 600, color: '#ef4444' }}>🌍 Reputation {result.reputation_penalty}</span>)}
-                                        {result.treasury_penalty < 0 && (<span style={{ fontSize: '0.63rem', fontWeight: 600, color: '#ef4444' }}>💰 Treasury ${Math.abs(result.treasury_penalty / 1000)}K penalty</span>)}
+                                        {result.treasury_penalty < 0 && (<span style={{ fontSize: '0.63rem', fontWeight: 600, color: '#ef4444' }}>💰 Treasury {currencySymbol()}{Math.abs(result.treasury_penalty / 1000)}K penalty</span>)}
                                     </div>
                                 )}
                               </div>

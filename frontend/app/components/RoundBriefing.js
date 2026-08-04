@@ -9,6 +9,7 @@ import { HEALTHCARE_BRIEFINGS } from '@/app/briefings/data/healthcare';
 import { SDG_BRIEFINGS }        from '@/app/briefings/data/sdg';
 import { deriveSimContext, resolveBriefing } from '@/app/briefings/resolver';
 import { stripPedagogy } from '@/app/briefings/stripPedagogy';
+import { currencySymbol } from '../utils/format';
 
 
 /**
@@ -431,7 +432,7 @@ export default function RoundBriefing({
                   {prevRoundData.events?.climate_event_struck === true && (
                     <div className={styles.recapRow}>
                       <span className={styles.recapLabel}>🌪️ Climate Event</span>
-                      <span className={styles.recapValueNegative}>Cyclone struck — ${((prevRoundData.events.actual_damage || 0) / 1_000_000).toFixed(1)}M damage</span>
+                      <span className={styles.recapValueNegative}>Cyclone struck — {currencySymbol()}{((prevRoundData.events.actual_damage || 0) / 1_000_000).toFixed(1)}M damage</span>
                     </div>
                   )}
                 </div>
@@ -488,7 +489,7 @@ export default function RoundBriefing({
               {globalState && (
                 <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.5)', fontSize: '0.68rem', color: '#94a3b8' }}>
-                    💰 Green Fund: <strong style={{ color: '#4ade80' }}>${((globalState.green_transition_fund || 0) / 1_000_000).toFixed(1)}M</strong>
+                    💰 Green Fund: <strong style={{ color: '#4ade80' }}>{currencySymbol()}{((globalState.green_transition_fund || 0) / 1_000_000).toFixed(1)}M</strong>
                   </div>
                   <div style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.5)', fontSize: '0.68rem', color: '#94a3b8' }}>
                     📊 Cost of Capital: <strong style={{ color: (globalState.cost_of_capital || 0.05) > 0.06 ? '#ef4444' : '#f8fafc' }}>{((globalState.cost_of_capital || 0.05) * 100).toFixed(1)}%</strong>
@@ -618,7 +619,7 @@ export default function RoundBriefing({
                 <div className={styles.valuationCard}>
                   <div className={styles.valuationHeader}>📈 Mid-Game Valuation Estimate</div>
                   <div className={styles.valuationRange}>
-                    ${valuationEstimate.low}M — ${valuationEstimate.high}M
+                    {currencySymbol()}{valuationEstimate.low}M — {currencySymbol()}{valuationEstimate.high}M
                   </div>
                   <div className={styles.valuationNote}>
                     Estimated terminal value based on current trajectory. Subject to remaining decisions.
