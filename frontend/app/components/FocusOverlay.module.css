@@ -1185,3 +1185,71 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   THE FULL COMPARISON.
+
+   What was wrong with it: 11.2px body text — below the floor tokens.css
+   sets for anything a player reads — with every numeric column CENTRED.
+   Centred numbers cannot be compared down a column, because the digits do
+   not line up; the eye has to re-find the decimal on every row. That is
+   the single most common numeric-table error and it was in the one table
+   whose entire job is comparison. The row for the option the player had
+   actually chosen was styled exactly like the two they had rejected.
+
+   Now: 14px, numbers right-aligned in tabular figures, and the chosen row
+   carries the accent so a team can see their own line at a glance.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.cmpWrap { margin-top: 32px; }
+.cmpLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.cmpTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.cmpTable th,
+.cmpTable td {
+  padding: 12px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  white-space: nowrap;
+}
+.cmpTable th {
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom-color: var(--ck-border-strong, rgba(148, 163, 184, 0.28));
+}
+.cmpTable th:first-child,
+.cmpTable td:first-child {
+  text-align: left;
+  white-space: normal;
+  color: var(--text-secondary);
+}
+.cmpTable tbody tr:last-child td { border-bottom: none; }
+
+/* The player's own row. Not a colour swap — a left rule and a wash, the same
+   vocabulary the constraint line uses for "this one is yours". */
+.cmpTable tbody tr[data-chosen='true'] td,
+.cmpTable tbody tr[data-chosen='true'] th {
+  background: var(--accent-soft, rgba(99, 102, 241, 0.08));
+}
+/* th, not td: the option name is a ROW HEADER, which is what lets a screen
+   reader read "Option A, Treasury, minus 2.5M" instead of a bare number. */
+.cmpTable tbody tr[data-chosen='true'] th:first-child {
+  box-shadow: inset 2px 0 0 var(--accent, #6366f1);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.cmpUp   { color: var(--positive-text); }
+.cmpDown { color: var(--danger-text); }
+.cmpFlat { color: var(--text-muted); }
+

@@ -2054,64 +2054,57 @@ export default function ExecutiveCockpit({
               );
             })()}
 
-            {/* Comparison Matrix for legacy A/B/C */}
-            {!isPillarMode && Object.keys(options).length > 0 && (
-              <div style={{ marginTop: 16, padding: '12px 14px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f8fafc', borderRadius: 10, border: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: isDark ? '#94a3b8' : '#475569', marginBottom: 8 }}>Comparison Matrix</div>
-                <table style={{ width: '100%', fontSize: '0.7rem', borderCollapse: 'collapse', color: isDark ? '#d1d9e6' : '#1e293b' }}>
-                  <thead>
-                    <tr style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0' }}>
-                      <th style={{ textAlign: 'left', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Option</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Treasury</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Revenue</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Reputation</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>CO₂</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>SLO</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Gov. Risk</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>NCD</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(options).map(([optId, opt]) => {
-                      const imp = opt.impacts || {};
-                      const rep = imp.reputation ?? imp.reputation_delta ?? null;
-                      const ci = imp.carbon_intensity_delta ?? null;
-                      const slo = imp.social_license ?? imp.social_license_delta ?? imp.social_license_boost ?? null;
-                      const rev = imp.revenue_delta ?? null;
-                      const gov = imp.governance_risk_delta ?? null;
-                      const ncd = imp.natural_capital_debt_delta ?? null;
-                      const muted = isDark ? '#64748b' : '#94a3b8';
-                      return (
-                      <tr key={optId} style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
-                        <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#f87171' : imp.treasury > 0 ? '#4ade80' : muted }}>
-                          {imp.treasury != null ? fmtCurrency(imp.treasury) : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: rev > 0 ? '#4ade80' : rev < 0 ? '#f87171' : muted }}>
-                          {rev != null ? (rev > 0 ? '+' : '') + fmtCurrency(rev) : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: rep > 0 ? '#4ade80' : rep < 0 ? '#f87171' : muted }}>
-                          {rep != null ? (rep > 0 ? '+' : '') + rep : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: ci < 0 ? '#4ade80' : ci > 0 ? '#f87171' : muted }}>
-                          {ci != null ? (ci > 0 ? '+' : '') + ci : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: slo > 0 ? '#4ade80' : slo < 0 ? '#f87171' : muted }}>
-                          {slo != null ? (slo > 0 ? '+' : '') + slo : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: gov < 0 ? '#4ade80' : gov > 0 ? '#f87171' : muted }}>
-                          {gov != null ? (gov > 0 ? '+' : '') + gov : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: ncd < 0 ? '#4ade80' : ncd > 0 ? '#f87171' : muted }}>
-                          {ncd != null ? (ncd > 0 ? '+' : '') + ncd : '—'}
-                        </td>
+            {/* THE FULL COMPARISON. Every impact, including the four the cards
+                do not carry. Same reads as before — no new data — but at a
+                size a player can use and with the numbers right-aligned so a
+                column can actually be compared. */}
+            {!isPillarMode && Object.keys(options).length > 0 && (() => {
+              const COLS = [
+                { label: 'Treasury',   get: (i) => i.treasury ?? null,                                                              money: true,  good: 1 },
+                { label: 'Revenue',    get: (i) => i.revenue_delta ?? null,                                                         money: true,  good: 1 },
+                { label: 'Reputation', get: (i) => i.reputation ?? i.reputation_delta ?? null,                                       money: false, good: 1 },
+                { label: 'Carbon int.', get: (i) => i.carbon_intensity_delta ?? null,                                                money: false, good: -1 },
+                { label: 'Social lic.', get: (i) => i.social_license ?? i.social_license_delta ?? i.social_license_boost ?? null,     money: false, good: 1 },
+                { label: 'Gov. risk',  get: (i) => i.governance_risk_delta ?? null,                                                  money: false, good: -1 },
+                { label: 'Nat. cap.',  get: (i) => i.natural_capital_debt_delta ?? null,                                             money: false, good: -1 },
+              ];
+              return (
+                <div className={focusStyles.cmpWrap}>
+                  <div className={focusStyles.cmpLabel}>Full comparison</div>
+                  <table className={focusStyles.cmpTable}>
+                    <thead>
+                      <tr>
+                        <th scope="col">Option</th>
+                        {COLS.map((c) => <th key={c.label} scope="col">{c.label}</th>)}
                       </tr>
-                    );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {Object.entries(options).map(([optId, opt]) => {
+                        const imp = opt.impacts || {};
+                        const chosen = decisionChoice === optId;
+                        return (
+                          <tr key={optId} data-chosen={chosen ? 'true' : undefined}>
+                            <th scope="row" style={{ fontWeight: chosen ? 600 : 400 }}>
+                              {optId.replace('option_', 'Option ').toUpperCase()}
+                              {opt.title ? ` · ${opt.title}` : ''}
+                            </th>
+                            {COLS.map((c) => {
+                              const v = c.get(imp);
+                              const cls = v == null || v === 0 ? focusStyles.cmpFlat
+                                : (v > 0) === (c.good > 0) ? focusStyles.cmpUp : focusStyles.cmpDown;
+                              const text = v == null ? '—'
+                                : c.money ? (v > 0 ? '+' : '') + fmtCurrency(v)
+                                : `${v > 0 ? '+' : ''}${v}`;
+                              return <td key={c.label} className={cls}>{text}</td>;
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
 
             <button
               className={focusStyles.actionButton}

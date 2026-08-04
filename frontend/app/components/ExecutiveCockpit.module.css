@@ -3226,14 +3226,27 @@
 
   /* Resources is a LAUNCHER, not content — hiding it removed the only
      pointer to the library (besides the R key, which nothing announces).
-     It compacts to its icon instead: the label and the chevron go, the
-     emoji and the new-material badge stay. 208px has room for a 34px
-     square. */
+     It compacts to a circle instead: label and chevron go, the emoji and the
+     new-material badge stay.
+
+     WIDTH, not min-width. The pill is a stretched flex child, so min-width
+     alone left a 186px teal lozenge containing one emoji — which reads as a
+     broken control, not a compact one, and is why this looked "missing"
+     twice. 34px and centred is a button; 186px of empty gradient is not. */
   .mainContent[data-rails="collapsed"] .resourcesPill {
+    width: 34px;
+    height: 34px;
+    margin-inline: auto;
     justify-content: center;
     gap: 0;
-    padding: 8px 0;
-    min-width: 34px;
+    padding: 0;
+    align-self: center;
+  }
+  /* The badge would otherwise push the emoji off-centre inside 34px. */
+  .mainContent[data-rails="collapsed"] .resourcesPillBadge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
   }
   .mainContent[data-rails="collapsed"] .resourcesPillLabel,
   .mainContent[data-rails="collapsed"] .resourcesPillArrow {

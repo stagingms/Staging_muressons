@@ -138,12 +138,34 @@ describe('action bar', () => {
 // ── the breadcrumb that could read "Step 0 / 2" ─────────────────────────────
 
 describe('focus overlay breadcrumb', () => {
-  test('a stage outside the step list does not render Step 0', () => {
-    // `results` is a reachable focusStep but is never pushed into focusSteps,
-    // so indexOf returned -1 and the breadcrumb read "Step 0 / 2".
+  test('no step counter can render, so none can render as zero', () => {
+    // HISTORY: the header read "Step {currentIdx + 1} / {steps.length}".
+    // `results` is a reachable focusStep that is never pushed into focusSteps,
+    // so indexOf returned -1 and the header said "Step 0 / 2". That was first
+    // fixed with a `currentIdx >= 0` guard, and this test pinned the guard.
+    //
+    // The counter is now GONE, not guarded. Once each stage grew a headline of
+    // its own, the header was naming the screen twice within fourteen vertical
+    // pixels, and step position was already shown — better — by the round
+    // checklist beneath the canvas, which names all five steps rather than
+    // three. So the assertion moves up a level: the defect is unreachable
+    // because the feature that could express it does not exist.
     const fo = read('app/components/FocusOverlay.js');
-    expect(fo).not.toMatch(/Step \{currentIdx \+ 1\} \/ \{steps\.length\}/);
-    expect(fo).toMatch(/currentIdx >= 0/);
+    expect(fo).not.toMatch(/Step \{currentIdx \+ 1\}/);
+    expect(fo).not.toMatch(/stepBadge/);
+    expect(fo).not.toMatch(/styles\.stepLabel/);
+  });
+
+  test('the stage still announces itself to a screen reader', () => {
+    // Removing the header heading removed a focus target. Losing it silently
+    // would mean a keyboard user gets no signal that the stage changed — a
+    // worse regression than the one above. Focus moves to the panel region,
+    // whose aria-label carries the step name.
+    const fo = read('app/components/FocusOverlay.js');
+    expect(fo).toMatch(/panelRef\.current\?\.focus\(\)/);
+    // both variants — inline canvas and fullscreen takeover — must be targets
+    expect((fo.match(/ref=\{panelRef\}/g) || []).length).toBe(2);
+    expect((fo.match(/aria-label=\{`Decision (canvas|stage) —/g) || []).length).toBe(2);
   });
 });
 
@@ -236,11 +258,7 @@ describe('currency symbol has exactly one source', () => {
     }
     // Fails in BOTH directions, like the ui-budgets ledger: converting copy to
     // the session currency is welcome, but it must lower this number on purpose.
-<<<<<<< HEAD
     expect(count).toBe(116);
-=======
-    expect(count).toBe(117);
->>>>>>> ui/player-surface-phases-0-4
   });
 
   test('format.js carries the fixed-unit formatters the components now share', () => {

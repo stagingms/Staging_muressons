@@ -37,11 +37,15 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
   const canGoBack = currentIdx > 0 && step !== 'results';
 
   // Phase E (a11y): when the stage changes, move keyboard/screen-reader
-  // focus to the stage heading so the flow is navigable without a mouse
-  // and each step announces itself.
-  const headingRef = useRef(null);
+  // focus so the flow is navigable without a mouse and each step announces
+  // itself. The target used to be a heading in this header that repeated the
+  // stage name; the stage now names itself in its own h2, so focus goes to
+  // the panel region instead. Its aria-label already carries the step, so a
+  // screen-reader user hears the step once and then the question — rather
+  // than the same words twice at the same heading level.
+  const panelRef = useRef(null);
   useEffect(() => {
-    if (isOpen && step) headingRef.current?.focus();
+    if (isOpen && step) panelRef.current?.focus();
   }, [isOpen, step]);
 
   // Escape key to dismiss
@@ -56,7 +60,13 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
 
   const inner = isOpen && step ? (
     <>
-      {/* ── Header ── */}
+      {/* ── Header ──
+          Navigation only. It used to also announce "📋 Strategic Decision ·
+          Step 2 / 3" — which, once each stage grew a headline of its own,
+          named the screen twice in fourteen vertical pixels of each other.
+          Step POSITION is not lost with the badge: the round checklist under
+          the canvas already names all five steps and marks the current one,
+          at a granularity the 1-of-3 badge never had. */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           {canGoBack && (
@@ -68,11 +78,6 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
               ← Back
             </button>
           )}
-          <span className={styles.stepIcon} aria-hidden="true">{STEP_META[step]?.icon}</span>
-          <span className={styles.stepLabel} ref={headingRef} tabIndex={-1} role="heading" aria-level={2}>{STEP_META[step]?.label}</span>
-          <span className={styles.stepBadge}>
-            {currentIdx >= 0 ? `Step ${currentIdx + 1} / ${steps.length}` : 'Round complete'}
-          </span>
         </div>
         <button
           className={styles.closeButton}
@@ -126,6 +131,8 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
         <AnimatePresence>
           {isOpen && step && (
             <motion.div
+              ref={panelRef}
+              tabIndex={-1}
               className={`${styles.panel} ${styles.panelInline}`}
               role="region"
               aria-label={`Decision canvas — ${STEP_META[step]?.label || 'round flow'}`}
@@ -166,6 +173,10 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
             onClick={onClose}
           >
             <motion.div
+              ref={panelRef}
+              tabIndex={-1}
+              role="region"
+              aria-label={`Decision stage — ${STEP_META[step]?.label || 'round flow'}`}
               className={styles.panel}
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
