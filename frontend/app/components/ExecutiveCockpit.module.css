@@ -371,7 +371,7 @@
 }
 
 .resourcesPillArrow {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--brand-text);
   transition: transform 0.2s ease;
 }
@@ -415,7 +415,7 @@
   border: 1px solid var(--ck-border, #1e293b);
   background: transparent;
   color: var(--ck-text-3, #94a3b8);
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.02em;
   text-align: left;
@@ -647,7 +647,7 @@
    belongs in the secondary tier: 4.71:1 on the elevated card, 8.3:1 on the
    resting one. */
 .resourceLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -697,7 +697,7 @@
 }
 
 .buTickerName {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -710,7 +710,7 @@
 .buTickerMetrics {
   display: flex;
   gap: 8px;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-family: var(--font-mono);
   color: var(--ck-text-2);
   white-space: nowrap;
@@ -771,7 +771,7 @@
 }
 
 .buHealthBadge {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 4px;
@@ -1049,9 +1049,9 @@
   text-align: center;
 }
 
-.eventPopupIcon { font-size: 1.6rem; margin-bottom: 4px; }
+.eventPopupIcon { font-size: var(--type-lead); margin-bottom: 4px; }
 .eventPopupTitle { font-size: var(--type-caption); font-weight: 700; color: var(--danger-text); margin-bottom: 3px; }
-.eventPopupBody { font-size: 0.68rem; color: var(--gauge-red); line-height: 1.5; }
+.eventPopupBody { font-size: var(--type-caption); color: var(--gauge-red); line-height: 1.5; }
 
 /* â”€â”€ Commit Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .commitBtn {
@@ -1139,7 +1139,7 @@
   border: none;
   border-radius: var(--radius-chip);
   font-family: var(--font-sans);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1171,7 +1171,7 @@
   border: none;
   border-radius: var(--radius-chip);
   font-family: var(--font-sans);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1221,7 +1221,7 @@
 
 .resultsBadge {
   display: inline-block;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -1268,9 +1268,9 @@
   border-color: rgba(0, 229, 195, 0.15);
 }
 
-.resultCardIcon { font-size: 1.2rem; margin-bottom: 4px; }
+.resultCardIcon { font-size: var(--type-title); margin-bottom: 4px; }
 .resultCardLabel {
-  font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+  font-size: var(--type-caption); font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px;
 }
 .resultCardValue {
@@ -1288,12 +1288,12 @@
 }
 
 .resultsEventsTitle {
-  font-size: 0.68rem; font-weight: 800; text-transform: uppercase;
+  font-size: var(--type-caption); font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.08em; color: var(--caution); margin-bottom: 6px;
 }
 
 .resultsEventItem {
-  font-size: 0.74rem; color: var(--accent-gold); line-height: 1.6; padding: 2px 0;
+  font-size: var(--type-caption); color: var(--accent-gold); line-height: 1.6; padding: 2px 0;
 }
 
 .advanceBtnLarge {
@@ -1348,7 +1348,7 @@
 }
 
 .resourcesLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1359,7 +1359,7 @@
 }
 
 .resourcesBadge {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   background: var(--brand-bright);
   color: #0a0e1a;
@@ -1394,7 +1394,7 @@
    the second badge nobody checked; red-600 carries white at 4.83:1 in both
    themes, which is why this is a fixed value and not a token. */
 .mailboxBadge {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   background: #dc2626;
   color: #fff;
@@ -1421,7 +1421,7 @@
 }
 
 .gaugeLabel {
-  font-size: 0.65rem; color: var(--ck-text-2); margin-top: 2px;
+  font-size: var(--type-caption); color: var(--ck-text-2); margin-top: 2px;
   font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
 }
 
@@ -1430,11 +1430,11 @@
 .carbonBarOuter { width: 100%; height: 12px; background: rgba(14, 20, 36, 0.6); border-radius: 4px; overflow: hidden; position: relative; }
 .carbonBarInner { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
 .carbonTargetLine { position: absolute; top: 0; height: 100%; width: 2px; background: var(--danger-text); }
-.carbonLabels { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--ck-text-2); font-variant-numeric: tabular-nums; }
+.carbonLabels { display: flex; justify-content: space-between; font-size: var(--type-caption); color: var(--ck-text-2); font-variant-numeric: tabular-nums; }
 
 /* â”€â”€ Projected Overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .projectedDelta {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 4px;
@@ -1993,7 +1993,7 @@
 }
 
 .advancedMetricsChevron {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   transition: transform 0.25s ease;
   display: inline-block;
 }
@@ -2163,7 +2163,7 @@
   position: absolute;
   top: 4px;
   right: 6px;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -2209,7 +2209,7 @@
 }
 
 .traceRound {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2370,7 +2370,7 @@
 
 /* â•â•â• Phase 4.6 â€” WHAT-IF SHADOW MODE â•â•â• */
 .resourceCardShadow { position: relative; }
-.resourceCardShadow::after { content: attr(data-shadow); position: absolute; right: 8px; bottom: 4px; font-size: 0.6rem; font-weight: 700; font-family: var(--font-mono); opacity: 0; transition: opacity 0.2s; }
+.resourceCardShadow::after { content: attr(data-shadow); position: absolute; right: 8px; bottom: 4px; font-size: var(--type-caption); font-weight: 700; font-family: var(--font-mono); opacity: 0; transition: opacity 0.2s; }
 .resourceCardShadowActive::after { opacity: 1; }
 .resourceCardShadowUp::after { color: var(--gauge-green); }
 .resourceCardShadowDown::after { color: var(--gauge-red); }
@@ -2492,7 +2492,7 @@
   border: 1px solid rgba(148, 163, 184, 0.12);
   background: rgba(255, 255, 255, 0.04);
   color: var(--ck-text-2);
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
@@ -2522,7 +2522,7 @@
 
 .deepDiveKbHint {
   margin-left: auto;
-  font-size: 0.5rem;
+  font-size: var(--type-caption);
   color: var(--ck-text-3);
   letter-spacing: 0.04em;
   display: flex;
@@ -2537,7 +2537,7 @@
   border: 1px solid rgba(148, 163, 184, 0.15);
   background: rgba(255, 255, 255, 0.04);
   font-family: var(--font-mono);
-  font-size: 0.48rem;
+  font-size: var(--type-caption);
   font-weight: 700;
 }
 
@@ -2554,7 +2554,7 @@
 }
 
 .deploymentSummary span {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2578,13 +2578,13 @@
 }
 
 .optionMiniLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--ck-text-1);
 }
 
 .optionMiniCost {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--ck-text-3);
@@ -2669,7 +2669,7 @@
 .commitProcessingText {
   position: absolute;
   bottom: calc(50% - 60px);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -2839,7 +2839,7 @@
   border: none;
   border-bottom: 1px solid var(--ck-border);
   color: var(--ck-text-3);
-  font-size: 0.62rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2860,7 +2860,7 @@
 }
 
 .tabGroupLabel {
-  font-size: 0.55rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2891,7 +2891,7 @@
 }
 
 .ewLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2905,7 +2905,7 @@
 }
 
 .ewChevron {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   color: var(--ck-text-3);
 }
 
@@ -2933,12 +2933,12 @@
 }
 
 .ewPillLabel {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--ck-text-3);
 }
 
 .ewPillValue {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
 }
 
@@ -3036,7 +3036,7 @@
   border: none;
   background: var(--bg-elevated, #1e293b);
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: var(--type-body);
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -3219,7 +3219,12 @@
     flex: 1 1 auto !important;
     min-width: 48px;
     padding: 4px !important;
-    font-size: 0.62rem !important;
+    /* 6.1: was 0.62rem (9.92px) — the last sub-floor size in this file, and the
+       only one in the tree that carried !important, which is why the type-floor
+       ratchet could not see it. Measured at 172px collapsed rail: the bar wraps
+       to two rows at BOTH sizes and no label clips; the bar grows 38px -> 44px.
+       Six pixels of height to put navigation back above the legibility floor. */
+    font-size: var(--type-caption) !important;
     letter-spacing: 0 !important;
   }
 

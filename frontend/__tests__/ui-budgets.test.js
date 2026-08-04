@@ -67,7 +67,12 @@ const PLAYER_FILES = [
 ].filter(exists);
 
 const toPx = (raw) => {
-  const v = String(raw).trim();
+  /* Strip `!important` before parsing. Without this the ratchet was blind to
+     any declaration that carried it — `font-size: 0.62rem !important` failed
+     /^[\d.]+rem$/ and returned null, so it counted as "not a literal" and was
+     silently exempt from the type floor. One such declaration existed in the
+     tree; it is now on the scale. */
+  const v = String(raw).trim().replace(/\s*!important$/i, '');
   if (/^[\d.]+px$/.test(v)) return parseFloat(v);
   if (/^[\d.]+rem$/.test(v)) return parseFloat(v) * 16;   // 16px root
   return null;                                            // clamp(), var(), % — not a literal
@@ -113,7 +118,7 @@ function subTwelve(file) {
 
 const TYPE_FLOOR_DEBT = {
   'app/components/ExecutiveCockpit.js': 128,
-  'app/components/ExecutiveCockpit.module.css': 36,
+  'app/components/ExecutiveCockpit.module.css': 0,
   'app/components/FocusOverlay.module.css': 8,
   'app/components/RoundBriefing.js': 12,
   'app/components/RoundBriefing.module.css': 2,
