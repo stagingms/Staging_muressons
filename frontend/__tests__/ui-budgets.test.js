@@ -309,7 +309,7 @@ const SEMANTIC_HEX = new RegExp(
   ].join('|') + ')\\b', 'gi');
 
 const HUE_DEBT = {
-  'app/components/ExecutiveCockpit.js': 138,
+  'app/components/ExecutiveCockpit.js': 137,
   'app/components/ExecutiveCockpit.module.css': 7,
   'app/components/FocusOverlay.js': 0,
   'app/components/RoundBriefing.js': 14,

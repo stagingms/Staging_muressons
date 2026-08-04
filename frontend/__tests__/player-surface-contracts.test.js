@@ -475,3 +475,37 @@ describe('where-am-I is stated once', () => {
   });
 });
 
+// ── the wait shows the claim, it does not ask for a second one ──────────────
+
+describe('prediction echo', () => {
+  const src = read(COCKPIT);
+
+  test('the waiting stage reads the SAME key the commit modal writes', () => {
+    // Two different keys would mean the wait quotes nothing while the debrief
+    // holds a prediction, and nobody would notice because both are "working".
+    const writes = src.match(/`prediction_r\$\{roundNumber\}_\$\{sim\?\.sessionId \|\| 'demo'\}`/g) || [];
+    expect(writes.length).toBe(2);   // one setItem at commit, one getItem in the wait
+    expect(src).toMatch(/sessionStorage\.setItem\(key, predictionText\)/);
+    expect(src).toMatch(/sessionStorage\.getItem\(`prediction_r/);
+  });
+
+  test('it never writes a second prediction', () => {
+    // A second input here would overwrite the pre-commit one — which is the
+    // more interesting of the two, made while the decision could still change.
+    const waitBlock = src.slice(src.indexOf('THE PREDICTION THE PLAYER ALREADY MADE'), src.indexOf('ONLY WHAT EXISTS'));
+    expect(waitBlock).not.toMatch(/setItem|<textarea|onChange=/);
+  });
+
+  test('no prediction recorded falls back to the nudge, not an empty quote', () => {
+    expect(src).toMatch(/if \(recorded && recorded\.trim\(\)\)/);
+    expect(src).toContain('While you wait');
+  });
+
+  test('a storage failure cannot take the stage down with it', () => {
+    // Private mode throws on sessionStorage access. The wait screen is between
+    // a player and their results; it must not be the thing that breaks.
+    const waitBlock = src.slice(src.indexOf('THE PREDICTION THE PLAYER ALREADY MADE'), src.indexOf('ONLY WHAT EXISTS'));
+    expect(waitBlock).toMatch(/try \{[\s\S]*?\} catch/);
+  });
+});
+

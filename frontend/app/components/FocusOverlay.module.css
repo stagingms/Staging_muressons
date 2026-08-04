@@ -1404,3 +1404,18 @@
   white-space: nowrap;
 }
 
+
+/* The player's own words, quoted back while the claim is still open. Same
+   left-rule vocabulary as the constraint line, because it is the same kind of
+   object: a sentence that governs what happens next. */
+.predictionEcho {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  background: rgba(99, 102, 241, 0.06);
+  font-size: var(--type-title);
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+

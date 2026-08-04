@@ -3300,3 +3300,28 @@
     transition: none;
   }
 }
+
+
+/* The round line's own hierarchy. The round and the crisis title lead; the
+   connection state and the fiscal period recede to ambient. See the comment
+   at the mount in ExecutiveCockpit.js. */
+.liveRound {
+  font-size: var(--type-title);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+.liveRoundTotal { color: var(--text-muted); font-weight: 500; }
+.liveTitle {
+  font-size: var(--type-title);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+}
+.liveAmbient {
+  font-size: var(--type-caption);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+

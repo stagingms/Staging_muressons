@@ -1274,23 +1274,32 @@ export default function ExecutiveCockpit({
         </div>
 
         <div className={styles.headerCenter}>
+          {/* HIERARCHY. Five things sat on this line at one weight and one
+              size: LIVE, the round, the year, the crisis title, and any
+              tipping-point flag. So the connection state read as loudly as the
+              name of the crisis the room is arguing about.
+
+              The round and the crisis title are what a player needs; LIVE and
+              the year are ambient, and are now sized and coloured as ambient.
+              Nothing was removed — a facilitator asked for the year, and a
+              dropped connection matters — they simply stopped competing. */}
           <div className={styles.liveStatusBadge}>
             <span className={styles.liveStatusDot} />
-            <span style={{ color: '#10b981', fontWeight: 700 }}>LIVE</span>
+            <span className={styles.liveAmbient}>LIVE</span>
             <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
             {/* "of 10" is not decoration. A player mid-session could not tell
                 from this line whether round 2 was a fifth of the way through or
                 a half — the only place the total appeared was a 10px chip in
                 the left rail, which the collapse hides during a decision. Where
                 you are in a ten-round arc changes how you play round 2. */}
-            <span style={{ color: '#e2e8f0', fontWeight: 700 }}>
+            <span className={styles.liveRound}>
               Round {roundNumber}
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> of {TOTAL_ROUNDS}</span>
+              <span className={styles.liveRoundTotal}> of {TOTAL_ROUNDS}</span>
             </span>
             <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
-            <span>{getRoundLabel(roundNumber)}</span>
+            <span className={styles.liveAmbient}>{getRoundLabel(roundNumber)}</span>
             <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
-            <span>{activeRoundTitles[roundNumber] || ''}</span>
+            <span className={styles.liveTitle}>{activeRoundTitles[roundNumber] || ''}</span>
             {tippingPointActive && (
               <>
                 <span aria-hidden="true" className={styles.liveStatusSep}>·</span>
@@ -2377,14 +2386,47 @@ export default function ExecutiveCockpit({
                 {cohortCommits} of {cohortTeamCount} teams committed
               </div>
 
-              {/* The one thing this gap is good for. A prediction made after
-                  the decision is locked and before the numbers land is the
-                  only prediction in the round that can still be wrong. */}
-              <p className={focusStyles.stageSub}>
-                While you wait — what do you think happens to your reputation
-                score this round? Say it out loud as a team, then check it
-                against the result.
-              </p>
+              {/* THE PREDICTION THE PLAYER ALREADY MADE.
+                  The mock offers "Record a prediction" here, which would mean a
+                  second prediction surface. There is no need for one: the
+                  commit modal already asks ("Predict Before You Commit") and
+                  writes the answer to sessionStorage AND to
+                  POST /api/simulations/:id/prediction, so the facilitator
+                  debrief can use it. A second input would overwrite the first —
+                  and the first is the more interesting one, made while the
+                  decision could still be changed.
+
+                  So this shows it back instead of asking again. The wait is
+                  exactly when a team should re-read what they claimed, because
+                  it is the last moment before the claim is settled. If no
+                  prediction was recorded — prompts switched off, or the box
+                  left empty — the generic nudge stands rather than an empty
+                  quotation. */}
+              {(() => {
+                let recorded = null;
+                try {
+                  recorded = sessionStorage.getItem(`prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`);
+                } catch { /* private mode, or no storage — fall through */ }
+                if (recorded && recorded.trim()) {
+                  return (
+                    <>
+                      <div className={focusStyles.stageEyebrow}>You predicted</div>
+                      <blockquote className={focusStyles.predictionEcho}>{recorded.trim()}</blockquote>
+                      <p className={focusStyles.stageSub}>
+                        Results will land against this. Worth reading once more
+                        while you can still argue about it.
+                      </p>
+                    </>
+                  );
+                }
+                return (
+                  <p className={focusStyles.stageSub}>
+                    While you wait — what do you think happens to your reputation
+                    score this round? Say it out loud as a team, then check it
+                    against the result.
+                  </p>
+                );
+              })()}
 
               {/* ONLY WHAT EXISTS. The mock offers three: record a prediction,
                   re-read the CFO memo, review your R1 decision. The first has
