@@ -965,6 +965,8 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                     # TEAM-3 (UX audit #7): no coercion — NULL/None means the team
                     # did not record how it decided. Parity with database.py.
                     "team_consensus": dec.get("team_consensus") or None,
+                    # 4.8: parity with the Postgres reader.
+                    "metadata": dec.get("metadata") or {},
                 }
                 for dec in _decision_log
                 if dec.get("session_id") == session_id and dec.get("round_number") == rn
@@ -1085,8 +1087,11 @@ async def insert_next_round(
             "player_id": dec.get("player_id", ""),
             "time_to_decision_seconds": dec.get("time_to_decision_seconds", 0),
             # TEAM-3 (UX audit #7): no coercion — NULL/None means the team
-                    # did not record how it decided. Parity with database.py.
-                    "team_consensus": dec.get("team_consensus") or None,
+            # did not record how it decided. Parity with database.py.
+            "team_consensus": dec.get("team_consensus") or None,
+            # 4.8: parity with the Postgres metadata column — same envelope,
+            # same key, so a reader need not know which store it came from.
+            "metadata": dec.get("metadata") or {},
         })
 
     # H-4 fix: Cap decision log to prevent unbounded memory growth
@@ -1125,6 +1130,9 @@ async def log_decisions(session_id: str, round_number: int, decisions: list[dict
             "time_to_decision_seconds": dec.get("time_to_decision_seconds", 0),
             # TEAM-3: no coercion — None means "not recorded". Parity with database.py.
             "team_consensus": dec.get("team_consensus") or None,
+            # 4.8: parity with the Postgres metadata column — same envelope,
+            # same key, so a reader need not know which store it came from.
+            "metadata": dec.get("metadata") or {},
         })
     _persist()
     return len(decisions)

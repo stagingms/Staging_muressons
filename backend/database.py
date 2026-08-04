@@ -865,7 +865,8 @@ async def get_decision_log(session_id: str) -> list[dict]:
                 rows = await conn.fetch(
                     """
                     SELECT round_number, bu_id, decision_node_id, choice_selected,
-                           capex_allocated, time_to_decision_seconds, team_consensus
+                           capex_allocated, time_to_decision_seconds, team_consensus,
+                           metadata
                     FROM decision_audit_log
                     WHERE session_id = $1
                     ORDER BY round_number
@@ -888,6 +889,9 @@ async def get_decision_log(session_id: str) -> list[dict]:
                     # "not recorded" instead of reporting a consensus that never
                     # happened.
                     "team_consensus": (str(row["team_consensus"]) if row["team_consensus"] else None),
+                    # 4.8: surface the envelope. Writing it and not reading it
+                    # would be the same defect in a different place.
+                    "metadata": _loads_meta(row["metadata"]),
                     "cohort_name": meta.get("cohort_name", ""),
                 })
     results.sort(key=lambda x: (x.get("round_number", 0), x.get("player_id", "")))
@@ -1064,7 +1068,7 @@ async def fetch_round_history(session_id: str) -> list[dict]:
             decs = await conn.fetch(
                 """
                 SELECT bu_id, decision_node_id, choice_selected, capex_allocated,
-                       time_to_decision_seconds, team_consensus
+                       time_to_decision_seconds, team_consensus, metadata
                 FROM decision_audit_log
                 WHERE session_id = $1 AND round_number = $2
                 """,
@@ -1244,8 +1248,8 @@ async def insert_next_round(
                         (session_id, round_number, bu_id,
                          decision_node_id, choice_selected,
                          capex_allocated, time_to_decision_seconds,
-                         team_consensus)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                         team_consensus, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                     """,
                     uuid.UUID(session_id),
                     _decisions_round,
@@ -1258,6 +1262,11 @@ async def insert_next_round(
                     # not record how it decided; write NULL and say so, rather
                     # than inventing 'majority'.
                     dec.get("team_consensus") or None,
+                    # 4.8: persist the commit envelope. The column has always
+                    # existed and was never written, so pillar_decisions,
+                    # dividends, emergency credit, the CFO override and the
+                    # engagement action — all engine inputs — were discarded.
+                    _dumps(dec.get("metadata") or {}),
                 )
 
     return global_state_id
@@ -1288,8 +1297,8 @@ async def log_decisions(session_id: str, round_number: int, decisions: list[dict
                         (session_id, round_number, bu_id,
                          decision_node_id, choice_selected,
                          capex_allocated, time_to_decision_seconds,
-                         team_consensus)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                         team_consensus, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                     """,
                     uuid.UUID(session_id),
                     round_number,
@@ -1300,6 +1309,11 @@ async def log_decisions(session_id: str, round_number: int, decisions: list[dict
                     dec.get("time_to_decision_seconds", 0),
                     # TEAM-3: no coercion — NULL means "not recorded".
                     dec.get("team_consensus") or None,
+                    # 4.8: persist the commit envelope. The column has always
+                    # existed and was never written, so pillar_decisions,
+                    # dividends, emergency credit, the CFO override and the
+                    # engagement action — all engine inputs — were discarded.
+                    _dumps(dec.get("metadata") or {}),
                 )
     return len(decisions)
 
@@ -1359,6 +1373,21 @@ async def fetch_all_sessions_raw() -> list[dict]:
     return await fetch_all_sessions()
 
 
+def _loads_meta(raw) -> dict:
+    """asyncpg hands JSONB back as str on some driver/codec combinations and as
+    dict on others. 4.8 readers must not have to care, and must never explode on
+    a legacy row whose metadata is NULL or was written before the column was
+    used."""
+    if not raw:
+        return {}
+    if isinstance(raw, (dict, list)):
+        return raw
+    try:
+        return json.loads(raw)
+    except Exception:      # noqa: BLE001 — a malformed audit row is not fatal
+        return {}
+
+
 async def fetch_all_decisions() -> list[dict]:
     """Every decision-audit row across all sessions (analytics aggregates).
     Parity API — mirrors database_memory.fetch_all_decisions."""
@@ -1368,7 +1397,7 @@ async def fetch_all_decisions() -> list[dict]:
             """
             SELECT session_id, round_number, bu_id, decision_node_id,
                    choice_selected, capex_allocated, time_to_decision_seconds,
-                   team_consensus
+                   team_consensus, metadata
             FROM decision_audit_log
             ORDER BY round_number
             """
@@ -1383,6 +1412,8 @@ async def fetch_all_decisions() -> list[dict]:
                 "capex_allocated": float(r["capex_allocated"] or 0),
                 "time_to_decision_seconds": r["time_to_decision_seconds"],
                 "team_consensus": r["team_consensus"],
+                # 4.8: the envelope — pillar splits, dividends, CFO override.
+                "metadata": _loads_meta(r["metadata"]),
             }
             for r in rows
         ]
