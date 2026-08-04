@@ -25,16 +25,42 @@ export default function useRoundStage({
   commitResults,
   selfLearningMode,
   cohortWaiting = false,
+  sessionId = null,
 }) {
+  /* PHASE 5.3 — the opt-out survives a refresh. Keyed by session so one
+     cohort's preference does not follow a player into the next. Every access
+     is wrapped: this runs on a client that may have storage disabled, and the
+     round-stage machine is not a place to take a session down. */
+  const PREF_KEY = `muressons_prefers_dashboard_${sessionId || 'demo'}`;
+  const readPref = () => {
+    try { return localStorage.getItem(PREF_KEY) === '1'; } catch { return false; }
+  };
+  const writePref = (v) => {
+    try {
+      if (v) localStorage.setItem(PREF_KEY, '1');
+      else localStorage.removeItem(PREF_KEY);
+    } catch { /* storage disabled — the ref still holds it for this session */ }
+  };
   // ── Focus Mode: Stepped Decision Overlays ──
   // Optional with escape hatch — auto-opens but student can dismiss at any time
   const [focusStep, setFocusStep] = useState(null); // null | 'gate' | 'strategy' | 'allocation' | 'waiting' | 'results'
   const [focusDismissed, setFocusDismissed] = useState(false);
-  // D1: once an experienced player (round >= 3) opts out of the stepped focus
-  // overlay, remember it so it doesn't re-interrupt every subsequent round.
-  // Mandatory R1/R2 gates and first-time behaviour are untouched (the pref is
-  // only ever set from round 3 onward, and gates only exist in R1/R2).
+  /* D1: once an experienced player (round >= 3) opts out of the stepped focus
+     overlay, remember it so it doesn't re-interrupt every subsequent round.
+     Mandatory R1/R2 gates and first-time behaviour are untouched (the pref is
+     only ever set from round 3 onward, and gates only exist in R1/R2).
+
+     PHASE 5.3. This was a useRef, which meant the preference died on refresh —
+     and a facilitator asking a room to reload, or a player whose laptop slept,
+     got the overlay forced back on for the rest of the session. A ref makes it
+     a suggestion; storage makes it a preference. Keyed by session so one
+     cohort's opt-out does not follow a player into the next.
+
+     Read lazily and inside try/catch: this runs during render on a client that
+     may have storage disabled, and the round-stage machine is not a place to
+     take a session down. */
   const prefersDashboardRef = useRef(false);
+  useEffect(() => { prefersDashboardRef.current = readPref(); }, [PREF_KEY]);
 
   // Compute focus steps for this round — gates are mandatory in ALL modes
   const isSelfLearning = selfLearningMode === true;
@@ -129,14 +155,14 @@ export default function useRoundStage({
     setFocusDismissed(true);
     setFocusStep(null);
     // D1: remember the opt-out for experienced players (never for R1/R2 gates).
-    if (roundNumber >= 3) prefersDashboardRef.current = true;
+    if (roundNumber >= 3) { prefersDashboardRef.current = true; writePref(true); }
   }, [roundNumber]);
 
   // Quick Resume: skip briefing + focus gate, jump straight to allocation
   const handleQuickResume = useCallback(() => {
     setFocusDismissed(true);
     setFocusStep(null);
-    if (roundNumber >= 3) prefersDashboardRef.current = true;
+    if (roundNumber >= 3) { prefersDashboardRef.current = true; writePref(true); }
     // Scroll to decision area if available
     setTimeout(() => {
       const decisionArea = document.getElementById('tour-decisions-target');
@@ -149,6 +175,7 @@ export default function useRoundStage({
     setFocusStep(getFirstIncompleteStep());
     // D1: re-entering means they want the guided flow back — clear the opt-out.
     prefersDashboardRef.current = false;
+    writePref(false);
   }, [getFirstIncompleteStep]);
 
   const handleFocusAdvance = useCallback((nextStep) => {

@@ -714,6 +714,7 @@ export default function ExecutiveCockpit({
   } = useRoundStage({
     roundNumber,
     cohortWaiting,
+    sessionId: sim?.sessionId,
     hasReadBriefing,
     gameOver: sim?.gameOver,
     tourActive,
@@ -1896,7 +1897,19 @@ export default function ExecutiveCockpit({
         </aside>
 
         {/* ── CENTER: Briefing + Decisions ─── */}
-        <main className={styles.centerConsole}>
+        <main className={styles.centerConsole} id="main-stage" tabIndex={-1}>
+          {/* PHASE 8 — ONE h1 PER SCREEN. The cockpit had none: the only h1 in
+              the tree was inside the crisis overlay, so the outline a screen
+              reader offered a player went straight to h2. Every stage head is
+              an h2 and stays one; this is their parent, and it names the round
+              rather than the stage, which is the level above them.
+
+              Visually hidden because the round line in the header already says
+              this at 17px — the defect was the OUTLINE, not the absence of the
+              words. */}
+          <h1 className="sr-only">
+            Round {roundNumber} of {TOTAL_ROUNDS} — {activeRoundTitles[roundNumber] || 'Muressons cockpit'}
+          </h1>
           
           {/* V-C (V-6): the Round Checklist mount moved to the BOTTOM of the
               center console (docked below the scroll area) — see the end of

@@ -587,3 +587,67 @@ describe('results explanation', () => {
   });
 });
 
+// ── phase 8: the floor that did not exist ───────────────────────────────────
+
+describe('accessibility floor', () => {
+  const g = read('app/globals.css');
+  const layout = read('app/layout.js');
+  const src = read(COCKPIT);
+
+  test('there is a skip link, and it targets something real', () => {
+    // A cockpit with three columns and a rail of tabs is a lot of stops before
+    // a keyboard user reaches the decision.
+    expect(layout).toMatch(/className="skip-link"/);
+    expect(layout).toMatch(/href="#main-stage"/);
+    expect(src).toMatch(/id="main-stage"/);
+    // and the target must be focusable, or focus stays where it was
+    expect(src).toMatch(/id="main-stage" tabIndex=\{-1\}/);
+    expect(g).toMatch(/\.skip-link\s*\{/);
+    expect(g).toMatch(/\.skip-link:focus\s*\{/);
+  });
+
+  test('one h1 per screen, and it is the round', () => {
+    // The only h1 in the tree was inside the crisis overlay, so the outline a
+    // screen reader offered went straight to h2. Stage heads stay h2; this is
+    // their parent.
+    expect(src).toMatch(/<h1 className="sr-only">/);
+  });
+
+  test('sr-only exists and hides without collapsing the text', () => {
+    expect(g).toMatch(/\.sr-only\s*\{/);
+    // clip-path, not the legacy clip; nowrap so a long label is not reflowed
+    // into a 1px column before it is read
+    expect(g).toMatch(/clip-path: inset\(50%\)/);
+    expect(g).toMatch(/white-space: nowrap/);
+  });
+
+  test('one focus ring, defined as a token', () => {
+    // Two ring colours and dozens of `outline: none` overrides meant "where am
+    // I" depended on which component a keyboard user had reached.
+    expect(g).toMatch(/--focus-ring:/);
+    expect(g).toMatch(/:focus-visible\s*\{[\s\S]*?outline: var\(--focus-ring\)/);
+  });
+});
+
+// ── phase 5.3: an opt-out that survives a refresh ───────────────────────────
+
+describe('dashboard preference', () => {
+  const hook = read('app/hooks/useRoundStage.js');
+
+  test('it is stored, not held in a ref that dies on reload', () => {
+    // A ref makes it a suggestion. A facilitator asking a room to reload got
+    // the overlay forced back on for the rest of the session.
+    expect(hook).toMatch(/localStorage\.setItem\(PREF_KEY/);
+    expect(hook).toMatch(/localStorage\.getItem\(PREF_KEY\)/);
+  });
+
+  test('keyed by session, so it does not follow a player into the next cohort', () => {
+    expect(hook).toMatch(/muressons_prefers_dashboard_\$\{sessionId \|\| 'demo'\}/);
+  });
+
+  test('storage being disabled cannot take the round-stage machine down', () => {
+    const reads = hook.match(/try \{[^}]*localStorage[\s\S]*?catch/g) || [];
+    expect(reads.length).toBeGreaterThanOrEqual(2);
+  });
+});
+

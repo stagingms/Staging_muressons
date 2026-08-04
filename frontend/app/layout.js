@@ -73,6 +73,12 @@ export default function RootLayout({ children }) {
         ` }} />
       </head>
       <body suppressHydrationWarning>
+        {/* PHASE 8. First focusable thing on every page. The cockpit puts a
+            logo, a round line, a rail of tabs and a KPI column between the
+            document start and the decision; a keyboard user should not have to
+            walk all of it every round. Targets #main-stage, which the cockpit's
+            centre column carries. */}
+        <a href="#main-stage" className="skip-link">Skip to the decision</a>
         <ErrorBoundary>
           <MotionPrefs>
             <CurrencyProvider>
