@@ -124,3 +124,42 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: npm run build
+
+  # ── Dependency advisories — the drift tripwire (F-22/F-23, 2026-08-04) ────
+  # The failure mode this prevents: the pre-class register recorded "4 npm
+  # vulns" and "Starlette CVEs". A week later it was 16 advisories across 3
+  # DIFFERENT python packages, and the npm four had become four OTHER ones in
+  # sharp/libvips. Nobody had changed a dependency — the advisory database had
+  # moved underneath a static document. A register cannot track this; only a
+  # job that re-asks on every push can.
+  #
+  # Thresholds differ on purpose:
+  #   pip-audit  — fails on ANY advisory. The backend dependency list is short,
+  #                pinned, and every package is reachable from a public route.
+  #   npm audit  — `--omit=dev` then high+. Dev tooling drags in a long tail of
+  #                transitive advisories that never reach a user's browser;
+  #                failing on those trains people to ignore the job, which is
+  #                worse than not having it. Runtime deps at high severity are
+  #                the signal worth stopping for.
+  # Both were at ZERO when this job was added, so a red run means something
+  # genuinely changed.
+  dependency-audit:
+    name: Dependencies — advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: pip-audit (backend runtime pins)
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: npm audit (frontend runtime deps)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high

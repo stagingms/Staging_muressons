@@ -11,7 +11,7 @@ Architecture:
 - Tokens expire after JWT_EXPIRY_HOURS and must be refreshed via /auth/refresh.
 
 Setup:
-  pip install python-jose[cryptography]
+  pip install PyJWT
   Set JWT_SECRET env var to a strong random string (openssl rand -hex 32).
   Set JWT_EXPIRY_HOURS env var (default: 2 hours; use 8 for full-day workshops).
 """
@@ -23,11 +23,26 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+# F-22 (2026-08-04): PyJWT, not python-jose.
+#
+# python-jose drags in `ecdsa` and pins `pyasn1<0.5.0`. Between them those two
+# accounted for 6 of the 16 advisories pip-audit reported, and `ecdsa` has NO
+# fixed release at all — the pin meant pyasn1 could never be patched while jose
+# was present. PyJWT signs HS256 through `cryptography` and needs neither.
+#
+# The swap is behaviour-preserving: same HS256, same secret, same claims, so
+# tokens issued by the jose build stay valid and NOBODY IS LOGGED OUT by the
+# upgrade. Only two API details differ, both handled below:
+#   * the error base is `PyJWTError` rather than `JWTError`;
+#   * PyJWT verifies `exp` by default — which is what we already wanted
+#     everywhere except the god_mode recovery path, and that one passes
+#     options={"verify_exp": False} exactly as before.
 try:
-    from jose import JWTError, jwt as _jose_jwt
-    _JOSE_AVAILABLE = True
+    import jwt as _pyjwt
+    from jwt import PyJWTError as _JWTError
+    _JWT_LIB_AVAILABLE = True
 except ImportError:
-    _JOSE_AVAILABLE = False
+    _JWT_LIB_AVAILABLE = False
 
 from fastapi import Cookie, HTTPException, Request, Response, status
 
@@ -96,7 +111,7 @@ if not JWT_SECRET:
 
 
 def _jwt_available() -> bool:
-    return _JOSE_AVAILABLE and bool(JWT_SECRET)
+    return _JWT_LIB_AVAILABLE and bool(JWT_SECRET)
 
 
 def create_facilitator_token(facilitator_id: str, role: str, token_version: int = 0) -> str:
@@ -112,8 +127,8 @@ def create_facilitator_token(facilitator_id: str, role: str, token_version: int 
     outstanding token for that account on the next request — the revocation
     kill-switch that god_mode in particular previously lacked.
     """
-    if not _JOSE_AVAILABLE:
-        raise RuntimeError("python-jose is not installed. Run: pip install python-jose[cryptography]")
+    if not _JWT_LIB_AVAILABLE:
+        raise RuntimeError("PyJWT is not installed. Run: pip install PyJWT")
     now = datetime.now(timezone.utc)
     payload = {
         "sub": facilitator_id,
@@ -122,17 +137,17 @@ def create_facilitator_token(facilitator_id: str, role: str, token_version: int 
         "iat": now,
         "exp": now + timedelta(hours=JWT_EXPIRY_HOURS),
     }
-    return _jose_jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return _pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def decode_facilitator_token(token: str) -> dict:
     """Decode and validate a JWT. Raises HTTPException on failure."""
-    if not _JOSE_AVAILABLE:
+    if not _JWT_LIB_AVAILABLE:
         raise HTTPException(status_code=500, detail="JWT library not available")
     try:
-        payload = _jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = _pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return payload
-    except JWTError as exc:
+    except _JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired session token: {exc}",
@@ -214,10 +229,10 @@ def _decode_token_ignore_expiry(token: str) -> dict:
     verified so the god_mode identity cannot be forged.  Expiry is the only
     check relaxed, and only when the sub claim is 'god_mode'.
     """
-    if not _JOSE_AVAILABLE:
+    if not _JWT_LIB_AVAILABLE:
         raise HTTPException(status_code=500, detail="JWT library not available")
     try:
-        payload = _jose_jwt.decode(
+        payload = _pyjwt.decode(
             token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
             options={"verify_exp": False},
         )
@@ -264,14 +279,14 @@ def create_player_ws_ticket(session_id: str, player_id: str = "", ttl_hours=None
     now = datetime.now(timezone.utc)
     payload = {"sid": session_id, "pid": player_id, "typ": "ws",
                "iat": now, "exp": now + timedelta(hours=hours)}
-    return _jose_jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return _pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def verify_player_ws_ticket(token: str, session_id: str) -> bool:
     if not token or not _jwt_available():
         return False
     try:
-        payload = _jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = _pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except Exception:
         return False
     return payload.get("typ") == "ws" and payload.get("sid") == session_id

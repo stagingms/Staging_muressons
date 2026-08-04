@@ -21,6 +21,15 @@ if not _PG_PARITY:
 os.environ.setdefault("MASTER_PASSWORD", "sim2026@iim")
 os.environ.setdefault("PROJECT_ADMIN_PASSWORD", "simadmin2026@")
 
+# G1: bcrypt at the production cost factor (12) costs ~180 ms per hash AND per
+# verify. The suite mints and checks credentials constantly — one 20-player
+# roster test alone pays 40 of those — which is what made the run look hung
+# rather than slow. Cost 4 is ~50x cheaper and tests nothing different: bcrypt
+# records the cost inside the hash, so verification of a real cost-12 hash is
+# unaffected. password_hashing refuses any value below 12 outside pytest, so
+# this line cannot weaken a deployment even if it is copied into a .env.
+os.environ.setdefault("BCRYPT_ROUNDS", "4")
+
 # Import main immediately to force sys.modules["database"] patching
 # before any other test file imports router.py or admin_router.py
 import sys

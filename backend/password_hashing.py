@@ -32,10 +32,50 @@ except ImportError:
     )
 
 
+# ── G1 (2026-08-04): the cost factor is why the suite looked hung ──────────
+#
+# bcrypt at cost 12 takes ~180 ms to hash and ~180 ms to verify. That is
+# CORRECT for production — the whole point of bcrypt is to be slow — but the
+# test suite mints and verifies credentials constantly, and
+# test_twenty_players_can_actually_join alone pays 40 of those operations:
+# ~7 s of pure hashing on this machine, several times that on a slower CI
+# runner. It was deselected as a "full-suite hang"; it was never hanging, it
+# was paying for 2,000-odd bcrypt operations across the run.
+#
+# So the cost is tunable — but ONLY downward under pytest. Outside a test
+# process the floor is PRODUCTION_ROUNDS no matter what the environment says,
+# because a stray BCRYPT_ROUNDS=4 in a deployment would quietly make every
+# stored password cheap to crack, and that is exactly the kind of setting that
+# gets copied from a CI file into a .env by accident.
+PRODUCTION_ROUNDS = 12
+_MIN_ROUNDS, _MAX_ROUNDS = 4, 16
+
+
+def _under_pytest() -> bool:
+    import sys
+    return "pytest" in sys.modules
+
+
+def bcrypt_rounds() -> int:
+    """Cost factor for new hashes. Always >= PRODUCTION_ROUNDS outside tests."""
+    import os
+    raw = os.getenv("BCRYPT_ROUNDS", "").strip()
+    if not raw:
+        return PRODUCTION_ROUNDS
+    try:
+        n = int(raw)
+    except ValueError:
+        return PRODUCTION_ROUNDS
+    n = max(_MIN_ROUNDS, min(_MAX_ROUNDS, n))
+    if n < PRODUCTION_ROUNDS and not _under_pytest():
+        return PRODUCTION_ROUNDS      # refuse to weaken real password storage
+    return n
+
+
 def hash_password(plaintext: str) -> str:
-    """Hash a plaintext password using bcrypt (cost factor 12)."""
+    """Hash a plaintext password using bcrypt (cost factor 12 in production)."""
     pw_bytes = plaintext.encode("utf-8")
-    salt = _bcrypt.gensalt(rounds=12)
+    salt = _bcrypt.gensalt(rounds=bcrypt_rounds())
     return _bcrypt.hashpw(pw_bytes, salt).decode("utf-8")
 
 
