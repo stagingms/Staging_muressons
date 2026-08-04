@@ -2521,36 +2521,71 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
-            {/* THE OUTCOME TILES. Same shape as the belt above them, because
-                they are the same kind of object: a label, a figure, and what it
-                did. What they replaced was an emoji card per metric — a 2rem
-                glyph, a label, a value and a coloured delta inside a bordered
-                panel — which gave the icon more area than the number and made
-                four readings look like four unrelated widgets rather than one
-                row you scan.
+            {/* THE OUTCOME TILES — WHAT MOVED, not a fixed four.
+                First version listed Treasury, EBITDA, Reputation and Carbon,
+                which is the same fixed set as the belt at the top of the
+                screen. So the results restated the belt and said nothing about
+                what the ROUND did. A team that spent 2.5M to buy governance
+                standing saw no governance figure anywhere on the screen that
+                was supposed to tell them whether it worked.
 
-                Colour is never the only encoding: every delta carries its sign
-                glyph, and the direction is read from the metric's own polarity
-                (carbon falling is good, treasury falling is not). */}
+                These are now the metrics that actually changed, in a fixed
+                canonical order, capped at five. A round that moves social
+                licence shows social licence; a round that moves nothing but
+                cash shows cash. Nothing is computed that the engine did not
+                produce: group figures are the mean across the business units
+                the commit returned, measured against the same mean before it. */}
             {(() => {
               const g = commitResults.globalState || {};
-              const tiles = [
-                { label: 'Treasury',   now: g.corporate_treasury, was: treasury,   fmt: fmtCurrency, good: 1 },
-                { label: 'EBITDA',     now: g.historical_ebitda,  was: ebitda,     fmt: fmtCurrency, good: 1 },
-                { label: 'Reputation', now: g.group_reputation,   was: reputation, fmt: (v) => Math.round(v).toString(), good: 1 },
-                { label: 'Carbon',     now: g.tco2e_emissions,    was: tco2e,      fmt: (v) => Math.round(v).toLocaleString(), good: -1 },
-              ].filter((t) => t.now != null);
+              const post = commitResults.businessUnits || [];
+              const mean = (arr, key) => {
+                const vals = (arr || []).map((b) => b?.[key]).filter((v) => typeof v === 'number');
+                return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+              };
+              const int = (v) => Math.round(v).toString();
+              const one = (v) => v.toFixed(1);
+
+              const CANDIDATES = [
+                { label: 'Reputation',  now: g.group_reputation,                     was: reputation,                                    fmt: int,         good: 1 },
+                { label: 'Treasury',    now: g.corporate_treasury,                   was: treasury,                                      fmt: fmtCurrency, good: 1 },
+                { label: 'Social lic.', now: mean(post, 'social_license_to_operate'), was: mean(businessUnits, 'social_license_to_operate'), fmt: one,     good: 1 },
+                { label: 'Gov. risk',   now: mean(post, 'governance_risk'),           was: mean(businessUnits, 'governance_risk'),          fmt: one,     good: -1 },
+                { label: 'EBITDA',      now: g.historical_ebitda,                    was: ebitda,                                        fmt: fmtCurrency, good: 1 },
+                { label: 'Carbon',      now: g.tco2e_emissions,                      was: tco2e,                                         fmt: (v) => Math.round(v).toLocaleString(), good: -1 },
+              ];
+
+              /* MOVED, at a threshold that ignores float noise rather than
+                 real movement — a 0.01 drift in an averaged score is not a
+                 result, and printing it as one would teach a team to read
+                 rounding as consequence. */
+              const moved = CANDIDATES.filter((t) => {
+                if (t.now == null || t.was == null) return false;
+                const d = t.now - t.was;
+                return Math.abs(d) >= (t.fmt === fmtCurrency ? 1000 : 0.05);
+              }).slice(0, 5);
+
+              /* If genuinely nothing moved, say so once rather than render an
+                 empty row — a blank space where results should be reads as a
+                 loading failure. */
+              if (!moved.length) {
+                return (
+                  <p className={focusStyles.stageSub}>
+                    Nothing measurable moved this round.
+                  </p>
+                );
+              }
+
               return (
                 <div className={focusStyles.belt}>
-                  {tiles.map((t) => {
-                    const d = t.was == null ? null : t.now - t.was;
-                    const dir = !d ? null : (d > 0) === (t.good > 0) ? 'up' : 'down';
+                  {moved.map((t) => {
+                    const d = t.now - t.was;
+                    const dir = (d > 0) === (t.good > 0) ? 'up' : 'down';
                     return (
                       <div key={t.label} className={focusStyles.beltTile}>
                         <div className={focusStyles.beltLabel}>{t.label}</div>
                         <div className={focusStyles.beltValue}>{t.fmt(t.now)}</div>
-                        <div className={focusStyles.beltDelta} data-dir={dir || undefined}>
-                          {d == null || d === 0 ? 'unchanged' : `${d > 0 ? '+' : '−'}${t.fmt(Math.abs(d))}`}
+                        <div className={focusStyles.beltDelta} data-dir={dir}>
+                          {d > 0 ? '+' : '−'}{t.fmt(Math.abs(d))}
                         </div>
                       </div>
                     );
@@ -3575,7 +3610,15 @@ export default function ExecutiveCockpit({
                 white card, which made "am I done?" and "commit" two unrelated
                 things a player's eye had to associate for itself. */}
             {roundChecklist && (
-              <div className={styles.actionBarSteps}>{roundChecklist}</div>
+              <div className={styles.actionBarSteps}>
+                {roundChecklist}
+                {/* The clock, beside the steps rather than beside the button.
+                    It is a constraint on the round, not part of the act of
+                    committing — and a countdown adjacent to the primary action
+                    reads as pressure applied to the press. Renders nothing when
+                    the facilitator has set no limit, which is most rounds. */}
+                <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} variant="bar" />
+              </div>
             )}
             {/* ── Commit Footer (compact) ── */}
             <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '8px 12px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 6 }}>

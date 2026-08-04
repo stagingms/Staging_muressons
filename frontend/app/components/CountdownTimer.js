@@ -6,7 +6,11 @@ import { useState, useEffect, useRef } from 'react';
  * NEW-11 fix: Resolves the parent cohort session ID from /session-info to
  * poll pacing against the cohort, not the player's sub-session ID.
  */
-export default function CountdownTimer({ sessionId, roundNumber }) {
+/* variant='bar' — the action bar's copy. Same clock, same poll, no chrome:
+   the bar already has a surface and a border, and a bordered pill inside a
+   bordered bar is a box in a box. The header keeps the tinted capsule, where
+   it has to hold its own against the logo and the round line. */
+export default function CountdownTimer({ sessionId, roundNumber, variant = 'badge' }) {
   const [timeLeft, setTimeLeft] = useState(null); // seconds remaining
   const [totalTime, setTotalTime] = useState(null);
   // NEW-11: Resolved cohort session ID (may differ from player's own sessionId)
@@ -41,12 +45,34 @@ export default function CountdownTimer({ sessionId, roundNumber }) {
         );
         if (res.ok && !cancelled) {
           const data = await res.json();
-          if (data.pacing_mode === 'timed' && data.deadline_utc) {
-            const deadline = new Date(data.deadline_utc).getTime();
-            const now = Date.now();
-            const remaining = Math.max(0, Math.floor((deadline - now) / 1000));
+          /* FIELD NAMES. This read three keys the endpoint has never returned:
+             pacing_mode, deadline_utc, round_duration_seconds. GET
+             /api/admin/sessions/:id/pacing returns mode, next_unlock_at and
+             interval_seconds. So `data.pacing_mode === 'timed'` was undefined
+             on every poll, timeLeft stayed null, and the component returned
+             null — which is why a facilitator could set a per-round time and no
+             player ever saw a clock.
+
+             The facilitator control and the backend were both already correct:
+             POST /pacing with mode 'timed' + interval_seconds sets
+             next_unlock_at to now + interval and starts the unlock task. The
+             deadline has always been published. Nothing in the engine, the
+             unlock path or the pacing contract is touched here — three names
+             are. Changing the backend to match the frontend would have been the
+             risky direction, since the facilitator dashboard reads these keys.
+
+             next_unlock_at is when the round unlocks, which in timed mode IS
+             the round's deadline. */
+          const deadlineIso = data.next_unlock_at;
+          if (data.mode === 'timed' && deadlineIso) {
+            const deadline = new Date(deadlineIso).getTime();
+            if (Number.isNaN(deadline)) { setTimeLeft(null); return; }
+            const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
             setTimeLeft(remaining);
-            setTotalTime(data.round_duration_seconds || remaining);
+            /* interval_seconds is the round's full length — the denominator the
+               urgency colour needs. Falling back to `remaining` would make the
+               bar start full on every poll and never move. */
+            setTotalTime(data.interval_seconds || remaining);
           } else {
             setTimeLeft(null);
           }
@@ -77,6 +103,31 @@ export default function CountdownTimer({ sessionId, roundNumber }) {
   const secs = timeLeft % 60;
   const pct = totalTime ? (timeLeft / totalTime) * 100 : 100;
   const urgency = pct > 50 ? '#4ade80' : pct > 20 ? '#fbbf24' : '#f87171';
+  const clock = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  if (variant === 'bar') {
+    /* The word "left" is doing work: a bare 12:04 beside a commit button could
+       be read as elapsed. And it is aria-hidden with a polite label beside it,
+       because a clock that re-announces itself every second is unusable with a
+       screen reader on. */
+    return (
+      <span
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '0.8125rem',
+          fontWeight: 600,
+          color: pct > 20 ? 'var(--text-muted)' : urgency,
+          whiteSpace: 'nowrap',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        <span aria-hidden="true">{clock} left</span>
+        <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+          {mins} minutes {secs} seconds left in this round
+        </span>
+      </span>
+    );
+  }
 
   return (
     <div style={{
@@ -90,7 +141,7 @@ export default function CountdownTimer({ sessionId, roundNumber }) {
         fontSize: '0.75rem', fontWeight: 800, color: urgency,
         letterSpacing: '0.03em',
       }}>
-        {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
+        {clock}
       </span>
       {/* Mini progress bar */}
       <div style={{

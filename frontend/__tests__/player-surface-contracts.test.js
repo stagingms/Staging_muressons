@@ -509,3 +509,48 @@ describe('prediction echo', () => {
   });
 });
 
+// ── the round clock reads what the endpoint sends ───────────────────────────
+
+describe('countdown timer', () => {
+  const t = read('app/components/CountdownTimer.js');
+  const backend = fs.readFileSync(path.join(root, '..', 'backend', 'admin_router.py'), 'utf8');
+
+  test('it reads the keys GET /pacing actually returns', () => {
+    // It read pacing_mode, deadline_utc and round_duration_seconds — three keys
+    // the endpoint has never returned. Every poll fell through to null, so a
+    // facilitator could set a per-round time and no player ever saw a clock.
+    // Strip comments: the fix's own note names the three dead keys, and an
+    // assertion that reads prose is an assertion about prose. Third time this
+    // trap has been set in this file.
+    const code = t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    for (const dead of ['pacing_mode', 'deadline_utc', 'round_duration_seconds']) {
+      expect({ [dead]: code.includes(dead) }).toEqual({ [dead]: false });
+    }
+    expect(t).toMatch(/data\.mode === 'timed'/);
+    expect(t).toMatch(/data\.next_unlock_at/);
+    expect(t).toMatch(/data\.interval_seconds/);
+  });
+
+  test('and the endpoint still returns them — drift here is silent', () => {
+    // If the backend renames a key, the clock stops and nothing errors. This is
+    // the assertion that turns that into a failing build.
+    const handler = backend.slice(backend.indexOf('async def get_pacing'), backend.indexOf('async def get_pacing') + 600);
+    for (const key of ['"mode"', '"next_unlock_at"', '"interval_seconds"']) {
+      expect({ [key]: handler.includes(key) }).toEqual({ [key]: true });
+    }
+  });
+
+  test('a bad timestamp cannot start a runaway countdown', () => {
+    expect(t).toMatch(/Number\.isNaN\(deadline\)/);
+  });
+
+  test('the bar variant exists and carries a screen-reader label', () => {
+    // A clock that re-announces itself every second is unusable with a screen
+    // reader on, so the visible one is aria-hidden and a static label sits
+    // beside it.
+    expect(t).toMatch(/variant === 'bar'/);
+    expect(t).toMatch(/aria-hidden="true">\{clock\} left/);
+    expect(t).toMatch(/minutes \{secs\} seconds left in this round/);
+  });
+});
+
