@@ -413,3 +413,41 @@ describe('committed · waiting', () => {
   });
 });
 
+// ── the results screen summons its deep dives ───────────────────────────────
+
+describe('results deep dives', () => {
+  const src = read(COCKPIT);
+
+  test('every panel is behind a link, and every link has a panel', () => {
+    // The failure this guards is an affordance that opens nothing: a link
+    // offered while its visibility switch is off. Same rule as the Charts tab,
+    // which used to open an empty panel when kpi_dashboard was off.
+    for (const id of ['chain', 'retrospect', 'ebitda', 'peers']) {
+      expect({ [id]: src.includes(`resultsPanel === '${id}'`) }).toEqual({ [id]: true });
+    }
+    // and each link declares the same gate its panel does
+    for (const gate of ['consequence_replay', 'round_retrospect', 'ebitda_waterfall', 'peer_benchmarking']) {
+      const uses = (src.match(new RegExp(`isPlayerVisible\\('${gate}'\\)`, 'g')) || []).length;
+      expect({ [gate]: uses >= 2 }).toEqual({ [gate]: true });
+    }
+  });
+
+  test('nothing was deleted to shorten the screen', () => {
+    // The point was to summon these, not to drop them. All four components
+    // must still be rendered somewhere in this file.
+    for (const c of ['ConsequenceReplay', 'EngineEventsPanel', 'EBITDAWaterfall', 'peerLeaderboard']) {
+      expect(src).toContain(c);
+    }
+  });
+
+  test('the disclosure state is announced, not just styled', () => {
+    expect(src).toMatch(/aria-expanded=\{resultsPanel === p\.id\}/);
+  });
+
+  test('a second click closes it', () => {
+    // A disclosure that only opens leaves a player unable to get back to the
+    // short screen the change exists to give them.
+    expect(src).toMatch(/setResultsPanel\(resultsPanel === p\.id \? null : p\.id\)/);
+  });
+});
+

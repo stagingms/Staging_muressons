@@ -635,6 +635,13 @@ export default function ExecutiveCockpit({
 
   // ── Results-level Balance Sheet Modal ──
   const [resultsBsModalOpen, setResultsBsModalOpen] = useState(false);
+  /* Which deep-dive the results screen is showing, or null for none. The four
+     panels below the outcome used to render ALL AT ONCE, stacked, so the
+     screen a team lands on after committing was several thousand pixels of
+     analysis they had to scroll past to reach the button that starts the next
+     round. Each is now summoned. Nothing was deleted; the default view is
+     shorter and the same material is one click away. */
+  const [resultsPanel, setResultsPanel] = useState(null);
 
   // ── Consequence Traceability: tooltip index for market feed ──
   const [traceTooltipIdx, setTraceTooltipIdx] = useState(null);
@@ -2488,8 +2495,38 @@ export default function ExecutiveCockpit({
               })()}
             </div>
 
+            {/* THE DEEP DIVES, SUMMONED.
+                A link is only offered when its panel would actually render —
+                same rule as the Charts tab. An affordance that opens nothing
+                is worse than an absent one, because the player spends a click
+                learning it was never there. */}
+            {(() => {
+              const panels = [
+                { id: 'chain',      label: 'See the consequence chain', when: isPlayerVisible('consequence_replay') },
+                { id: 'retrospect', label: 'What the engine did',       when: isPlayerVisible('round_retrospect') },
+                { id: 'ebitda',     label: 'EBITDA bridge',             when: isPlayerVisible('ebitda_waterfall') },
+                { id: 'peers',      label: 'How other teams did',       when: peerLeaderboard.length > 0 && isPlayerVisible('peer_benchmarking') },
+              ].filter((p) => p.when);
+              if (!panels.length) return null;
+              return (
+                <div className={focusStyles.resultLinks}>
+                  {panels.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={focusStyles.resultLink}
+                      aria-expanded={resultsPanel === p.id}
+                      onClick={() => setResultsPanel(resultsPanel === p.id ? null : p.id)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* WOW-1: Consequence Replay — animated causal chain after commit */}
-            {isPlayerVisible('consequence_replay') && (
+            {resultsPanel === 'chain' && isPlayerVisible('consequence_replay') && (
               <ConsequenceReplay
                 commitResults={commitResults}
                 sessionId={sim?.sessionId}
@@ -2526,7 +2563,7 @@ export default function ExecutiveCockpit({
             {/* V-A (player v2, V-3): the retrospect lands where the learning
                 does — same component, same data, moved from the ambient rail.
                 Rendered against the just-committed state. */}
-            {isPlayerVisible('round_retrospect') && (
+            {resultsPanel === 'retrospect' && isPlayerVisible('round_retrospect') && (
               <div style={{ marginBottom: 16 }}>
                 <EngineEventsPanel
                   globalState={commitResults.globalState || globalState}
@@ -2537,7 +2574,7 @@ export default function ExecutiveCockpit({
             )}
 
             {/* ── EBITDA Decomposition Waterfall (Gap 1: visual strategy storytelling) ── */}
-            {isPlayerVisible('ebitda_waterfall') && (
+            {resultsPanel === 'ebitda' && isPlayerVisible('ebitda_waterfall') && (
               <EBITDAWaterfall
                 businessUnits={commitResults.businessUnits || businessUnits}
                 globalState={commitResults.globalState || globalState}
@@ -2559,7 +2596,7 @@ export default function ExecutiveCockpit({
                 leaderboard was ungated, so a cohort with Peer Benchmarking OFF
                 still saw peer rankings here. The reveal-schedule notice
                 (peerLockMsg) above is unaffected. */}
-            {peerLeaderboard.length > 0 && isPlayerVisible('peer_benchmarking') && (
+            {resultsPanel === 'peers' && peerLeaderboard.length > 0 && isPlayerVisible('peer_benchmarking') && (
               <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)', marginBottom: 16 }}>
                 <div style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#818cf8', marginBottom: 8, fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>📊</span> {peerLeaderboard.some(t => t.isAI) ? 'AI Benchmark Comparison' : 'Cohort Leaderboard'}

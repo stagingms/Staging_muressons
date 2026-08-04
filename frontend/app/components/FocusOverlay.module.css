@@ -1355,3 +1355,48 @@
   .beltValue { font-size: 22px; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   THE RESULTS DEEP-DIVE LINKS.
+
+   Four panels used to render at once beneath the outcome — the causal
+   chain, the engine retrospect, the EBITDA bridge and the cohort table —
+   so the screen a team lands on after committing was several thousand
+   pixels of analysis standing between them and the button that starts the
+   next round. Everything is still there; it is summoned now.
+
+   Links, not buttons-that-look-like-buttons: these open reading material,
+   they do not act on the simulation. The one control on this screen that
+   does act is the advance button, and it should not have four rivals.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.resultLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.resultLink {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--type-body);
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.resultLink:hover { text-decoration-color: var(--accent); }
+.resultLink:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+/* Open reads as open without relying on the panel being in view. */
+.resultLink[aria-expanded='true'] {
+  color: var(--text-primary);
+  text-decoration-color: var(--text-primary);
+}
+
