@@ -383,3 +383,62 @@ async def get_live_config(
     configuration has moved since.
     """
     return live_config_report(include_values=values)
+
+
+def run_provenance(stochastic_seed: str = "") -> dict:
+    """What a completed run needs to carry to be reconstructible (4.7).
+
+    A result is only defensible if you can say what produced it. Three things
+    decide the numbers a cohort sees:
+
+        the SEED       — which stochastic events were dealt (4.2)
+        the CONFIG     — the tunable constants in force at the time
+        the CODE       — the engine that combined them
+
+    Until now a finished session recorded none of them. Two cohorts run a month
+    apart, with a config change in between, were indistinguishable in the
+    database: same shape, same fields, silently different rules. Nobody could
+    tell you which one had been graded under which regime, and no amount of
+    later analysis could recover it — the information was never written down.
+
+    Stamped at creation because that is when it is true. Stamping at the END
+    would record the config as it stood after any mid-run edits, which is
+    precisely the case a reader would want flagged.
+
+    Never raises: provenance is evidence, not control flow. A run must not fail
+    to start because a fingerprint could not be computed — it records
+    "unavailable" and carries on, which is still more than it recorded before.
+    """
+    import os
+    import subprocess
+    from datetime import datetime, timezone
+
+    prov: dict[str, Any] = {
+        "schema": 1,
+        "stamped_at_utc": datetime.now(timezone.utc).isoformat(),
+        "stochastic_seed": stochastic_seed or "",
+    }
+
+    try:
+        import config as config_mod
+        prov["config_fingerprint"] = _fingerprint(_public_constants(config_mod))
+    except Exception as exc:            # noqa: BLE001
+        prov["config_fingerprint"] = "unavailable"
+        prov["config_fingerprint_error"] = str(exc)[:200]
+
+    # Code version: the deploy stamps it, or git knows, or we admit we do not.
+    code_version = (os.getenv("RAILWAY_GIT_COMMIT_SHA")
+                    or os.getenv("GIT_COMMIT_SHA")
+                    or os.getenv("SOURCE_VERSION") or "")
+    if not code_version:
+        try:
+            code_version = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True, text=True, timeout=2,
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+            ).stdout.strip()
+        except Exception:               # noqa: BLE001
+            code_version = ""
+    prov["code_version"] = code_version or "unknown"
+
+    return prov

@@ -546,6 +546,9 @@ async def create_session(
     _shuffle_seed = generate_shuffle_seed()
 
     # Metadata to store in database sessions.metadata
+    from config_introspect import run_provenance as _run_provenance
+    from rng_util import resolve_or_derive_seed as _resolve_or_derive_seed
+
     metadata = {
         "short_code": short_code,
         "is_public": False,
@@ -566,6 +569,16 @@ async def create_session(
         "region_id": region_id or "",
         "simulation_mode": simulation_mode or "",
         "industry_vertical": industry_vertical or "",
+        # 4.7 (2026-08-03): stamp what produced this run, at the moment it is
+        # true. Seed + config fingerprint + code version are the three things
+        # that decide the numbers a cohort sees; a finished session recorded
+        # none of them, so two runs a month apart with a config change between
+        # them were indistinguishable in the database. Computed from the SAME
+        # resolver the engine's seed comes from, so provenance cannot claim a
+        # seed the run did not use.
+        "run_provenance": _run_provenance(
+            _resolve_or_derive_seed(gs.get("active_event_flags"),
+                                    parent_cohort_id or session_id)),
     }
 
     pool = await get_pool()
@@ -609,6 +622,16 @@ async def create_session(
                 "industry_vertical": industry_vertical or "",
                 "region_id": region_id or "",
             }
+
+            # 4.2 (2026-08-03): every cohort gets a stochastic seed, always.
+            # `rng_seed` was a cohort setting defaulting to "" — and empty means
+            # event_rng() returns a SYSTEM-seeded Random, so a facilitator who
+            # never opened the advanced settings ran an unrepeatable, unrecorded
+            # simulation and was told nothing. Reproducibility was an unticked
+            # checkbox. Derived from the parent cohort id so all twenty teams
+            # share one stream (GAME-4); never overwrites an explicit seed.
+            from rng_util import ensure_cohort_seed
+            ensure_cohort_seed(flags, parent_cohort_id or session_id)
 
             # C2: seed effective climate inputs (global + per-cohort override)
             # into active_event_flags so the engine sees resolved values.

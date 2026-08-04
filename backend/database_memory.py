@@ -440,6 +440,9 @@ async def create_session(
     from option_shuffle import generate_shuffle_seed
     _shuffle_seed = generate_shuffle_seed()
 
+    from config_introspect import run_provenance as _run_provenance
+    from rng_util import resolve_or_derive_seed as _resolve_or_derive_seed
+
     _sessions[session_id] = {
         "session_id": session_id,
         "short_code": short_code,
@@ -464,6 +467,16 @@ async def create_session(
         "region_id": region_id or "",
         "simulation_mode": simulation_mode or "",
         "industry_vertical": industry_vertical or "",
+        # 4.7 (2026-08-03): stamp what produced this run, at the moment it is
+        # true. Seed + config fingerprint + code version are the three things
+        # that decide the numbers a cohort sees; a finished session recorded
+        # none of them, so two runs a month apart with a config change between
+        # them were indistinguishable in the database. Computed from the SAME
+        # resolver the engine's seed comes from, so provenance cannot claim a
+        # seed the run did not use.
+        "run_provenance": _run_provenance(
+            _resolve_or_derive_seed(gs.get("active_event_flags"),
+                                    parent_cohort_id or session_id)),
     }
 
     bus = copy.deepcopy(seed["business_units"])
@@ -603,6 +616,12 @@ async def create_session(
     # C2: seed effective climate inputs (global defaults + any per-cohort
     # override) into active_event_flags so the engine — which reads these keys
     # off the session — sees the resolved values from round 1.
+    # 4.2: same stamp as the Postgres backend, from the same helper, so the two
+    # stores cannot drift on which seed a cohort gets. Derived from the parent
+    # cohort id so every team in the cohort rolls identically (GAME-4).
+    from rng_util import ensure_cohort_seed
+    ensure_cohort_seed(global_state["active_event_flags"], parent_cohort_id or session_id)
+
     try:
         from admin_shared import seed_effective_flags
         seed_effective_flags(session_id, global_state["active_event_flags"])

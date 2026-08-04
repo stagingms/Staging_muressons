@@ -869,11 +869,50 @@ async def get_cohort_settings(session_id: str, _guard: None = Depends(require_fa
     the effective merged settings as seen by a player session.
     """
     overrides = cohort_settings.get(session_id, {})
+    effective = get_effective_settings(session_id)
+
+    # 4.2 (2026-08-03): report the seed the run is ACTUALLY using.
+    #
+    # `rng_seed` defaults to "" in the settings layer, and until 4.2 that
+    # genuinely meant unseeded. Sessions are now seeded at creation by
+    # rng_util.ensure_cohort_seed, which writes to the game state's
+    # active_event_flags — a different place from the settings override layer.
+    # Reading only the override would therefore show a facilitator an empty box
+    # for a run that IS seeded, which is worse than showing nothing: it says
+    # "this run is not reproducible" about a run that is.
+    #
+    # The live flag is the source of truth (a PATCH stamps both), so surface it
+    # and say where it came from. Never fails the read — a facilitator opening
+    # settings mid-workshop must not get a 500 because a state fetch hiccuped.
+    seed_value, seed_source = (overrides.get("rng_seed") or "").strip(), "override"
+    try:
+        latest = await db.fetch_latest_state(session_id)
+        live = ((latest or {}).get("global_state", {}).get("active_event_flags") or {})
+        live_seed = str(live.get("stochastic_seed") or "").strip()
+        if live_seed:
+            if not seed_value:
+                seed_source = "auto"
+            elif live_seed != seed_value:
+                # The override was set but never reached the game state, or a
+                # child was stamped separately. Say so rather than pick one.
+                seed_source = "divergent"
+            seed_value = live_seed
+    except Exception as _e:      # noqa: BLE001 — display only, never fatal
+        seed_source = "unknown"
+        _ar_log.warning("[cohort-settings] could not read live seed for %s: %s", session_id, _e)
+
+    effective = {**effective, "rng_seed": seed_value}
+
     return {
         "session_id": session_id,
         "overrides": overrides,
         "has_overrides": bool(overrides),
-        "effective": get_effective_settings(session_id),
+        "effective": effective,
+        # Explicit rather than inferred, so the UI can label it: a facilitator
+        # needs to know whether they chose this seed or the system did.
+        "rng_seed": seed_value,
+        "rng_seed_source": seed_source,
+        "reproducible": bool(seed_value),
     }
 
 
