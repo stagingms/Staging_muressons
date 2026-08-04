@@ -1,6 +1,7 @@
 'use client';
 import { useMemo } from 'react';
-import { buildWaterfall } from './ebitdaWaterfallModel';
+import { buildWaterfall } from './ebitdaWaterfallModel';
+import { currencySymbol } from '../utils/format';
 
 /**
  * EBITDAWaterfall — Visual waterfall decomposition of the round.
@@ -28,9 +29,9 @@ import { buildWaterfall } from './ebitdaWaterfallModel';
 
 const fmt$ = (v) => {
   const abs = Math.abs(v);
-  if (abs >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
-  return `$${v.toFixed(0)}`;
+  if (abs >= 1e6) return `${currencySymbol()}${(v / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${currencySymbol()}${(v / 1e3).toFixed(0)}K`;
+  return `${currencySymbol()}${v.toFixed(0)}`;
 };
 
 export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, events = {}, commitResults = {}, isDark = true }) {

@@ -1,5 +1,6 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
+import { currencySymbol } from '../utils/format';
 
 /**
  * PredictionComparison — calibration chip (PLAN_Calibration_Analytics Phase 3).
@@ -34,7 +35,7 @@ export default function PredictionComparison({ predictions, roundNumber }) {
       rows.push({
         kpi: '💰 Treasury',
         predicted: BAND_LABEL[pred.treasury_band] || pred.treasury_band,
-        actual: `${BAND_LABEL[s.actual_treasury_band] || s.actual_treasury_band} (${s.treasury_delta >= 0 ? '+' : ''}$${(s.treasury_delta / 1e6).toFixed(1)}M)`,
+        actual: `${BAND_LABEL[s.actual_treasury_band] || s.actual_treasury_band} (${s.treasury_delta >= 0 ? '+' : ''}${currencySymbol()}${(s.treasury_delta / 1e6).toFixed(1)}M)`,
         hit: s.treasury_hit,
       });
     }

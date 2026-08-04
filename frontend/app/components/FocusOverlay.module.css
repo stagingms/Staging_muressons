@@ -379,7 +379,7 @@
 }
 
 .gateIcon {
-  font-size: 3rem;
+  font-size: var(--type-title);
   margin-bottom: 12px;
 }
 
@@ -431,7 +431,7 @@
 }
 
 .gateCompleteBadge {
-  font-size: 2rem;
+  font-size: var(--type-body);
 }
 
 .gateCompleteText {
@@ -450,10 +450,15 @@
 .dashboardFaded {
   opacity: 1;
 }
+/* SUPERSEDED (Direction D). The fade is off. Recession is now a WIDTH
+ collapse driven by [data-rails] on .mainContent — see the block at the
+ foot of ExecutiveCockpit.module.css. Two things the fade could not do:
+ it handed no width to the decision (.centerConsole stayed at 52%), and at
+ 0.45 it took --text-muted from 6.34:1 to roughly 2.0:1, so a panel the
+ player still had to consult became one they had to squint at. These rules
+ are kept as inert no-ops so any stale reference cannot reintroduce it. */
 .dashboardFaded > * {
-  opacity: 0.45;
-  transition: opacity 0.4s ease;
-  /* filter: blur removed — causes GPU compositor churn */
+  opacity: 1;
 }
 /* Allow left panel to remain interactive for KPI reference */
 .dashboardFaded > aside:first-child {
@@ -597,10 +602,10 @@
   border-radius: var(--radius-chip);
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: var(--type-caption);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  min-height: 48px;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
@@ -612,16 +617,19 @@
 
 .primaryAction {
   flex: 2;
-  padding: 12px 20px;
+  padding: 16px 28px;
+  min-height: 48px;
   background: linear-gradient(135deg, var(--brand-bright), var(--brand-bright));
   color: #0a0e1a;
   border: none;
   border-radius: var(--radius-chip);
   font-family: var(--font-sans);
-  font-size: var(--type-caption);
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  /* --type-caption is documented in tokens.css as “12px — labels, chips,
+     meta”. This is the button that commits the round; it was wearing the
+     metadata token. Sentence case at 15px, no tracking. */
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
   cursor: pointer;
   transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
   box-shadow: 0 4px 16px rgba(0, 229, 195, 0.2);
@@ -886,7 +894,7 @@
   opacity: 1;
 }
 :global([data-theme="light"]) .dashboardFaded > * {
-  opacity: 0.35;
+  opacity: 1; /* SUPERSEDED — see the Direction D note above. */
 }
 
 /* Back button */
@@ -948,3 +956,200 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE STAGE HEAD — what this screen is for, in words.
+
+   The canvas header said "Strategic Decision · Step 2 / 3": where you are
+   in a flow, not what you are being asked. A team deliberating for forty
+   minutes needs the question itself at a size they can read across a table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.stageHead {
+  margin-bottom: 24px;
+}
+.stageEyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent, #6366f1);
+  margin-bottom: 12px;
+}
+.stageQuestion {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  max-width: 34ch;   /* a headline, not a paragraph */
+}
+.stageSub {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 68ch;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE CONSTRAINT LINE — the bridge between the decision and the next step.
+
+   Deliberately NOT a card: it is a consequence of the selection above it,
+   not a peer of the options. A left rule in the accent, a barely-there wash,
+   and body-size text. It should read like a sentence someone said, because
+   that is what it is — the thing a facilitator says standing behind you.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.constraintLine {
+  margin: 16px 0 0;
+  padding: 16px 16px 16px 24px;
+  border-left: 2px solid var(--accent, #6366f1);
+  border-radius: 0 6px 6px 0;
+  background: rgba(99, 102, 241, 0.06);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.constraintLine strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .constraintLine { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE OPTION CARDS.
+
+   What they replaced: an emoji, a title, a paragraph, a "Cost" row with a
+   normalised progress bar, and — only on the selected card — a small impact
+   box. Three problems. The cost bar encoded ONE number as length while the
+   other six impacts were invisible, so it read as "how expensive" when the
+   decision is a trade. The impact box appeared only after selection, so the
+   comparison a team needs BEFORE choosing was the one thing you could not
+   see. And the emoji assigned each option a mood (a shield for C, a lightning
+   bolt for A) that the content never earned.
+
+   What they are now: a title, a sentence, and three impact rows carried by
+   EVERY card so the eye can compare straight down the column. The rows are
+   not fixed — they are the three metrics that actually DIFFER between this
+   round's options, chosen once for all three cards. In a governance round
+   governance shows; in a carbon round carbon shows. The full matrix stays
+   below for everything else.
+
+   Semantics: a radiogroup of radios, which is what three mutually exclusive
+   choices are. The old markup was role="button" + aria-pressed on a div —
+   three unrelated toggles that happened to look like a set.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.optGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+@media (max-width: 900px) {
+  .optGrid { grid-template-columns: 1fr; }
+}
+
+.opt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+  padding: 24px;
+  background: var(--ck-surface-2, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 120ms cubic-bezier(0.2, 0, 0, 1),
+              background 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.opt:hover { border-color: var(--ck-border-strong, rgba(148, 163, 184, 0.28)); }
+.opt:focus-visible {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: 2px;
+}
+
+/* Selection reads as a 2px edge but is a 1px border plus a 1px inset ring, so
+   the padding never changes and nothing in the row reflows when you change
+   your mind. A border-width change would have cost a compensating 23px
+   padding — an off-scale value bought to fix a problem this avoids. */
+.opt[aria-checked='true'] {
+  border-color: var(--accent, #6366f1);
+  box-shadow: inset 0 0 0 1px var(--accent, #6366f1);
+  background: var(--accent-soft, rgba(99, 102, 241, 0.08));
+}
+
+.optTop { display: flex; align-items: center; gap: 8px; }
+.optKey {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt[aria-checked='true'] .optKey { color: var(--accent, #6366f1); }
+.optCheck {
+  margin-left: auto;
+  color: var(--accent, #6366f1);
+  font-weight: 700;
+  opacity: 0;
+}
+.opt[aria-checked='true'] .optCheck { opacity: 1; }
+
+.optTitle {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  color: var(--text-primary);
+  margin: 0;
+}
+.optDesc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* margin-top:auto pins the rows to the card's foot, so all three cards'
+   numbers sit on one line however long the descriptions run. */
+.optRows {
+  margin: auto 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  font-size: 14px;
+}
+.optRowLabel { color: var(--text-muted); }
+.optRowValue {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+/* --positive-text / --danger-text, not --positive / --danger: the -text pair
+   is the one tokens.css tunes per theme to clear 4.5:1 on each surface. No hex
+   fallback — a raw literal here is exactly the debt the hue lock exists to
+   stop, and these tokens are defined at :root so there is nothing to fall back
+   from. Colour is never the only encoding: the sign travels with the number. */
+.optRowValue[data-dir='up']   { color: var(--positive-text); }
+.optRowValue[data-dir='down'] { color: var(--danger-text); }
+
+.opt[aria-disabled='true'] { cursor: not-allowed; }
+.opt[aria-disabled='true'] .optTitle,
+.opt[aria-disabled='true'] .optDesc { color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .opt { transition: none; }
+}
+

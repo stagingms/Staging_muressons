@@ -29,6 +29,7 @@ import { useState, useEffect, useRef } from 'react';
 import { logoutAnchorStyle, LOGOUT_GUTTER } from './logoutChrome';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { REVEAL_EASE } from '../styles/reveal';
+import { money, ratio } from '../utils/format';
 import styles from './ArchetypeReveal.module.css';
 
 // ── Archetype Configuration Matrix ──────────────────────────────────────────
@@ -195,12 +196,10 @@ const FALLBACK_THEME = ARCHETYPE_MATRIX.SAFE_HAVEN;
  * @returns {string}
  */
 function fmtCurrency(value) {
-  const abs = Math.abs(value);
-  const sign = value < 0 ? '-' : '';
-  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000)     return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000)         return `${sign}$${(abs / 1_000).toFixed(1)}K`;
-  return `${sign}$${abs.toFixed(0)}`;
+  /* Delegates to utils/format so this screen speaks the session currency and
+     the same precision ladder as every other one. It used to hard-code '$' and
+     its own 2/2/1/0 dp ladder. */
+  return money(value);
 }
 
 /**
@@ -209,7 +208,9 @@ function fmtCurrency(value) {
  * @returns {string}
  */
 function fmtMultiplier(value) {
-  return `${(value || 0).toFixed(4)}×`;
+  /* Was 4dp — so a team saw '1.4237×' here and '1.42×' on the scorecard one
+     screen later, for the same score. One precision, defined once. */
+  return ratio(value);
 }
 
 // ── Animated Counter ─────────────────────────────────────────────────────────
@@ -628,7 +629,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                       −<AnimatedNumber
                         target={total_ncd}
                         duration={1100}
-                        formatter={(v) => fmtCurrency(v).replace(/^-?\$/, '$')}
+                        formatter={(v) => fmtCurrency(v)}   /* the .replace stripped a glyph that is no longer hard-coded */
                       />
                     </span>
                   }

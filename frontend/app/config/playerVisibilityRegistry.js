@@ -122,7 +122,9 @@ export const PLAYER_VISIBILITY_CARDS = [
     { key: 'detailed_option_descriptions', label: 'Detailed Option Descriptions', icon: '🔎', group: 'Help & reference', tooltip: 'Long-form description, cost and impacts for each option on hover.', audience: 'scaffold' },
     // ── Dock & ambient ──
     { key: 'dock_sdg_radar', label: 'Dock: SDG Alignment Radar', icon: '🌐', group: 'Dock & ambient', tooltip: 'Group SDG score and per-goal radar, shown for every paradigm. Shown for every paradigm today.', audience: 'specialist' },
-    { key: 'market_ticker', label: 'Market Ticker', icon: '📡', group: 'Dock & ambient', tooltip: 'Scrolling engine-derived symbols: carbon fee, WACC and similar.', audience: 'compare' },
+    /* market_ticker retired in Phase 1 with the surface it gated. Leaving the
+       toggle behind would have given facilitators a switch that does nothing —
+       caught by player-visibility-wiring.test.js, which is what it is for. */
     { key: 'decision_pressure_timer', label: 'Decision Pressure Timer', icon: '⏲️', group: 'Dock & ambient', tooltip: 'Countdown plus how many rival teams have already committed.', audience: 'compare' },
 ];
 

@@ -1,0 +1,304 @@
+{
+  "_README": [
+    "OPTION CONSTRAINTS — one sentence per option saying how choosing it narrows",
+    "the NEXT step of the round. Authored content, not code: edit this file and",
+    "the sentence changes. No deploy needed beyond the usual restart.",
+    "",
+    "WHY IT EXISTS. During the strategic decision a team does not need the",
+    "business-unit table — twenty-eight numbers that answer a different question.",
+    "They need to know what their choice makes possible and what it forecloses.",
+    "This is the sentence a facilitator says standing behind them.",
+    "",
+    "HOW TO WRITE ONE.",
+    "  1. Lead with the consequence, not the reasoning: which units, or what",
+    "     capability, is open or closed after this choice.",
+    "  2. One sentence, two at most. It sits under the option cards, not in them.",
+    "  3. Say what is LOST as well as what is gained — a team that cannot see the",
+    "     road not taken learns nothing from taking one.",
+    "  4. Plain English. No ESRS clause numbers, no engine variable names.",
+    "  5. Wrap the load-bearing clause in <b>…</b>. Nothing else renders as HTML.",
+    "",
+    "EMPTY IS SAFE. An empty string renders no constraint line at all — the",
+    "decision screen simply shows the options and the comparison table, exactly as",
+    "it does today. Author the rounds you have taught; leave the rest until you",
+    "have watched them run.",
+    "",
+    "KEYS MUST MATCH detailed_descriptions.json exactly. The jest tripwire",
+    "frontend/__tests__/option-constraints-drift.test.js fails the build if the two",
+    "files disagree, or if the frontend mirror drifts from this file."
+  ],
+  "narrative": {
+    "1": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "2": {
+      "option_a": "<b>Only Pharma and Electronics are fundable next.</b> Both already sit in the high-impact quadrant. Consumer Goods and Software fall outside it this round, so capital cannot reach them until their materiality scores move.",
+      "option_b": "<b>All four units stay fundable</b> — but every allocation carries the governance flag, and institutional investors reprice your Green Bond at the round's end.",
+      "option_c": "<b>Three units are fundable: Pharma, Electronics and Software.</b> Consumer Goods needs a CFO exception, which you can request during allocation."
+    },
+    "3": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "4": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "5": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "6": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "7": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "8": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "9": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    },
+    "10": {
+      "option_a": "",
+      "option_b": "",
+      "option_c": ""
+    }
+  },
+  "pillars": {
+    "1": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "2": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "3": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "4": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "5": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "6": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "7": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "8": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "9": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    },
+    "10": {
+      "energy": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "operations": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "supply_chain": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      },
+      "offsetting": {
+        "option_1": "",
+        "option_2": "",
+        "option_3": ""
+      }
+    }
+  }
+}

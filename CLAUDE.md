@@ -18,6 +18,14 @@ a v3.
 | Projector/atmosphere layer | Facilitator theatre; dims under `data-allocation-open`; off <1280px |
 | OverlayHost | Interrupts (crisis, shockwave, broadcast, tour) |
 
+**The V-D rule is now enforced, not just stated.** `frontend/__tests__/ui-budgets.test.js`
+is a debt ledger with five budgets — type floor, slot count, perpetual
+animations, off-scale spacing, and raw semantic hues. Every baseline is frozen
+at what the tree carries today and fails in BOTH directions: add debt and the
+build breaks; pay debt down and the build breaks until you lower the baseline.
+A one-way tripwire is a suggestion. Raising a baseline is allowed — in the same
+commit, so a human sees it in review.
+
 **In the same commit as any new player-facing UI:**
 1. Name its slot (in the component header comment).
 2. Use `app/styles/tokens.css` tokens — no raw hex for semantic colors

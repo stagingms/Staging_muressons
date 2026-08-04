@@ -8,6 +8,8 @@
  * randomness: same history in ⇒ same intel out, preserving the sim's
  * shared-dice determinism doctrine.
  */
+import { moneyM } from '../utils/format';
+
 
 /* A11Y-M2 (WCAG 1.4.3): `color` is the identity hue and stays — it paints the
    card's 3px left border, where contrast does not apply. `textColor` is the
@@ -18,7 +20,7 @@ export const RIVAL = { name: 'Nordhaven Group', avatar: '🏛️', color: '#6474
 export const AGENCY = { name: 'Meridian ESG Ratings', avatar: '⚖️', color: '#7c3aed', textColor: 'var(--accent-text)' };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const M = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
+const M = (v) => moneyM(v || 0);
 
 // Per-round player EBITDA — same definition as the cockpit's historyData:
 // Σ(revenue − opex) over the round's BU table, falling back to the stored

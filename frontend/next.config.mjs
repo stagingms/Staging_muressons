@@ -54,9 +54,16 @@ const nextConfig = {
     //   media-src https:            — facilitator-configured direct video URLs
     //     (non-YouTube/Vimeo) play through a native <video> tag from wherever
     //     the media is hosted; config is URL-only, media is never in git.
+    //   script-src 'unsafe-eval'    — DEVELOPMENT ONLY. React's dev build uses
+    //     eval() to reconstruct call stacks across environments; without it the
+    //     Next dev overlay throws "eval() is not supported in this environment"
+    //     on every error. React never uses eval() in a production build, so the
+    //     shipped policy is unchanged and stays as strict as it was.
+    const isDev = process.env.NODE_ENV !== 'production';
+
     const csp = [
       "default-src 'self' blob:",
-      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://cdn.jsdelivr.net`,
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",

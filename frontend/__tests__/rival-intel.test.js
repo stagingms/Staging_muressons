@@ -3,12 +3,17 @@
  * Doctrine: same inputs ⇒ same outputs (shared-dice determinism), correct
  * tone bands, even-round-only rating reviews, correct direction arrows.
  */
+import { setCurrencySymbol } from '../app/utils/format';
 import {
   deriveRivalRelease,
   deriveRatingLetter,
   ratingGrade,
   rivalBenchmarkEV,
 } from '../app/components/rivalIntel';
+
+// The release copy below is asserted with '$' figures; state the currency the
+// expectation assumes rather than depending on format.js's default.
+setCurrencySymbol('$');
 
 const mkRound = (round, { playerEbitda = 20_000_000, rivalEbitda = 19_200_000, rep = 50, ci = 40, ncd = 10, wacc = 0.06 } = {}) => ({
   round_number: round,

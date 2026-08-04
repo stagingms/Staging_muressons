@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import styles from './FocusOverlay.module.css';
+import styles from './FocusOverlay.module.css';
+import { moneyM } from '../utils/format';
 
 /**
  * STEP_META — metadata for each focus step.
@@ -70,7 +71,7 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
           <span className={styles.stepIcon} aria-hidden="true">{STEP_META[step]?.icon}</span>
           <span className={styles.stepLabel} ref={headingRef} tabIndex={-1} role="heading" aria-level={2}>{STEP_META[step]?.label}</span>
           <span className={styles.stepBadge}>
-            Step {currentIdx + 1} / {steps.length}
+            {currentIdx >= 0 ? `Step ${currentIdx + 1} / ${steps.length}` : 'Round complete'}
           </span>
         </div>
         <button
@@ -198,7 +199,7 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
  * KPIStrip — Compact horizontal KPI reference bar for use inside focus overlays.
  */
 export function KPIStrip({ treasury, reputation, carbon, ebitda, projectedCost, fmtCurrency }) {
-  const fmt = fmtCurrency || ((v) => `$${(Math.abs(v) / 1_000_000).toFixed(1)}M`);
+  const fmt = fmtCurrency || ((v) => moneyM(Math.abs(v)));
   return (
     <div className={styles.kpiStrip}>
       <div className={styles.kpiPill}>

@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const YEARS = 5;
@@ -135,7 +136,7 @@ export default function InsettingROICalculator({ sessionId, onComplete }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Scope 3 Insetting ROI Calculator</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
-                            {[['5-YEAR ROI DELTA', `${Number(roiDelta) >= 0 ? '+' : ''}$${(Number(roiDelta) / 1e6).toFixed(1)}M`], ['PAYBACK PERIOD', paybackStr], ['UNIT MARGIN (S2)', `$${unitMarginS2}`]].map(([k, v]) => (
+                            {[['5-YEAR ROI DELTA', `${Number(roiDelta) >= 0 ? '+' : ''}${currencySymbol()}${(Number(roiDelta) / 1e6).toFixed(1)}M`], ['PAYBACK PERIOD', paybackStr], ['UNIT MARGIN (S2)', `${currencySymbol()}${unitMarginS2}`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.65rem' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: Number(roiDelta) >= 0 ? '#16a34a' : '#dc2626' }}>{v}</div>
@@ -166,9 +167,9 @@ export default function InsettingROICalculator({ sessionId, onComplete }) {
                 {/* Sliders */}
                 <div style={{ padding: '0.75rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem 1.25rem' }}>
                     {[
-                        { label: 'Upfront CapEx ($)', val: capex, set: setCapex, min: 500_000, max: 5_000_000, step: 100_000, fmt: v => `$${(v / 1e6).toFixed(1)}M` },
-                        { label: 'Co-Investment OpEx ($/u)', val: coInvestOpex, set: setCoInvestOpex, min: 8, max: 20, step: 0.5, fmt: v => `$${v}` },
-                        { label: 'Green Premium OpEx ($/u)', val: greenOpex, set: setGreenOpex, min: 15, max: 35, step: 0.5, fmt: v => `$${v}` },
+                        { label: 'Upfront CapEx ($)', val: capex, set: setCapex, min: 500_000, max: 5_000_000, step: 100_000, fmt: v => `${currencySymbol()}${(v / 1e6).toFixed(1)}M` },
+                        { label: 'Co-Investment OpEx ($/u)', val: coInvestOpex, set: setCoInvestOpex, min: 8, max: 20, step: 0.5, fmt: v => `${currencySymbol()}${v}` },
+                        { label: 'Green Premium OpEx ($/u)', val: greenOpex, set: setGreenOpex, min: 15, max: 35, step: 0.5, fmt: v => `${currencySymbol()}${v}` },
                     ].map(sl => (
                         <div key={sl.label}>
                             <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>

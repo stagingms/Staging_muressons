@@ -1,4 +1,5 @@
 'use client';
+import { money, price, ratio, delta } from '../utils/format';
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './GameOverSummary.module.css';
@@ -38,7 +39,8 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
     const [interviewCompleted, setInterviewCompleted] = useState(false);
     const d = data || {};
     const { currency } = useCurrency();
-    const sym = currency?.symbol || '$';
+    /* `sym` was declared here and then bypassed by ten literal '$' templates.
+       utils/format resolves the symbol once, from CurrencyProvider. */
     const isBRSR = decisionParadigm === 'brsr_ngrbc';
     // Dynamic theme: prefer backend-provided icon/gradient (supports custom archetypes),
     // else fall back to PROFILES dict, else universal fallback.
@@ -120,14 +122,14 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 <div className={styles.statsGrid}>
                     <div className={styles.statCard}>
                         <span className={styles.statLabel}>Enterprise Value</span>
-                        <span className={styles.statValue}>${((d.terminal_value || 0) / 1_000_000).toFixed(2)}M</span>
+                        <span className={`${styles.statValue} num`}>{money(d.terminal_value)}</span>
                     </div>
                     <div className={styles.statCard}>
                         <span className={styles.statLabel}>Equity Value</span>
                         <span className={styles.statValue} style={{
                             color: d.equity_value != null ? (d.equity_value > 0 ? '#10b981' : '#ef4444') : undefined
                         }}>
-                            {d.equity_value != null ? `$${(d.equity_value / 1_000_000).toFixed(2)}M` : `$${((d.terminal_value || 0) / 1_000_000).toFixed(2)}M`}
+                            {money(d.equity_value != null ? d.equity_value : d.terminal_value)}
                         </span>
                     </div>
                     <div className={styles.statCard}>
@@ -138,12 +140,12 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                 : undefined,
                             fontSize: '1.4rem',
                         }}>
-                            {d.price_per_share != null ? `$${d.price_per_share.toFixed(2)}` : '—'}
+                            {price(d.price_per_share)}
                         </span>
                     </div>
                     <div className={styles.statCard}>
                         <span className={styles.statLabel}>Regenerative Multiple</span>
-                        <span className={styles.statValue}>{(d.regenerative_multiple || 0).toFixed(2)}×</span>
+                        <span className={`${styles.statValue} num`}>{ratio(d.regenerative_multiple)}</span>
                     </div>
                     <div className={styles.statCard}>
                         <span className={styles.statLabel}>Rounds Played</span>
@@ -323,7 +325,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                             }}>YOU</span>}
                                         </td>
                                         <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace" }}>
-                                            ${((team.treasury || 0) / 1_000_000).toFixed(1)}M
+                                            {money(team.treasury)}
                                         </td>
                                         <td style={{ padding: '8px', textAlign: 'right', color: '#cbd5e1' }}>
                                             {team.reputation?.toFixed(0) ?? '—'}
@@ -526,7 +528,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                 {[
                                     { label: '💨 Avg Carbon Intensity', value: avgCI !== null ? `${avgCI.toFixed(1)} t/BU` : '—', color: avgCI !== null && avgCI >= 70 ? '#ef4444' : '#6ee7b7' },
                                     { label: '🌡️ Tipping Point', value: tippingPoint ? 'BREACHED ⚠️' : 'Avoided ✓', color: tippingPoint ? '#ef4444' : '#10b981' },
-                                    { label: '💰 Total Carbon Fees', value: carbonFeesPaid !== null ? `$${(carbonFeesPaid / 1_000_000).toFixed(2)}M` : '—', color: '#94a3b8' },
+                                    { label: '💰 Total Carbon Fees', value: money(carbonFeesPaid), color: '#94a3b8' },
                                 ].map((m, i) => (
                                     <div key={i} style={{
                                         background: 'rgba(255,255,255,0.03)',
@@ -730,7 +732,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                 {[
                                     {
                                         label: 'Group EBITDA (Year 5)',
-                                        value: ebitda > 0 ? `$${(ebitda / 1_000_000).toFixed(2)}M` : '—',
+                                        value: money(ebitda > 0 ? ebitda : null),
                                         color: '#cbd5e1', op: null, desc: 'Base operating profit across all BUs',
                                     },
                                     {
@@ -740,12 +742,12 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     },
                                     {
                                         label: `M_R — Regenerative Multiple`,
-                                        value: `${mR.toFixed(4)}×`,
+                                        value: ratio(mR),   /* was 4dp here and 2dp in the stat card above */
                                         color: lineColor(mR, 1.3), op: '×', desc: 'ESG performance score × Capital efficiency × Leverage quality',
                                     },
                                     {
                                         label: `M_SDG — Sustainability Multiplier`,
-                                        value: sdgCompleted ? `${mSdg.toFixed(4)}×` : '1.0000× (track not used)',
+                                        value: sdgCompleted ? ratio(mSdg) : 'not used this run',
                                         color: sdgCompleted ? lineColor(mSdg, 1.1) : '#64748b', op: '×',
                                         desc: `SDG Impact Score: ${safeScore}/105 → M_SDG = 1.0 + (${safeScore}/100) × 0.25`,
                                         highlight: sdgCompleted,
@@ -786,7 +788,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     <div>
                                         <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#e2e8f0' }}>= V<sub>T</sub> — Terminal Enterprise Value</div>
                                         <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px' }}>
-                                            EBITDA × {exitMultiple.toFixed(1)}× × M_R({mR.toFixed(3)}) × M_SDG({mSdg.toFixed(4)})
+                                            EBITDA × {ratio(exitMultiple)} × M_R({ratio(mR)}) × M_SDG({ratio(mSdg)})
                                         </div>
                                     </div>
                                     <span style={{
@@ -848,7 +850,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     <div style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
                                         <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '3px' }}>M_SDG Contribution</div>
                                         <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>
-                                            {vT > 0 ? `+$${((vT - vT / mSdg) / 1_000_000).toFixed(2)}M` : `${mSdg.toFixed(4)}×`}
+                                            {vT > 0 ? delta(vT - vT / mSdg, money) : ratio(mSdg)}
                                         </div>
                                         <div style={{ fontSize: '0.6rem', color: '#475569', marginTop: '2px' }}>
                                             {vT > 0 ? 'Value added vs. no SDG track' : 'Terminal multiplier'}
@@ -870,34 +872,34 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                             const col = h.points >= 15 ? '#10b981' : h.points >= 8 ? '#f59e0b' : '#ef4444';
                                             return (
                                                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-                                                    <div style={{ fontSize: '0.5rem', color: col, fontWeight: 700 }}>{h.points > 0 ? `+${h.points}` : h.points}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: col, fontWeight: 700 }}>{h.points > 0 ? `+${h.points}` : h.points}</div>
                                                     <div style={{ width: '100%', height: `${pct}%`, minHeight: '5px', borderRadius: '3px 3px 0 0', background: col, opacity: 0.85 }}
                                                         title={`ST-R${h.sdg_track_round}: ${h.choice} (+${h.points}pts) → Total: ${h.score}`} />
-                                                    <div style={{ fontSize: '0.5rem', color: '#475569' }}>ST-R{h.sdg_track_round}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#475569' }}>ST-R{h.sdg_track_round}</div>
                                                 </div>
                                             );
                                         })}
                                         {/* Remaining potential bars (if track not fully completed) */}
                                         {history.length < 5 && Array.from({ length: 5 - history.length }).map((_, i) => (
                                             <div key={`empty-${i}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-                                                <div style={{ fontSize: '0.5rem', color: '#1e293b' }}>—</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#1e293b' }}>—</div>
                                                 <div style={{ width: '100%', height: '8px', borderRadius: '3px 3px 0 0', background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.08)' }} />
-                                                <div style={{ fontSize: '0.5rem', color: '#334155' }}>ST-R{history.length + i + 1}</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#334155' }}>ST-R{history.length + i + 1}</div>
                                             </div>
                                         ))}
                                     </div>
                                     {/* M_SDG trend line labels */}
                                     <div style={{ display: 'flex', gap: '0.35rem', marginTop: '6px' }}>
                                         {history.map((h, i) => (
-                                            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '0.48rem', color: '#475569', fontFamily: "'JetBrains Mono', monospace" }}>
-                                                {h.m_sdg?.toFixed(3)}
+                                            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '0.75rem', color: '#475569', fontFamily: "'JetBrains Mono', monospace" }}>
+                                                {ratio(h.m_sdg)}
                                             </div>
                                         ))}
                                         {history.length < 5 && Array.from({ length: 5 - history.length }).map((_, i) => (
                                             <div key={`ml-${i}`} style={{ flex: 1 }} />
                                         ))}
                                     </div>
-                                    <div style={{ fontSize: '0.52rem', color: '#334155', textAlign: 'right', marginTop: '2px' }}>M_SDG per round →</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#334155', textAlign: 'right', marginTop: '2px' }}>M_SDG per round →</div>
                                 </div>
                             )}
 

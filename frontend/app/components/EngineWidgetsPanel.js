@@ -7,7 +7,8 @@
  */
 import { useState, useEffect } from 'react';
 import BalanceSheetModal from './BalanceSheetModal';
-import styles from './ExecutiveCockpit.module.css';
+import styles from './ExecutiveCockpit.module.css';
+import { moneyM } from '../utils/format';
 
 // ══════════════════════════════════════════════════════════════════
 //  ENGINE WIDGETS PANEL — Biodiversity · Board Governance · Supply Chain
@@ -217,7 +218,7 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
           <span className={styles.ewChevron}>{open.bs ? '▲' : '▼'}</span>
         </div>
         {open.bs && (balanceSheet ? (() => {
-          const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
+          const fmtM = (v) => moneyM(v || 0);
           const totalAssets = balanceSheet.total_assets || 0;
           const totalLiabilities = balanceSheet.total_liabilities || 0;
           const netAssets = balanceSheet.net_assets || 0;

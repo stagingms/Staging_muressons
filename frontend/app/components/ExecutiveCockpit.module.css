@@ -126,7 +126,7 @@
 }
 .boardMoodStressed {
   --cockpit-mood-color: rgba(239, 68, 68, 0.04);
-  animation: moodPulse 4s ease-in-out infinite;
+  animation: moodPulse 4s ease-in-out 1;
 }
 
 @keyframes moodPulse {
@@ -385,7 +385,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--danger-text);
-  animation: resourceNudgePulse 2s ease-in-out infinite;
+  animation: resourceNudgePulse 2s ease-in-out 1;
   flex-shrink: 0;
   box-shadow: 0 0 6px rgba(248, 113, 113, 0.5);
 }
@@ -472,10 +472,10 @@
   50% { text-shadow: 0 0 8px rgba(248, 113, 113, 0.4); }
 }
 .gainValue {
-  animation: gainSparkle 2.5s ease-in-out infinite;
+  animation: gainSparkle 2.5s ease-in-out 1;
 }
 .lossValue {
-  animation: lossFlicker 2s ease-in-out infinite;
+  animation: lossFlicker 2s ease-in-out 1;
 }
 
 /* â”€â”€ KPI Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -796,7 +796,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--kpi-good);
-  animation: livePulse 2s ease-in-out infinite;
+  animation: livePulse 2s ease-in-out 1;
   flex-shrink: 0;
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
 }
@@ -3009,3 +3009,273 @@
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   PHASE 4 — THE ACTION BAR
+
+   One sticky object at the foot of the centre column carrying the round’s
+   step indicator and its commit control. It replaces two arrangements that
+   answered the same question in different places: a checklist docked here,
+   and a commit footer at the bottom of the right rail below ten other panels.
+
+   Layout is a ROW that wraps. Context (the reflective prompt, the projected
+   impact, an over-allocation warning) sits left and takes what it needs; the
+   commit button sits right at a fixed 48px floor, so the bar does not change
+   height as the round moves through its gates and the button never moves
+   under the cursor.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Rail expand handles. The collapse shipped with no way back, and then with a
+   control in the header — which is not where anyone looks, because the thing
+   you want to open is the panel. A full-height strip on each rail's inner edge
+   is the target a player actually reaches for. */
+.railExpandLeft,
+.railExpandRight {
+  flex: 0 0 auto;
+  width: 24px;               /* 14px was a poor target even when it worked */
+  align-self: stretch;
+  border: none;
+  background: var(--bg-elevated, #1e293b);
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  z-index: 5;                /* nothing in the rails should sit over it */
+  position: relative;
+  transition: background 120ms cubic-bezier(0.2, 0, 0, 1), color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.railExpandLeft { border-right: 1px solid var(--ck-border); }
+.railExpandRight { border-left: 1px solid var(--ck-border); }
+.railExpandLeft:hover,
+.railExpandRight:hover {
+  background: var(--bg-elevated, #1e293b);
+  color: var(--text-primary);
+}
+.railExpandLeft:focus-visible,
+.railExpandRight:focus-visible {
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: -2px;
+}
+
+.actionBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--ck-surface-1);
+  border-top: 1px solid var(--ck-border);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+}
+
+/* The commit block, relocated from the rail. Overrides the column layout it
+   had there; the inline styles it still carries are position-neutral. */
+.actionBar .rightCommit {
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px !important;
+  padding: 12px 24px !important;
+  min-height: 72px;
+  background: transparent !important;
+  border-top: none !important;
+}
+
+/* Context grows; the action does not. */
+/* Context sizes to its content and shrinks under pressure. It must NOT grow:
+   several of these carry width: 100% from the column layout they came from,
+   which took a flex-basis of the full bar and pushed the button onto its own
+   line — 178px of bar instead of 72px. Measured, not guessed. */
+.actionBar .rightCommit > *:not(button):not(.commitBtn) {
+  flex: 0 1 auto;
+  min-width: 0;
+  width: auto !important;
+  margin: 0;
+}
+.actionBar .rightCommit button,
+.actionBar .rightCommit .commitBtn {
+  flex: 0 0 auto;
+  margin-left: auto;
+  /* .commitBtn carries width: 100% — correct in a 24% column, wrong in a bar,
+     where it would push every piece of context onto its own line and take the
+     bar from 72px to 178px. Measured in the harness. */
+  width: auto !important;
+  /* and .commitBtn caps itself at max-height: 34px. min-height wins over
+     max-height per CSS 2.1 §10.7, so the 48px floor holds either way — but a
+     rule that contradicts the one next to it is a trap for the next reader. */
+  max-height: none !important;
+}
+
+/* The reflective prompt was a stacked card in a 24% column; on a row it is one
+   line of context beside the action it is prompting about. */
+.actionBar .reflectivePrompt {
+  max-width: 46ch;
+}
+
+@media (max-width: 1200px) {
+  .actionBar .rightCommit { padding: 8px 16px !important; }
+  .actionBar .rightCommit button,
+  .actionBar .rightCommit .commitBtn { margin-left: 0; width: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DIRECTION D — “The Bench”: the side rails RECEDE BY COLLAPSING.
+
+   This replaces the opacity fade in FocusOverlay.module.css
+   (.dashboardFaded), which had two defects a fade cannot fix:
+
+   1. It handed no width back. .centerConsole stayed at 52%, so the
+      decision — the thing focus mode exists to serve — never received
+      the space the rails gave up. Dimming is not recession.
+   2. It made consultable text unreadable rather than unobtrusive.
+      --text-muted (#8899a6, 6.34:1 on the rail surface) composites to
+      roughly 2.0:1 at opacity 0.45. The left column had already been
+      exempted from the fade for exactly that reason — and that exemption
+      keyed on `aside:first-child`, so it silently stopped matching the
+      moment an observer or auto-commit notice rendered above it.
+
+   The rails now change WIDTH, and everything that survives the collapse
+   stays at full contrast. Rule: nothing that recedes may disappear
+   silently. The left rail keeps every KPI value; the right rail keeps its
+   tab badges (unread count, pending-commit ⏳, event dot), which are the
+   only live state it carries.
+
+   Driven by data-rails on .mainContent:
+     open      — three columns (briefing, results, committed-and-waiting)
+     collapsed — decision stages (gate, strategy, allocation)
+
+   Scoped to ≥1201px: below that the rails already stack and reflow, and
+   collapsing there would fight the existing responsive rules.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 1201px) {
+
+  /* Note on the 1201–1280 band: globals.css carries a @media (max-width:
+     1280px) rule with `min-width: 200px !important` on both sidebars, so
+     between 1201 and 1280 the rails clamp at 200px rather than reaching
+     172/208. The collapse still hands the centre ~150px there, which is
+     the point — this is a deliberate overlap, not a bug. Above 1280 the
+     full collapse applies. */
+
+  .mainContent[data-rails] .leftSidebar,
+  .mainContent[data-rails] .rightSidebar,
+  .mainContent[data-rails] .centerConsole {
+    transition: width 260ms cubic-bezier(0.2, 0, 0, 1),
+                min-width 260ms cubic-bezier(0.2, 0, 0, 1),
+                padding 260ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  /* LEFT — reference data, consulted continuously across a 30–60 minute
+     deliberation. Narrows to a single column of values. Nothing carrying a
+     number is hidden; only the chrome around it. */
+  .mainContent[data-rails="collapsed"] .leftSidebar {
+    width: 172px;
+    min-width: 172px;
+    padding: 6px 4px;
+  }
+  .mainContent[data-rails="collapsed"] .resourcesPanel {
+    grid-template-columns: 1fr;
+    padding: 6px;
+    overflow-y: auto;
+  }
+  .mainContent[data-rails="collapsed"] .resourceCard {
+    text-align: left;
+    padding: 7px 8px;
+  }
+  /* The round is already named in the header and again in the canvas stage
+     header. This is the third statement of “you are in Round 2”, and the
+     one to drop. */
+  /* !important because both of these carry an inline style={{display:'flex'}}
+     in the JSX, and an inline declaration beats a stylesheet rule at any
+     specificity. Found by the Phase 0 harness — without it the left tab bar
+     survived the collapse untouched. */
+  .mainContent[data-rails="collapsed"] .roundContextCard {
+    display: none !important;
+  }
+
+  /* The tab bar STAYS. Hiding it made Charts and Metrics unreachable — and with
+     them Living Planet, synergy, inflation, cost of capital, the stock chart
+     and CAROIC. Those panels were still rendering; there was simply no way to
+     open them. Navigation is not chrome. It compacts instead: smaller labels,
+     and the row wraps rather than clipping. */
+  .mainContent[data-rails="collapsed"] .leftTabBar {
+    flex-wrap: wrap;
+  }
+  .mainContent[data-rails="collapsed"] .leftTabBar > button {
+    flex: 1 1 auto !important;
+    min-width: 48px;
+    padding: 4px !important;
+    font-size: 0.62rem !important;
+    letter-spacing: 0 !important;
+  }
+
+  /* RIGHT — asynchronous context. Narrows to the tab spine plus the commit
+     footer, which stays at full size because it is the primary action of
+     the round and the canvas has no second one. Once the commit moves into
+     an action bar under the centre column, this rail can go to a 56px icon
+     spine with a peek overlay; that move is what unblocks it. */
+  .mainContent[data-rails="collapsed"] .rightSidebar {
+    width: 208px;
+    min-width: 208px;
+  }
+  .mainContent[data-rails="collapsed"] .rightMarket {
+    display: none;
+  }
+
+  /* Resources is a LAUNCHER, not content — hiding it removed the only
+     pointer to the library (besides the R key, which nothing announces).
+     It compacts to its icon instead: the label and the chevron go, the
+     emoji and the new-material badge stay. 208px has room for a 34px
+     square. */
+  .mainContent[data-rails="collapsed"] .resourcesPill {
+    justify-content: center;
+    gap: 0;
+    padding: 8px 0;
+    min-width: 34px;
+  }
+  .mainContent[data-rails="collapsed"] .resourcesPillLabel,
+  .mainContent[data-rails="collapsed"] .resourcesPillArrow {
+    display: none;
+  }
+  .mainContent[data-rails="collapsed"] .rightMailbox {
+    flex: 0 0 auto;
+  }
+  /* Four rail tabs across 208px is ~52px each, and the labels clip. Wrap
+     them into a 2x2 block instead — every label and badge stays legible at
+     the narrower width. */
+  .mainContent[data-rails="collapsed"] .railTabStrip {
+    flex-wrap: wrap;
+  }
+  .mainContent[data-rails="collapsed"] .railTabStrip > button {
+    flex: 1 1 50% !important;
+  }
+
+  /* The centre takes the width the rails gave up. Without this the
+     percentage stays fixed and the collapse buys nothing — this rule is
+     the entire difference between collapsing and fading. */
+  .mainContent[data-rails="collapsed"] .centerConsole {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* ...but the decision needs a MEASURE, not all the width there is. At
+     1920px the released column reaches 1540px, which runs the option-card
+     body well past 150 characters a line. Cap the content and centre it;
+     the column still absorbs the slack. */
+  .mainContent[data-rails="collapsed"] .centerConsole > * {
+    max-width: 1080px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mainContent[data-rails] .leftSidebar,
+  .mainContent[data-rails] .rightSidebar,
+  .mainContent[data-rails] .centerConsole {
+    transition: none;
+  }
+}

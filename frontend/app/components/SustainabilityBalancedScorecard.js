@@ -11,6 +11,7 @@ import StockPerformanceChart from './StockPerformanceChart';
 import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
 import { roundToQuarter } from '../utils/roundToQuarter';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { currencySymbol } from '../utils/format';
 
 /**
  * Merge peer-trend rounds into the player's per-round chart rows.
@@ -409,8 +410,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
             metrics: [
                 {
                     label: 'Adjusted EBITDA (Year 5)',
-                    value: `$${(kpis.ebitda / 1_000_000).toFixed(2)}M`,
-                    note: `After $${(d.carbon_tax_per_ton || 250)}/ton carbon tax`,
+                    value: `${currencySymbol()}${(kpis.ebitda / 1_000_000).toFixed(2)}M`,
+                    note: `After ${currencySymbol()}${(d.carbon_tax_per_ton || 250)}/ton carbon tax`,
                     diagnostic: diagnoseEBITDA(kpis.ebitda),
                     health: kpis.ebitda > 10_000_000 ? 'good' : kpis.ebitda > 0 ? 'warn' : 'bad',
                 },
@@ -457,7 +458,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 {
                     label: 'Carbon Liability',
                     value: `${kpis.carbonTonnage.toFixed(0)} tonnes`,
-                    note: `Taxed at $${d.carbon_tax_per_ton || 250}/ton = $${((kpis.carbonTonnage * (d.carbon_tax_per_ton || 250)) / 1_000).toFixed(1)}K`,
+                    note: `Taxed at ${currencySymbol()}${d.carbon_tax_per_ton || 250}/ton = ${currencySymbol()}${((kpis.carbonTonnage * (d.carbon_tax_per_ton || 250)) / 1_000).toFixed(1)}K`,
                     diagnostic: diagnoseCarbon(kpis.carbonTonnage),
                     health: kpis.carbonTonnage < 100 ? 'good' : kpis.carbonTonnage < 250 ? 'warn' : 'bad',
                 },
@@ -494,7 +495,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
     // Download handler — generates a self-contained HTML report with all sections
     const handleDownload = () => {
-        const fmt = (v) => `$${(v / 1_000_000).toFixed(2)}M`;
+        const fmt = (v) => `${currencySymbol()}${(v / 1_000_000).toFixed(2)}M`;
         const healthEmoji = (h) => h === 'good' ? '✅' : h === 'warn' ? '⚠️' : '❌';
 
         // ── Build Scorecard Section ──
@@ -955,8 +956,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         </section>
                     );
 
-                    const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
-                    const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `$${((v || 0) / 1_000).toFixed(0)}K`;
+                    const fmtM = (v) => `${currencySymbol()}${((v || 0) / 1_000_000).toFixed(1)}M`;
+                    const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `${currencySymbol()}${((v || 0) / 1_000).toFixed(0)}K`;
 
                     const totalAssets = balanceSheet.total_assets || 0;
                     const totalLiabilities = balanceSheet.total_liabilities || 0;
@@ -1403,7 +1404,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         ? '3 AI profiles'
                         : `${peerTrendData?.peerCount || 0} peer${(peerTrendData?.peerCount || 0) !== 1 ? 's' : ''}`;
 
-                    const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
+                    const fmtM = (v) => `${currencySymbol()}${((v || 0) / 1_000_000).toFixed(1)}M`;
                     const chartTooltipStyle = { fontSize: 11, borderRadius: 8, background: 'rgba(22,33,62,0.95)', border: '1px solid #2a2a4a', color: '#e2e8f0' };
 
                     return (
@@ -1506,7 +1507,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             <ComposedChart data={chartDataMerged} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
                                                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
-                                                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => `$${(v / 1_000_000).toFixed(0)}M`} />
+                                                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => `${currencySymbol()}${(v / 1_000_000).toFixed(0)}M`} />
                                                 <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => {
                                                     const isPeer = name.startsWith('peer_');
                                                     if (isPeer) {
@@ -1586,7 +1587,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
                 {/* ──────── TAB: TBL Matrix ──────── */}
                 {activeTab === 'tbl_matrix' && (() => {
-                    const fmtCurr = (v) => `$${(v / 1_000_000).toFixed(2)}M`;
+                    const fmtCurr = (v) => `${currencySymbol()}${(v / 1_000_000).toFixed(2)}M`;
                     const memo = generateBoardMemo(kpis, d);
 
                     const TBL_GRID = [
@@ -1739,7 +1740,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
                 {/* ──────── TAB: Final Report ──────── */}
                 {activeTab === 'report' && (() => {
-                    const fmtM = (v) => `$${(v / 1_000_000).toFixed(2)}M`;
+                    const fmtM = (v) => `${currencySymbol()}${(v / 1_000_000).toFixed(2)}M`;
                     const memo = generateBoardMemo(kpis, d);
                     return (
                         <section className={styles.reportSection}>
@@ -2116,7 +2117,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                 const prev = prevH ? (prevH?.treasury ?? prevH?.corporate_treasury ?? prevH?.global_state?.corporate_treasury ?? curr) : curr;
                                 delta = curr - prev;
                             }
-                            const deltaStr = delta !== 0 ? `${delta >= 0 ? '+' : ''}$${(Math.abs(delta) / 1_000_000).toFixed(1)}M` : null;
+                            const deltaStr = delta !== 0 ? `${delta >= 0 ? '+' : ''}${currencySymbol()}${(Math.abs(delta) / 1_000_000).toFixed(1)}M` : null;
 
                             return (
                                 <div

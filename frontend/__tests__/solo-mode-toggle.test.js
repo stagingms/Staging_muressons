@@ -28,7 +28,7 @@ describe('solo-session toggle (opt-in)', () => {
     expect(modal).toMatch(/\/api\/admin\/global-settings/);
     expect(modal).toMatch(/setSoloEnabled\(s\?\.solo_mode_enabled === true\)/);
     expect(modal).toMatch(/\{soloEnabled && \(/);
-    const i = modal.indexOf('START SOLO SESSION');
+    const i = modal.indexOf('Play solo');
     const guard = modal.lastIndexOf('{soloEnabled && (', i);
     expect(guard).toBeGreaterThan(-1);
     expect(i - guard).toBeLessThan(800);

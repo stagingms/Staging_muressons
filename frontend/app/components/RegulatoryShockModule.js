@@ -1,5 +1,6 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -27,8 +28,8 @@ function calcMargin(div, fee) {
 function fmt(n) {
     const abs = Math.abs(n);
     const sign = n < 0 ? '-' : '';
-    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
-    return `${sign}$${(abs / 1_000).toFixed(0)}k`;
+    if (abs >= 1_000_000) return `${sign}${currencySymbol()}${(abs / 1_000_000).toFixed(2)}M`;
+    return `${sign}${currencySymbol()}${(abs / 1_000).toFixed(0)}k`;
 }
 
 // ── SVG Bar Chart ──────────────────────────────────────────────
@@ -157,7 +158,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                             <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Carbon Fee</div>
-                                    <div style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>${result.effective_fee}/t</div>
+                                    <div style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>{currencySymbol()}{result.effective_fee}/t</div>
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Treasury Impact</div>
@@ -281,7 +282,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Carbon Shock P&L Tester</h2>
                         <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.72rem' }}>
                             {[
-                                ['PRICE', `$${fee}/t`],
+                                ['PRICE', `${currencySymbol()}${fee}/t`],
                                 ['DIV A MARGIN', `${mA}%`],
                                 ['DIV B MARGIN', `${mB}%`],
                             ].map(([k, v]) => (

@@ -9,6 +9,7 @@ import {
 import StockPerformanceChart from './StockPerformanceChart';
 import { roundToQuarter } from '../utils/roundToQuarter';
 import styles from './ExecutiveCockpit.module.css';
+import { currencySymbol, moneyM } from '../utils/format';
 
 /**
  * KPIDashboard — Tabbed KPI panel with Financial / ESG toggle.
@@ -63,7 +64,7 @@ export default function KPIDashboard({
   // Trust gauge
   const trustColor = reputation >= 60 ? '#22c55e' : reputation >= 40 ? '#f59e0b' : '#ef4444';
 
-  const fmtM = (v) => `$${(v / 1_000_000).toFixed(1)}M`;
+  const fmtM = (v) => moneyM(v);
 
   return (
     <>
@@ -142,7 +143,7 @@ export default function KPIDashboard({
                     tick={{ fontSize: 9, fill: '#94a3b8' }} 
                     tickLine={false} 
                     axisLine={false}
-                    tickFormatter={(v) => `$${(v / 1_000_000).toFixed(0)}M`}
+                    tickFormatter={(v) => moneyM(v, { dp: 0 })}
                     width={40}
                   />
                   <Tooltip
@@ -162,7 +163,11 @@ export default function KPIDashboard({
           {/* CAROIC Card — Carbon-Adjusted Return on Invested Capital */}
           {events?.caroic && (
             <div className={styles.kpiCard}>
-              <div className={styles.kpiTitle}>🌿 CAROIC — Carbon-Adjusted Return</div>
+              <div
+                className={styles.kpiTitle}
+                tabIndex={0}
+                data-tooltip="How much profit you earn per unit of capital, after charging yourself for the carbon you emit. Operating profit minus your carbon charge, divided by invested capital. Above 20% means carbon is barely denting your returns; below 8% means it is."
+              >🌿 CAROIC — Carbon-Adjusted Return</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
                 <div className={styles.kpiValue} style={{
                   color: events.caroic.grade === 'A+' || events.caroic.grade === 'A'
@@ -173,24 +178,17 @@ export default function KPIDashboard({
                 }}>
                   {events.caroic.caroic_pct}%
                 </div>
-                <span style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  padding: '2px 8px',
-                  borderRadius: 4,
-                  background: events.caroic.grade === 'A+' || events.caroic.grade === 'A'
-                    ? 'rgba(34,197,94,0.15)'
-                    : events.caroic.grade === 'B' || events.caroic.grade === 'C'
-                      ? 'rgba(245,158,11,0.15)'
-                      : 'rgba(239,68,68,0.15)',
-                  color: events.caroic.grade === 'A+' || events.caroic.grade === 'A'
-                    ? '#4ade80'
-                    : events.caroic.grade === 'B' || events.caroic.grade === 'C'
-                      ? '#fcd34d'
-                      : '#fca5a5',
-                  letterSpacing: '0.05em',
-                }}>
-                  Grade {events.caroic.grade}
+                {/* Was a green/amber/red chip. A letter grade is a verdict, and
+                    rendering it in success-green mid-round told a team they were
+                    doing well on one axis — by a formula they cannot see — while
+                    their share price was down 76.8%. The grade stays; the colour
+                    and the chip go, and it now says WHEN it was true. */}
+                <span
+                  style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}
+                  tabIndex={0}
+                  data-tooltip="A banding of the CAROIC figure to its left, not a separate measure. It describes last round's capital-carbon efficiency only — it is not a verdict on your strategy, and says nothing about reputation, social licence or share price."
+                >
+                  {events.caroic.grade} · as of last round
                 </span>
               </div>
               <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: 4, lineHeight: 1.4 }}>
@@ -269,13 +267,13 @@ export default function KPIDashboard({
 
           {/* Carbon Intensity Tracker */}
           <div className={styles.kpiCard}>
-            <div className={styles.kpiTitle}>📏 Carbon Intensity (tCO₂e per $1M Revenue)</div>
+            <div className={styles.kpiTitle}>📏 Carbon Intensity (tCO₂e per {currencySymbol()}1M Revenue)</div>
             <div className={styles.kpiValue}>
               {(() => {
                 const rev = globalState?.revenue || (ebitda * 4.5);
                 return rev ? (tco2e / (rev / 1_000_000)).toFixed(2) : '0.00';
               })()}
-              <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginLeft: '4px', fontWeight: 600 }}>t/$1M</span>
+              <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginLeft: '4px', fontWeight: 600 }}>t/{currencySymbol()}1M</span>
               {historyData.length >= 2 && (() => {
                 const getInt = (h) => {
                   const r = h.globalState?.revenue || ((h.ebitda || 1) * 4.5);
@@ -307,7 +305,7 @@ export default function KPIDashboard({
                   <YAxis hide domain={['auto', 'auto']} />
                   <Tooltip
                     labelFormatter={(v) => roundToQuarter(v).label}
-                    formatter={(v) => [`${v} t/$1M`, 'Intensity']}
+                    formatter={(v) => [`${v} t/${currencySymbol()}1M`, 'Intensity']}
                     contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid rgba(0,229,195,0.15)', background: '#0f1524', color: '#e2e8f0' }}
                   />
                   <Line type="monotone" dataKey="intensity" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} activeDot={{ r: 5 }} />

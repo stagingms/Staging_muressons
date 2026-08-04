@@ -1,5 +1,6 @@
 'use client';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { currencySymbol } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -190,8 +191,8 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>VCM Portfolio Builder</h2>
                         <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.72rem' }}>
                             {[
-                                ['TOTAL COST', `$${(totalCost / 1000).toFixed(0)}k`],
-                                ['AVG COST/T', `$${avgCost.toFixed(2)}`],
+                                ['TOTAL COST', `${currencySymbol()}${(totalCost / 1000).toFixed(0)}k`],
+                                ['AVG COST/T', `${currencySymbol()}${avgCost.toFixed(2)}`],
                                 ['INTEGRITY', `${integrityScore}/100`],
                             ].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
@@ -241,7 +242,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                                     border: '1px solid #d1d5db', borderRadius: 5, fontSize: '0.78rem', fontWeight: 700,
                                 }}>{vols[i].toLocaleString()}</div>
                             </div>
-                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>{t.desc} — ${t.cost}/t</div>
+                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>{t.desc} — {currencySymbol()}{t.cost}/t</div>
                         </div>
                     ))}
                     <div style={{ gridColumn: '2', display: 'flex', alignItems: 'flex-end' }}>

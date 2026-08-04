@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { logoutAnchorStyle } from './logoutChrome';
-import styles from './CrisisAlerts.module.css';
+import styles from './CrisisAlerts.module.css';
+import { moneyM } from '../utils/format';
 
 /* ═════════════════════════════════════════════════════════════════
  *  CRISIS TRIGGER CONFIG — defaults, localStorage key
@@ -252,7 +253,7 @@ export function CrisisScreen({ crisisType, cfg, globalState, onDismiss, onLogout
   const metricValue = globalState?.[cfg?.metric];
   const formattedValue = isActivist
     ? `${metricValue?.toFixed?.(1) ?? '—'} / 100`
-    : `$${(metricValue / 1_000_000)?.toFixed?.(1) ?? '—'}M`;
+    : moneyM(metricValue);
 
   return (
     <div className={`${styles.overlay} ${isActivist ? styles.overlayActivist : styles.overlayLiquidity}`}>
@@ -298,7 +299,7 @@ export function CrisisScreen({ crisisType, cfg, globalState, onDismiss, onLogout
           <div className={`${styles.metricRibbon} ${isActivist ? styles.ribbonActivist : styles.ribbonLiquidity}`}>
             <span>{metricLabel}:</span>
             <span className={styles.metricValue}>{formattedValue}</span>
-            <span>• Threshold: {isActivist ? cfg?.threshold : `$${(cfg?.threshold / 1_000_000)?.toFixed?.(1)}M`}</span>
+            <span>• Threshold: {isActivist ? cfg?.threshold : moneyM(cfg?.threshold)}</span>
           </div>
 
           {/* Voice indicator */}

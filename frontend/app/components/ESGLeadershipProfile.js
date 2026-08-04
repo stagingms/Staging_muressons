@@ -20,7 +20,8 @@
  */
 'use client';
 import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
-import styles from './ESGLeadershipProfile.module.css';
+import styles from './ESGLeadershipProfile.module.css';
+import { currencySymbol } from '../utils/format';
 
 /** The 5 ESG dimensions for the radar chart */
 const PILLARS = [
@@ -323,8 +324,8 @@ export default function ESGLeadershipProfile({ data = {}, flags = {}, sessionId,
   <text x="${W / 2}" y="120" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#94a3b8">${esc(cohortName || 'Muressons Global Corporation')}</text>
   <line x1="60" y1="140" x2="${W - 60}" y2="140" stroke="rgba(148,163,184,0.2)" stroke-width="1"/>
   <text x="100" y="180" font-family="monospace" font-size="16" font-weight="900" fill="#10b981">M_R: ${mr.toFixed(2)}×</text>
-  <text x="300" y="180" font-family="monospace" font-size="16" font-weight="900" fill="#3b82f6">TV: $${tvM}M</text>
-  <text x="520" y="180" font-family="monospace" font-size="16" font-weight="900" fill="#f59e0b">Share: $${sharePrice}</text>
+  <text x="300" y="180" font-family="monospace" font-size="16" font-weight="900" fill="#3b82f6">TV: ${currencySymbol()}${tvM}M</text>
+  <text x="520" y="180" font-family="monospace" font-size="16" font-weight="900" fill="#f59e0b">Share: ${currencySymbol()}${sharePrice}</text>
   <text x="100" y="220" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#94a3b8">Avg Pillar Score: ${avgScore}/100</text>
   <line x1="60" y1="240" x2="${W - 60}" y2="240" stroke="rgba(148,163,184,0.15)" stroke-width="1"/>
   <text x="${W / 2}" y="280" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="800" fill="#818cf8" letter-spacing="0.1em">STRATEGY RADAR</text>

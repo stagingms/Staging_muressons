@@ -185,11 +185,10 @@
 }
 
 .label {
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: #cbd5e1;
     margin-bottom: 0.5rem;
 }
 
@@ -251,16 +250,18 @@
     cursor: pointer;
 }
 
+/* Was 0.6rem uppercase at 0.1em tracking with zero padding — an ~11.5px-tall
+   target for the password-recovery link, on the first screen of a session run
+   on borrowed laptops. */
 .lostCipher {
     background: none;
     border: none;
     color: #f5b942;
-    font-size: 0.6rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0;
     cursor: pointer;
-    text-transform: uppercase;
-    padding: 0;
+    padding: 8px 4px;
     transition: color 0.2s;
 }
 

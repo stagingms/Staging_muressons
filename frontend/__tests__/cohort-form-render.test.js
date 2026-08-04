@@ -77,12 +77,12 @@ const clickText = async (container, re, pred = () => true) => {
   await act(async () => { el.click(); await new Promise(r => setTimeout(r, 250)); });
 };
 
-test('the Player Dashboard renders all 65 switches, grouped', async () => {
+test('the Player Dashboard renders all 64 switches, grouped', async () => {
   const { container } = await openForm();
   const text = container.textContent;
 
   expect(text).toContain('Player Dashboard');
-  expect(text).toMatch(/\d+ \/ 65 shown/);
+  expect(text).toMatch(/\d+ \/ 64 shown/);
 
   // Every card label present — the wall is complete, not truncated.
   for (const c of PLAYER_VISIBILITY_CARDS) expect(text).toContain(c.label);
@@ -97,9 +97,9 @@ test('the Player Dashboard renders all 65 switches, grouped', async () => {
 
 test('the reported count matches the switches actually on', async () => {
   const { container } = await openForm();
-  const shown = Number(container.textContent.match(/(\d+) \/ 65 shown/)[1]);
-  // Workshop is the default selection.
-  expect(shown).toBe(58);
+  const shown = Number(container.textContent.match(/(\d+) \/ 64 shown/)[1]);
+  // Workshop is the default selection. 58 before market_ticker retired (Phase 1).
+  expect(shown).toBe(57);
 });
 
 test('the header names the experience level the state came from', async () => {
@@ -109,7 +109,7 @@ test('the header names the experience level the state came from', async () => {
 
 test('choosing Classroom re-profiles the grid', async () => {
   const { container } = await openForm();
-  expect(container.textContent).toMatch(/58 \/ 65 shown/);
+  expect(container.textContent).toMatch(/57 \/ 64 shown/);
 
   // Reopen Core Configuration, pick Classroom, come back.
   await clickText(container, /Core Configuration/);
@@ -117,7 +117,7 @@ test('choosing Classroom re-profiles the grid', async () => {
   await clickText(container, /Pedagogy\s*&\s*Analytics/);
 
   const text = container.textContent;
-  expect(text).toMatch(/40 \/ 65 shown/);        // the Classroom profile
+  expect(text).toMatch(/40 \/ 64 shown/);        // the Classroom profile
   expect(text).toMatch(/from\s*🎓\s*Classroom/);
 });
 
@@ -133,7 +133,7 @@ test('a hand-edit marks the form customised and offers a way back', async () => 
   const text = container.textContent;
   expect(text).toMatch(/Customised/);
   expect(text).toMatch(/Reset to/);
-  expect(text).toMatch(/57 \/ 65 shown/);        // the count followed the edit
+  expect(text).toMatch(/56 \/ 64 shown/);        // the count followed the edit
 });
 
 test('opening the modal from closed does not violate the Rules of Hooks', async () => {

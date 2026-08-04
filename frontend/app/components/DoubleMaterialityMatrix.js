@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { droppableKeyboardCoordinates } from '../lib/dndDroppableKeyboardCoordinates';
 import styles from './DoubleMaterialityMatrix.module.css';
+import { currencySymbol } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -47,7 +48,7 @@ function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBooste
     };
 
     const costDisplay = issue.mitigation_cost_usd > 0
-        ? `$${(issue.mitigation_cost_usd / 1_000_000).toFixed(1)}M`
+        ? `${currencySymbol()}${(issue.mitigation_cost_usd / 1_000_000).toFixed(1)}M`
         : null;
 
     const iroType = issue.iro_type || null;
@@ -782,7 +783,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                 return (
                                     <span key={gKey} className={styles.commissionedGroupsBadge}
                                         style={{ background: `${cfg.color}18`, color: cfg.color, border: `1px solid ${cfg.color}33` }}
-                                        title={`${cfg.label} — ${cfg.esrs_ref || ''} — Fee: $${((cfg.fee_usd || 750000) / 1_000_000).toFixed(2)}M`}
+                                        title={`${cfg.label} — ${cfg.esrs_ref || ''} — Fee: ${currencySymbol()}${((cfg.fee_usd || 750000) / 1_000_000).toFixed(2)}M`}
                                     >
                                         {cfg.label} ✓
                                     </span>
@@ -1089,13 +1090,13 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         `Calculated as:`,
                                         `Total Materiality Budget ($15,000,000) × ${submitStatus.debrief.full_accuracy_pct}% Accuracy`,
                                         submitStatus.debrief.panel_fee_paid > 0
-                                            ? `Minus Panel Survey Fees ($${(submitStatus.debrief.panel_fee_paid || 0).toLocaleString()}) — ${(submitStatus.debrief.panel_groups_commissioned || []).join(', ')}`
+                                            ? `Minus Panel Survey Fees (${currencySymbol()}${(submitStatus.debrief.panel_fee_paid || 0).toLocaleString()}) — ${(submitStatus.debrief.panel_groups_commissioned || []).join(', ')}`
                                             : null,
                                         submitStatus.debrief.clawback_applied > 0
-                                            ? `Minus Governance Penalty / Clawback ($${submitStatus.debrief.clawback_applied.toLocaleString()})`
+                                            ? `Minus Governance Penalty / Clawback (${currencySymbol()}${submitStatus.debrief.clawback_applied.toLocaleString()})`
                                             : null,
-                                        `= $${submitStatus.amount?.toLocaleString()} Final Unlocked Budget`,
-                                    ].filter(Boolean).join('\n') : `Allocated Budget: $${submitStatus.amount?.toLocaleString()}`}
+                                        `= ${currencySymbol()}${submitStatus.amount?.toLocaleString()} Final Unlocked Budget`,
+                                    ].filter(Boolean).join('\n') : `Allocated Budget: ${currencySymbol()}${submitStatus.amount?.toLocaleString()}`}
                                 >
                                     + ${submitStatus.amount?.toLocaleString()} Unlocked
                                 </div>
