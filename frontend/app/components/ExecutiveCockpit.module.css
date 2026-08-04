@@ -3070,6 +3070,14 @@
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
 }
 
+/* The step row. Same surface as the commit row, a hairline between them, so
+   the bar reads as one object with two registers rather than two bars. */
+.actionBarSteps {
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--ck-border);
+  min-width: 0;
+}
+
 /* The commit block, relocated from the rail. Overrides the column layout it
    had there; the inline styles it still carries are position-neutral. */
 .actionBar .rightCommit {

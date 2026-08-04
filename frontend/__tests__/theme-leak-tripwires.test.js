@@ -174,10 +174,34 @@ describe('A11Y-F18 — the unread badge', () => {
 
 // ── F19: a deliberately light card needs values chosen for white ────────────
 
-test('A11Y-F19 — the round checklist counter is readable on its white card', () => {
+test('A11Y-F19 — the round checklist has no light-card leak left to fix', () => {
+  // WAS: the checklist was a rgba(255,255,255,0.98) slab in a dark cockpit, so
+  // every colour inside it had to be picked for white rather than for the
+  // theme -- and the "2/5" counter had been picked for neither, at 2.56:1.
+  // F19 fixed that counter to #475569 and this test pinned the literal.
+  //
+  // The card is GONE. The checklist is a row of words on the action bar's own
+  // surface, so it inherits the theme like everything else and there is no
+  // white to work against. The assertion inverts: nothing in here may
+  // hard-code a colour at all.
+  // Strip comments first: this file's docblock QUOTES the white it removed,
+  // and an assertion that reads prose is an assertion about prose.
+  const js = read(CHECKLIST_JS).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  expect(js).not.toMatch(/rgba\(255\s*,\s*255\s*,\s*255/);
+  expect(js).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+  expect(js).toMatch(/var\(--positive-text\)/);
+  expect(js).toMatch(/var\(--text-muted\)/);
+});
+
+test('A11Y-F19b — step state is not carried by colour alone', () => {
+  // done / current / not-started were green / grey / grey, which is a
+  // colour-only encoding for two of the three. Each step now carries visually
+  // hidden text saying which it is, and the current one carries aria-current.
   const js = read(CHECKLIST_JS);
-  expect(js).toMatch(/color: '#475569', marginLeft: 4/);
-  expect(js).toMatch(/aria-hidden="true" className="checklist-arrow"/);
+  expect(js).toMatch(/aria-current=/);
+  for (const phrase of ['done', 'current step', 'not started']) {
+    expect(js).toContain(phrase);
+  }
 });
 
 // ── F20: keyboard drag must move between zones, not by 25px ─────────────────

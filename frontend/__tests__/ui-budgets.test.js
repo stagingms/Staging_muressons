@@ -129,7 +129,7 @@ const TYPE_FLOOR_DEBT = {
   'app/components/JoinCohortModal.module.css': 8,
   'app/components/OnboardingWalkthrough.js': 1,
   'app/components/CrisisAlerts.js': 1,
-  'app/components/RoundChecklist.js': 6,
+  'app/components/RoundChecklist.js': 1,
   'app/components/DecisionTile.js': 3,
   'app/components/CountdownTimer.js': 1,
   'app/components/KPIDashboard.js': 8,
@@ -325,7 +325,7 @@ const HUE_DEBT = {
   'app/components/JoinCohortModal.module.css': 1,
   'app/components/OnboardingWalkthrough.js': 3,
   'app/components/CrisisAlerts.js': 2,
-  'app/components/RoundChecklist.js': 1,
+  'app/components/RoundChecklist.js': 0,
   'app/components/DecisionTile.js': 14,
   'app/components/CountdownTimer.js': 3,
   'app/components/KPIDashboard.js': 25,   // 28 until Phase 3 retired the CAROIC grade chip

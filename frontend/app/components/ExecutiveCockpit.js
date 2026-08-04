@@ -3308,6 +3308,13 @@ export default function ExecutiveCockpit({
           
               ACTION_BAR is the one-line rollback, same pattern as CANVAS_FIRST. ═══ */}
           <div className={ACTION_BAR ? styles.actionBar : undefined}>
+            {/* WHERE YOU ARE, then WHAT YOU PRESS — one object, in that order.
+                The checklist used to sit BELOW this bar as a separate floating
+                white card, which made "am I done?" and "commit" two unrelated
+                things a player's eye had to associate for itself. */}
+            {roundChecklist && (
+              <div className={styles.actionBarSteps}>{roundChecklist}</div>
+            )}
             {/* ── Commit Footer (compact) ── */}
             <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '8px 12px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 6 }}>
               {/* #1: Decision Confidence Nudge — reflective prompt card */}
@@ -3505,15 +3512,6 @@ export default function ExecutiveCockpit({
                 })()}
               </div>
             </div>
-          {roundChecklist && (
-            <div style={{
-              position: 'sticky', bottom: 0, zIndex: 20,
-              padding: '6px 16px 10px', flexShrink: 0, marginTop: 'auto',
-              background: 'linear-gradient(to top, var(--bg-primary, #0a0f1e) 65%, transparent)',
-            }}>
-              {roundChecklist}
-            </div>
-          )}
           </div>
         </main>
 
