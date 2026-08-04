@@ -956,3 +956,67 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE STAGE HEAD — what this screen is for, in words.
+
+   The canvas header said "Strategic Decision · Step 2 / 3": where you are
+   in a flow, not what you are being asked. A team deliberating for forty
+   minutes needs the question itself at a size they can read across a table.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.stageHead {
+  margin-bottom: 24px;
+}
+.stageEyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent, #6366f1);
+  margin-bottom: 12px;
+}
+.stageQuestion {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  max-width: 34ch;   /* a headline, not a paragraph */
+}
+.stageSub {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 68ch;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   THE CONSTRAINT LINE — the bridge between the decision and the next step.
+
+   Deliberately NOT a card: it is a consequence of the selection above it,
+   not a peer of the options. A left rule in the accent, a barely-there wash,
+   and body-size text. It should read like a sentence someone said, because
+   that is what it is — the thing a facilitator says standing behind you.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.constraintLine {
+  margin: 16px 0 0;
+  padding: 16px 16px 16px 24px;
+  border-left: 2px solid var(--accent, #6366f1);
+  border-radius: 0 6px 6px 0;
+  background: rgba(99, 102, 241, 0.06);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.constraintLine strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .constraintLine { transition: none; }
+}

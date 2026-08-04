@@ -14,6 +14,7 @@ import MarketRealityFeed from './MarketRealityFeed';
 import InvestmentMatrix from './InvestmentMatrix';
 import CountdownTimer from './CountdownTimer';
 import { DETAILED_DESCRIPTIONS } from '../utils/detailedDescriptions';
+import { optionConstraint, constraintSegments } from '../utils/optionConstraints';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
 import { roundToQuarter } from '../utils/roundToQuarter';
@@ -85,6 +86,7 @@ import MarketIntel from './MarketIntelCards';
 import AnnualReport from './AnnualReport';
 import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
+import { moneyM, price } from '../utils/format';
 
 // Phase D (player redesign): CANVAS-FIRST SHELL SWITCH — the one-line
 // rollback. true → the stage flow renders inline in the center column (the
@@ -666,6 +668,26 @@ export default function ExecutiveCockpit({
     selfLearningMode: globalState?.self_learning_mode,
   });
 
+  /* Which stage of the round the player is actually in — derived from game
+     state alone (gate → strategy → allocation → results), independent of
+     whether the Decision Canvas overlay happens to be open.
+
+     The rails used to collapse on isFocusActive, and that was the wrong hook.
+     handleFocusDismiss() sets focusStep to null, so a player who dismissed the
+     overlay — which useRoundStage remembers from round 3 onward — got the full
+     three-column layout for the rest of the session and never saw the collapse
+     at all. The decision needs room because it is a decision, not because an
+     overlay is showing. */
+  const roundStage = getFirstIncompleteStep();
+
+  /* The rails must be openable. The collapse shipped without a way back, which
+     made the Charts and Metrics tabs — and everything they hold: Living Planet,
+     synergy, inflation, cost of capital, the stock chart, CAROIC — unreachable
+     rather than merely out of the way. Recession that cannot be undone is
+     removal. Session-scoped so a team that wants the wide board keeps it. */
+  const [railsPinnedOpen, setRailsPinnedOpen] = useState(false);
+  const railsCollapsed = roundStage !== 'results' && !railsPinnedOpen;
+
   // Phase B (F-P7): flag the concentration stages on <html> so ambient
   // chrome rendered outside this component (the market ticker in page.js)
   // can dim itself. Attribute-based to avoid new prop drilling through
@@ -881,7 +903,7 @@ export default function ExecutiveCockpit({
     }
     // EU AI Act Compliance
     if (events?.eu_ai_act_compliance) {
-      items.push({ type: 'alert', text: `🤖 REGULATION: EU AI Act compliance audit triggered — $${((events.eu_ai_act_compliance.cost || 0) / 1_000_000).toFixed(1)}M in governance costs.` });
+      items.push({ type: 'alert', text: `🤖 REGULATION: EU AI Act compliance audit triggered — ${moneyM(events.eu_ai_act_compliance.cost || 0)} in governance costs.` });
     } else if (events?.eu_ai_act_pending) {
       items.push({ type: 'info', text: `🤖 REGULATORY WATCH: EU AI Act classifies your AI deployment as 'high-risk'. Compliance costs pending from Round 7.` });
     }
@@ -1236,6 +1258,24 @@ export default function ExecutiveCockpit({
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setRailsPinnedOpen(v => !v)}
+              aria-pressed={railsPinnedOpen}
+              title={railsPinnedOpen
+                ? 'Narrow the side panels so the decision has the width'
+                : 'Open the side panels — charts, metrics, benchmarks and the full feed'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                minHeight: 32, padding: '0 12px', marginRight: 4,
+                background: railsPinnedOpen ? 'var(--accent-soft, rgba(99,102,241,0.14))' : 'transparent',
+                border: '1px solid var(--ck-border)', borderRadius: 6,
+                color: railsPinnedOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
+                fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              {railsPinnedOpen ? 'Narrow panels' : 'Open panels'}
+            </button>
             <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
             {/* WOW-11: Enhanced timer with competitive commit counter */}
             {isPlayerVisible('decision_pressure_timer') && (
@@ -1283,7 +1323,7 @@ export default function ExecutiveCockpit({
         /* Direction D (“The Bench”): the rails RECEDE BY COLLAPSING, not by
            fading. See the data-rails block in ExecutiveCockpit.module.css for
            why the opacity mechanism could not work. */
-        data-rails={isFocusActive ? 'collapsed' : 'open'}
+        data-rails={railsCollapsed ? 'collapsed' : 'open'}
       >
 
         {/* TEAM-1 (UX audit #7) — Slot: Canvas stage. Read-only seat notice.
@@ -1336,6 +1376,19 @@ export default function ExecutiveCockpit({
         )}
 
         {/* ── LEFT: KPI Dashboard ─── */}
+        {/* Drawer handle. Renders in BOTH states so the control that opens the
+            rails is the control that closes them, and so toggling does not
+            add or remove 24px of layout mid-transition. The glyph points the
+            way the rail will move. */}
+        <button
+          type="button"
+          className={styles.railExpandLeft}
+          onClick={() => setRailsPinnedOpen((v) => !v)}
+          aria-expanded={!railsCollapsed}
+          aria-controls="tour-kpi-target"
+          aria-label={railsCollapsed ? 'Open the side panels' : 'Close the side panels'}
+          title={railsCollapsed ? 'Open the side panels' : 'Close the side panels'}
+        >{railsCollapsed ? '›' : '‹'}</button>
         <aside id="tour-kpi-target" aria-label="Performance data" className={`${styles.leftSidebar} ${kpiFlashActive ? styles.kpiFlash : ''}`}>
           
           {/* Phase 3.2: Round Context Card — narrative context FIRST */}
@@ -1851,6 +1904,24 @@ export default function ExecutiveCockpit({
               phase={globalState?.active_event_flags?.turnaround_phase}
               round={globalState?.turnaround_round} maxRounds={4} />
 
+            {/* The stage states its own job. The canvas header said "Strategic
+                Decision · Step 2 / 3" — where you are in a flow, not what you
+                are being asked. The requirement itself is the headline; the
+                options are the answer to it. */}
+            <div className={focusStyles.stageHead}>
+              <div className={focusStyles.stageEyebrow}>
+                {isPillarMode ? 'Strategic pillars' : 'Strategic decision'}
+              </div>
+              <h2 className={focusStyles.stageQuestion}>
+                {crisisInfo?.description
+                  || activeRoundTitles[roundNumber]
+                  || `Round ${roundNumber}`}
+              </h2>
+              {crisisInfo?.description && activeRoundTitles[roundNumber] && (
+                <p className={focusStyles.stageSub}>{activeRoundTitles[roundNumber]}</p>
+              )}
+            </div>
+
             <div className={focusStyles.sectionTitle}>
               <span>{isPillarMode ? '🎛️' : '📋'}</span>
               {isPillarMode ? 'Strategic Pillars' : 'Strategic Options'}
@@ -1945,6 +2016,29 @@ export default function ExecutiveCockpit({
                 })}
               </div>
             )}
+
+            {/* THE CONSTRAINT LINE. What a team needs mid-decision is not the
+                business-unit table — twenty-eight numbers answering a different
+                question — but what their choice makes possible and what it
+                forecloses. Authored content, one sentence, from
+                backend/option_constraints.json. Renders nothing when unauthored,
+                so it lights up round by round as the copy is written. */}
+            {!isPillarMode && decisionChoice && (() => {
+              const line = optionConstraint({
+                paradigm: 'narrative',
+                roundNumber,
+                optionKey: decisionChoice,
+                index: ['option_a', 'option_b', 'option_c'].indexOf(decisionChoice),
+              });
+              if (!line) return null;
+              return (
+                <p className={focusStyles.constraintLine} aria-live="polite">
+                  {constraintSegments(line).map((seg, i) => (
+                    seg.bold ? <strong key={i}>{seg.text}</strong> : <span key={i}>{seg.text}</span>
+                  ))}
+                </p>
+              );
+            })()}
 
             {/* Comparison Matrix for legacy A/B/C */}
             {!isPillarMode && Object.keys(options).length > 0 && (
@@ -3357,7 +3451,7 @@ export default function ExecutiveCockpit({
                       whileHover={{ scale: commitResults ? 1 : 1.02 }}
                       whileTap={{ scale: commitResults ? 1 : 0.98 }}
                     >
-                      {btnIcon} {commitResults ? 'Committed' : overAllocated ? 'Reduce your allocation to commit' : fullyReady ? 'Commit this round' : partialReady ? 'Allocate your capital next' : 'Read the briefing to begin'}
+                      {btnIcon} {commitResults ? 'Committed' : overAllocated ? 'Reduce your allocation to commit' : fullyReady ? 'Commit this round' : partialReady ? 'Allocate your capital next' : hasDecision ? 'Allocate your capital next' : hasReadBriefing ? 'Choose a strategic option' : 'Read the briefing to begin'}
                     </motion.button>
                   );
                 })()}
@@ -3376,6 +3470,16 @@ export default function ExecutiveCockpit({
         </main>
 
         {/* ── RIGHT SIDEBAR ─── */}
+        {/* Mirror of the left handle. Same toggle, same state. */}
+        <button
+          type="button"
+          className={styles.railExpandRight}
+          onClick={() => setRailsPinnedOpen((v) => !v)}
+          aria-expanded={!railsCollapsed}
+          aria-controls="tour-intelligence-target"
+          aria-label={railsCollapsed ? 'Open the side panels' : 'Close the side panels'}
+          title={railsCollapsed ? 'Open the side panels' : 'Close the side panels'}
+        >{railsCollapsed ? '‹' : '›'}</button>
         <aside id="tour-intelligence-target" aria-label="Messages and intelligence" className={styles.rightSidebar}>
           {/* Floating Resources Pill — the panel's only launcher besides the R
               key, so it must disappear with it. page.js passes onResourcesOpen
@@ -4169,7 +4273,7 @@ export default function ExecutiveCockpit({
                         const netAssets = bs.net_assets || 0;
                         const deRatio = bs.debt_to_equity || 0;
                         const cStatus = bs.covenant_status || 'green';
-                        const fmtMShort = (v) => `$${((v || 0) / 1_000_000).toFixed(0)}M`;
+                        const fmtMShort = (v) => moneyM(v || 0, { dp: 0 });
                         const cColors = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
                         const cIcons = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
                         return (
@@ -4308,7 +4412,7 @@ export default function ExecutiveCockpit({
                           <YAxis hide domain={[Math.max(0, minP - pad), maxP + pad]} />
                           <Tooltip
                             contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                            formatter={(v) => [`$${v.toFixed(2)}`, 'Stock Price']}
+                            formatter={(v) => [price(v), 'Stock Price']}
                             labelFormatter={(l) => `${l}`}
                           />
                           <ReferenceLine y={IPO_PRICE} stroke="#475569" strokeDasharray="3 3" />
