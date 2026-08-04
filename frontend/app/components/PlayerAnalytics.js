@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import styles from './PlayerAnalytics.module.css';
 import { playerIdHeader } from '../hooks/useSimulation';
+import { currencySymbol } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -107,8 +108,8 @@ function PeerBenchmarking({ data }) {
     const metrics = [
         {
             label: 'Treasury', percentile: data.treasury_percentile,
-            value: `$${(data.player?.treasury / 1_000_000).toFixed(1)}M`,
-            avg: `$${(data.cohort_avg?.treasury / 1_000_000).toFixed(1)}M`,
+            value: `${currencySymbol()}${(data.player?.treasury / 1_000_000).toFixed(1)}M`,
+            avg: `${currencySymbol()}${(data.cohort_avg?.treasury / 1_000_000).toFixed(1)}M`,
             color: '#3b82f6'
         },
         {
@@ -194,7 +195,7 @@ function DecisionImpact({ data }) {
 function DeltaBadge({ label, value, isCurrency = false, precision = 1 }) {
     const positive = value > 0;
     const formatted = isCurrency
-        ? `${positive ? '+' : ''}$${(Math.abs(value) / 1_000_000).toFixed(precision)}M`
+        ? `${positive ? '+' : ''}${currencySymbol()}${(Math.abs(value) / 1_000_000).toFixed(precision)}M`
         : `${positive ? '+' : ''}${value?.toFixed(precision)}`;
 
     return (

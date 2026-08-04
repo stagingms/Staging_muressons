@@ -1,5 +1,6 @@
 'use client';
-import React, { useCallback } from 'react';
+import React, { useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 
 /**
  * ArchetypeCard (wow feature) — one-click branded PNG the team keeps.
@@ -48,7 +49,7 @@ export default function ArchetypeCard({
   const download = useCallback(() => {
     const W = 1200, H = 630;
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const price = priceNum != null ? `$${priceNum.toFixed(2)}` : '—';
+    const price = priceNum != null ? `${currencySymbol()}${priceNum.toFixed(2)}` : '—';
     const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
@@ -72,7 +73,7 @@ export default function ArchetypeCard({
   <g font-family="'DM Sans',Arial,sans-serif" text-anchor="middle">
     <text x="300" y="500" font-size="52" font-weight="800" fill="${esc(dAccent)}">${Number(mr).toFixed(2)}×</text>
     <text x="300" y="536" font-size="22" fill="#8899a6">Regenerative Multiple</text>
-    <text x="600" y="500" font-size="52" font-weight="800" fill="#f1f5f9">$${Number(terminalValueM).toFixed(1)}M</text>
+    <text x="600" y="500" font-size="52" font-weight="800" fill="#f1f5f9">${currencySymbol()}${Number(terminalValueM).toFixed(1)}M</text>
     <text x="600" y="536" font-size="22" fill="#8899a6">Enterprise Value</text>
     <text x="900" y="500" font-size="52" font-weight="800" fill="${esc(priceColor)}">${esc(price)}</text>
     <text x="900" y="536" font-size="22" fill="#8899a6">Share Price</text>

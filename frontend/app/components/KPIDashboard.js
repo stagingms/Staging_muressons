@@ -9,6 +9,7 @@ import {
 import StockPerformanceChart from './StockPerformanceChart';
 import { roundToQuarter } from '../utils/roundToQuarter';
 import styles from './ExecutiveCockpit.module.css';
+import { currencySymbol, moneyM } from '../utils/format';
 
 /**
  * KPIDashboard — Tabbed KPI panel with Financial / ESG toggle.
@@ -63,7 +64,7 @@ export default function KPIDashboard({
   // Trust gauge
   const trustColor = reputation >= 60 ? '#22c55e' : reputation >= 40 ? '#f59e0b' : '#ef4444';
 
-  const fmtM = (v) => `$${(v / 1_000_000).toFixed(1)}M`;
+  const fmtM = (v) => moneyM(v);
 
   return (
     <>
@@ -142,7 +143,7 @@ export default function KPIDashboard({
                     tick={{ fontSize: 9, fill: '#94a3b8' }} 
                     tickLine={false} 
                     axisLine={false}
-                    tickFormatter={(v) => `$${(v / 1_000_000).toFixed(0)}M`}
+                    tickFormatter={(v) => moneyM(v, { dp: 0 })}
                     width={40}
                   />
                   <Tooltip
@@ -266,13 +267,13 @@ export default function KPIDashboard({
 
           {/* Carbon Intensity Tracker */}
           <div className={styles.kpiCard}>
-            <div className={styles.kpiTitle}>📏 Carbon Intensity (tCO₂e per $1M Revenue)</div>
+            <div className={styles.kpiTitle}>📏 Carbon Intensity (tCO₂e per {currencySymbol()}1M Revenue)</div>
             <div className={styles.kpiValue}>
               {(() => {
                 const rev = globalState?.revenue || (ebitda * 4.5);
                 return rev ? (tco2e / (rev / 1_000_000)).toFixed(2) : '0.00';
               })()}
-              <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginLeft: '4px', fontWeight: 600 }}>t/$1M</span>
+              <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginLeft: '4px', fontWeight: 600 }}>t/{currencySymbol()}1M</span>
               {historyData.length >= 2 && (() => {
                 const getInt = (h) => {
                   const r = h.globalState?.revenue || ((h.ebitda || 1) * 4.5);
@@ -304,7 +305,7 @@ export default function KPIDashboard({
                   <YAxis hide domain={['auto', 'auto']} />
                   <Tooltip
                     labelFormatter={(v) => roundToQuarter(v).label}
-                    formatter={(v) => [`${v} t/$1M`, 'Intensity']}
+                    formatter={(v) => [`${v} t/${currencySymbol()}1M`, 'Intensity']}
                     contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid rgba(0,229,195,0.15)', background: '#0f1524', color: '#e2e8f0' }}
                   />
                   <Line type="monotone" dataKey="intensity" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} activeDot={{ r: 5 }} />

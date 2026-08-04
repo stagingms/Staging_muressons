@@ -4,7 +4,8 @@
  * Integrates with the What-If terminal valuation engine.
  */
 import React, { useMemo } from 'react';
-import styles from './ConsequencePreview.module.css';
+import styles from './ConsequencePreview.module.css';
+import { money } from '../utils/format';
 
 const IMPACT_ICONS = {
   treasury: '💰', reputation: '⭐', social_license: '🤝', carbon_intensity: '🏭',
@@ -32,8 +33,7 @@ function ImpactBar({ label, value, maxValue = 20, isPositive }) {
       </div>
       <span className={styles.impactValue} style={{ color }}>
         {value > 0 ? '+' : ''}{typeof value === 'number' ? (
-          Math.abs(value) >= 1_000_000 ? `$${(value / 1_000_000).toFixed(1)}M` :
-          Math.abs(value) >= 1_000 ? `$${(value / 1_000).toFixed(0)}K` :
+          Math.abs(value) >= 1_000 ? money(value) :
           value.toFixed(1)
         ) : value}
       </span>

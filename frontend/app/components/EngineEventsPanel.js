@@ -1,4 +1,5 @@
-import React from 'react';
+import React from 'react';
+import { currencySymbol, money } from '../utils/format';
 
 /**
  * EngineEventsPanel — Expanded simulation engine event display.
@@ -165,7 +166,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // 18. Revenue Generation (Desalination payback)
   if (roundEvents?.revenue_generation_completed) {
     const amt = (roundEvents.revenue_generation_completed / 1_000_000).toFixed(1);
-    events.push({ icon: '💧', color: '#10b981', text: `Infrastructure investment generated $${amt}M revenue.`, tooltip: EVENT_TOOLTIPS.revenue_generation });
+    events.push({ icon: '💧', color: '#10b981', text: `Infrastructure investment generated ${currencySymbol()}${amt}M revenue.`, tooltip: EVENT_TOOLTIPS.revenue_generation });
   }
 
   // 19. Implementation Lag
@@ -181,13 +182,13 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // 21. Negative Treasury Interest
   if (roundEvents?.negative_treasury_interest_applied) {
     const interest = (roundEvents.negative_treasury_interest_applied / 1_000_000).toFixed(2);
-    events.push({ icon: '🏦', color: 'var(--danger)', text: `Debt service: $${interest}M interest charged on negative treasury.`, tooltip: 'Negative treasury balance incurs interest at the cost of capital rate.' });
+    events.push({ icon: '🏦', color: 'var(--danger)', text: `Debt service: ${currencySymbol()}${interest}M interest charged on negative treasury.`, tooltip: 'Negative treasury balance incurs interest at the cost of capital rate.' });
   }
 
   // 22. Climate Event
   if (roundEvents?.climate_event_struck) {
     const damage = ((roundEvents.actual_damage || 0) / 1_000_000).toFixed(1);
-    events.push({ icon: '🌪️', color: 'var(--danger)', text: `Cyclone struck! Actual damage: $${damage}M (mitigated by resilience).`, tooltip: 'Physical climate event caused infrastructure damage, reduced by your resilience factor.' });
+    events.push({ icon: '🌪️', color: 'var(--danger)', text: `Cyclone struck! Actual damage: ${currencySymbol()}${damage}M (mitigated by resilience).`, tooltip: 'Physical climate event caused infrastructure damage, reduced by your resilience factor.' });
   } else if (roundEvents?.climate_event_struck === false) {
     events.push({ icon: '🌤️', color: '#10b981', text: 'The cyclone changed course — no damage this round.', tooltip: 'The stochastic climate event did not trigger this time.' });
   }
@@ -204,13 +205,13 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // 24. Internal Carbon Fee
   if (roundEvents?.internal_carbon_fee_deducted) {
     const fee = (roundEvents.internal_carbon_fee_deducted / 1_000_000).toFixed(2);
-    events.push({ icon: '💨', color: '#10b981', text: `Internal carbon fee: $${fee}M deducted → Green Transition Fund.`, tooltip: EVENT_TOOLTIPS.internal_carbon_fee });
+    events.push({ icon: '💨', color: '#10b981', text: `Internal carbon fee: ${currencySymbol()}${fee}M deducted → Green Transition Fund.`, tooltip: EVENT_TOOLTIPS.internal_carbon_fee });
   }
 
   // 25. Green Fund Used
   if (roundEvents?.green_fund_used) {
     const amt = (roundEvents.green_fund_used / 1_000_000).toFixed(1);
-    events.push({ icon: '🌱', color: '#10b981', text: `Green Fund subsidised $${amt}M of your spending.`, tooltip: EVENT_TOOLTIPS.green_fund_used });
+    events.push({ icon: '🌱', color: '#10b981', text: `Green Fund subsidised ${currencySymbol()}${amt}M of your spending.`, tooltip: EVENT_TOOLTIPS.green_fund_used });
   }
 
   // 26. Stranded Asset Penalty
@@ -273,7 +274,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
       const deferred = (dso.total_deferred / 1_000_000).toFixed(1);
       events.push({
         icon: '⏰', color: 'var(--accent)',
-        text: `Working capital timing: $${deferred}M revenue deferred (DSO drag across BUs).`,
+        text: `Working capital timing: ${currencySymbol()}${deferred}M revenue deferred (DSO drag across BUs).`,
         tooltip: EVENT_TOOLTIPS.dso_working_capital,
       });
     }
@@ -320,7 +321,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const cost = ((euAi.cost || 0) / 1_000_000).toFixed(1);
     events.push({
       icon: '🤖', color: 'var(--danger)',
-      text: euAi.message || `EU AI Act compliance: $${cost}M audit and governance costs incurred for AI deployment.`,
+      text: euAi.message || `EU AI Act compliance: ${currencySymbol()}${cost}M audit and governance costs incurred for AI deployment.`,
       tooltip: EVENT_TOOLTIPS.eu_ai_act,
     });
   } else if (roundEvents?.eu_ai_act_pending) {
@@ -418,7 +419,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const triggerLabel = trigger === 'ebitda_margin' ? 'Low EBITDA margin' : trigger === 'survival' ? 'Survival mode' : 'Low reputation';
     events.push({
       icon: '📉', color: 'var(--danger)',
-      text: `Goodwill impairment: $${impairment}M written off. Trigger: ${triggerLabel}. IAS 36 annual test failed.`,
+      text: `Goodwill impairment: ${currencySymbol()}${impairment}M written off. Trigger: ${triggerLabel}. IAS 36 annual test failed.`,
       tooltip: 'IAS 36 requires annual goodwill impairment testing. Impairment is triggered when group reputation drops below 40 or EBITDA margin falls below 10%. The write-off is smoothly calculated — not a hard cliff — reducing goodwill proportionally.',
     });
   }
@@ -442,7 +443,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const rate = ((roundEvents.covenant_surcharge_rate || 0) * 100).toFixed(0);
     events.push({
       icon: '🏦', color: 'var(--danger)',
-      text: `Covenant penalty: $${surcharge}M interest surcharge (+${rate}% annualised on net debt).`,
+      text: `Covenant penalty: ${currencySymbol()}${surcharge}M interest surcharge (+${rate}% annualised on net debt).`,
       tooltip: 'When debt covenants are breached, lenders impose a penalty interest rate surcharge. This directly reduces your treasury. Reduce leverage to avoid ongoing penalties.',
     });
   }
@@ -474,7 +475,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const multPct = ((ebPenalty.multiplier || 0) * 100).toFixed(1);
     events.push({
       icon: '👥', color: 'var(--danger)',
-      text: ebPenalty.narrative || `Talent crisis — employer brand at ${ebScore}/100. Recruitment cost surcharge of $${totalPenalty}M (+${multPct}% OPEX across all ${ebPenalty.affected_bus || '?'} BUs).`,
+      text: ebPenalty.narrative || `Talent crisis — employer brand at ${ebScore}/100. Recruitment cost surcharge of ${currencySymbol()}${totalPenalty}M (+${multPct}% OPEX across all ${ebPenalty.affected_bus || '?'} BUs).`,
       tooltip: 'When your employer brand score drops below 40 (driven by reputation, burnout, and workforce readiness), ALL business units face escalating recruitment and retention costs. This models the real-world "talent flight spiral" where poor conditions compound into organisation-wide OPEX inflation.',
     });
   }
@@ -674,11 +675,8 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
         const optionLabels = { option_a: 'Option A', option_b: 'Option B', option_c: 'Option C' };
         const fmtDelta = (v) => {
           if (!v && v !== 0) return '—';
-          const abs = Math.abs(v);
-          const sign = v >= 0 ? '+' : '-';
-          if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-          if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
-          return `${sign}$${abs.toFixed(0)}`;
+          const sign = v >= 0 ? '+' : '−';
+          return `${sign}${money(Math.abs(v))}`;
         };
         return (
           <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #1e293b', background: 'linear-gradient(135deg, rgba(167,139,250,0.03), transparent)' }}>

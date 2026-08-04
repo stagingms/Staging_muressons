@@ -3,7 +3,8 @@ import React, { useState, useMemo, useCallback, useRef, useEffect, Suspense } fr
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html, Float, Line } from '@react-three/drei';
 import * as THREE from 'three';
-import styles from './ESGImpactConstellation.module.css';
+import styles from './ESGImpactConstellation.module.css';
+import { currencySymbol } from '../utils/format';
 
 // ══════════════════════════════════════════════════════════════
 //  ESG DIMENSION COLORS — from globals.css token system
@@ -429,9 +430,9 @@ export default function ESGImpactConstellation({ history, currentRound, onClose 
   }, []);
 
   const fmtK = (v) => {
-    if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(v) >= 1_000) return `$${(v / 1_000).toFixed(0)}K`;
-    return `$${Math.round(v)}`;
+    if (Math.abs(v) >= 1_000_000) return `${currencySymbol()}${(v / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(v) >= 1_000) return `${currencySymbol()}${(v / 1_000).toFixed(0)}K`;
+    return `${currencySymbol()}${Math.round(v)}`;
   };
 
   const displayNode = hoveredNode || selectedNode;

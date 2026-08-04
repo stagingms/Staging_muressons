@@ -27,6 +27,14 @@ const path = require('path');
 const React = require('react');
 const { render, screen, fireEvent, act } = require('@testing-library/react');
 
+// These assertions are about the NUMBERS — that best and worst are different
+// rounds carrying real figures — not about which currency the cohort runs in.
+// They were written when every formatter hard-coded '$'; format.js now defaults
+// to the app's real default (₹, per CurrencyContext.DEFAULT_CURRENCY). Pinning
+// the symbol here says out loud which currency the expectations below assume,
+// instead of inheriting a module default that can move underneath them.
+require('../app/utils/format').setCurrencySymbol('$');
+
 const APP = path.join(__dirname, '..', 'app');
 const {
   deriveKeyInsights,

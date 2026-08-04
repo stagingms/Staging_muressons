@@ -1,4 +1,5 @@
 import React from 'react';
+import { moneyM } from '../utils/format';
 
 /* A11Y-F22 (WCAG 1.4.3, 2.2.2): this used to be
      @keyframes ci-pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
@@ -35,7 +36,7 @@ export default function CompetitorIntelligence({ globalState, ebitda, roundNumbe
   const competitorEbitda = globalState?.competitor_ebitda || ebitda;
   const previousEbitda = globalState?.previous_ebitda;
   const isTrailing = ebitda < competitorEbitda;
-  const fmtM = (v) => `$${(v / 1_000_000).toFixed(1)}M`;
+  const fmtM = (v) => moneyM(v);
   const ratio = (ebitda / (competitorEbitda || 1)).toFixed(2);
   const isTied = ratio === '1.00';
   const hasData = ebitda > 0;

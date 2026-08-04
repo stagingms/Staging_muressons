@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const GREEN_FUND = 5_000_000;
@@ -256,7 +257,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                     {/* Fund summary */}
                     <div style={{ background: '#1e293b', color: '#fff', borderRadius: 8, padding: '0.85rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.8rem' }}>
-                            Total abatement: <strong>{totalSaved.toLocaleString()}t</strong> · Spent: <strong>${(totalCost / 1e6).toFixed(2)}M</strong> of $5M
+                            Total abatement: <strong>{totalSaved.toLocaleString()}t</strong> · Spent: <strong>{currencySymbol()}{(totalCost / 1e6).toFixed(2)}M</strong> of $5M
                         </div>
                         <button onClick={() => setPhase('curve')} disabled={funded.length === 0}
                             style={{ padding: '0.5rem 1rem', background: funded.length ? '#6366f1' : '#475569', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: '0.78rem', cursor: funded.length ? 'pointer' : 'not-allowed' }}>

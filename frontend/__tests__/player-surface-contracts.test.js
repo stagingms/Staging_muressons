@@ -146,3 +146,107 @@ describe('focus overlay breadcrumb', () => {
     expect(fo).toMatch(/currentIdx >= 0/);
   });
 });
+
+// ── no component may mint its own currency symbol ───────────────────────────
+
+/**
+ * WHY THIS EXISTS
+ *   The Phase 3 fix routed formatCurrency.js and kpiFormats.js through
+ *   format.js, so every call site THROUGH THEM became currency-aware — and the
+ *   test above pinned that. What neither caught is that ~45 components never
+ *   called them: each carried a private
+ *
+ *       const fmtM = (v) => `$${(v / 1_000_000).toFixed(1)}M`
+ *
+ *   with the glyph baked into a template literal. So a rupee cohort still saw
+ *   "Capital deployed ₹5.6M" beside "GROUP EBITDA $12.3M" on one screen, while
+ *   the suite stayed green. A single-writer assertion is worthless without a
+ *   no-bypass assertion beside it.
+ *
+ *   The player tree is derived here rather than listed, because a hand-kept
+ *   list is exactly what goes stale when someone adds a component.
+ */
+
+const walkPlayerTree = () => {
+  const seen = new Set();
+  const resolve = (from, spec) => {
+    if (!spec.startsWith('.')) return null;
+    const base = path.normalize(path.join(path.dirname(from), spec));
+    for (const c of [base, base + '.js', base + '.jsx', path.join(base, 'index.js')]) {
+      if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
+    }
+    return null;
+  };
+  const visit = (f) => {
+    if (seen.has(f)) return;
+    seen.add(f);
+    let src;
+    try { src = fs.readFileSync(f, 'utf8'); } catch { return; }
+    const re = /(?:from\s+|import\s*\(\s*)["'`]([^"'`]+)["'`]/g;
+    let m;
+    while ((m = re.exec(src))) {
+      const r = resolve(f, m[1]);
+      if (r) visit(r);
+    }
+  };
+  ['app/page.js', 'app/layout.js'].forEach((r) => visit(path.join(root, r)));
+  return [...seen]
+    .filter((f) => /\.jsx?$/.test(f))
+    .filter((f) => !/utils[\\/]format\.js$/.test(f))
+    .sort();
+};
+
+describe('currency symbol has exactly one source', () => {
+  const tree = walkPlayerTree();
+
+  test('the player tree is actually being walked', () => {
+    // If the resolver silently stops working this whole describe passes
+    // vacuously, which is the failure mode a count test cannot see.
+    expect(tree.length).toBeGreaterThan(100);
+    expect(tree.some((f) => /ExecutiveCockpit\.js$/.test(f))).toBe(true);
+    expect(tree.some((f) => /KPIDashboard\.js$/.test(f))).toBe(true);
+  });
+
+  test('no component interpolates a number after a hard-coded glyph', () => {
+    const offenders = [];
+    for (const f of tree) {
+      fs.readFileSync(f, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (/\$\$\{/.test(line.replace(/^\s*(\/\/|\*|\/\*).*$/, ''))) {
+          offenders.push(`${path.relative(root, f)}:${i + 1}  ${line.trim().slice(0, 90)}`);
+        }
+      });
+    }
+    // Listed, not counted: a failure should say WHERE without a second run.
+    expect(offenders).toEqual([]);
+  });
+
+  test('authored dollar amounts in copy are frozen, not forgotten', () => {
+    // These are NOT formatter output — they are scenario copy: option cost
+    // labels, briefing text, the $40/tonne shadow price, glossary entries.
+    // The narrative is denominated in dollars by an author, and converting it
+    // would need the underlying scenario numbers converted too. That is a
+    // content decision, not a formatting one, so the count is frozen rather
+    // than driven to zero: it cannot grow without someone saying so.
+    let count = 0;
+    for (const f of tree) {
+      fs.readFileSync(f, 'utf8').split(/\r?\n/).forEach((line) => {
+        const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, '');
+        count += (code.match(/\$(?=[\d,]|\s?[A-Z]?\d)/g) || []).length;
+      });
+    }
+    // Fails in BOTH directions, like the ui-budgets ledger: converting copy to
+    // the session currency is welcome, but it must lower this number on purpose.
+    expect(count).toBe(117);
+  });
+
+  test('format.js carries the fixed-unit formatters the components now share', () => {
+    const fmt = read('app/utils/format.js');
+    expect(fmt).toMatch(/export function moneyM\(/);
+    expect(fmt).toMatch(/export function moneyMScaled\(/);
+    // both must read the one symbol, not a literal
+    const bodies = fmt.split(/export function /).filter((b) => /^money/.test(b));
+    expect(bodies.length).toBeGreaterThanOrEqual(3);
+    for (const b of bodies) expect(b).toContain('_symbol');
+  });
+});
+

@@ -63,6 +63,36 @@ export function money(value, { dp } = {}) {
   return `${s}${_symbol}${abs.toFixed(dp ?? 0)}`;
 }
 
+/**
+ * Money pinned to millions, whatever the magnitude.
+ *
+ * money()'s ladder is right for a single figure but wrong for a ROW of them:
+ * NOPAT ₹8.6M / Carbon Charge ₹600K / Adj. Capital ₹26.2M reads as three
+ * unrelated quantities, because the reader has to re-scale between columns.
+ * Where figures are meant to be compared against each other, pin the unit and
+ * let the small ones show as 0.6M.
+ *
+ * This is the currency-aware replacement for the ~30 private
+ *   const fmtM = (v) => `$${(v / 1_000_000).toFixed(1)}M`
+ * definitions that used to live one per component.
+ */
+export function moneyM(value, { dp = 1 } = {}) {
+  if (!isNum(value)) return EMPTY;
+  const v = Number(value);
+  return `${sign(v)}${_symbol}${(Math.abs(v) / 1e6).toFixed(dp)}M`;
+}
+
+/**
+ * A figure that is ALREADY expressed in millions — engine narratives and
+ * chart axes often carry 12.3 meaning 12.3M. Prefixes the symbol and appends
+ * the unit without rescaling.
+ */
+export function moneyMScaled(value, { dp = 1 } = {}) {
+  if (!isNum(value)) return EMPTY;
+  const v = Number(value);
+  return `${sign(v)}${_symbol}${Math.abs(v).toFixed(dp)}M`;
+}
+
 /** Money at full precision, grouped. For balance sheets, not for KPI belts. */
 export function moneyFull(value, { dp = 0 } = {}) {
   if (!isNum(value)) return EMPTY;
@@ -125,5 +155,5 @@ export const GLYPH = { MINUS, EMPTY };
 
 export default {
   setCurrencySymbol, currencySymbol,
-  money, moneyFull, price, ratio, percent, score, delta, direction, GLYPH,
+  money, moneyM, moneyMScaled, moneyFull, price, ratio, percent, score, delta, direction, GLYPH,
 };

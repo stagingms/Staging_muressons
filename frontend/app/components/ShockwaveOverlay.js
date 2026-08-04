@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { moneyM } from '../utils/format';
 
 /**
  * ShockwaveOverlay (Feature 6) — full-screen takeover when the facilitator
@@ -27,7 +28,7 @@ function klaxon() {
   } catch { return null; }
 }
 
-const fmtM = (v) => `${v < 0 ? '-' : '+'}$${Math.abs(v / 1_000_000).toFixed(1)}M`;
+const fmtM = (v) => `${v < 0 ? '−' : '+'}${moneyM(Math.abs(v))}`;
 
 export default function ShockwaveOverlay({ event, countdown = 60, onDismiss }) {
   const [left, setLeft] = useState(countdown);

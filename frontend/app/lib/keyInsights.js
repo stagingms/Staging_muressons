@@ -19,6 +19,8 @@
  * Both the game-over insights section and the newspaper's INSIDE THE NUMBERS
  * column import from here, so the two can never disagree.
  */
+import { currencySymbol } from '../utils/format';
+
 
 /** Round titles as scripted by the engine's round flow. */
 export const ROUND_NAMES = {
@@ -137,12 +139,12 @@ export function deriveKeyInsights(history) {
 export function fmtDeltaM(v) {
   if (!Number.isFinite(v)) return '—';
   const m = v / 1_000_000;
-  return `${m < 0 ? '−' : '+'}$${Math.abs(m).toFixed(1)}M`;
+  return `${m < 0 ? '−' : '+'}${currencySymbol()}${Math.abs(m).toFixed(1)}M`;
 }
 
 export function fmtM(v) {
   if (!Number.isFinite(Number(v))) return '—';
   const m = Number(v) / 1_000_000;
   const a = Math.abs(m);
-  return `${m < 0 ? '−' : ''}$${a >= 100 ? a.toFixed(0) : a.toFixed(1)}M`;
+  return `${m < 0 ? '−' : ''}${currencySymbol()}${a >= 100 ? a.toFixed(0) : a.toFixed(1)}M`;
 }

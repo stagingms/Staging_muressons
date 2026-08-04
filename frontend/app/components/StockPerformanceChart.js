@@ -8,6 +8,7 @@ import {
 import { buildFullStockData, IPO_PRICE } from './stockValuationEngine';
 import { roundToQuarter, roundRangeLabel } from '../utils/roundToQuarter';
 import styles from './StockPerformanceChart.module.css';
+import { price as fmtCurrencyPrice, currencySymbol } from '../utils/format';
 
 /**
  * StockPerformanceChart — Premium stock terminal card.
@@ -50,12 +51,12 @@ function StockTooltip({ active, payload, peerLabel }) {
       <div className={styles.tooltipLabel}>{roundLabel}</div>
       {playerEntry && (
         <div className={styles.tooltipPrice}>
-          Your Stock: ${playerEntry.value?.toFixed(2) || '—'}
+          Your Stock: {fmtCurrencyPrice(playerEntry.value)}
         </div>
       )}
       {peerEntry && peerEntry.value != null && (
         <div className={styles.tooltipPeer} style={{ color: '#fb923c', fontSize: 11, marginTop: 2 }}>
-          {peerLabel || 'Peer Avg'}: ${peerEntry.value?.toFixed(2) || '—'}
+          {peerLabel || 'Peer Avg'}: {fmtCurrencyPrice(peerEntry.value)}
         </div>
       )}
     </div>
@@ -128,7 +129,9 @@ export default function StockPerformanceChart({
   }, [filteredData]);
 
   // Format price for axis
-  const fmtPrice = useCallback((v) => `$${Number(v).toFixed(0)}`, []);
+  /* Axis ticks stay whole-number — the tick is a scale, not a reading —
+     but the glyph comes from the session currency like everything else. */
+  const fmtPrice = useCallback((v) => `${currencySymbol()}${Number(v).toFixed(0)}`, []);
 
   // X-axis tick formatter: show round labels
   const fmtXAxis = useCallback((val) => {
@@ -159,7 +162,7 @@ export default function StockPerformanceChart({
 
       {/* Price + Delta (compact) */}
       <div className={styles.priceDisplay}>
-        <span className={styles.currentPrice}>${currentPrice.toFixed(2)}</span>
+        <span className={`${styles.currentPrice} num`}>{fmtCurrencyPrice(currentPrice)}</span>
         <span className={`${styles.priceDelta} ${priceDelta >= 0 ? styles.deltaUp : styles.deltaDown}`}>
           {priceDelta >= 0 ? '▲' : '▼'} {pctChange >= 0 ? '+' : ''}{pctChange.toFixed(1)}%
         </span>
@@ -219,7 +222,7 @@ export default function StockPerformanceChart({
               stroke="rgba(148, 163, 184, 0.3)"
               strokeDasharray="4 4"
               label={{
-                value: `IPO $${IPO_PRICE}`,
+                value: `IPO ${currencySymbol()}${IPO_PRICE}`,
                 position: 'right',
                 fontSize: 8,
                 fill: '#64748b',

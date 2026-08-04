@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { deriveKeyInsights, fmtDeltaM, roundLedger } from '../lib/keyInsights';
+import { currencySymbol } from '../utils/format';
 
 /**
  * FrontPageReveal (Feature 5) — the Year-5 terminal edition of THE MURESSONS
@@ -88,7 +89,7 @@ function deriveLedger(d = {}) {
   else if (has('truth_premium'))     achievement = `Radical transparency earned a "truth premium" with the market.`;
   else if (jt === true || has('just_transition_bonus') || has('community_champion_bonus'))
                                      achievement = `Delivered a credible just transition, keeping workforce and community onside.`;
-  else if (price != null && price >= 50) achievement = `Shareholders rewarded with a $${Number(price).toFixed(2)} share price on a well-capitalised balance sheet.`;
+  else if (price != null && price >= 50) achievement = `Shareholders rewarded with a ${currencySymbol()}${Number(price).toFixed(2)} share price on a well-capitalised balance sheet.`;
   else if (Number.isFinite(rep) && rep >= 65) achievement = `Group reputation closed strong at ${rep.toFixed(0)}/100.`;
   else if (mr >= 1.2)                achievement = `Held a de-risked balance sheet with limited residual climate exposure.`;
 
@@ -113,7 +114,7 @@ function deriveLedger(d = {}) {
 const fmtM = (v) => {
   const m = v / 1_000_000;
   const a = Math.abs(m);
-  return `${m < 0 ? '−' : ''}$${a >= 100 ? a.toFixed(0) : a.toFixed(1)}M`;
+  return `${m < 0 ? '−' : ''}${currencySymbol()}${a >= 100 ? a.toFixed(0) : a.toFixed(1)}M`;
 };
 
 /** Null-safe money for table cells: never prints a number we do not have. */
@@ -210,7 +211,7 @@ export const TEMPLATES = {
     quote: `"They proved the thesis: decarbonisation and value creation were the same project all along."`,
     paras: (t) => [
       `MURESSONS CITY — The Muressons Group closed the books on its five-year transformation programme with a terminal enterprise value of ${t.tv}, capping a period in which the conglomerate turned aggressive sustainability spending into the strongest valuation multiple among its peers.`,
-      `The group's ${t.mr}× regenerative multiple — a measure investors now use to price resilience as much as earnings — reflects early, sustained capital allocation into decarbonisation, supply-chain hardening and workforce transition. Shares ended the period at $${t.price}.`,
+      `The group's ${t.mr}× regenerative multiple — a measure investors now use to price resilience as much as earnings — reflects early, sustained capital allocation into decarbonisation, supply-chain hardening and workforce transition. Shares ended the period at ${currencySymbol()}${t.price}.`,
       `Rivals that deferred the same investments spent the back half of the plan absorbing crisis costs Muressons had already engineered out. Fund managers described the result as "compounding by another name."`,
       `The board is expected to extend the programme into a second five-year horizon, with analysts pressing for detail on how the group protects its lead as the premium it earned becomes the market's baseline.`,
     ],
@@ -223,7 +224,7 @@ export const TEMPLATES = {
     quote: `"Solid, defensible, unspectacular. The question is what they compound from here."`,
     paras: (t) => [
       `MURESSONS CITY — The Muressons Group reported a terminal enterprise value of ${t.tv} on Friday, ending its five-year plan with the de-risked balance sheet management promised — and with questions about the growth it traded away to get there.`,
-      `The group's ${t.mr}× regenerative multiple places it comfortably above distressed peers but short of the sector's leaders, a gap analysts attribute to green-infrastructure investments that were studied, budgeted and then deferred. Shares closed the period at $${t.price}.`,
+      `The group's ${t.mr}× regenerative multiple places it comfortably above distressed peers but short of the sector's leaders, a gap analysts attribute to green-infrastructure investments that were studied, budgeted and then deferred. Shares closed the period at ${currencySymbol()}${t.price}.`,
       `Executives defend the record: crisis rounds that forced write-downs elsewhere passed with limited damage, and the group enters the next cycle with headroom rather than obligations. "We kept our options open," one senior manager said.`,
       `The counter-argument is already circulating in investor notes: options have expiry dates, and the premium for early movers has widened every year of the plan.`,
     ],
@@ -235,7 +236,7 @@ export const TEMPLATES = {
     subhead: (t) => `The headline enterprise value survives; the equity beneath it does not, once ${'netDebtM' in t && t.netDebtM !== '—' ? `${t.netDebtMoney} of net debt` : 'the debt stack'} is settled`,
     quote: `"Impressive at the top line, hollow underneath — the equity was gone before the valuation printed."`,
     paras: (t) => [
-      `MURESSONS CITY — On paper, the Muressons Group ends its five-year plan valued at ${t.tv}. For its shareholders, the arithmetic is crueller: after the group's accumulated borrowings are netted off, the equity is worth effectively nothing, and the shares closed the period at $${t.price}.`,
+      `MURESSONS CITY — On paper, the Muressons Group ends its five-year plan valued at ${t.tv}. For its shareholders, the arithmetic is crueller: after the group's accumulated borrowings are netted off, the equity is worth effectively nothing, and the shares closed the period at ${currencySymbol()}${t.price}.`,
       `The pattern will be familiar to restructuring specialists. Operating ambitions — some of them genuinely regenerative, reflected in a ${t.mr}× multiple — were funded with debt rather than earnings, and the balance sheet quietly inverted while the strategy narrative held the spotlight.`,
       `Creditors, not owners, now hold the economics of the enterprise. Bondholders are expected to drive any recapitalisation, with existing equity heavily diluted or extinguished in most scenarios bankers describe.`,
       `The lesson traders drew was blunt: a sustainability premium on the multiple cannot outrun a funding model that mortgages the equity to pay for it.`,
@@ -248,7 +249,7 @@ export const TEMPLATES = {
     subhead: (t) => `A ${t.tv} valuation rests on a thin ${t.mr}× multiple as deferred transition costs begin to come due`,
     quote: `"The bill for short-termism arrives late, larger, and with fewer options attached."`,
     paras: (t) => [
-      `MURESSONS CITY — The Muressons Group ended its five-year programme with a terminal enterprise value of ${t.tv}, a result the group presented as stability and the market read as fragility. Shares closed the period at $${t.price}.`,
+      `MURESSONS CITY — The Muressons Group ended its five-year programme with a terminal enterprise value of ${t.tv}, a result the group presented as stability and the market read as fragility. Shares closed the period at ${currencySymbol()}${t.price}.`,
       `The concern is concentrated in the group's ${t.mr}× regenerative multiple, which sits close enough to breakeven that a single stranded-asset ruling, remediation order or reputational shock could tip the valuation into discount territory.`,
       `Institutional holders spent the final quarters pressing for a credible transition plan with dates and capital attached, rather than the sequence of pilots and reviews that characterised the middle years of the plan.`,
       `The group has runway, analysts concede — but it is measured in quarters now, not years, and the next crisis window will not negotiate.`,
@@ -261,7 +262,7 @@ export const TEMPLATES = {
     subhead: (t) => `Five years of extraction leave a ${t.mr}× multiple, a ${t.tv} valuation under sustained pressure, and a narrowing path back`,
     quote: `"A cautionary tale of value destroyed one deferred decision at a time."`,
     paras: (t) => [
-      `MURESSONS CITY — The Muressons Group closed its five-year plan in the position its critics predicted at the outset: carbon-heavy assets written down, social licence eroded, and a valuation — ${t.tv} at the terminal reading — that reflects a ${t.mr}× multiple deep in distressed territory. Shares ended the period at $${t.price}.`,
+      `MURESSONS CITY — The Muressons Group closed its five-year plan in the position its critics predicted at the outset: carbon-heavy assets written down, social licence eroded, and a valuation — ${t.tv} at the terminal reading — that reflects a ${t.mr}× multiple deep in distressed territory. Shares ended the period at ${currencySymbol()}${t.price}.`,
       `Internal documents reviewed across the period show a consistent pattern: transition investments scoped, costed and shelved, with the savings booked to earnings that the market has since clawed back several times over.`,
       `Regulators are circling the remediation ledger, activist holders are demanding board changes, and the insurers who once priced the group as an industrial stalwart now price it as a liability book.`,
       `Whatever emerges from the coming restructuring will be smaller, greener by necessity, and — in the phrase one adviser used — "a company that pays for the decade it declined to fund."`,
@@ -444,7 +445,7 @@ export default function FrontPageReveal({
   const numbersRows = useMemo(() => ([
     ['Enterprise value', money(data.terminal_value)],
     ['Regenerative multiple', `${t.mr}×`],
-    ['Share price', t.price === '—' ? '—' : `$${t.price}`],
+    ['Share price', t.price === '—' ? '—' : `${currencySymbol()}${t.price}`],
     ['Equity value', money(data.equity_value)],
     ['Net debt', money(data.net_debt)],
     ['Group reputation', t.rep === '—' ? '—' : `${t.rep}/100`],

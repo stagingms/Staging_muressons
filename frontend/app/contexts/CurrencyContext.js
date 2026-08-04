@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { setCurrencySymbol } from '../utils/format';
+import { currencySymbol, setCurrencySymbol } from '../utils/format';
 
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -26,7 +26,7 @@ const CurrencyContext = createContext({
   currency: DEFAULT_CURRENCY,
   setCurrency: () => {},
   loadSessionCurrency: async () => {},
-  formatAmount: (n) => `$${n}`,
+  formatAmount: (n) => `${currencySymbol()}${n}`,
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────

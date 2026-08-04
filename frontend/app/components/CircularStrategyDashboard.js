@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const SALE_UNITS = 10_000;   // units sold per year (max market)
@@ -163,7 +164,7 @@ export default function CircularStrategyDashboard({ sessionId, onComplete }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Circular Strategy Dashboard</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
-                            {[['VALLEY DURATION', `${valleyDuration} Years`], ['MAX DEFICIT', `$${maxDeficit}M`], ['YR 15 MARGIN', `${yr15margin}%`]].map(([k, v]) => (
+                            {[['VALLEY DURATION', `${valleyDuration} Years`], ['MAX DEFICIT', `${currencySymbol()}${maxDeficit}M`], ['YR 15 MARGIN', `${yr15margin}%`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: k === 'VALLEY DURATION' && valleyDuration > 5 ? '#dc2626' : '#0f172a' }}>{v}</div>
@@ -172,7 +173,7 @@ export default function CircularStrategyDashboard({ sessionId, onComplete }) {
                         </div>
                     </div>
                     <div style={{ fontSize: '0.72rem', color: valleyDuration > 5 ? '#dc2626' : '#16a34a', marginTop: '0.2rem', fontWeight: 600 }}>
-                        Phase: {phaseLabel}. {maxDeficit !== '0' ? `Maximum liquidity gap of $${maxDeficit}M in Year ${cashFlows.indexOf(Math.min(...cashFlows)) + 1}.` : 'Clean transition — no negative cash flow.'}
+                        Phase: {phaseLabel}. {maxDeficit !== '0' ? `Maximum liquidity gap of ${currencySymbol()}${maxDeficit}M in Year ${cashFlows.indexOf(Math.min(...cashFlows)) + 1}.` : 'Clean transition — no negative cash flow.'}
                     </div>
                 </div>
 

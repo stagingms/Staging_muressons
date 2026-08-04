@@ -1,5 +1,6 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { currencySymbol } from '../utils/format';
 
 /**
  * AIAdvisor — AI Strategic Advisor chat panel.
@@ -44,7 +45,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
     const crisis = roundConfig?.crisis;
 
     if (q.includes('crisis') || q.includes('explain') || q.includes('round')) {
-      return `**Round ${roundNumber} Crisis:**\n\n${crisis?.description || crisis?.narrative || 'The board demands strategic action this period.'}\n\n**Key Considerations:**\n• Current Treasury: $${(treasury / 1_000_000).toFixed(1)}M\n• Reputation Score: ${reputation}/100\n• Weigh short-term costs vs long-term resilience`;
+      return `**Round ${roundNumber} Crisis:**\n\n${crisis?.description || crisis?.narrative || 'The board demands strategic action this period.'}\n\n**Key Considerations:**\n• Current Treasury: ${currencySymbol()}${(treasury / 1_000_000).toFixed(1)}M\n• Reputation Score: ${reputation}/100\n• Weigh short-term costs vs long-term resilience`;
     }
 
     if (q.includes('compare') || q.includes('option') || q.includes('vs')) {
@@ -55,19 +56,19 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
         const label = key === 'option_a' ? 'Option A' : key === 'option_b' ? 'Option B' : 'Option C';
         response += `**${label}: ${opt.title}**\n${opt.description}\n`;
         if (opt.impacts?.treasury || opt.cost_impact) {
-          response += `Cost Impact: $${((opt.impacts?.treasury || opt.cost_impact) / 1_000_000).toFixed(1)}M\n`;
+          response += `Cost Impact: ${currencySymbol()}${((opt.impacts?.treasury || opt.cost_impact) / 1_000_000).toFixed(1)}M\n`;
         }
         response += '\n';
       });
       response += `**My Recommendation:** `;
-      if (treasury < 35_000_000) response += `Given your low treasury ($${(treasury / 1_000_000).toFixed(1)}M), consider a cost-conservative option.`;
+      if (treasury < 35_000_000) response += `Given your low treasury (${currencySymbol()}${(treasury / 1_000_000).toFixed(1)}M), consider a cost-conservative option.`;
       else if (reputation < 40) response += `Your reputation is low (${reputation}/100). Prioritize options that boost stakeholder trust.`;
       else response += `You have healthy metrics. Consider investing in long-term resilience for compounding benefits.`;
       return response;
     }
 
     if (q.includes('allocat') || q.includes('capital') || q.includes('invest')) {
-      return `**Capital Allocation Advice:**\n\nYour CSF Pool is 20% of treasury = $${(treasury * 0.2 / 1_000_000).toFixed(1)}M\n\n**Recommended Strategy:**\n• **Pharma** (highest revenue): Allocate 30-35% — strong ROI potential\n• **Electronics** (high carbon): Allocate 25-30% — needs ESG investment\n• **Consumer Goods** (stable): Allocate 20% — steady returns\n• **Software** (lean, low carbon): Allocate 15-20% — already efficient\n\n💡 *Tip: Over-investing in one BU creates concentration risk. Spread your bets.*`;
+      return `**Capital Allocation Advice:**\n\nYour CSF Pool is 20% of treasury = ${currencySymbol()}${(treasury * 0.2 / 1_000_000).toFixed(1)}M\n\n**Recommended Strategy:**\n• **Pharma** (highest revenue): Allocate 30-35% — strong ROI potential\n• **Electronics** (high carbon): Allocate 25-30% — needs ESG investment\n• **Consumer Goods** (stable): Allocate 20% — steady returns\n• **Software** (lean, low carbon): Allocate 15-20% — already efficient\n\n💡 *Tip: Over-investing in one BU creates concentration risk. Spread your bets.*`;
     }
 
     if (q.includes('esg') || q.includes('score') || q.includes('improve')) {
@@ -76,7 +77,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
 
     if (q.includes('last round') || q.includes('previous') || q.includes('happened')) {
       if (roundNumber <= 1) return 'This is Round 1 — no previous round data available yet. Focus on setting a strong foundation!';
-      return `**Round ${roundNumber - 1} Summary:**\n\nYour current metrics reflect your cumulative decisions:\n• Treasury: $${(treasury / 1_000_000).toFixed(1)}M\n• Reputation: ${reputation}/100\n• Total CO₂: ${(globalState?.tco2e_emissions || 0).toLocaleString()} tonnes\n\nCheck the KPI trends on the left panel for detailed round-over-round changes.`;
+      return `**Round ${roundNumber - 1} Summary:**\n\nYour current metrics reflect your cumulative decisions:\n• Treasury: ${currencySymbol()}${(treasury / 1_000_000).toFixed(1)}M\n• Reputation: ${reputation}/100\n• Total CO₂: ${(globalState?.tco2e_emissions || 0).toLocaleString()} tonnes\n\nCheck the KPI trends on the left panel for detailed round-over-round changes.`;
     }
 
     return `I can help you with:\n\n1. **📋 Crisis Analysis** — Understanding the current round's challenge\n2. **⚖️ Option Comparison** — Comparing strategic options A/B/C\n3. **💰 Capital Allocation** — How to distribute your CSF Pool\n4. **🌱 ESG Improvement** — Strategies to boost sustainability scores\n5. **📊 Performance Review** — What happened in previous rounds\n\nTry asking one of these questions!`;

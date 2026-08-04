@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 // Supplier profiles
@@ -65,14 +66,14 @@ function BarChart3({ cogs, profit, revenue }) {
     const maxV = Math.max(...vals.map(v => Math.abs(v.v))) * 1.15 || 1;
     const W = 380, H = 160, padL = 44, padTop = 10, padBot = 24;
     const cH = H - padTop - padBot, barW = 56, gap = (W - padL - barW * 3) / 4;
-    const fmtK = v => `$${(v / 1000).toFixed(0)}k`;
+    const fmtK = v => `${currencySymbol()}${(v / 1000).toFixed(0)}k`;
     return (
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxHeight: H }}>
             {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
                 const y = padTop + (1 - f) * cH;
                 return <g key={i}>
                     <line x1={padL} y1={y} x2={W} y2={y} stroke="#f1f5f9" strokeWidth="1" />
-                    <text x={padL - 3} y={y + 3} textAnchor="end" fontSize="8" fill="#cbd5e1">{`$${((f * maxV) / 1000).toFixed(0)}k`}</text>
+                    <text x={padL - 3} y={y + 3} textAnchor="end" fontSize="8" fill="#cbd5e1">{`${currencySymbol()}${((f * maxV) / 1000).toFixed(0)}k`}</text>
                 </g>;
             })}
             <text x={8} y={H / 2} textAnchor="middle" fontSize="8" fill="#94a3b8" transform={`rotate(-90,8,${H / 2})`}>↑ USD ($)</text>
@@ -148,7 +149,7 @@ export default function Scope3ProcurementOptimizer({ sessionId, onComplete }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Scope 3 Procurement Optimizer</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
-                            {[['CO2 INTENSITY', `${avgCO2.toFixed(2)} kg/u`], ['UNIT COST', `$${avgCost.toFixed(2)}`], ['GROSS PROFIT', `$${(profit / 1000).toFixed(0)}k`], ['STATUS', contractSafe ? 'SECURED' : 'LOST']].map(([k, v]) => (
+                            {[['CO2 INTENSITY', `${avgCO2.toFixed(2)} kg/u`], ['UNIT COST', `${currencySymbol()}${avgCost.toFixed(2)}`], ['GROSS PROFIT', `${currencySymbol()}${(profit / 1000).toFixed(0)}k`], ['STATUS', contractSafe ? 'SECURED' : 'LOST']].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: k === 'STATUS' ? (contractSafe ? '#16a34a' : '#dc2626') : '#0f172a', fontSize: k === 'STATUS' ? '0.65rem' : 'inherit' }}>{v}</div>

@@ -95,11 +95,9 @@ export default function SideTrackPanel({ sessionId, onClose }) {
   const dismissResult = () => setCommitResult(null);
 
   const fmtCurrency = (v) => {
-    if (!v || isNaN(v)) return '$0';
+    if (!v || isNaN(v)) return `${currencySymbol()}0`;
     const abs = Math.abs(v);
-    if (abs >= 1_000_000) return `${v < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(1)}M`;
-    if (abs >= 1_000) return `${v < 0 ? '-' : ''}$${(abs / 1_000).toFixed(0)}K`;
-    return `${v < 0 ? '-' : ''}$${abs.toFixed(0)}`;
+    return money(v);
   };
 
   if (loading) {
@@ -630,4 +628,5 @@ export default function SideTrackPanel({ sessionId, onClose }) {
 }
 
 // Need React import for Fragment
-import React from 'react';
+import React from 'react';
+import { currencySymbol, money } from '../utils/format';

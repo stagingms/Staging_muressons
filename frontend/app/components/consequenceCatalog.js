@@ -34,6 +34,8 @@
  *   backend/npc_stakeholders.py, backend/balance_sheet.py,
  *   backend/ending_pathways.py, backend/stakeholder_map.py
  */
+import { money as fmtMoney } from '../utils/format';
+
 
 /* ═══════════════════════════════════════════════════════════════
    Formatting helpers (shared by the explain() sentences)
@@ -41,12 +43,12 @@
 
 const num = (v, fallback = 0) => (typeof v === 'number' && isFinite(v) ? v : fallback);
 
-/** $2.4M / $840K / $0 — always absolute, the sentence supplies the direction. */
+/** 2.4M / 840K / 0 in the session currency — always absolute; the sentence
+    supplies the direction. The export keeps the name `money` because it is this
+    module's public vocabulary, so the shared formatter is aliased on import;
+    without the alias the function calls itself. */
 export function money(v) {
-  const n = Math.abs(num(v));
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
+  return fmtMoney(Math.abs(num(v)));
 }
 
 /** 0.045 → "4.5%" (for rates already expressed as a fraction). */

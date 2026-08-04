@@ -139,6 +139,7 @@ import PlayerAnalytics from './components/PlayerAnalytics';
 import ShockwaveOverlay from './components/ShockwaveOverlay';
 import soundManager from './utils/soundManager';
 import { VERTICAL_SLOT_MAP, resolveVerticalMeta } from './lib/verticalCatalog';
+import { money } from './utils/format';
 
 // ── Advanced Climate Engine modules (lazy-loaded) ─────────────
 const GreenFundBidding = dynamic(() => import('./components/GreenFundBidding'), { ssr: false });
@@ -1061,7 +1062,7 @@ export default function CockpitPage() {
       }
       
       if (sim.events?.loan_interest_payment > 0) {
-        const fmtCurrency = (v) => v >= 1_000_000 ? `$${(v/1_000_000).toFixed(1)}M` : `$${(v/1000).toFixed(0)}K`;
+        const fmtCurrency = (v) => money(v);
         addMsg(`evt-loan-${roundNumber}`, '🏦 Loan Interest Charged', `Interest payment of -${fmtCurrency(sim.events.loan_interest_payment)} applied this round.`);
       }
 

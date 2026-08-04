@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import styles from './ConsequenceDNAVisualizer.module.css';
+import styles from './ConsequenceDNAVisualizer.module.css';
+import { currencySymbol } from '../utils/format';
 
 /**
  * ConsequenceDNAVisualizer — Sankey Diagram Pop-Out
@@ -220,7 +221,7 @@ export default function ConsequenceDNAVisualizer({
           ['Leverage Point', `LP${n.leverage_level || 12}`],
           ['Impact Score', (n.impact_score || 0).toFixed(2)],
           ['Category', n.category_label || (n.leverage_level <= 3 ? 'Deep Structural' : n.leverage_level <= 9 ? 'Feedback Loop' : 'Parameter Tweak')],
-          ['CAPEX', n.capex ? `$${(n.capex / 1e6).toFixed(1)}M` : '—'],
+          ['CAPEX', n.capex ? `${currencySymbol()}${(n.capex / 1e6).toFixed(1)}M` : '—'],
         ],
         color: leverageColor(n.leverage_level || 12),
       };

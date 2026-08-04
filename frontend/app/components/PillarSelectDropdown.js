@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import styles from './PillarSelectDropdown.module.css';
+import styles from './PillarSelectDropdown.module.css';
+import { currencySymbol } from '../utils/format';
 
 /**
  * PillarSelectDropdown — custom dropdown for strategic-pillar options with a
@@ -146,7 +147,7 @@ export default function PillarSelectDropdown({
 
   const selectedOption = value ? options[value] : null;
   const displayText = selectedOption
-    ? `${selectedOption.title} (${fmtCurrency?.(selectedOption.cost || 0) || '$0'})`
+    ? `${selectedOption.title} (${fmtCurrency?.(selectedOption.cost || 0) || `${currencySymbol()}0`})`
     : placeholder;
 
   /** Hover card placement: right of the menu, flipping left when tight. */
@@ -225,7 +226,7 @@ export default function PillarSelectDropdown({
                   aria-selected={isSelected}
                   title={describe(optKey)}   /* native fallback for touch/no-hover */
                 >
-                  {opt.title} ({fmtCurrency?.(opt.cost || 0) || '$0'})
+                  {opt.title} ({fmtCurrency?.(opt.cost || 0) || `${currencySymbol()}0`})
                 </div>
               );
             })}
@@ -240,7 +241,7 @@ export default function PillarSelectDropdown({
                   : (hoveredOpt.cost || 0) > 0 ? styles.tooltipCostNegative
                   : styles.tooltipCostZero
               }`}>
-                💰 {fmtCurrency?.(hoveredOpt.cost || 0) || '$0'}
+                💰 {fmtCurrency?.(hoveredOpt.cost || 0) || `${currencySymbol()}0`}
               </div>
 
               <p className={styles.tooltipDesc}>{describe(hovered.key)}</p>

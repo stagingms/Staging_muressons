@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const PRINCIPAL = 1_000_000_000;
@@ -140,7 +141,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>ESG Refinancing Simulator</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
-                            {[['BOND PRINCIPAL', '$1.0B'], ['NEW RATE', `${(rate * 100).toFixed(2)}%`], ['10Y IMPACT', `${saved ? '-' : '+'}$${Math.abs(Number(impact10y)).toFixed(1)}M`]].map(([k, v]) => (
+                            {[['BOND PRINCIPAL', '$1.0B'], ['NEW RATE', `${(rate * 100).toFixed(2)}%`], ['10Y IMPACT', `${saved ? '-' : '+'}${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(1)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: k === '10Y IMPACT' ? (saved ? '#16a34a' : '#dc2626') : '#0f172a' }}>{v}</div>
@@ -149,7 +150,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
                         </div>
                     </div>
                     <div style={{ fontSize: '0.72rem', color: saved ? '#16a34a' : '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>
-                        10-Year Financial Impact: You {saved ? `Saved $${Math.abs(Number(impact10y)).toFixed(0)}M` : `Paid $${Math.abs(Number(impact10y)).toFixed(0)}M extra`} compared to market baseline.
+                        10-Year Financial Impact: You {saved ? `Saved ${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(0)}M` : `Paid ${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(0)}M extra`} compared to market baseline.
                     </div>
                 </div>
 

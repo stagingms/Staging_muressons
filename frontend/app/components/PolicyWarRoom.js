@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { currencySymbol } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const WAR_CHEST = 5_000_000;
@@ -124,7 +125,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Executive Policy Allocator</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
-                            {[['LEGISLATIVE PROBABILITY', `${prob}%`], ['PROJECTED OUTCOME', outcome], ['REMAINING BUDGET', `$${(remaining / 1e6).toFixed(2)}M`]].map(([k, v]) => (
+                            {[['LEGISLATIVE PROBABILITY', `${prob}%`], ['PROJECTED OUTCOME', outcome], ['REMAINING BUDGET', `${currencySymbol()}${(remaining / 1e6).toFixed(2)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: '#0f172a', fontSize: k === 'PROJECTED OUTCOME' ? '0.75rem' : 'inherit' }}>{v}</div>

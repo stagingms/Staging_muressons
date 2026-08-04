@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { moneyM } from '../utils/format';
 
 /**
  * StochasticDiceRoll — Phase 3.5
@@ -20,7 +21,7 @@ export default function StochasticDiceRoll({
   probability = 0.75,
   outcome = true,
   damageAmount = 12000000,
-  fmtCurrency = (v) => `$${(v / 1e6).toFixed(1)}M`,
+  fmtCurrency = (v) => moneyM(v),
   onDismiss,
   eventName = 'CLIMATE EVENT',  // Override for specific event type (e.g. 'TYPHOON', 'DROUGHT')
 }) {
