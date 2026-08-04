@@ -2237,21 +2237,15 @@ export default function ExecutiveCockpit({
               );
             })()}
 
-            {/* What is LEFT, not what the budget was. */}
-            {(() => {
-              const spent = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
-              const left = (csfPool || 0) - spent;
-              return (
-                <div className={focusStyles.remain}>
-                  <span className={focusStyles.remainBig} data-over={left < 0 ? 'true' : undefined} aria-live="polite">
-                    {fmtCurrency(left)}
-                  </span>
-                  <span className={focusStyles.remainCap}>
-                    {left < 0 ? 'over the' : 'remaining of the'} {fmtCurrency(csfPool)} fund
-                  </span>
-                </div>
-              );
-            })()}
+            {/* NO SECOND "REMAINING" HERE. I added one — 32px, above the fold,
+                matching the mock — without checking that InvestmentMatrix
+                already renders the figure in its pool header, beside the donut
+                and the allocated total. Two readouts, same word, about 120px
+                apart. Worse, they disagreed: this one showed negatives while
+                the matrix clamps at Math.max(0, …), so an over-allocated team
+                would have read "−1.5M" here and "0" there. That is the exact
+                class of defect this whole review opened on. The matrix owns it
+                because the matrix owns the arithmetic. */}
 
             <InvestmentMatrix
               csfPool={csfPool}
