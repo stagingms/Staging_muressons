@@ -2132,32 +2132,73 @@ export default function ExecutiveCockpit({
               phase={globalState?.active_event_flags?.turnaround_phase}
               round={globalState?.turnaround_round} maxRounds={4} />
 
-            {/* Locked decision summary */}
-            <div className={focusStyles.decisionSummary}>
-              <div className={focusStyles.decisionSummaryTitle}>📋 Locked Strategic Decision</div>
-              {isPillarMode ? (
-                Object.entries(pillarSelections || {}).map(([areaKey, optKey]) => (
+            {/* The stage states its job, same as the decision stage does.
+                What replaced the "Locked Strategic Decision" box for A/B/C:
+                that box spent a full card restating one line the player had
+                chosen ninety seconds earlier. It is now the subhead — still
+                there, no longer a panel. Pillar mode keeps the box, because
+                four selections genuinely are a list. */}
+            <div className={focusStyles.stageHead}>
+              <div className={focusStyles.stageEyebrow}>Capital allocation</div>
+              <h2 className={focusStyles.stageQuestion}>
+                Deploy the {fmtCurrency(csfPool)} sustainability fund.
+              </h2>
+              {!isPillarMode && decisionChoice && (
+                <p className={focusStyles.stageSub}>
+                  You chose {decisionChoice.replace('option_', 'Option ').toUpperCase()}
+                  {options[decisionChoice]?.title ? ` — ${options[decisionChoice].title}.` : '.'}
+                </p>
+              )}
+            </div>
+
+            {isPillarMode && (
+              <div className={focusStyles.decisionSummary}>
+                <div className={focusStyles.decisionSummaryTitle}>📋 Locked Strategic Decision</div>
+                {Object.entries(pillarSelections || {}).map(([areaKey, optKey]) => (
                   <div key={areaKey} className={focusStyles.decisionSummaryRow}>
                     <span>{AREA_ICONS[areaKey] || '📌'} {pillarConfig?.areas?.[areaKey]?.label || areaKey}</span>
                     <span className={focusStyles.decisionSummaryValue}>{pillarConfig?.areas?.[areaKey]?.options?.[optKey]?.title || optKey}</span>
                   </div>
-                ))
-              ) : (
-                <div className={focusStyles.decisionSummaryRow}>
-                  <span>Selected Strategy</span>
-                  <span className={focusStyles.decisionSummaryValue}>
-                    {decisionChoice?.replace('option_', 'Option ').toUpperCase()} — {options[decisionChoice]?.title || ''}
+                ))}
+              </div>
+            )}
+
+            {/* The SAME authored sentence the player read while deciding. It is
+                not repetition: it stated what the choice makes fundable, and
+                that is precisely the rule now governing this screen. Rewriting
+                it as a second string would be a second thing to keep true. */}
+            {!isPillarMode && decisionChoice && (() => {
+              const line = optionConstraint({
+                paradigm: 'narrative',
+                roundNumber,
+                optionKey: decisionChoice,
+                index: ['option_a', 'option_b', 'option_c'].indexOf(decisionChoice),
+              });
+              if (!line) return null;
+              return (
+                <p className={focusStyles.constraintLine}>
+                  {constraintSegments(line).map((seg, i) => (
+                    seg.bold ? <strong key={i}>{seg.text}</strong> : <span key={i}>{seg.text}</span>
+                  ))}
+                </p>
+              );
+            })()}
+
+            {/* What is LEFT, not what the budget was. */}
+            {(() => {
+              const spent = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
+              const left = (csfPool || 0) - spent;
+              return (
+                <div className={focusStyles.remain}>
+                  <span className={focusStyles.remainBig} data-over={left < 0 ? 'true' : undefined} aria-live="polite">
+                    {fmtCurrency(left)}
+                  </span>
+                  <span className={focusStyles.remainCap}>
+                    {left < 0 ? 'over the' : 'remaining of the'} {fmtCurrency(csfPool)} fund
                   </span>
                 </div>
-              )}
-            </div>
-
-            <div className={focusStyles.sectionTitle}>
-              <span>💰</span> Capital Allocation
-              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 800, color: '#00e5c3' }}>
-                Budget: {fmtCurrency(csfPool)}
-              </span>
-            </div>
+              );
+            })()}
 
             <InvestmentMatrix
               csfPool={csfPool}

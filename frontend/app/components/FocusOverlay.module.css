@@ -1020,7 +1020,6 @@
 @media (prefers-reduced-motion: reduce) {
   .constraintLine { transition: none; }
 }
-<<<<<<< HEAD
 
 /* ═══════════════════════════════════════════════════════════════════
    THE OPTION CARDS.
@@ -1154,5 +1153,35 @@
   .opt { transition: none; }
 }
 
-=======
->>>>>>> ui/player-surface-phases-0-4
+/* ═══════════════════════════════════════════════════════════════════
+   THE REMAINING READOUT.
+
+   The allocation stage announced "Budget: X" in 11.5px at the end of a
+   section title. But the budget is a constant a team reads once; the number
+   they watch is what is LEFT, and it changes with every drag. Promote the
+   variable, demote the constant: the remainder at 32px in tabular figures,
+   the pool beside it as caption.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.remain {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 24px 0;
+  flex-wrap: wrap;
+}
+.remainBig {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.remainBig[data-over='true'] { color: var(--danger-text); }
+.remainCap {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
