@@ -375,19 +375,6 @@
 }
 .healthChipDanger .healthDot { background: var(--danger-text, #f87171); animation: healthPulse 2s ease-in-out infinite; }
 
-.buThesis {
-    display: block;
-    margin-top: 2px;
-    font-size: 0.66rem;
-    line-height: 1.35;
-    color: var(--text-secondary, #cbd5e1);
-    /* CA-D: one line + ellipsis so tiles in a row keep equal height. */
-    max-width: 30ch;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .metricsToggle {
     background: transparent;
     border: 1px solid var(--border-subtle, rgba(148,163,184,0.2));

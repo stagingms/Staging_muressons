@@ -377,6 +377,30 @@ export default function InvestmentMatrix({
                                 the funding decision most directly moves, and it
                                 gates the green premium. It reads as a score with
                                 its scale, never a bare number. */}
+                            {/* NO THESIS LINE. It was a first-match cascade over
+                                margin, social licence and governance risk, in that
+                                fixed order, reporting ONE of them. Three problems,
+                                and the third is the one that settled it.
+
+                                It was a complaint, not a case for funding: six of
+                                its seven outputs named a fault, and only the
+                                all-healthy fallback was positive. Its own docblock
+                                claimed it said "fund here because" — it never did.
+
+                                It hid worse news than it reported. A unit at margin
+                                10, licence 20, governance risk 45 — all three in
+                                danger — said only "Thin 10% margin", because margin
+                                is tested first. A team funds the margin and never
+                                learns about the licence.
+
+                                And once the row above carried all three inputs, it
+                                restated a number sitting directly over it on every
+                                one of the four business units. "margin 23%" then
+                                "Modest 23% margin". It had stopped adding anything.
+
+                                If a sentence returns here it should say what a number
+                                cannot — whether capital compounds or plugs a hole —
+                                rather than re-reading the row. */}
                             <div className={styles.sliderHeader}>
                                 <div className={styles.buInfo}>
                                     <span className={styles.buNameRow}>
