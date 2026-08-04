@@ -549,4 +549,8 @@ async def health_check():
         "demo_mode": _demo,
         "storage": _storage,
         "durable_storage": bool(_storage.get("durable")),
+        # A6: hoisted next to durable_storage so a monitor can alert on one
+        # top-level boolean. A full volume fails pack uploads and registry
+        # writes while every other health signal still reads green.
+        "low_disk_space": bool(_storage.get("low_space")),
     }

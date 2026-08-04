@@ -3,6 +3,7 @@ import Dialog from './Dialog';
 import styles from './JoinCohortModal.module.css';
 import ChangePasswordModal from './ChangePasswordModal';
 import PasswordInput from './PasswordInput';
+import { localStorageWritable, STORAGE_BLOCKED_MESSAGE } from '../utils/storageHealth';
 
 export default function JoinCohortModal({ sim }) {
     const [joining, setJoining] = useState(false);
@@ -38,6 +39,13 @@ export default function JoinCohortModal({ sim }) {
     // settings hiccup keeps it hidden — because solo is now opt-in, and
     // /solo-start refuses server-side regardless. (The default flipped from
     // opt-out on 2026-08-01.)
+    // B4: a player session is kept in localStorage (muressons_session_id,
+    // muressons_playerId, the ws ticket) and replayed as X-Player-Id — NO
+    // cookie is involved, so the facilitator screen's cookie warning would be
+    // the wrong diagnosis here. Probe the thing this screen actually needs.
+    const [storageBlocked, setStorageBlocked] = useState(false);
+    useEffect(() => { setStorageBlocked(!localStorageWritable()); }, []);
+
     const [soloEnabled, setSoloEnabled] = useState(false);
     useEffect(() => {
         const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -168,6 +176,15 @@ export default function JoinCohortModal({ sim }) {
                                 LOST CIPHER?
                             </button>
                         </div>
+
+                        {storageBlocked && (
+                            <div role="alert" style={{
+                                background: 'rgba(245,158,11,0.08)',
+                                border: '1px solid rgba(245,158,11,0.3)',
+                                color: '#fbbf24', padding: '0.6rem', borderRadius: 6,
+                                fontSize: '0.72rem', lineHeight: 1.5, marginBottom: '0.6rem',
+                            }}>⚠ {STORAGE_BLOCKED_MESSAGE}</div>
+                        )}
 
                         {error && (
                             <div className={styles.errorBox}>

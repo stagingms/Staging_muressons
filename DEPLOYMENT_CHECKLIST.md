@@ -47,7 +47,56 @@ then set `MURESSONS_DATA_DIR=/data`.
   URLs), redeploy, confirm the account still logs in and the settings persist —
   this is the exact failure the volume fixes.
 
-## 3. Rotate the burned secrets (QA #1)
+### 2b. Volume free space (A6, 2026-08-04)
+
+`writable: true` is written with a 2-byte probe, so it stays true with
+kilobytes left. A full volume therefore used to be invisible until a pack
+upload or a registry write failed **mid-class**, with every health signal green.
+
+`GET /health` now also reports:
+
+```json
+"low_disk_space": false,
+"storage": { "free_bytes": 48210739200, "total_bytes": 53687091200, "free_pct": 89.8, "low_space": false }
+```
+
+- `low_disk_space` trips under **10% free OR under 100 MB**, whichever comes
+  first — percentage alone is meaningless on a large disk, bytes alone on a
+  small volume.
+- If the platform refuses to report usage, the `free_*` keys are **absent** and
+  `low_space` stays `false`. Absence means *unknown*, not *healthy* — alert on
+  `low_disk_space == true`, and treat missing keys as a probe to investigate,
+  not an all-clear.
+- **Set a Railway alert on `low_disk_space`** (or poll `/health` from any
+  uptime monitor). This is the one signal that gives warning before writes fail.
+
+## 3. Deploy gating — do not let a push ship mid-class (A4)
+
+Deploy-on-push means any commit to the deploy branch restarts the container
+under a live workshop: ~1–2 minutes of downtime plus stale JS in every open
+tab. Two ways to close this; pick one.
+
+**Preferred — a `production` branch Railway watches.**
+
+1. Railway → service → Settings → **Source** → set the deploy branch to
+   `production`.
+2. Day-to-day work continues on `main`; CI still runs on every push.
+3. Ship deliberately, never during a session:
+   ```
+   git checkout production && git merge --ff-only main && git push origin production
+   git checkout main
+   ```
+   `--ff-only` is the point: it refuses if `production` has drifted, rather
+   than creating a surprise merge commit that ships something untested.
+
+**Simpler — disable auto-deploy.** Railway → service → Settings → turn off
+**Auto Deploy**, then press *Deploy* by hand. Fewer moving parts, but nothing
+records *what* was deployed or when, so prefer the branch if you can.
+
+Either way, also require the CI checks (§4) so a red build cannot reach the
+deploy branch in the first place.
+
+## 3b. Rotate the burned secrets (QA #1)
 
 `sim2026@iim` and `simadmin2026@` are in git history — treat them as public.
 Set fresh values (or leave the break-glass disabled). Never reuse the old ones.

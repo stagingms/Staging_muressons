@@ -67,13 +67,47 @@ def on_railway() -> bool:
     return bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
 
 
+# A6 (pre-class register): a FULL volume is invisible to every check we had.
+# `writable` probes with a 2-byte file, which still succeeds with kilobytes
+# left, so /health would report a healthy, durable volume right up to the
+# moment a pack upload or a registry write fails mid-class. These thresholds
+# make the last stretch observable BEFORE it bites. Percentage alone is wrong
+# on a large disk (10% of 100 GB is plenty) and bytes alone are wrong on a
+# small volume, so `low_space` trips on whichever is more alarming.
+LOW_SPACE_PCT = 10.0            # warn under 10% free…
+LOW_SPACE_BYTES = 100 * 1024 * 1024   # …or under 100 MB, whichever hits first
+
+
+def disk_free(path) -> dict:
+    """Free/total bytes for the filesystem holding `path`.
+
+    Returns `{}` when the platform refuses to answer (some sandboxes and
+    read-only mounts do). Callers must treat an absent reading as UNKNOWN,
+    never as healthy — see `low_space` below, which stays False when we
+    genuinely do not know, so this can never invent an alarm.
+    """
+    try:
+        usage = shutil.disk_usage(str(path))
+    except (OSError, ValueError):
+        return {}
+    pct = (usage.free / usage.total * 100.0) if usage.total else 0.0
+    return {
+        "free_bytes": int(usage.free),
+        "total_bytes": int(usage.total),
+        "free_pct": round(pct, 1),
+    }
+
+
 def storage_status() -> dict:
     """Durability report for the mutable-state directory.
 
     `durable` is the single flag deployments should alert on: True when the
     data dir is explicitly configured (MURESSONS_DATA_DIR → a mounted volume)
     AND writable, or when we're NOT on an ephemeral platform (local dev /
-    docker-compose with a bind mount, where <repo>/db is fine)."""
+    docker-compose with a bind mount, where <repo>/db is fine).
+
+    `low_space` is the second flag worth alerting on (A6): the volume can be
+    configured, writable and durable and still be one upload from full."""
     configured = bool(os.getenv("MURESSONS_DATA_DIR", "").strip())
     d = data_dir()
     writable = False
@@ -85,6 +119,17 @@ def storage_status() -> dict:
     except OSError:
         writable = False
     railway = on_railway()
+
+    space = disk_free(d)
+    # Unknown free space is NOT low space. A missing reading must not page
+    # anyone at 03:00, and must not mask a real shortage either — the absent
+    # free_* keys are the signal that the probe failed.
+    low_space = bool(
+        space
+        and (space["free_pct"] < LOW_SPACE_PCT
+             or space["free_bytes"] < LOW_SPACE_BYTES)
+    )
+
     return {
         "data_dir": str(d),
         "configured": configured,          # MURESSONS_DATA_DIR set
@@ -93,6 +138,8 @@ def storage_status() -> dict:
         # On Railway the container FS is ephemeral: durable ⇔ volume configured
         # and writable. Off Railway, <repo>/db is as durable as the host disk.
         "durable": (configured and writable) if railway else writable,
+        "low_space": low_space,
+        **space,
     }
 
 

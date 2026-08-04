@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PasswordInput from './PasswordInput';
+import { cookiesWritable, COOKIE_BLOCKED_MESSAGE } from '../utils/storageHealth';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -25,6 +26,14 @@ export default function AdminLogin({ onSuccess, subtitle }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [capsOn, setCapsOn] = useState(false);
+
+  // B4: this form's session is an HttpOnly JWT cookie. If the browser will not
+  // keep a first-party cookie, the POST still returns 200 and the dashboard
+  // bounces straight back here as "session expired" — which sends a
+  // facilitator hunting for a password fault that does not exist. Probe once
+  // on mount (client-only; SSR assumes fine) and say so plainly instead.
+  const [cookiesBlocked, setCookiesBlocked] = useState(false);
+  useEffect(() => { setCookiesBlocked(!cookiesWritable()); }, []);
 
   const trackCaps = (e) => {
     if (typeof e.getModifierState === 'function') setCapsOn(e.getModifierState('CapsLock'));
@@ -101,6 +110,13 @@ export default function AdminLogin({ onSuccess, subtitle }) {
               background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
               color: '#f59e0b', padding: '0.45rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem',
             }}>⇪ Caps Lock is on</div>
+          )}
+          {cookiesBlocked && (
+            <div role="alert" style={{
+              background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+              color: '#fbbf24', padding: '0.6rem', borderRadius: '6px',
+              fontSize: '0.78rem', lineHeight: 1.5,
+            }}>🍪 {COOKIE_BLOCKED_MESSAGE}</div>
           )}
           <div>
             <label style={labelStyle}>Facilitator ID</label>
