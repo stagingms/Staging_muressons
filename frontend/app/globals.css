@@ -82,12 +82,36 @@
   --font-mono: var(--font-jetbrains-mono, 'JetBrains Mono', 'Fira Code', monospace);
 
   /* Fluid Typography Scale (Tier 3: clamp-based responsive sizing) */
-  --fs-xs: clamp(0.72rem, 0.68rem + 0.12vw, 0.78rem);
-  --fs-sm: clamp(0.78rem, 0.74rem + 0.15vw, 0.85rem);
-  --fs-base: clamp(0.85rem, 0.8rem + 0.18vw, 0.95rem);
-  --fs-md: clamp(0.95rem, 0.88rem + 0.22vw, 1.1rem);
-  --fs-lg: clamp(1.1rem, 1rem + 0.3vw, 1.3rem);
-  --fs-xl: clamp(1.3rem, 1.15rem + 0.4vw, 1.6rem);
+  /* ═══ PHASE 6.1 — THE --fs-* FAMILY IS NOW AN ALIAS, NOT A SCALE ═══
+
+     What these were: six independent clamp() ramps, each interpolating on
+     viewport width. Two problems.
+
+     --fs-xs floored at 0.72rem = 11.52px, BELOW the 12px floor tokens.css
+     sets for anything a player reads, and it is the most-used of the six
+     (40 of the 74 references). So the smallest type in the product got
+     smaller on the smallest screens, which is backwards.
+
+     And six ramps against a four-step scale is two type systems. A clamp
+     also means no two elements share a size unless they share a token —
+     11.52 to 12.48 and 12.48 to 13.6 overlap at exactly one viewport
+     width — so vertical rhythm was a coincidence of window size.
+
+     They now resolve to the scale. Nothing is deleted: 74 call sites keep
+     working, and they move onto the scale by editing six lines rather than
+     seventy-four. Deleting the names is a later, separate change with no
+     behavioural content.
+
+     The mapping collapses --fs-sm and --fs-base onto body (their clamps
+     overlapped through most of the range) and takes --fs-lg and --fs-xl to
+     display — a visible bump on the eight sites that use them, which is the
+     one thing to look at on a real screen. ══════════════════════════════ */
+  --fs-xs:   var(--type-caption);   /* was 11.52-12.48px — floor breach */
+  --fs-sm:   var(--type-body);      /* was 12.48-13.60px */
+  --fs-base: var(--type-body);      /* was 13.60-15.20px */
+  --fs-md:   var(--type-title);     /* was 15.20-17.60px */
+  --fs-lg:   var(--type-display);   /* was 17.60-20.80px */
+  --fs-xl:   var(--type-display);   /* was 20.80-25.60px */
 
   /* Spacing scale */
   --space-xs: 4px;
