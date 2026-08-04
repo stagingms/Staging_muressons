@@ -2248,17 +2248,35 @@ export default function ExecutiveCockpit({
               );
             })()}
 
-            {/* NO SECOND "REMAINING" HERE. I added one — 32px, above the fold,
-                matching the mock — without checking that InvestmentMatrix
-                already renders the figure in its pool header, beside the donut
-                and the allocated total. Two readouts, same word, about 120px
-                apart. Worse, they disagreed: this one showed negatives while
-                the matrix clamps at Math.max(0, …), so an over-allocated team
-                would have read "−1.5M" here and "0" there. That is the exact
-                class of defect this whole review opened on. The matrix owns it
-                because the matrix owns the arithmetic. */}
+            {/* THE ONLY "REMAINING". Earlier today I added this, found that
+                InvestmentMatrix rendered the same figure 120px below in its pool
+                header, and removed mine as the duplicate. The mock resolves it
+                the other way: the figure belongs at the top of the stage at
+                display size, and the matrix's pool header — donut, CSF Pool,
+                Allocated, Remaining — is what goes. So this returns, and the
+                matrix renders with chrome={false}. One readout either way; this
+                is the one a team reads while dragging.
+
+                It shows negatives, which the matrix's clamped version could not:
+                over-allocating is a real state the engine permits up to 120%,
+                and a readout stuck at zero is the one that lies. */}
+            {(() => {
+              const spent = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
+              const left = (csfPool || 0) - spent;
+              return (
+                <div className={focusStyles.remain}>
+                  <span className={focusStyles.remainBig} data-over={left < 0 ? 'true' : undefined} aria-live="polite">
+                    {fmtCurrency(left)}
+                  </span>
+                  <span className={focusStyles.remainCap}>
+                    {left < 0 ? 'over the' : 'remaining of'} {fmtCurrency(csfPool)}
+                  </span>
+                </div>
+              );
+            })()}
 
             <InvestmentMatrix
+              chrome={false}
               csfPool={csfPool}
               globalState={globalState}
               businessUnits={businessUnits}
@@ -2337,6 +2355,12 @@ export default function ExecutiveCockpit({
                   {yourCall}
                   {topBu ? ` — ${fmtCurrency(topBu[1])} to ${topBu[0]}` : ''}
                 </span>
+                {/* A STATEMENT, NOT A CONTROL. The mock draws this in the link
+                    colour; the player cannot act on it, and something that
+                    looks clickable and is not is a worse affordance than
+                    plain text. It is true — cohort_advance_unblocked is what
+                    Force Advance and the free-mode timeout both set. */}
+                <span className={focusStyles.lockedNote}>Facilitator can unlock</span>
               </div>
 
               <div
@@ -2361,6 +2385,32 @@ export default function ExecutiveCockpit({
                 score this round? Say it out loud as a team, then check it
                 against the result.
               </p>
+
+              {/* ONLY WHAT EXISTS. The mock offers three: record a prediction,
+                  re-read the CFO memo, review your R1 decision. The first has
+                  no post-commit surface — the prediction modal is part of the
+                  COMMIT flow and is gone by now — so writing that link would
+                  mean building a second prediction store, which is a feature,
+                  not a layout. It is left out rather than rendered dead. The
+                  other two are routes that already exist: the decision history
+                  lives on the right rail's Decisions tab, and the briefing on
+                  the dashboard. Each opens what it names. */}
+              <div className={focusStyles.resultLinks}>
+                <button
+                  type="button"
+                  className={focusStyles.resultLink}
+                  onClick={() => { setRailsPinnedOpen(true); setRightPanelTab('decisions'); }}
+                >
+                  Review your earlier decisions
+                </button>
+                <button
+                  type="button"
+                  className={focusStyles.resultLink}
+                  onClick={handleFocusDismiss}
+                >
+                  Back to the full dashboard
+                </button>
+              </div>
             </div>
           );
         })()}
@@ -2429,76 +2479,59 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
-            <div className={focusStyles.focusResultsGrid}>
-              {(() => {
-                const newTreasury = commitResults.globalState?.corporate_treasury || 0;
-                const newEbitda = commitResults.globalState?.historical_ebitda || 0;
-                const newRep = commitResults.globalState?.group_reputation || 50;
-                const newCarbon = commitResults.globalState?.tco2e_emissions || 0;
-                const dTreasury = newTreasury - treasury;
-                const dRep = newRep - reputation;
-                const dCarbon = newCarbon - tco2e;
-                return (
-                  <>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>💰</div>
-                      <div className={focusStyles.focusResultLabel}>Treasury</div>
-                      <div className={focusStyles.focusResultValue}>{fmtCurrency(newTreasury)}</div>
-                      {dTreasury !== 0 && (
-                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dTreasury >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                          {dTreasury >= 0 ? '▲' : '▼'} {fmtCurrency(Math.abs(dTreasury))}
+            {/* THE OUTCOME TILES. Same shape as the belt above them, because
+                they are the same kind of object: a label, a figure, and what it
+                did. What they replaced was an emoji card per metric — a 2rem
+                glyph, a label, a value and a coloured delta inside a bordered
+                panel — which gave the icon more area than the number and made
+                four readings look like four unrelated widgets rather than one
+                row you scan.
+
+                Colour is never the only encoding: every delta carries its sign
+                glyph, and the direction is read from the metric's own polarity
+                (carbon falling is good, treasury falling is not). */}
+            {(() => {
+              const g = commitResults.globalState || {};
+              const tiles = [
+                { label: 'Treasury',   now: g.corporate_treasury, was: treasury,   fmt: fmtCurrency, good: 1 },
+                { label: 'EBITDA',     now: g.historical_ebitda,  was: ebitda,     fmt: fmtCurrency, good: 1 },
+                { label: 'Reputation', now: g.group_reputation,   was: reputation, fmt: (v) => Math.round(v).toString(), good: 1 },
+                { label: 'Carbon',     now: g.tco2e_emissions,    was: tco2e,      fmt: (v) => Math.round(v).toLocaleString(), good: -1 },
+              ].filter((t) => t.now != null);
+              return (
+                <div className={focusStyles.belt}>
+                  {tiles.map((t) => {
+                    const d = t.was == null ? null : t.now - t.was;
+                    const dir = !d ? null : (d > 0) === (t.good > 0) ? 'up' : 'down';
+                    return (
+                      <div key={t.label} className={focusStyles.beltTile}>
+                        <div className={focusStyles.beltLabel}>{t.label}</div>
+                        <div className={focusStyles.beltValue}>{t.fmt(t.now)}</div>
+                        <div className={focusStyles.beltDelta} data-dir={dir || undefined}>
+                          {d == null || d === 0 ? 'unchanged' : `${d > 0 ? '+' : '−'}${t.fmt(Math.abs(d))}`}
                         </div>
-                      )}
-                    </div>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>📈</div>
-                      <div className={focusStyles.focusResultLabel}>EBITDA</div>
-                      <div className={focusStyles.focusResultValue}>{fmtCurrency(newEbitda)}</div>
-                    </div>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>🌍</div>
-                      <div className={focusStyles.focusResultLabel}>Reputation</div>
-                      <div className={focusStyles.focusResultValue}>{newRep.toFixed(0)}/100</div>
-                      {dRep !== 0 && (
-                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dRep >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                          {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
-                        </div>
-                      )}
-                    </div>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>🏭</div>
-                      <div className={focusStyles.focusResultLabel}>CO₂</div>
-                      <div className={focusStyles.focusResultValue}>{newCarbon.toLocaleString()}t</div>
-                      {dCarbon !== 0 && (
-                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dCarbon <= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                          {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()}t
-                        </div>
-                      )}
-                    </div>
-                    {/* Balance Sheet (Focus Results) — clickable */}
-                    {(() => {
-                      const bsF = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
-                      // Null-data guard stays; the visibility switch ANDs onto it.
-                      if (!bsF || typeof bsF !== 'object' || bsF.net_assets == null) return null;
-                      if (!isPlayerVisible('balance_sheet_modal')) return null;
-                      const cColor = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
-                      const cIcon = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
-                      return (
-                        <div className={focusStyles.focusResultCard} style={{ cursor: 'pointer' }} onClick={() => setResultsBsModalOpen(true)} title="Click to view full Balance Sheet">
-                          <div className={focusStyles.focusResultIcon}>📊</div>
-                          <div className={focusStyles.focusResultLabel}>Net Assets</div>
-                          <div className={focusStyles.focusResultValue}>{moneyM(bsF.net_assets || 0, { dp: 0 })}</div>
-                          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cColor[bsF.covenant_status] || '#38bdf8', marginTop: 2 }}>
-                            {cIcon[bsF.covenant_status] || '📊'} D/E: {(bsF.debt_to_equity || 0).toFixed(2)}×
-                          </div>
-                          <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 4, fontWeight: 600 }}>🔍 Click to expand</div>
-                        </div>
-                      );
-                    })()}
-                  </>
-                );
-              })()}
-            </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* The balance sheet keeps its own card — it opens a modal, so it is
+                a control, not a readout, and it does not belong in a row of
+                figures. */}
+            {(() => {
+              const bsF = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
+              if (!bsF || typeof bsF !== 'object' || bsF.net_assets == null) return null;
+              if (!isPlayerVisible('balance_sheet_modal')) return null;
+              return (
+                <div className={focusStyles.resultLinks}>
+                  <button type="button" className={focusStyles.resultLink} onClick={() => setResultsBsModalOpen(true)}>
+                    Net assets {moneyM(bsF.net_assets || 0, { dp: 0 })} · debt-to-equity {(bsF.debt_to_equity || 0).toFixed(2)}×
+                  </button>
+                </div>
+              );
+            })()}
 
             {/* THE DEEP DIVES, SUMMONED.
                 A link is only offered when its panel would actually render —
@@ -2938,6 +2971,7 @@ export default function ExecutiveCockpit({
           <div className={`${styles.decisionArea} ${styles.deepDiveEnter}`} style={{ flex: 'none', overflow: 'visible', borderBottom: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0', paddingBottom: 8, position: 'relative' }}>
             <div id="tour-capital-target">
             <InvestmentMatrix
+              chrome={false}
               csfPool={csfPool}
               globalState={globalState}
               businessUnits={businessUnits}

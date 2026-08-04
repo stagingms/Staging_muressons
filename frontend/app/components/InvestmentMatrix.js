@@ -102,6 +102,15 @@ export default function InvestmentMatrix({
     onAllocationsChange,
     historyData = [],
     decisionParadigm = 'legacy_abc',
+    /* CHROME. The capital stage now states the fund and what is left of it in
+       its own stage head, at display size, above this component. With chrome
+       off, the pool header (donut, CSF Pool, Allocated, Remaining), the pool
+       bar and the sort row are suppressed so the same three numbers are not
+       announced twice on one screen. The rows, the slider behaviour, the 120%
+       ceiling and every warning stay exactly as they are.
+
+       Default TRUE so the dashboard path and any other caller are untouched. */
+    chrome = true,
 }) {
     const { currency } = useCurrency();
     const sym = currency?.symbol || '$';
@@ -212,8 +221,9 @@ export default function InvestmentMatrix({
     }, [businessUnits, handleSlider]);
 
     return (
-        <section className={styles.matrix}>
+        <section className={`${styles.matrix} ${chrome ? '' : styles.matrixBare}`}>
             {/* Pool summary */}
+            {chrome && (
             <div className={styles.poolHeader} style={{ '--pool-warmth': poolWarmth }}>
                 <div className={styles.poolTitleRow}>
                     <div className={styles.poolTitle}>
@@ -306,9 +316,11 @@ export default function InvestmentMatrix({
                 )}
             </div>
 
+            )}
+
             {/* Sort toggle — hidden in the single-BU (single-SBU) simulation:
                 there is nothing to sort with one unit. */}
-            {(businessUnits?.length || 0) > 1 && (
+            {chrome && (businessUnits?.length || 0) > 1 && (
                 <div className={styles.sortBar}>
                     <span className={styles.sortLabel}>Sort:</span>
                     {SORT_OPTIONS.map(opt => (
@@ -436,6 +448,7 @@ export default function InvestmentMatrix({
                                     className={styles.slider}
                                     style={{ '--pct': `${thumbPct}%`, '--accent': meta.accent, '--slider-color': sliderColor }}
                                 />
+                                {chrome && (
                                 <div className={styles.sliderTicks}>
                                     {[0, 25, 50, 75, 100].map(t => (
                                         <span key={t} className={styles.sliderTickLabel}>
@@ -444,14 +457,17 @@ export default function InvestmentMatrix({
                                         </span>
                                     ))}
                                 </div>
+                                )}
                             </div>
 
                             {/* Footer — how much of the pool this unit is taking.
                                 The metrics drawer went with the four gauges it
                                 held; see the header note. */}
+                            {chrome && (
                             <div className={styles.sliderFooter}>
                                 <span className={styles.footerLabel}>{pct.toFixed(1)}% of pool</span>
                             </div>
+                            )}
 
                             {/* Render Funded Mitigations for this BU */}
                             {buFundedIssues.length > 0 && (

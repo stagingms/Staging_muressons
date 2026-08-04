@@ -869,3 +869,74 @@
         transition: none !important;
     }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   BARE — the capital stage's flat list.
+
+   With chrome off the card stops being a card. No panel background, no
+   accent left-edge, no border, no shadow, no entry animation: a business
+   unit is a ROW in a list of four, and four bordered panels on a stage
+   that already has a headline and a constraint line is three levels of
+   containment for one level of content.
+
+   Name and figures left, slider and amount right, on one baseline.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.matrixBare { gap: 0; }
+
+.matrixBare .sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.matrixBare .sliderCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 340px) auto;
+  align-items: center;
+  column-gap: var(--space-5);
+  padding: var(--space-4) 0;
+  background: none;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
+
+.matrixBare .sliderHeader {
+  display: block;
+  padding: 0;
+  gap: 0;
+}
+.matrixBare .buInfo { gap: var(--space-1); }
+.matrixBare .buLabel { font-size: var(--type-title); font-weight: 500; }
+.matrixBare .buRevenue { font-size: var(--type-body); color: var(--text-muted); }
+
+/* The slider moves out of the header's flow and into the middle column. */
+.matrixBare .sliderRow {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  padding: 0;
+}
+.matrixBare .sliderTooltip { display: none; }
+
+/* The amount reads as a figure, not a badge. */
+.matrixBare .allocAmount {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  font-size: var(--type-title);
+  font-variant-numeric: tabular-nums;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+@media (max-width: 900px) {
+  .matrixBare .sliderCard { grid-template-columns: 1fr; row-gap: var(--space-2); }
+  .matrixBare .sliderRow, .matrixBare .allocAmount { grid-column: 1; grid-row: auto; justify-self: start; }
+}
+

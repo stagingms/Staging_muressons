@@ -1370,3 +1370,37 @@
   text-decoration-color: var(--text-primary);
 }
 
+
+/* The fund's remainder — the number a team watches while dragging. Restored
+   with the matrix's pool header removed, so it is the only one on the screen. */
+.remain {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  flex-wrap: wrap;
+}
+.remainBig {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.remainBig[data-over='true'] { color: var(--danger-text); }
+.remainCap {
+  font-size: var(--type-body);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A fact about who can move the round on, in the muted weight — deliberately
+   not the link colour, because the player cannot act on it. */
+.lockedNote {
+  margin-left: auto;
+  font-size: var(--type-body);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
