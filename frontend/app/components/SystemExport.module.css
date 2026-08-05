@@ -15,7 +15,7 @@
 .statsGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .stat { text-align: center; }
 .statVal { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); }
-.statLabel { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
+.statLabel { font-size: var(--type-caption); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
 .preview { margin-top: 1rem; }
 .preview summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); padding: 0.5rem 0; }
-.json { background: var(--bg-body); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; font-size: 0.7rem; font-family: var(--font-mono); overflow: auto; max-height: 400px; color: var(--text-secondary); white-space: pre-wrap; }
+.json { background: var(--bg-body); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; font-size: var(--type-caption); font-family: var(--font-mono); overflow: auto; max-height: 400px; color: var(--text-secondary); white-space: pre-wrap; }

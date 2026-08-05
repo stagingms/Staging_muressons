@@ -445,7 +445,7 @@ export default function SimulationSwitchboard() {
                             value={carbonFee}
                             onChange={e => setCarbonFee(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
                             <span>$20</span><span>$150</span>
                         </div>
                     </div>
@@ -466,7 +466,7 @@ export default function SimulationSwitchboard() {
                             value={hostility}
                             onChange={e => setHostility(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
                             <span>LOW</span><span>CRITICAL</span>
                         </div>
                     </div>
@@ -487,7 +487,7 @@ export default function SimulationSwitchboard() {
                             value={scope3}
                             onChange={e => setScope3(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
                             <span>1.0</span><span>5.0</span>
                         </div>
                     </div>
@@ -496,7 +496,7 @@ export default function SimulationSwitchboard() {
                 {/* ── Single-BU Mode ── */}
                 <div style={{ marginTop: '1.2rem' }}>
                     <div className={styles.sectionLabel} style={{ marginBottom: '0.5rem' }}>Single-BU Mode</div>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
                         Restrict all player views to one Business Unit only.
                         Set to <em>All BUs</em> for the standard 4-BU simulation.
                     </div>
@@ -510,7 +510,7 @@ export default function SimulationSwitchboard() {
                             border: assignedBu ? '1px solid rgba(245,158,11,0.5)' : '1px solid var(--border-subtle)',
                             color: assignedBu ? 'var(--accent-gold)' : 'var(--text-secondary)',
                             fontFamily: 'var(--font-mono)',
-                            fontSize: '0.72rem',
+                            fontSize: 'var(--type-caption)',
                             borderRadius: 'var(--radius-sm)',
                             cursor: 'pointer',
                             letterSpacing: '0.04em',
@@ -524,7 +524,7 @@ export default function SimulationSwitchboard() {
                         <option value='software'>Software</option>
                     </select>
                     {assignedBu && (
-                        <div style={{ marginTop: '0.4rem', fontSize: '0.63rem', color: 'var(--accent-gold)', letterSpacing: '0.06em' }}>
+                        <div style={{ marginTop: '0.4rem', fontSize: 'var(--type-caption)', color: 'var(--accent-gold)', letterSpacing: '0.06em' }}>
                             ⚠ SINGLE-BU MODE ACTIVE — players see only: {assignedBu.toUpperCase()}
                         </div>
                     )}
@@ -533,7 +533,7 @@ export default function SimulationSwitchboard() {
                 {/* ── Apply button ── */}
                 <div style={{ marginTop: 'auto' }}>
                     {saveMsg && (
-                        <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', color: 'var(--gauge-green)', marginBottom: '0.75rem', fontWeight: 600 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.06em', color: 'var(--gauge-green)', marginBottom: '0.75rem', fontWeight: 600 }}>
                             {saveMsg}
                         </div>
                     )}
@@ -549,7 +549,7 @@ export default function SimulationSwitchboard() {
                             border: advanced ? '1px solid rgba(245,158,11,0.45)' : '1px solid rgba(59,130,246,0.3)',
                             color: advanced ? 'var(--accent-gold)' : 'var(--accent-blue)',
                             fontFamily: 'var(--font-mono)',
-                            fontSize: '0.7rem',
+                            fontSize: 'var(--type-caption)',
                             fontWeight: 700,
                             letterSpacing: '0.1em',
                             textTransform: 'uppercase',
@@ -563,7 +563,7 @@ export default function SimulationSwitchboard() {
                     </button>
 
                     {/* Data state readout — monospace mini-table */}
-                    <div style={{ marginTop: '0.75rem', fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', opacity: 0.55, lineHeight: 1.9 }}>
+                    <div style={{ marginTop: '0.75rem', fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', opacity: 0.55, lineHeight: 1.9 }}>
                         <div>timeline_branch: {advanced ? '"ADVANCED"' : '"STANDARD"'}</div>
                         <div>global_carbon_fee: {carbonFee}</div>
                         <div>market_hostility_index: {hostility}</div>
@@ -578,7 +578,7 @@ export default function SimulationSwitchboard() {
                 <div className={styles.rightHeader}>
                     Simulation Timeline Visualiser — Module Branch Map
                     {advanced && (
-                        <span style={{ marginLeft: 'auto', color: '#ff4444', fontSize: '0.68rem', letterSpacing: '0.1em' }}>
+                        <span style={{ marginLeft: 'auto', color: '#ff4444', fontSize: 'var(--type-caption)', letterSpacing: '0.1em' }}>
                             ⚡ ADVANCED CLIMATE ENGINE ACTIVE
                         </span>
                     )}
@@ -620,7 +620,7 @@ export default function SimulationSwitchboard() {
                         <span style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
                             🛤️ Side Track Simulations — Global Master Control
                         </span>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 4 }}>
                             Default track pool for <strong>base facilitators</strong>.
                             Lead facilitators and above may assign any registered track to their cohorts
                             regardless of this pool (their bypass is audited).
@@ -628,7 +628,7 @@ export default function SimulationSwitchboard() {
                     </div>
                     {trackMsg && (
                         <span style={{
-                            fontSize: '0.72rem', fontWeight: 600,
+                            fontSize: 'var(--type-caption)', fontWeight: 600,
                             color: trackMsg.startsWith('✓') ? 'var(--gauge-green)' : 'var(--gauge-yellow)',
                             flexShrink: 0, marginLeft: '1rem',
                         }}>
@@ -670,12 +670,12 @@ export default function SimulationSwitchboard() {
                                         color: isOn ? 'var(--accent-gold)' : 'var(--text-muted)',
                                     }}>
                                         {track.display_name || track.track_id}
-                                        <span style={{ fontWeight: 400, marginLeft: 6, fontSize: '0.68rem', opacity: 0.7 }}>
+                                        <span style={{ fontWeight: 400, marginLeft: 6, fontSize: 'var(--type-caption)', opacity: 0.7 }}>
                                             ({track.num_rounds || '?'} rounds)
                                         </span>
                                     </span>
                                     <span style={{
-                                        display: 'block', fontSize: '0.7rem', marginTop: 3, lineHeight: 1.4,
+                                        display: 'block', fontSize: 'var(--type-caption)', marginTop: 3, lineHeight: 1.4,
                                         color: isOn ? 'var(--text-secondary)' : 'var(--text-muted)',
                                     }}>
                                         {track.description?.substring(0, 90)}{track.description?.length > 90 ? '…' : ''}
@@ -704,7 +704,7 @@ export default function SimulationSwitchboard() {
                 <div style={{
                     marginTop: '0.8rem', paddingTop: '0.6rem',
                     borderTop: '1px solid rgba(255,255,255,0.04)',
-                    fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', opacity: 0.6,
+                    fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', opacity: 0.6,
                     display: 'flex', justifyContent: 'space-between',
                 }}>
                     <span>enabled_tracks: [{enabledTracks.join(', ') || 'none'}]</span>
@@ -763,7 +763,7 @@ export function CohortSettingsMatrix() {
         const s = map[src] || map.none;
         return (
             <span style={{
-                fontSize: '0.6rem', padding: '1px 6px', borderRadius: 8,
+                fontSize: 'var(--type-caption)', padding: '1px 6px', borderRadius: 8,
                 border: `1px solid ${s.color}`, color: s.color, letterSpacing: '0.04em',
             }}>{s.label}</span>
         );
@@ -785,20 +785,20 @@ export function CohortSettingsMatrix() {
                     <span style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
                         🗂️ Cohort Settings — Effective vs. Global
                     </span>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
                         Which live cohorts run non-default climate parameters, and where each cohort&apos;s
                         BU scope is decided. Read-only — set overrides per cohort via cohort settings.
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
-                    <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                    <label style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                         <input type="checkbox" checked={onlyDiverged} onChange={e => setOnlyDiverged(e.target.checked)} />
                         Only diverged ({divergedCount})
                     </label>
                     <button onClick={load} disabled={loading} style={{
                         padding: '0.35rem 0.8rem', borderRadius: 'var(--radius-sm)',
                         border: '1px solid var(--border-subtle)', background: 'transparent',
-                        color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 600,
+                        color: 'var(--text-secondary)', fontSize: 'var(--type-caption)', fontWeight: 600,
                         cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1,
                     }}>{loading ? '⟳ …' : '⟳ Refresh'}</button>
                 </div>
@@ -807,7 +807,7 @@ export function CohortSettingsMatrix() {
             {/* Global reference row */}
             {globals && (
                 <div style={{
-                    fontSize: '0.66rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+                    fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
                     marginBottom: '0.6rem', opacity: 0.75,
                 }}>
                     GLOBAL DEFAULT — branch: {globals.climate_paradigm} · carbon: ${globals.global_carbon_fee}/t ·
@@ -824,20 +824,20 @@ export function CohortSettingsMatrix() {
             )}
 
             {!error && !loading && shown.length === 0 && (
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                     {rows.length === 0 ? 'No cohorts found.' : 'No cohorts diverge from the global default.'}
                 </div>
             )}
 
             {shown.length > 0 && (
                 <div style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 'var(--radius-sm)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.7rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--type-caption)' }}>
                         <thead>
                             <tr style={{ background: 'var(--bg-elevated)' }}>
                                 {['Cohort', 'Branch', 'Carbon $/t', 'Hostility', 'Scope-3', 'BU scope', 'State'].map(h => (
                                     <th key={h} style={{
                                         padding: '0.4rem 0.7rem', textAlign: 'left', color: 'var(--text-muted)',
-                                        fontWeight: 700, fontSize: '0.62rem', letterSpacing: '0.05em',
+                                        fontWeight: 700, fontSize: 'var(--type-caption)', letterSpacing: '0.05em',
                                         textTransform: 'uppercase', fontFamily: 'var(--font-mono)',
                                     }}>{h}</th>
                                 ))}
@@ -866,8 +866,8 @@ export function CohortSettingsMatrix() {
                                         <td style={{ padding: '0.35rem 0.7rem' }}>{scopeBadge(r.bu_scope_source)}</td>
                                         <td style={{ padding: '0.35rem 0.7rem' }}>
                                             {r.overrides_active
-                                                ? <span style={{ color: 'var(--accent-gold)', fontSize: '0.64rem', fontWeight: 700 }}>◉ OVERRIDE</span>
-                                                : <span style={{ color: 'var(--text-muted)', fontSize: '0.64rem' }}>◌ global</span>}
+                                                ? <span style={{ color: 'var(--accent-gold)', fontSize: 'var(--type-caption)', fontWeight: 700 }}>◉ OVERRIDE</span>
+                                                : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>◌ global</span>}
                                         </td>
                                     </tr>
                                 );
@@ -877,7 +877,7 @@ export function CohortSettingsMatrix() {
                 </div>
             )}
             {shown.length > 0 && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.64rem', color: 'var(--text-muted)', opacity: 0.6 }}>
+                <div style={{ marginTop: '0.5rem', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', opacity: 0.6 }}>
                     <span style={{ color: 'var(--accent-gold)' }}>*</span> = value overridden for this cohort (differs from global default).
                 </div>
             )}
@@ -989,11 +989,11 @@ function SimConfigUploader({ onUploaded }) {
                     <span style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
                         📄 Simulation Config — Upload &amp; Hot-Reload
                     </span>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
-                        Upload a modified <code style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>simulation_config.xlsx</code> to update engine parameters.
+                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                        Upload a modified <code style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-caption)' }}>simulation_config.xlsx</code> to update engine parameters.
                         {' '}<strong>Verify below before you rely on it.</strong> The reload rebinds only some
                         modules, and the uploaded file lives in the image — so a later redeploy reverts it.
-                        For a change that must stick, edit <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>simulation_config.json</code>, commit, redeploy.
+                        For a change that must stick, edit <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-caption)' }}>simulation_config.json</code>, commit, redeploy.
                     </div>
                 </div>
                 <button
@@ -1004,7 +1004,7 @@ function SimConfigUploader({ onUploaded }) {
                         padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-sm)',
                         border: '1px solid var(--border-subtle)',
                         background: 'transparent',
-                        color: 'var(--text-secondary)', fontSize: '0.72rem',
+                        color: 'var(--text-secondary)', fontSize: 'var(--type-caption)',
                         fontWeight: 600,
                         cursor: downloading ? 'not-allowed' : 'pointer',
                         opacity: downloading ? 0.5 : 1,
@@ -1064,7 +1064,7 @@ function SimConfigUploader({ onUploaded }) {
                                 ? 'Drop to upload'
                                 : 'Drag & drop simulation_config.xlsx here — or click to browse'}
                         </div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.55, marginTop: '0.4rem' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', opacity: 0.55, marginTop: '0.4rem' }}>
                             .xlsx only · max 5 MB · requires Super Admin
                         </div>
                     </div>
@@ -1094,7 +1094,7 @@ function SimConfigUploader({ onUploaded }) {
                         <span style={{ color: 'var(--gauge-green)', fontSize: '0.78rem', fontWeight: 700 }}>
                             ✓ Config Uploaded &amp; Hot-Reloaded Successfully
                         </span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>
                             {result.parameters_loaded} params · {changeCount} changed · backup: {result.backup}
                         </span>
                     </div>
@@ -1103,7 +1103,7 @@ function SimConfigUploader({ onUploaded }) {
                     {changeCount > 0 && (
                         <div style={{ marginTop: '0.6rem' }}>
                             <div style={{
-                                fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)',
+                                fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-muted)',
                                 marginBottom: '0.4rem',
                             }}>
                                 ▼ Parameter Changes ({changeCount})
@@ -1115,7 +1115,7 @@ function SimConfigUploader({ onUploaded }) {
                             }}>
                                 <table style={{
                                     width: '100%', borderCollapse: 'collapse',
-                                    fontSize: '0.68rem',
+                                    fontSize: 'var(--type-caption)',
                                 }}>
                                     <thead>
                                         <tr style={{
@@ -1149,7 +1149,7 @@ function SimConfigUploader({ onUploaded }) {
 
                     {changeCount === 0 && (
                         <div style={{
-                            marginTop: '0.5rem', fontSize: '0.72rem',
+                            marginTop: '0.5rem', fontSize: 'var(--type-caption)',
                             color: 'var(--text-muted)', fontStyle: 'italic',
                         }}>
                             No parameter changes detected — uploaded config is identical to the current one.
@@ -1167,7 +1167,7 @@ const diffTh = {
     textAlign: 'left',
     color: 'var(--text-muted)',
     fontWeight: 700,
-    fontSize: '0.65rem',
+    fontSize: 'var(--type-caption)',
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
     borderBottom: '1px solid rgba(255,255,255,0.05)',
@@ -1178,7 +1178,7 @@ const diffTd = {
     padding: '0.35rem 0.7rem',
     color: 'var(--text-muted)',
     fontFamily: 'var(--font-mono, monospace)',
-    fontSize: '0.68rem',
+    fontSize: 'var(--type-caption)',
 };
 
 function formatVal(v) {

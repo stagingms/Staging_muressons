@@ -130,11 +130,11 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: '1rem' }}>
               {persona?.name || closedSummary?.persona?.name || 'Negotiation'}
-              <span style={{ marginLeft: 10, fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.08em', color: tint, border: `1px solid ${tint}66`, borderRadius: 999, padding: '2px 8px', textTransform: 'uppercase' }}>
+              <span style={{ marginLeft: 10, fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', color: tint, border: `1px solid ${tint}66`, borderRadius: 999, padding: '2px 8px', textTransform: 'uppercase' }}>
                 {persona?.stage || closedSummary?.persona?.stage || ''}
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: C.dim }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: C.dim }}>
               {persona?.title || closedSummary?.persona?.title || ''}
               {/* Phase 3: live mood read from the agent's last reply */}
               {room?.mood && room.mood !== 'neutral' && (
@@ -144,9 +144,9 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
               )}
             </div>
           </div>
-          <div style={{ marginLeft: 'auto', fontSize: '0.68rem', color: C.faint, textAlign: 'right' }}>
+          <div style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', color: C.faint, textAlign: 'right' }}>
             {room && <>Entry fee paid: <strong style={{ color: C.txt }}>{fmtMoney(room.fee_paid)}</strong><br /></>}
-            <button onClick={() => onClose?.(closedSummary)} style={{ marginTop: 4, background: 'transparent', border: `1px solid ${C.line}`, color: C.dim, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: '0.7rem' }}>✕ Close</button>
+            <button onClick={() => onClose?.(closedSummary)} style={{ marginTop: 4, background: 'transparent', border: `1px solid ${C.line}`, color: C.dim, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', fontSize: 'var(--type-caption)' }}>✕ Close</button>
           </div>
         </div>
 
@@ -208,7 +208,7 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
 
             {/* Concession menu */}
             <div style={{ flex: '1 1 45%', display: 'flex', flexDirection: 'column', minWidth: 280 }}>
-              <div style={{ padding: '10px 14px', fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.1em', color: C.dim, borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ padding: '10px 14px', fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.1em', color: C.dim, borderBottom: `1px solid ${C.line}` }}>
                 WHAT THEY WOULD ACCEPT
               </div>
               <div style={{ overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '40vh' }}>
@@ -221,7 +221,7 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
                     boxShadow: suggested === m.id ? '0 0 0 1px rgba(52,211,153,0.25)' : 'none',
                   }}>
                     {suggested === m.id && (
-                      <div style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.06em', color: '#34d399', marginBottom: 4 }}>
+                      <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.06em', color: '#34d399', marginBottom: 4 }}>
                         THEY GESTURED AT THIS
                       </div>
                     )}
@@ -229,10 +229,10 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
                       <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{m.label}</span>
                       <span style={{ fontWeight: 800, fontSize: '0.82rem', color: m.cost > 0 ? '#fbbf24' : '#34d399' }}>
                         {m.cost > 0 ? fmtMoney(m.cost) : 'free'}
-                        {m.multiplier > 1 && <span style={{ color: '#f87171', fontSize: '0.66rem' }}> ×{m.multiplier}</span>}
+                        {m.multiplier > 1 && <span style={{ color: '#f87171', fontSize: 'var(--type-caption)' }}> ×{m.multiplier}</span>}
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: C.dim, marginTop: 4, lineHeight: 1.45 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: C.dim, marginTop: 4, lineHeight: 1.45 }}>
                       Tolerance +{m.tolerance_gain} (capped — a deal buys calm, not affection).
                       {m.creates_promise && <> <strong style={{ color: '#fbbf24' }}>Commits you</strong>: {String(m.promise_metric).replace(/_/g, ' ')} must improve within 2 rounds — break it and future meetings get pricier.</>}
                       {m.effects?.reputation_delta ? ` Reputation ${m.effects.reputation_delta}.` : ''}
@@ -240,12 +240,12 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
                     {confirmId === m.id ? (
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                         <button onClick={() => accept(m.id)} disabled={busy}
-                                style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', background: 'rgba(52,211,153,0.3)', color: C.txt, fontWeight: 800, cursor: 'pointer', fontSize: '0.74rem' }}>✓ Confirm — {m.cost > 0 ? fmtMoney(m.cost) : 'free'}</button>
-                        <button onClick={() => setConfirmId(null)} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.line}`, background: 'transparent', color: C.dim, cursor: 'pointer', fontSize: '0.74rem' }}>Cancel</button>
+                                style={{ flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', background: 'rgba(52,211,153,0.3)', color: C.txt, fontWeight: 800, cursor: 'pointer', fontSize: 'var(--type-caption)' }}>✓ Confirm — {m.cost > 0 ? fmtMoney(m.cost) : 'free'}</button>
+                        <button onClick={() => setConfirmId(null)} style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.line}`, background: 'transparent', color: C.dim, cursor: 'pointer', fontSize: 'var(--type-caption)' }}>Cancel</button>
                       </div>
                     ) : (
                       <button onClick={() => setConfirmId(m.id)} disabled={busy}
-                              style={{ marginTop: 8, width: '100%', padding: '6px 0', borderRadius: 8, border: `1px solid ${tint}55`, background: `${tint}18`, color: C.txt, fontWeight: 700, cursor: 'pointer', fontSize: '0.74rem' }}>
+                              style={{ marginTop: 8, width: '100%', padding: '6px 0', borderRadius: 8, border: `1px solid ${tint}55`, background: `${tint}18`, color: C.txt, fontWeight: 700, cursor: 'pointer', fontSize: 'var(--type-caption)' }}>
                         Offer this
                       </button>
                     )}
@@ -253,11 +253,11 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
                 ))}
               </div>
               {deals.length > 0 && (
-                <div style={{ padding: '8px 14px', fontSize: '0.72rem', color: '#34d399', borderTop: `1px solid ${C.line}` }}>
+                <div style={{ padding: '8px 14px', fontSize: 'var(--type-caption)', color: '#34d399', borderTop: `1px solid ${C.line}` }}>
                   ✅ {deals[deals.length - 1].label} agreed — tolerance {deals[deals.length - 1].tolerance_before} → {deals[deals.length - 1].tolerance_after}
                 </div>
               )}
-              {error && <div style={{ padding: '8px 14px', fontSize: '0.72rem', color: '#fca5a5' }}>{error}</div>}
+              {error && <div style={{ padding: '8px 14px', fontSize: 'var(--type-caption)', color: '#fca5a5' }}>{error}</div>}
               <div style={{ padding: 12, borderTop: `1px solid ${C.line}` }}>
                 <button onClick={walkOut} disabled={busy}
                         style={{ width: '100%', padding: '8px 0', borderRadius: 10, border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.12)', color: '#fca5a5', fontWeight: 800, cursor: 'pointer', fontSize: '0.78rem' }}>

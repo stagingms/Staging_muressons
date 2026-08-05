@@ -135,7 +135,7 @@ export default function CircularStrategyDashboard({ sessionId, onComplete }) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
             <div style={{ background: '#fff', maxWidth: 600, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#14532d', color: '#fff', padding: '1rem 1.5rem' }}>
-                    <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 10 — Chairman's Final Mandate</div>
+                    <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 10 — Chairman's Final Mandate</div>
                     <h2 style={{ margin: '0.3rem 0 0', fontSize: '1rem', fontWeight: 800 }}>The Circular Economy Transition</h2>
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
@@ -163,16 +163,16 @@ export default function CircularStrategyDashboard({ sessionId, onComplete }) {
                 <div style={{ background: '#fff', padding: '0.9rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Circular Strategy Dashboard</h2>
-                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
+                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: 'var(--type-caption)' }}>
                             {[['VALLEY DURATION', `${valleyDuration} Years`], ['MAX DEFICIT', `${currencySymbol()}${maxDeficit}M`], ['YR 15 MARGIN', `${yr15margin}%`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
+                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: 'var(--type-caption)' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: k === 'VALLEY DURATION' && valleyDuration > 5 ? '#dc2626' : '#0f172a' }}>{v}</div>
                                 </div>
                             ))}
                         </div>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: valleyDuration > 5 ? '#dc2626' : '#16a34a', marginTop: '0.2rem', fontWeight: 600 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: valleyDuration > 5 ? '#dc2626' : '#16a34a', marginTop: '0.2rem', fontWeight: 600 }}>
                         Phase: {phaseLabel}. {maxDeficit !== '0' ? `Maximum liquidity gap of ${currencySymbol()}${maxDeficit}M in Year ${cashFlows.indexOf(Math.min(...cashFlows)) + 1}.` : 'Clean transition — no negative cash flow.'}
                     </div>
                 </div>
@@ -195,7 +195,7 @@ export default function CircularStrategyDashboard({ sessionId, onComplete }) {
                         { label: 'Recovery Investment', val: recovery, set: setRecovery, min: 0.1, max: 0.9, step: 0.05, fmt: v => v.toFixed(2) },
                     ].map(sl => (
                         <div key={sl.label}>
-                            <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
+                            <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 600, marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{sl.label}</span><span style={{ fontWeight: 700 }}>{sl.fmt(sl.val)}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

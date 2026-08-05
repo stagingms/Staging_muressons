@@ -179,7 +179,7 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
       >
         {items.map((item, i) => (
           <span key={i} style={{
-            fontSize: '0.66rem', fontWeight: 600,
+            fontSize: 'var(--type-caption)', fontWeight: 600,
             display: 'inline-flex', alignItems: 'center', gap: 6,
           }}>
             <span className="tkSym" style={{ fontWeight: 700, letterSpacing: '0.02em' }}>
@@ -192,7 +192,7 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
                 (For emissions/WACC/CPI a falling print renders green.) */}
             {item.change != null && (
               <span className={item.good ? 'tkUp' : 'tkDown'} style={{
-                fontSize: '0.68rem',
+                fontSize: 'var(--type-caption)',
                 fontWeight: 700,
                 borderRadius: 3,
                 padding: '1px 5px',
@@ -206,7 +206,7 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
                 lifting its hue would be a restyle of the strip's rhythm. */}
             {i < items.length - 1 && (
               <span aria-hidden="true" className="tkDot" style={{
-                fontSize: '0.5rem', margin: '0 4px',
+                fontSize: 'var(--type-caption)', margin: '0 4px',
               }}>●</span>
             )}
           </span>

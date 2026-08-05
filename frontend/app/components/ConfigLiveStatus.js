@@ -109,7 +109,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                     <span style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
                         🔎 Live Engine Configuration — what this process is actually running
                     </span>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
                         Read straight off the running process, not re-read from the file. Confirms whether the
                         values you last set are the values the engine is using.
                     </div>
@@ -122,7 +122,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                         padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-sm)',
                         border: '1px solid var(--border-subtle)',
                         background: 'transparent',
-                        color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: 600,
+                        color: 'var(--text-secondary)', fontSize: 'var(--type-caption)', fontWeight: 600,
                         cursor: loading ? 'not-allowed' : 'pointer',
                         opacity: loading ? 0.5 : 1,
                     }}
@@ -135,7 +135,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                 <div role="alert" style={{
                     background: 'var(--danger-soft)', color: 'var(--danger-text)',
                     border: '1px solid var(--danger)', borderRadius: 'var(--radius-sm)',
-                    padding: '0.6rem 0.8rem', fontSize: '0.72rem',
+                    padding: '0.6rem 0.8rem', fontSize: 'var(--type-caption)',
                 }}>
                     {error}
                 </div>
@@ -179,7 +179,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                                         padding: '0.55rem 0.75rem',
                                     }}>
                                         <span style={{
-                                            flexShrink: 0, fontSize: '0.6rem', fontWeight: 800,
+                                            flexShrink: 0, fontSize: 'var(--type-caption)', fontWeight: 800,
                                             letterSpacing: '0.04em',
                                             color: `var(--${sev.token}-text)`,
                                             fontFamily: 'var(--font-mono)', paddingTop: 2,
@@ -188,13 +188,13 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                                         </span>
                                         <div>
                                             <div style={{
-                                                fontSize: '0.66rem', fontFamily: 'var(--font-mono)',
+                                                fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono)',
                                                 color: 'var(--text-muted)', marginBottom: 2,
                                             }}>
                                                 {p.kind}
                                             </div>
                                             <div style={{
-                                                fontSize: '0.72rem', color: 'var(--text-secondary)',
+                                                fontSize: 'var(--type-caption)', color: 'var(--text-secondary)',
                                                 lineHeight: 1.5,
                                             }}>
                                                 {p.message}
@@ -210,7 +210,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                         whether the configuration has moved since. */}
                     <div style={{
                         marginTop: '0.8rem', display: 'flex', gap: '1.2rem', flexWrap: 'wrap',
-                        fontSize: '0.68rem', fontFamily: 'var(--font-mono)',
+                        fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono)',
                         color: 'var(--text-muted)', opacity: 0.75,
                     }}>
                         <span>fingerprint: {report.fingerprint}</span>
@@ -223,7 +223,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                     {/* Everything else, summoned not ambient */}
                     <details style={{ marginTop: '0.9rem' }}>
                         <summary style={{
-                            cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
+                            cursor: 'pointer', fontSize: 'var(--type-caption)', fontWeight: 600,
                             color: 'var(--text-secondary)',
                         }}>
                             All {report.constant_count} live values
@@ -240,12 +240,12 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                                 borderRadius: 'var(--radius-sm)',
                                 border: '1px solid var(--border-subtle)',
                                 background: 'transparent', color: 'var(--text-primary)',
-                                fontSize: '0.72rem', fontFamily: 'var(--font-mono)',
+                                fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono)',
                             }}
                         />
 
                         <div style={{ maxHeight: 320, overflowY: 'auto', marginTop: '0.5rem' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.68rem' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--type-caption)' }}>
                                 <tbody>
                                     {constantNames.map((name) => (
                                         <tr key={name} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
@@ -268,7 +268,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                                         <tr>
                                             <td colSpan={2} style={{
                                                 padding: '0.6rem 0', color: 'var(--text-muted)',
-                                                fontSize: '0.7rem',
+                                                fontSize: 'var(--type-caption)',
                                             }}>
                                                 No constant matches “{filter}”.
                                             </td>

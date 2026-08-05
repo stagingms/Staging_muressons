@@ -52,7 +52,7 @@
     border: 1px solid rgba(99, 102, 241, 0.4);
     padding: 3px 14px;
     border-radius: 20px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 2px;
     color: var(--accent-blue);
@@ -108,7 +108,7 @@
 }
 
 .bankHint {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: #94a3b8;   /* fixed light — sits on the always-dark pane */
     margin: 0 0 0.8rem;
 }
@@ -161,7 +161,7 @@
 }
 
 .chipName {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     line-height: 1.25;
     color: var(--text-primary);
@@ -182,7 +182,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     padding: 0.5rem 0;
     text-transform: uppercase;
@@ -190,7 +190,7 @@
 }
 
 .yAxisLabel strong {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: var(--text-primary);
 }
 
@@ -205,14 +205,14 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.4rem 0.5rem 0;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
 .xAxisLabel strong {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: var(--text-primary);
 }
 
@@ -245,7 +245,7 @@
 }
 
 .quadrantLabel {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: var(--q-color);
     text-transform: uppercase;
@@ -255,7 +255,7 @@
 
 .quadrantPower,
 .quadrantInterest {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-secondary);
     font-weight: 600;
 }
@@ -274,7 +274,7 @@
     right: 8px;
     background: transparent;
     color: var(--q-color);
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 1px 6px;
     border-radius: 4px;
@@ -289,7 +289,7 @@
     background: rgba(99, 102, 241, 0.08);
     border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 6px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-primary);
     cursor: pointer;
@@ -470,7 +470,7 @@
     gap: 0.5rem;
     padding: 0.4rem 0.6rem;
     border-radius: 6px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
 }
 
 .correct {
@@ -494,7 +494,7 @@
 }
 
 .correctionQuadrant {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     white-space: nowrap;
 }

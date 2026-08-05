@@ -51,7 +51,7 @@
     background: rgba(255, 255, 255, 0.15);
     padding: 4px 16px;
     border-radius: 20px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 3px;
     color: rgba(255, 255, 255, 0.9);
@@ -90,7 +90,7 @@
 
 .topLabel {
     display: block;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: var(--text-muted);
@@ -131,7 +131,7 @@
     align-items: center;
     justify-content: center;
     min-width: 40px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: #fff;
     transition: flex 0.3s ease;
@@ -154,13 +154,13 @@
 }
 
 .legendPositive {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--gauge-green);
     font-weight: 600;
 }
 
 .legendNegative {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: #fca5a5;
     font-weight: 600;
 }
@@ -254,7 +254,7 @@
 }
 
 .kpiNote {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin-bottom: 0.4rem;
 }
@@ -266,7 +266,7 @@
     padding: 0.5rem 0.6rem;
     background: rgba(99, 102, 241, 0.06);
     border-radius: 6px;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: var(--text-secondary);
     line-height: 1.4;
 }
@@ -462,7 +462,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     padding: 0.7rem 1rem;
     text-align: right;
     border-bottom: 1px solid var(--border-subtle);
@@ -603,7 +603,7 @@
 }
 
 .peerToggleText {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-muted);
     transition: color 0.2s;
@@ -614,7 +614,7 @@
 }
 
 .peerToggleBadge {
-    font-size: 0.62rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 0.15rem 0.45rem;
     border-radius: 6px;
@@ -761,7 +761,7 @@
 }
 
 .tblCellLabel {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -826,7 +826,7 @@
     }
 
     .tblRowHeader {
-        font-size: 0.68rem;
+        font-size: var(--type-caption);
     }
 
     .tblCellValue {
@@ -882,7 +882,7 @@
 
 .reportKpiLabel {
     display: block;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--text-muted);
@@ -922,7 +922,7 @@
     background: rgba(15, 23, 42, 0.97);
     border: 1px solid rgba(99, 102, 241, 0.3);
     border-radius: 10px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 500;
     line-height: 1.55;
     color: var(--text-primary);

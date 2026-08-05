@@ -45,13 +45,13 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
     const tpBadge = (label, tipped, color) => (
         <span key={label} style={{
             display: 'inline-flex', alignItems: 'center', gap: '4px',
-            padding: '3px 10px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 700,
+            padding: '3px 10px', borderRadius: '6px', fontSize: 'var(--type-caption)', fontWeight: 700,
             background: tipped ? `${color}18` : 'rgba(0,0,0,0.1)',
             color: tipped ? color : 'var(--text-muted)',
             border: `1px solid ${tipped ? color + '40' : 'transparent'}`,
             fontFamily: 'var(--font-mono, monospace)',
         }}>
-            <span style={{ fontSize: '0.6rem' }}>{tipped ? '🔴' : '🟢'}</span>
+            <span style={{ fontSize: 'var(--type-caption)' }}>{tipped ? '🔴' : '🟢'}</span>
             {label}
         </span>
     );
@@ -64,13 +64,13 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
             borderLeft: '3px solid #ef4444',
         }}>
             {sectionLabel('🌡️', 'Systemic Risk Intelligence (Live)', '#ef4444')}
-            <div style={{ fontSize: '0.68rem', color: 'rgba(239,68,68,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(239,68,68,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
                 Real-time systemic risk state for the connected session · Difficulty: <strong style={{ color: '#fbbf24' }}>{sysRisk.difficulty.toUpperCase()}</strong>
             </div>
 
             {/* Tipping Point Status */}
             <div style={{ marginBottom: '0.75rem' }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                     Tipping Point Gates
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -83,7 +83,7 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
             {/* ESG WACC */}
             {sysRisk.wacc && (
                 <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.7rem', borderRadius: '7px', background: 'rgba(0,0,0,0.08)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
                         ESG-Adjusted WACC
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
@@ -99,7 +99,7 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
             {/* Active Black Swans */}
             {hasBlackSwans && (
                 <div style={{ marginBottom: '0.75rem' }}>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
                         🦢 Active Black Swan Events
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -111,7 +111,7 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
                                 fontSize: '0.75rem', color: '#e9d5ff', lineHeight: 1.4,
                             }}>
                                 {evt.icon || '🦢'} <strong>{evt.title}</strong>
-                                {evt.rounds_remaining > 0 && <span style={{ fontSize: '0.65rem', color: '#a78bfa' }}> ({evt.rounds_remaining}r left)</span>}
+                                {evt.rounds_remaining > 0 && <span style={{ fontSize: 'var(--type-caption)', color: '#a78bfa' }}> ({evt.rounds_remaining}r left)</span>}
                             </div>
                         ))}
                     </div>
@@ -121,13 +121,13 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
             {/* NPC Cascades */}
             {hasCascades && (
                 <div style={{ marginBottom: '0.75rem' }}>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
                         ⚡ NPC Cascade Reactions
                     </div>
                     <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                         {sysRisk.cascades.map((c, i) => (
                             <span key={i} style={{
-                                padding: '3px 8px', borderRadius: '5px', fontSize: '0.68rem',
+                                padding: '3px 8px', borderRadius: '5px', fontSize: 'var(--type-caption)',
                                 background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)',
                                 color: '#fb923c', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)',
                             }}>
@@ -141,7 +141,7 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
             {/* Foreshadowing Signals */}
             {hasForeshadowing && (
                 <div>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
                         🔮 Foreshadowing Signals
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -150,7 +150,7 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
                                 padding: '0.35rem 0.6rem', borderRadius: '5px',
                                 background: sig.category === 'warning' ? 'rgba(245,158,11,0.06)' : 'rgba(34,211,153,0.06)',
                                 borderLeft: `2px solid ${sig.category === 'warning' ? 'rgba(245,158,11,0.4)' : 'rgba(34,211,153,0.4)'}`,
-                                fontSize: '0.72rem', color: sig.category === 'warning' ? '#fde68a' : '#a7f3d0', lineHeight: 1.4,
+                                fontSize: 'var(--type-caption)', color: sig.category === 'warning' ? '#fde68a' : '#a7f3d0', lineHeight: 1.4,
                             }}>
                                 {sig.category === 'warning' ? '⚠️' : '✅'} {sig.message || sig.signal_id?.replace(/_/g, ' ')}
                             </div>
@@ -214,11 +214,11 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                             {/* Agent header */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem' }}>
                                 <span style={{ fontSize: '0.85rem' }}>{agent.icon}</span>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {agent.name}
                                 </span>
                                 <span style={{
-                                    fontSize: '0.5rem', fontWeight: 800, padding: '1px 5px',
+                                    fontSize: 'var(--type-caption)', fontWeight: 800, padding: '1px 5px',
                                     borderRadius: '3px', background: sc.bg, color: sc.color,
                                     fontFamily: 'var(--font-mono, monospace)',
                                     letterSpacing: '0.06em',
@@ -242,7 +242,7 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                             </div>
 
                             {/* Stats */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.58rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)' }}>
                                 <span>TOL: {agent.tolerance}/{agent.max_tolerance}</span>
                                 <span style={{ color: agent.trend === 'deteriorating' ? '#ef4444' : agent.trend === 'improving' ? '#10b981' : '#64748b' }}>
                                     {agent.trend === 'deteriorating' ? '📉' : agent.trend === 'improving' ? '📈' : '➡️'} {agent.trend}
@@ -252,7 +252,7 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                             {/* Dialogue snippet */}
                             {agent.dialogue && (
                                 <div style={{
-                                    marginTop: '0.3rem', fontSize: '0.62rem', color: '#94a3b8',
+                                    marginTop: '0.3rem', fontSize: 'var(--type-caption)', color: '#94a3b8',
                                     fontStyle: 'italic', lineHeight: 1.4,
                                     borderLeft: `2px solid ${sc.color}40`, paddingLeft: '0.4rem',
                                     maxHeight: '2.8em', overflow: 'hidden',
@@ -264,7 +264,7 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                             {/* Triggered round */}
                             {agent.triggered_round && (
                                 <div style={{
-                                    marginTop: '0.25rem', fontSize: '0.55rem', fontWeight: 700,
+                                    marginTop: '0.25rem', fontSize: 'var(--type-caption)', fontWeight: 700,
                                     color: '#fca5a5', fontFamily: 'var(--font-mono, monospace)',
                                 }}>
                                     💥 TRIGGERED R{agent.triggered_round}
@@ -303,7 +303,7 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                         border: '1px solid rgba(139,92,246,0.18)',
                         marginBottom: '0.75rem',
                     }}>
-                        <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                             📡 Active Inter-Agent Interference
                         </div>
                         {interferencePairs.map((p, i) => (
@@ -312,20 +312,20 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                                 padding: '0.3rem 0.5rem', borderRadius: '5px',
                                 background: 'rgba(139,92,246,0.05)',
                                 border: '1px solid rgba(139,92,246,0.12)',
-                                marginBottom: '0.25rem', fontSize: '0.72rem',
+                                marginBottom: '0.25rem', fontSize: 'var(--type-caption)',
                             }}>
                                 <span>{p.icon}</span>
                                 <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{p.a}</span>
                                 <span style={{ color: '#64748b' }}>⇄</span>
                                 <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{p.b}</span>
                                 <span style={{
-                                    marginLeft: 'auto', fontSize: '0.58rem', fontWeight: 800,
+                                    marginLeft: 'auto', fontSize: 'var(--type-caption)', fontWeight: 800,
                                     color: '#f472b6', background: 'rgba(244,114,182,0.10)',
                                     padding: '1px 5px', borderRadius: '4px',
                                     border: '1px solid rgba(244,114,182,0.2)',
                                     fontFamily: 'var(--font-mono, monospace)',
                                 }}>{p.mult}</span>
-                                <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontStyle: 'italic' }}>{p.label}</span>
+                                <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontStyle: 'italic' }}>{p.label}</span>
                             </div>
                         ))}
                     </div>
@@ -339,7 +339,7 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                     background: 'rgba(0,0,0,0.1)',
                     border: '1px solid rgba(255,255,255,0.04)',
                 }}>
-                    <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                         🗣️ Contextual Debrief Questions (Stage: {agentData.worst_stage?.toUpperCase()})
                     </div>
                     {agentData.contextual_debrief_questions.map((q, i) => (
@@ -361,13 +361,13 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
             {/* Cascade log */}
             {agentData.cascade_log?.length > 0 && (
                 <div style={{ marginTop: '0.5rem' }}>
-                    <div style={{ fontSize: '0.58rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
                         ⚡ Recent Cascade Events ({agentData.cascade_log.length})
                     </div>
                     {agentData.cascade_log.slice(-5).map((c, i) => (
                         <div key={i} style={{
                             display: 'flex', alignItems: 'center', gap: '0.4rem',
-                            fontSize: '0.65rem', color: '#94a3b8',
+                            fontSize: 'var(--type-caption)', color: '#94a3b8',
                             fontFamily: 'var(--font-mono, monospace)', padding: '0.15rem 0',
                         }}>
                             <span style={{ color: '#fbbf24', fontWeight: 700 }}>{c.source?.replace(/the_/g, '').replace(/_/g, ' ')}</span>
@@ -466,7 +466,7 @@ function LiveDNAInsight({ sessionId, activeRound, sectionLabel }) {
                         <div style={{ fontSize: '1rem', fontWeight: 800, color: s.color, fontFamily: 'var(--font-mono, monospace)' }}>
                             {s.value}
                         </div>
-                        <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                             {s.label}
                         </div>
                     </div>
@@ -479,7 +479,7 @@ function LiveDNAInsight({ sessionId, activeRound, sectionLabel }) {
                     padding: '0.4rem 0.65rem', borderRadius: '6px',
                     background: mr.archetype.gradient || 'rgba(99,102,241,0.1)',
                     display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                    fontSize: '0.72rem', fontWeight: 700, color: '#fff',
+                    fontSize: 'var(--type-caption)', fontWeight: 700, color: '#fff',
                     marginBottom: '0.75rem',
                 }}>
                     {mr.archetype.icon} {mr.archetype.title}
@@ -493,17 +493,17 @@ function LiveDNAInsight({ sessionId, activeRound, sectionLabel }) {
                     background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
                     marginBottom: '0.75rem',
                 }}>
-                    <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
                         💥 Triggered Agents — Capital Leaking
                     </div>
                     {triggeredAgents.map(a => (
                         <div key={a.agent_id} style={{
-                            fontSize: '0.72rem', color: '#fca5a5', padding: '0.15rem 0',
+                            fontSize: 'var(--type-caption)', color: '#fca5a5', padding: '0.15rem 0',
                             display: 'flex', alignItems: 'center', gap: '0.4rem',
                         }}>
                             <span>{a.icon}</span>
                             <span style={{ fontWeight: 700 }}>{a.name}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: '0.62rem', color: '#ef4444', fontFamily: 'var(--font-mono, monospace)' }}>
+                            <span style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', color: '#ef4444', fontFamily: 'var(--font-mono, monospace)' }}>
                                 CF: {((a.constriction_factor || 0) * 100).toFixed(0)}%
                             </span>
                         </div>
@@ -530,7 +530,7 @@ function LiveDNAInsight({ sessionId, activeRound, sectionLabel }) {
             {/* Effectiveness score */}
             {ls.effectiveness_score != null && (
                 <div style={{
-                    marginTop: '0.5rem', fontSize: '0.68rem', color: 'var(--text-muted)',
+                    marginTop: '0.5rem', fontSize: 'var(--type-caption)', color: 'var(--text-muted)',
                     fontFamily: 'var(--font-mono, monospace)',
                 }}>
                     System Effectiveness: {(ls.effectiveness_score * 100).toFixed(0)}% · 
@@ -744,7 +744,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
         }}>
             <span style={{ fontSize: '0.85rem' }}>{icon}</span>
             <span style={{
-                fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.14em',
+                fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.14em',
                 textTransform: 'uppercase', color: accent,
             }}>{text}</span>
             <span style={{ flex: 1, height: '1px', background: `${accent}22` }} />
@@ -775,7 +775,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                             Facilitator Teleprompter
                         </h2>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.05em' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.05em' }}>
                             ROUND {activeRound} OF 10 · {script.title ? 'ACTIVE' : 'NO SCRIPT'}
                         </div>
                     </div>
@@ -830,7 +830,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                             </select>
                             {selectedCohort && (
                                 <span style={{
-                                    padding: '2px 8px', borderRadius: '5px', fontSize: '0.62rem', fontWeight: 800,
+                                    padding: '2px 8px', borderRadius: '5px', fontSize: 'var(--type-caption)', fontWeight: 800,
                                     fontFamily: 'var(--font-mono, monospace)',
                                     background: 'rgba(59,130,246,0.12)', color: '#60a5fa',
                                     border: '1px solid rgba(59,130,246,0.25)',
@@ -842,7 +842,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         </div>
                     ) : (
                         <span style={{
-                            fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic',
+                            fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic',
                             padding: '0.35rem 0.6rem', borderRadius: '6px',
                             background: 'rgba(107,114,128,0.06)',
                             border: '1px solid rgba(107,114,128,0.15)',
@@ -859,7 +859,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         background: completedCount === totalPoints ? 'rgba(34,197,94,0.12)' : 'rgba(201,168,76,0.08)',
                         border: `1px solid ${completedCount === totalPoints ? 'rgba(34,197,94,0.3)' : 'rgba(201,168,76,0.2)'}`,
                     }}>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', color: completedCount === totalPoints ? '#22c55e' : '#c9a84c' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, fontFamily: 'var(--font-mono, monospace)', color: completedCount === totalPoints ? '#22c55e' : '#c9a84c' }}>
                             {completedCount}/{totalPoints}
                         </span>
                     </div>
@@ -878,11 +878,11 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                         <span className="tp-live-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
-                        <span style={{ fontSize: '0.66rem', fontWeight: 900, letterSpacing: '0.18em', color: '#c9a84c', fontFamily: 'var(--font-mono, monospace)' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 900, letterSpacing: '0.18em', color: '#c9a84c', fontFamily: 'var(--font-mono, monospace)' }}>
                             MGN · MURESSONS GLOBAL NEWS · ROUND {bulletin.round_number}
                         </span>
                         {!bulletin.audio_b64 && (
-                            <span style={{ fontSize: '0.6rem', color: '#8899a6', fontStyle: 'italic' }}>text bulletin — voice unavailable</span>
+                            <span style={{ fontSize: 'var(--type-caption)', color: '#8899a6', fontStyle: 'italic' }}>text bulletin — voice unavailable</span>
                         )}
                         <button onClick={dismissBulletin} aria-label="Dismiss bulletin" style={{
                             marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer',
@@ -903,7 +903,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
 
             {/* ── Phase R4 (V2-2): presentation controls ── */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', marginTop: '-0.85rem' }}>
-                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em' }}>SCRIPT TEXT</span>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em' }}>SCRIPT TEXT</span>
                 {[1, 1.3, 1.6].map(sc => (
                     <button
                         key={sc}
@@ -929,7 +929,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
                         background: isFullscreen ? 'rgba(201,168,76,0.15)' : 'transparent',
                         color: isFullscreen ? '#c9a84c' : 'var(--text-muted)',
-                        fontWeight: 700, fontSize: '0.7rem',
+                        fontWeight: 700, fontSize: 'var(--type-caption)',
                     }}
                 >{isFullscreen ? '🗗 Exit' : '⛶ Fullscreen'}</button>
                 {/* W-D (W4): fire the Situation-Room bulletin */}
@@ -942,7 +942,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                             padding: '3px 10px', borderRadius: '6px', cursor: bulletinBusy || !sessionId ? 'not-allowed' : 'pointer', marginLeft: '0.4rem',
                             border: '1px solid rgba(201,168,76,0.4)',
                             background: bulletinBusy ? 'rgba(201,168,76,0.2)' : 'rgba(201,168,76,0.08)',
-                            color: '#c9a84c', fontWeight: 700, fontSize: '0.7rem',
+                            color: '#c9a84c', fontWeight: 700, fontSize: 'var(--type-caption)',
                             opacity: !sessionId ? 0.5 : 1,
                         }}
                     >{bulletinBusy ? '📡 Synthesizing…' : '🎙️ Market Bulletin'}</button>
@@ -950,7 +950,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
             </div>
             {bulletinError && (
                 <div role="alert" style={{
-                    textAlign: 'right', fontSize: '0.68rem', color: '#f87171',
+                    textAlign: 'right', fontSize: 'var(--type-caption)', color: '#f87171',
                     marginTop: '0.25rem', paddingRight: '0.2rem',
                 }}>⚠ {bulletinError}</div>
             )}
@@ -996,7 +996,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         borderLeft: '3px solid #c9a84c',
                         zoom: tpScale, /* R4: podium scale */
                     }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#c9a84c', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#c9a84c', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
                             ROUND {activeRound} DIRECTIVE
                         </div>
                         <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
@@ -1029,7 +1029,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                 border: isChecked ? '2px solid #22c55e' : '2px solid rgba(255,255,255,0.15)',
                                                 background: isChecked ? 'rgba(34,197,94,0.15)' : 'transparent',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: '0.6rem', color: '#22c55e', marginTop: '1px', transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
+                                                fontSize: 'var(--type-caption)', color: '#22c55e', marginTop: '1px', transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                             }}>{isChecked ? '✓' : ''}</span>
                                             <span style={{
                                                 fontSize: '0.82rem', color: 'var(--text-primary)', lineHeight: 1.5,
@@ -1061,7 +1061,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                     background: 'rgba(245,158,11,0.08)',
                                                     border: '1px solid rgba(245,158,11,0.2)',
                                                     color: '#fbbf24',
-                                                    fontSize: '0.68rem', fontWeight: 600,
+                                                    fontSize: 'var(--type-caption)', fontWeight: 600,
                                                     fontFamily: 'var(--font-mono, monospace)',
                                                     cursor: 'help', letterSpacing: '0.02em',
                                                     transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', display: 'inline-block',
@@ -1089,12 +1089,12 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                     background: 'rgba(15,23,42,0.97)', color: '#e2e8f0',
                                                     border: '1px solid rgba(245,158,11,0.25)',
                                                     boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                                                    fontSize: '0.72rem', lineHeight: 1.55,
+                                                    fontSize: 'var(--type-caption)', lineHeight: 1.55,
                                                     opacity: 0, pointerEvents: 'none',
                                                     transition: 'opacity 0.15s, transform 0.15s',
                                                     zIndex: 50, whiteSpace: 'normal', wordBreak: 'break-word',
                                                 }}>
-                                                    <strong style={{ color: '#fbbf24', display: 'block', marginBottom: '3px', fontSize: '0.68rem', letterSpacing: '0.04em' }}>
+                                                    <strong style={{ color: '#fbbf24', display: 'block', marginBottom: '3px', fontSize: 'var(--type-caption)', letterSpacing: '0.04em' }}>
                                                         {eng.replace(/_/g, ' ').toUpperCase()}
                                                     </strong>
                                                     {tip}
@@ -1190,7 +1190,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         )}
                         {bo.facilitator_guidance?.length > 0 && (
                             <div style={{ marginBottom: '0.75rem' }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                                     Facilitator Guidance — BRSR
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -1211,7 +1211,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         )}
                         {bo.debrief_prompts?.length > 0 && (
                             <div>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                                     BRSR Debrief Prompts
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -1247,7 +1247,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         borderLeft: '3px solid #818cf8',
                     }}>
                         {sectionLabel('🎮', 'Journey Mechanic Guidance (Phase 6)', '#818cf8')}
-                        <div style={{ fontSize: '0.68rem', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
                             New mechanic variants active this round — review these facilitator notes before gameplay.
                         </div>
                         {entries.map(([mechKey, mechData]) => (
@@ -1266,7 +1266,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                     {mechKey.replace(/_/g, ' ').replace(/\br\d/g, m => m.toUpperCase()).replace(/\b\w/g, m => m.toUpperCase())}
                                     {mechData.applies_to_tiers && (
                                         <span style={{
-                                            marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 6px',
+                                            marginLeft: 'auto', fontSize: 'var(--type-caption)', padding: '2px 6px',
                                             borderRadius: '4px', background: 'rgba(99,102,241,0.1)',
                                             color: '#a5b4fc', fontFamily: 'var(--font-mono, monospace)',
                                         }}>
@@ -1367,14 +1367,14 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 return (
                     <div style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '1rem', borderLeft: '3px solid #818cf8' }}>
                         {sectionLabel('📐', 'R2 ESRS Concepts Reference (Facilitator Only)', '#818cf8')}
-                        <div style={{ fontSize: '0.68rem', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>Key ESRS mechanics to explain during the Double Materiality exercise.</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>Key ESRS mechanics to explain during the Double Materiality exercise.</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             {concepts.map((c, i) => (
                                 <details key={i} style={{ background: 'rgba(0,0,0,0.12)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
                                     <summary style={{ padding: '0.55rem 0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', listStyle: 'none' }}>
                                         <span>{c.icon}</span>
                                         <span style={{ color: c.color }}>{c.title}</span>
-                                        <span style={{ marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', background: `${c.color}18`, color: c.color, fontFamily: 'var(--font-mono, monospace)' }}>{c.ref}</span>
+                                        <span style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', padding: '2px 6px', borderRadius: '4px', background: `${c.color}18`, color: c.color, fontFamily: 'var(--font-mono, monospace)' }}>{c.ref}</span>
                                     </summary>
                                     <div style={{ padding: '0.5rem 0.85rem 0.75rem' }}>
                                         <div style={{ fontSize: '0.79rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.65, borderLeft: `2px solid ${c.color}55`, paddingLeft: '0.65rem' }}>{c.body}</div>
@@ -1444,7 +1444,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     }}>
                         {sectionLabel('⏸️', pause.title, '#f59e0b')}
                         <div style={{
-                            fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24',
+                            fontSize: 'var(--type-caption)', fontWeight: 800, color: '#fbbf24',
                             letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.5rem',
                         }}>
                             RECOMMENDED: Pause the simulation for 5-10 minutes of facilitated discussion
@@ -1584,7 +1584,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         borderLeft: '3px solid #818cf8',
                     }}>
                         {sectionLabel('🛤️', 'Side Track Debrief Intel (Facilitator Only)', '#818cf8')}
-                        <div style={{ fontSize: '0.68rem', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
                             Use these prompts when debriefing side track results with your cohort.
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -1602,13 +1602,13 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                     }}>
                                         <span>{t.icon}</span> {t.label}
                                         <span style={{
-                                            marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 6px',
+                                            marginLeft: 'auto', fontSize: 'var(--type-caption)', padding: '2px 6px',
                                             borderRadius: '4px', background: 'rgba(99,102,241,0.1)',
                                             color: '#a5b4fc', fontFamily: 'var(--font-mono, monospace)',
                                         }}>Debrief after R{t.debrief_after_round}</span>
                                     </summary>
                                     <div style={{ padding: '0 0.85rem 0.75rem' }}>
-                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                                             Key Teaching Points
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.6rem' }}>
@@ -1621,7 +1621,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                 }}>{p}</div>
                                             ))}
                                         </div>
-                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                                             Discussion Prompts
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -1652,7 +1652,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         {sectionLabel('📖', 'Official Round Briefing', '#3b82f6')}
                         {roundConfig.paradigm && (
                             <span style={{
-                                fontSize: '0.6rem', padding: '2px 8px', marginBottom: '0.75rem',
+                                fontSize: 'var(--type-caption)', padding: '2px 8px', marginBottom: '0.75rem',
                                 background: 'rgba(59,130,246,0.08)', color: '#60a5fa',
                                 borderRadius: '4px', border: '1px solid rgba(59,130,246,0.2)',
                                 fontWeight: 700, letterSpacing: '0.1em',
@@ -1680,7 +1680,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                     background: 'rgba(0,0,0,0.12)', padding: '1rem', borderRadius: '8px',
                                     border: '1px solid rgba(255,255,255,0.04)',
                                 }}>
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', marginBottom: '0.6rem', letterSpacing: '0.1em' }}>
+                                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', marginBottom: '0.6rem', letterSpacing: '0.1em' }}>
                                         Storyboard Outline
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.6 }}>
@@ -1692,7 +1692,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                                     <div style={{ background: 'rgba(59,130,246,0.04)', padding: '0.85rem', borderRadius: '8px', border: '1px solid rgba(59,130,246,0.1)' }}>
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', color: '#3b82f6', marginBottom: '0.5rem', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', color: '#3b82f6', marginBottom: '0.5rem', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                             <span>🎯</span> Strategic Objectives
                                         </div>
                                         <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.78rem', color: 'var(--text-secondary, #cbd5e1)', display: 'flex', flexDirection: 'column', gap: '0.25rem', lineHeight: 1.5 }}>
@@ -1702,12 +1702,12 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                         </ul>
                                     </div>
                                     <div style={{ background: 'rgba(16,185,129,0.04)', padding: '0.85rem', borderRadius: '8px', border: '1px solid rgba(16,185,129,0.1)' }}>
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', color: '#10b981', marginBottom: '0.5rem', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', color: '#10b981', marginBottom: '0.5rem', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                             <span>📊</span> Key Metrics
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                                             {activeNarrative.metrics.map((m, i) => (
-                                                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.72rem', color: 'var(--text-secondary, #94a3b8)', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: 'var(--type-caption)', color: 'var(--text-secondary, #94a3b8)', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(255,255,255,0.06)' }}>
                                                     <span>{m.icon}</span> <span>{m.label}</span>
                                                 </div>
                                             ))}
@@ -1762,7 +1762,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                             marginBottom: '0.75rem',
                         }}>
                             <span style={{
-                                padding: '0.2rem 0.6rem', borderRadius: '5px', fontSize: '0.68rem',
+                                padding: '0.2rem 0.6rem', borderRadius: '5px', fontSize: 'var(--type-caption)',
                                 fontWeight: 800, fontFamily: 'var(--font-mono, monospace)',
                                 background: 'rgba(139,92,246,0.12)', color: '#c4b5fd',
                                 border: '1px solid rgba(139,92,246,0.25)',
@@ -1842,10 +1842,10 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                        <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                             Previous Round Analysis
                         </label>
-                        <div style={{ fontSize: '0.65rem', color: 'rgba(148,163,184,0.6)', fontStyle: 'italic', marginBottom: '0.2rem' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(148,163,184,0.6)', fontStyle: 'italic', marginBottom: '0.2rem' }}>
                             {getGuidingQuestions(roundConfig?.paradigm, activeRound)}
                         </div>
                         <textarea
@@ -1861,10 +1861,10 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                        <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                             Current Round Commentary
                         </label>
-                        <div style={{ fontSize: '0.65rem', color: 'transparent', marginBottom: '0.2rem' }}>&nbsp;</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'transparent', marginBottom: '0.2rem' }}>&nbsp;</div>
                         <textarea
                             value={notes.commentary}
                             onChange={(e) => updateNote('commentary', e.target.value)}

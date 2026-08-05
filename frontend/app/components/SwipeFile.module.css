@@ -68,7 +68,7 @@
 }
 
 .trigger {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--preset-color, var(--text-muted));
     text-transform: uppercase;
@@ -83,7 +83,7 @@
     position: absolute;
     top: 4px;
     right: 6px;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     color: var(--gauge-green);
     animation: fadeInUp 0.2s ease-out;
@@ -172,7 +172,7 @@
 /* -- New Preset Button in Header ---------------------------- */
 .addPresetBtn {
     margin-left: auto;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 5px 14px;
     border-radius: var(--radius-full, 999px);
@@ -211,7 +211,7 @@
 }
 
 .createField label {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -231,7 +231,7 @@
 .createSaveBtn {
     align-self: flex-end;
     padding: 8px 24px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: #fff;
     background: linear-gradient(135deg, var(--accent-indigo, #6366f1), var(--accent-purple));
@@ -260,7 +260,7 @@
     position: absolute;
     top: 3px;
     right: 5px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     cursor: pointer;
     opacity: 0;

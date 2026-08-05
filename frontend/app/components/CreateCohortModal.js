@@ -1099,7 +1099,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     <span style={{ width: 18, textAlign: 'center', fontWeight: 800, color: st.ok ? '#4ade80' : '#f87171' }}>{st.ok ? '✓' : '✗'}</span>
                                     <span style={{ flex: 1, fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{st.name}</span>
                                     {!st.ok && (
-                                        <span title={st.error} style={{ fontSize: '0.72rem', color: '#f87171', maxWidth: '42%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <span title={st.error} style={{ fontSize: 'var(--type-caption)', color: '#f87171', maxWidth: '42%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {st.error}
                                         </span>
                                     )}
@@ -1155,7 +1155,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 <div className={styles.header} style={isEditMode ? { borderBottom: '2px solid rgba(251,191,36,0.4)', background: 'rgba(251,191,36,0.06)' } : {}}>
                     <h2>{isEditMode ? '✏️ Edit Cohort' : '🚀 Set Up New Cohort'}</h2>
                     {isEditMode && (
-                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#fbbf24', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '6px', padding: '3px 10px' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: '#fbbf24', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '6px', padding: '3px 10px' }}>
                             Editing: {editSession?.cohort_name}
                         </span>
                     )}
@@ -1441,7 +1441,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 value={startDate}
                                                 onChange={(e) => setStartDate(e.target.value)}
                                             />
-                                            <span style={{ fontSize: '0.65rem', color: '#64748b', marginTop: 2 }}>
+                                            <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 2 }}>
                                                 Game accessible from this date (optional)
                                             </span>
                                         </div>
@@ -1455,7 +1455,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 onChange={(e) => setEndDate(e.target.value)}
                                                 min={startDate || undefined}
                                             />
-                                            <span style={{ fontSize: '0.65rem', color: '#64748b', marginTop: 2 }}>
+                                            <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 2 }}>
                                                 Game locked after this date — results stay visible
                                             </span>
                                         </div>
@@ -1503,22 +1503,22 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     <span style={{ flex: 1 }}>
                                                         <span style={{ display: 'block', fontWeight: 700, fontSize: '0.9rem', color: isSelected ? presetColor : '#e2e8f0' }}>
                                                             {p.name}
-                                                            <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 8, color: isSelected ? presetColor : '#64748b', opacity: 0.85 }}>
+                                                            <span style={{ fontWeight: 400, fontSize: 'var(--type-caption)', marginLeft: 8, color: isSelected ? presetColor : '#64748b', opacity: 0.85 }}>
                                                                 {p.subtitle || ''}
                                                             </span>
                                                         </span>
-                                                        <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>
+                                                        <span style={{ display: 'block', fontSize: 'var(--type-caption)', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>
                                                             {p.description}
                                                         </span>
                                                         {p.target_audience && (
-                                                            <span style={{ display: 'block', fontSize: '0.65rem', color: isSelected ? presetColor : '#475569', marginTop: 3, fontStyle: 'italic' }}>
+                                                            <span style={{ display: 'block', fontSize: 'var(--type-caption)', color: isSelected ? presetColor : '#475569', marginTop: 3, fontStyle: 'italic' }}>
                                                                 👥 {p.target_audience}
                                                             </span>
                                                         )}
                                                     </span>
                                                     {isSelected && (
                                                         <span style={{
-                                                            fontSize: '0.72rem', fontWeight: 700, color: presetColor,
+                                                            fontSize: 'var(--type-caption)', fontWeight: 700, color: presetColor,
                                                             background: `${presetColor}18`, border: `1px solid ${presetColor}50`,
                                                             padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0,
                                                         }}>Selected</span>
@@ -1533,7 +1533,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={{
                                                 marginTop: 8, padding: '8px 12px', borderRadius: 8,
                                                 background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.15)',
-                                                fontSize: '0.7rem', color: '#94a3b8',
+                                                fontSize: 'var(--type-caption)', color: '#94a3b8',
                                             }}>
                                                 <strong style={{ color: '#cbd5e1' }}>This sets:</strong>{' '}
                                                 Engine difficulty ({sel.name}) ·{' '}
@@ -1585,7 +1585,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             >
                                                 <span style={{ fontSize: '1.25rem' }}>{c.flag}</span>
                                                 <span style={{ fontWeight: 800, fontSize: '1rem', color: isActive ? '#818cf8' : '#e2e8f0' }}>{c.symbol}</span>
-                                                <span style={{ fontSize: '0.6rem', color: isActive ? '#818cf8' : '#94a3b8', letterSpacing: '0.05em', fontWeight: 700 }}>{c.code}</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: isActive ? '#818cf8' : '#94a3b8', letterSpacing: '0.05em', fontWeight: 700 }}>{c.code}</span>
                                             </button>
                                         );
                                     })}
@@ -1627,13 +1627,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         <span style={{ flex: 1 }}>
                                                             <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: isSelected ? p.color : '#e2e8f0' }}>
                                                                 {p.label}
-                                                                <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: isSelected ? p.color : '#64748b', opacity: 0.85 }}>({p.sub})</span>
+                                                                <span style={{ fontWeight: 400, fontSize: 'var(--type-caption)', marginLeft: 6, color: isSelected ? p.color : '#64748b', opacity: 0.85 }}>({p.sub})</span>
                                                             </span>
-                                                            <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>{p.desc}</span>
+                                                            <span style={{ display: 'block', fontSize: 'var(--type-caption)', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>{p.desc}</span>
                                                         </span>
                                                         {isSelected && (
                                                             <span style={{
-                                                                flexShrink: 0, fontSize: '0.68rem', fontWeight: 700,
+                                                                flexShrink: 0, fontSize: 'var(--type-caption)', fontWeight: 700,
                                                                 padding: '2px 10px', borderRadius: 20,
                                                                 background: p.bg, color: p.color,
                                                                 border: `1px solid ${p.border}`,
@@ -1659,7 +1659,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                 <div>
                                                     <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', display: 'block' }}>🌍 Advanced Climate Mode</span>
-                                                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Activates the carbon tax, ETS credits, and carbon market dynamics.</span>
+                                                    <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>Activates the carbon tax, ETS credits, and carbon market dynamics.</span>
                                                 </div>
                                                 <div
                                                     onClick={() => setEngageAdvancedClimate(!engageAdvancedClimate)}
@@ -1712,7 +1712,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         outline: 'none',
                                                     }}
                                                 />
-                                                <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Permitted tax bracket range: 20 to 150 carbon units.</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>Permitted tax bracket range: 20 to 150 carbon units.</span>
                                             </div>
 
                                             {/* Market Hostility Index Slider */}
@@ -1738,7 +1738,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         outline: 'none',
                                                     }}
                                                 />
-                                                <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Determines competitor pricing strategy aggressiveness and supplier volatility.</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>Determines competitor pricing strategy aggressiveness and supplier volatility.</span>
                                             </div>
 
                                             {/* Scope 3 Threshold Slider */}
@@ -1764,7 +1764,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         outline: 'none',
                                                     }}
                                                 />
-                                                <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Cap multiplier on upstream supplier emissions before triggering Tier 3 supply chain penalties.</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>Cap multiplier on upstream supplier emissions before triggering Tier 3 supply chain penalties.</span>
                                             </div>
                                         </div>
                                     </section>
@@ -1793,9 +1793,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <span style={{ flex: 1 }}>
                                                 <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: selectedPathway === 'random' ? '#a78bfa' : '#e2e8f0' }}>
                                                     Random
-                                                    <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#64748b' }}>(Surprise ending)</span>
+                                                    <span style={{ fontWeight: 400, fontSize: 'var(--type-caption)', marginLeft: 6, color: '#64748b' }}>(Surprise ending)</span>
                                                 </span>
-                                                <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>System randomly selects a pathway at session creation. Maximum surprise for facilitator and players.</span>
+                                                <span style={{ display: 'block', fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 2 }}>System randomly selects a pathway at session creation. Maximum surprise for facilitator and players.</span>
                                             </span>
                                         </button>
                                         {/* Pathway options */}
@@ -1820,12 +1820,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     <span style={{ flex: 1 }}>
                                                         <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: isSelected ? '#818cf8' : '#e2e8f0' }}>
                                                             {p.title}
-                                                            {!p.implemented && <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#f59e0b' }}>(Coming Soon)</span>}
+                                                            {!p.implemented && <span style={{ fontWeight: 400, fontSize: 'var(--type-caption)', marginLeft: 6, color: '#f59e0b' }}>(Coming Soon)</span>}
                                                         </span>
-                                                        <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2, lineHeight: 1.4 }}>{p.description?.substring(0, 120)}{p.description?.length > 120 ? '…' : ''}</span>
+                                                        <span style={{ display: 'block', fontSize: 'var(--type-caption)', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2, lineHeight: 1.4 }}>{p.description?.substring(0, 120)}{p.description?.length > 120 ? '…' : ''}</span>
                                                     </span>
                                                     {isSelected && (
-                                                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Selected</span>
+                                                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Selected</span>
                                                     )}
                                                 </button>
                                             );
@@ -1908,7 +1908,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             {/* Per-BU Region — optional override in standard mode, required in Multi-Region mode */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                                                 <span style={{
-                                                    fontSize: '0.72rem',
+                                                    fontSize: 'var(--type-caption)',
                                                     color: isMultiRegion && !buRegions[slot] ? '#ef4444' : isMultiRegion ? '#67e8f9' : 'var(--text-muted)',
                                                     fontWeight: isMultiRegion ? 600 : 400,
                                                 }}>
@@ -1919,7 +1919,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     value={buRegions[slot] || ''}
                                                     onChange={e => setBuRegions(prev => ({ ...prev, [slot]: e.target.value }))}
                                                     style={{
-                                                        width: 'auto', padding: '3px 8px', fontSize: '0.72rem',
+                                                        width: 'auto', padding: '3px 8px', fontSize: 'var(--type-caption)',
                                                         borderRadius: 4, color: 'white',
                                                         background: 'rgba(15,23,42,0.6)',
                                                         border: isMultiRegion && !buRegions[slot]
@@ -1976,7 +1976,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             >
                                                 <span style={{ fontSize: '1rem', flexShrink: 0 }}>{t.icon}</span>
                                                 <span style={{
-                                                    flex: 1, fontSize: '0.72rem', fontWeight: 700,
+                                                    flex: 1, fontSize: 'var(--type-caption)', fontWeight: 700,
                                                     color: isOn ? '#4ade80' : '#64748b',
                                                 }}>
                                                     {t.label}
@@ -1992,15 +1992,15 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 </div>
                                 <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
                                     <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, true])))}
-                                        style={{ fontSize: '0.65rem', color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                        style={{ fontSize: 'var(--type-caption)', color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
                                         ● Enable All
                                     </button>
                                     <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, false])))}
-                                        style={{ fontSize: '0.65rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                        style={{ fontSize: 'var(--type-caption)', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
                                         ○ Disable All
                                     </button>
                                     <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, t.default])))}
-                                        style={{ fontSize: '0.65rem', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                        style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
                                         ↺ Reset Defaults
                                     </button>
                                 </div>
@@ -2014,7 +2014,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         🛤️ Side Track Simulations
                                         {canAssignAllTracks && (
                                             <span style={{
-                                                fontSize: '0.62rem', fontWeight: 700, padding: '2px 7px',
+                                                fontSize: 'var(--type-caption)', fontWeight: 700, padding: '2px 7px',
                                                 borderRadius: 999, background: 'rgba(99,102,241,0.15)',
                                                 color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)',
                                             }}>
@@ -2066,16 +2066,16 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 <span style={{ flex: 1 }}>
                                                     <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: isSelected ? '#818cf8' : '#e2e8f0' }}>
                                                         {track.display_name || track.track_id}
-                                                        <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#64748b' }}>
+                                                        <span style={{ fontWeight: 400, fontSize: 'var(--type-caption)', marginLeft: 6, color: '#64748b' }}>
                                                             ({track.num_rounds || '?'} rounds)
                                                         </span>
                                                         {!track.enabled_globally && canAssign && (
-                                                            <span style={{ marginLeft: 6, fontSize: '0.62rem', color: '#f59e0b', fontWeight: 600 }}>
+                                                            <span style={{ marginLeft: 6, fontSize: 'var(--type-caption)', color: '#f59e0b', fontWeight: 600 }}>
                                                                 ● Lead-only
                                                             </span>
                                                         )}
                                                     </span>
-                                                    <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>
+                                                    <span style={{ display: 'block', fontSize: 'var(--type-caption)', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>
                                                         {track.description?.substring(0, 140) || 'No description available'}
                                                     </span>
                                                 </span>
@@ -2096,7 +2096,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     })}
                                 </div>
                                 {selectedSideTracks.length > 0 && (
-                                    <div style={{ marginTop: 6, fontSize: '0.68rem', color: '#818cf8', fontWeight: 600 }}>
+                                    <div style={{ marginTop: 6, fontSize: 'var(--type-caption)', color: '#818cf8', fontWeight: 600 }}>
                                         ✓ {selectedSideTracks.length} side track{selectedSideTracks.length !== 1 ? 's' : ''} will be activated for this cohort
                                     </div>
                                 )}
@@ -2129,7 +2129,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         padding: '5px 14px', borderRadius: 8, border: 'none',
                                         background: ceoInterviewEnabled ? '#10b981' : 'rgba(148,163,184,0.15)',
                                         color: ceoInterviewEnabled ? '#fff' : '#94a3b8',
-                                        fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer',
+                                        fontWeight: 800, fontSize: 'var(--type-caption)', cursor: 'pointer',
                                         transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', flexShrink: 0,
                                     }}
                                 >
@@ -2145,7 +2145,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     borderRadius: 8,
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                        <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>CEO Voice:</span>
+                                        <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600 }}>CEO Voice:</span>
                                         <select
                                             value={ceoVoiceGender}
                                             onChange={async (e) => {
@@ -2160,7 +2160,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 } catch {}
                                             }}
                                             style={{
-                                                padding: '3px 8px', borderRadius: 6, fontSize: '0.72rem',
+                                                padding: '3px 8px', borderRadius: 6, fontSize: 'var(--type-caption)',
                                                 border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
                                                 color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer',
                                             }}
@@ -2168,7 +2168,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <option value="female">👩‍💼 Victoria Muressons (Female)</option>
                                             <option value="male">👨‍💼 Alexander Muressons (Male)</option>
                                         </select>
-                                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                                        <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>
                                             5 questions · 6-dimension spider diagram · narrative feedback
                                         </span>
                                     </div>
@@ -2186,12 +2186,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         </span>
                                         <div style={{ flex: 1 }}>
                                             <div style={{
-                                                fontSize: '0.68rem', fontWeight: 700,
+                                                fontSize: 'var(--type-caption)', fontWeight: 700,
                                                 color: elevenlabsStatus?.available ? '#10b981' : '#ef4444',
                                             }}>
                                                 ElevenLabs TTS {elevenlabsStatus?.available ? 'Connected' : 'Unavailable'}
                                             </div>
-                                            <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: 1 }}>
+                                            <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 1 }}>
                                                 {elevenlabsStatus?.available
                                                     ? `${((elevenlabsStatus.subscription?.remaining || 0) / 1000).toFixed(0)}K characters remaining · Voice synthesis active`
                                                     : (elevenlabsStatus?.error || 'API key not configured — interview will use text-only mode')}
@@ -2285,7 +2285,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         }}
                                     >
                                         <div style={{ fontSize: '1rem', marginBottom: 4 }}>{mode.icon} <strong style={{ color: 'var(--text-primary)' }}>{mode.label}</strong></div>
-                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{mode.desc}</div>
+                                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.4 }}>{mode.desc}</div>
                                     </div>
                                 ))}
                             </div>
@@ -2302,7 +2302,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <option key={i + 1} value={i + 1}>Round {i + 1}</option>
                                         ))}
                                     </select>
-                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 2 }}>
                                         Players can play up to this round. You can change this later from the dashboard.
                                     </span>
                                 </div>
@@ -2324,7 +2324,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             </div>
                                         ))}
                                     </div>
-                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 2 }}>
                                         Rounds will automatically unlock for players at the specified times.
                                     </span>
                                 </div>
@@ -2448,19 +2448,19 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div className={styles.visRoleLabel} style={{ margin: 0 }}>
                                                 👤 Player Dashboard
                                             </div>
-                                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                            <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8' }}>
                                                 <strong style={{ color: shown === total ? '#10b981' : '#cbd5e1' }}>
                                                     {shown}
                                                 </strong>{' '}/ {total} shown
                                             </span>
                                             {preset && !visibilityCustomised && (
-                                                <span style={{ fontSize: '0.68rem', color: '#818cf8' }}>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#818cf8' }}>
                                                     from {preset.icon} {preset.name}
                                                 </span>
                                             )}
                                             {visibilityCustomised && (
                                                 <>
-                                                    <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 700 }}>
+                                                    <span style={{ fontSize: 'var(--type-caption)', color: '#f59e0b', fontWeight: 700 }}>
                                                         ⚙ Customised
                                                     </span>
                                                     {preset?.default_audiences && (
@@ -2468,7 +2468,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                             type="button"
                                                             onClick={resetVisibilityToPreset}
                                                             style={{
-                                                                fontSize: '0.66rem', fontWeight: 600, cursor: 'pointer',
+                                                                fontSize: 'var(--type-caption)', fontWeight: 600, cursor: 'pointer',
                                                                 padding: '2px 9px', borderRadius: 6, color: '#cbd5e1',
                                                                 background: 'rgba(148,163,184,0.12)',
                                                                 border: '1px solid rgba(148,163,184,0.3)',
@@ -2496,7 +2496,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                       marginTop: 8, marginBottom: 2 }}>
                                             <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
                                                 <span style={{ position: 'absolute', left: 9, top: '50%',
-                                                               transform: 'translateY(-50%)', fontSize: '0.72rem',
+                                                               transform: 'translateY(-50%)', fontSize: 'var(--type-caption)',
                                                                color: '#64748b', pointerEvents: 'none' }}>🔍</span>
                                                 <input
                                                     type="search"
@@ -2506,7 +2506,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     aria-label="Filter player dashboard panels by name or key"
                                                     style={{
                                                         width: '100%', padding: '5px 26px 5px 26px',
-                                                        borderRadius: 7, fontSize: '0.72rem',
+                                                        borderRadius: 7, fontSize: 'var(--type-caption)',
                                                         color: '#e2e8f0',
                                                         background: 'rgba(15,23,42,0.65)',
                                                         border: '1px solid rgba(148,163,184,0.28)',
@@ -2527,7 +2527,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 )}
                                             </div>
                                             {visSearch && (
-                                                <span style={{ fontSize: '0.66rem',
+                                                <span style={{ fontSize: 'var(--type-caption)',
                                                                color: matches ? '#94a3b8' : '#f59e0b' }}>
                                                     {matches} of {PLAYER_ANALYTICS.length} match
                                                 </span>
@@ -2548,7 +2548,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8,
                                                   border: '1px dashed rgba(245,158,11,0.4)',
                                                   background: 'rgba(245,158,11,0.07)',
-                                                  fontSize: '0.72rem', color: '#cbd5e1' }}>
+                                                  fontSize: 'var(--type-caption)', color: '#cbd5e1' }}>
                                         No panel matches “{visSearch.trim()}”. Every one of the{' '}
                                         {PLAYER_ANALYTICS.length} panels is still configured — clear the
                                         filter to see them.
@@ -2576,11 +2576,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     return (
                                         <div key={group} style={{ marginTop: 12 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                                                <span style={{ fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.08em',
+                                                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.08em',
                                                                textTransform: 'uppercase', color: '#64748b' }}>
                                                     {group}
                                                 </span>
-                                                <span style={{ fontSize: '0.64rem', color: '#475569' }}>{on}/{cards.length}</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#475569' }}>{on}/{cards.length}</span>
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -2594,7 +2594,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         }));
                                                     }}
                                                     style={{
-                                                        marginLeft: 'auto', fontSize: '0.62rem', fontWeight: 600,
+                                                        marginLeft: 'auto', fontSize: 'var(--type-caption)', fontWeight: 600,
                                                         cursor: 'pointer', padding: '1px 8px', borderRadius: 5,
                                                         color: '#94a3b8', background: 'transparent',
                                                         border: '1px solid rgba(148,163,184,0.25)',
@@ -2646,10 +2646,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                             {(() => {
                                 const fld = { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 150 };
-                                const lbl = { fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.03em', textTransform: 'uppercase' };
+                                const lbl = { fontSize: 'var(--type-caption)', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.03em', textTransform: 'uppercase' };
                                 const inp = { padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #334155', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: '0.82rem' };
                                 const row = { display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', marginBottom: '1rem' };
-                                const grp = { fontSize: '0.7rem', fontWeight: 800, color: '#c7d2fe', letterSpacing: '0.04em', textTransform: 'uppercase', margin: '0.2rem 0 0.5rem' };
+                                const grp = { fontSize: 'var(--type-caption)', fontWeight: 800, color: '#c7d2fe', letterSpacing: '0.04em', textTransform: 'uppercase', margin: '0.2rem 0 0.5rem' };
                                 const chk = (checked, onClick, label, hint) => (
                                     <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0.35rem 0.1rem' }} data-tooltip={hint}>
                                         <div style={{ width: 34, height: 20, borderRadius: 10, background: checked ? '#10b981' : '#475569', position: 'relative', transition: 'background .15s', flexShrink: 0 }}>
@@ -2686,7 +2686,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 <input type="number" min={0} max={10} value={resultsRevealRound}
                                                     onChange={e => setResultsRevealRound(Number(e.target.value))} style={{ ...inp, width: 110 }}
                                                     data-tooltip="Hide leaderboard, peer ranks and final valuation from players until this round. 0 = always visible; 10 = only at the finale." />
-                                                <span style={{ fontSize: '0.66rem', color: '#64748b' }}>0 = always · 10 = finale only</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>0 = always · 10 = finale only</span>
                                             </div>
                                             {chk(redactPeers, () => setRedactPeers(v => !v), 'Redact peer identities', 'Anonymise other teams in peer/benchmark views.')}
                                         </div>
@@ -2727,7 +2727,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 <input type="text" value={rngSeed} placeholder="blank = random each run"
                                                     onChange={e => setRngSeed(e.target.value)} style={{ ...inp, width: 260 }}
                                                     data-tooltip="A non-empty seed makes every stochastic event roll identically for all teams — rankings reflect strategy, not luck. Leave blank for legacy non-deterministic behaviour." />
-                                                <span style={{ fontSize: '0.66rem', color: '#64748b' }}>Same seed ⇒ identical rolls for every team (fair comparison).</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>Same seed ⇒ identical rolls for every team (fair comparison).</span>
                                             </div>
                                         </div>
 
@@ -2746,7 +2746,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     onChange={e => setBriefingVideoBase(e.target.value)}
                                                     style={{ ...inp, width: '100%', minWidth: 320 }}
                                                     data-tooltip="YouTube, Vimeo or a direct file on your own hosting — the media never lives in the app. '{round}' is replaced by the round number, so one pattern covers all ten rounds. Players then get a 📄 Read | 🎬 Watch choice on each briefing. Blank = read-only briefings (and leaves any inherited setting untouched). Per-round exceptions are set in the Analytics Control Panel." />
-                                                <span style={{ fontSize: '0.66rem', color: '#64748b' }}>
+                                                <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>
                                                     <code>{'{round}'}</code> is replaced by the round number. Blank = read-only briefings.
                                                 </span>
                                             </div>
@@ -2935,20 +2935,20 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     borderBottom: '1px solid rgba(100,116,139,0.14)',
                                 };
                                 const titleS = {
-                                    fontSize: '0.64rem', fontWeight: 800,
+                                    fontSize: 'var(--type-caption)', fontWeight: 800,
                                     color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em',
                                 };
                                 const editS = {
-                                    fontSize: '0.6rem', fontWeight: 700, color: '#6366f1',
+                                    fontSize: 'var(--type-caption)', fontWeight: 700, color: '#6366f1',
                                     background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.28)',
                                     borderRadius: 5, padding: '2px 8px', cursor: 'pointer',
                                 };
-                                const rowS = { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '0.71rem', lineHeight: 1.45 };
+                                const rowS = { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 'var(--type-caption)', lineHeight: 1.45 };
                                 const lblS = { color: '#64748b', flexShrink: 0, minWidth: 88 };
                                 const valS = { color: '#e2e8f0', fontWeight: 600, flex: 1, wordBreak: 'break-word' };
-                                const onChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: '0.6rem', fontWeight: 700, background: 'rgba(16,185,129,0.12)', color: '#4ade80', border: '1px solid rgba(16,185,129,0.28)', marginRight: 3, marginBottom: 2 };
-                                const offChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: '0.6rem', fontWeight: 700, background: 'rgba(100,116,139,0.1)', color: '#64748b', border: '1px solid rgba(100,116,139,0.2)', marginRight: 3, marginBottom: 2 };
-                                const indigoChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: '0.6rem', fontWeight: 700, background: 'rgba(99,102,241,0.14)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.28)', marginRight: 3, marginBottom: 2 };
+                                const onChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: 'var(--type-caption)', fontWeight: 700, background: 'rgba(16,185,129,0.12)', color: '#4ade80', border: '1px solid rgba(16,185,129,0.28)', marginRight: 3, marginBottom: 2 };
+                                const offChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: 'var(--type-caption)', fontWeight: 700, background: 'rgba(100,116,139,0.1)', color: '#64748b', border: '1px solid rgba(100,116,139,0.2)', marginRight: 3, marginBottom: 2 };
+                                const indigoChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: 'var(--type-caption)', fontWeight: 700, background: 'rgba(99,102,241,0.14)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.28)', marginRight: 3, marginBottom: 2 };
 
                                 return (
                                     <div style={{ padding: '0.5rem 0' }}>
@@ -3005,7 +3005,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                             <span style={lblS}>Level</span>
                                                             <span style={valS}>
                                                                 {presetInfo.icon} {presetInfo.name}
-                                                                {pedagogyCustomised && <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#f59e0b', fontWeight: 700 }}>⚙ customised</span>}
+                                                                {pedagogyCustomised && <span style={{ marginLeft: 5, fontSize: 'var(--type-caption)', color: '#f59e0b', fontWeight: 700 }}>⚙ customised</span>}
                                                             </span>
                                                         </div>
                                                     )}
@@ -3034,7 +3034,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     {paradigmInfo && (
                                                         <div style={rowS}>
                                                             <span style={lblS} />
-                                                            <span style={{ fontSize: '0.63rem', color: '#64748b', flex: 1 }}>{paradigmInfo.sub}</span>
+                                                            <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', flex: 1 }}>{paradigmInfo.sub}</span>
                                                         </div>
                                                     )}
                                                     <div style={rowS}>
@@ -3119,8 +3119,8 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                                         <span style={{ ...valS, color: subVid ? '#a5b4fc' : '#e2e8f0' }}>{vertLabel}</span>
                                                                     </div>
                                                                     <div style={{ ...rowS, marginTop: 2 }}>
-                                                                        <span style={{ ...lblS, minWidth: 96, fontSize: '0.63rem' }}>📍 Region</span>
-                                                                        <span style={{ fontSize: '0.63rem', color: buRegionId ? '#67e8f9' : '#64748b', fontWeight: buRegionId ? 600 : 400 }}>
+                                                                        <span style={{ ...lblS, minWidth: 96, fontSize: 'var(--type-caption)' }}>📍 Region</span>
+                                                                        <span style={{ fontSize: 'var(--type-caption)', color: buRegionId ? '#67e8f9' : '#64748b', fontWeight: buRegionId ? 600 : 400 }}>
                                                                             {regionLabel}
                                                                         </span>
                                                                     </div>
@@ -3144,7 +3144,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         <span style={valS}>
                                                             {enabledModules.length}/{ENGINE_MODULE_TOGGLES.length} on
                                                             {nonDefaultModules.length > 0 && (
-                                                                <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#f59e0b', fontWeight: 700 }}>
+                                                                <span style={{ marginLeft: 5, fontSize: 'var(--type-caption)', color: '#f59e0b', fontWeight: 700 }}>
                                                                     {nonDefaultModules.length} non-default
                                                                 </span>
                                                             )}
@@ -3182,7 +3182,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                             {ceoInterviewEnabled ? '● Enabled' : '○ Disabled'}
                                                         </span>
                                                         {ceoInterviewEnabled && (
-                                                            <span style={{ fontSize: '0.63rem', color: '#64748b' }}>
+                                                            <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>
                                                                 {ceoVoiceGender === 'female' ? '👩‍💼 Victoria' : '👨‍💼 Alexander'}
                                                             </span>
                                                         )}
@@ -3202,7 +3202,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         <span style={valS}>
                                                             {selectedOverrides.length}/{masterOverrides.length} selected
                                                             {selectedOverrides.length > 0 && selectedOverrides.length === masterOverrides.length && (
-                                                                <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#4ade80', fontWeight: 700 }}>All</span>
+                                                                <span style={{ marginLeft: 5, fontSize: 'var(--type-caption)', color: '#4ade80', fontWeight: 700 }}>All</span>
                                                             )}
                                                         </span>
                                                     </div>
@@ -3211,7 +3211,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         <span style={valS}>
                                                             {selectedSwipes.length}/{masterSwipes.length} selected
                                                             {selectedSwipes.length > 0 && selectedSwipes.length === masterSwipes.length && (
-                                                                <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#4ade80', fontWeight: 700 }}>All</span>
+                                                                <span style={{ marginLeft: 5, fontSize: 'var(--type-caption)', color: '#4ade80', fontWeight: 700 }}>All</span>
                                                             )}
                                                         </span>
                                                     </div>

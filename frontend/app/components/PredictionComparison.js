@@ -71,10 +71,10 @@ export default function PredictionComparison({ predictions, roundNumber }) {
       background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a5b4fc' }}>
+        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a5b4fc' }}>
           🔮 Your Prediction vs Reality
         </span>
-        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: view.verdictTone }}>{view.verdict}</span>
+        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: view.verdictTone }}>{view.verdict}</span>
       </div>
       {view.rows.map((r) => (
         <div key={r.kpi} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.76rem', color: '#cbd5e1', padding: '3px 0', flexWrap: 'wrap' }}>
@@ -86,10 +86,10 @@ export default function PredictionComparison({ predictions, roundNumber }) {
         </div>
       ))}
       {view.confLine && (
-        <div style={{ fontSize: '0.72rem', color: '#a5b4fc', marginTop: 6, fontStyle: 'italic' }}>{view.confLine}</div>
+        <div style={{ fontSize: 'var(--type-caption)', color: '#a5b4fc', marginTop: 6, fontStyle: 'italic' }}>{view.confLine}</div>
       )}
       {view.note && (
-        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 6 }}>
+        <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 6 }}>
           Your reasoning at the time: “{view.note}”
         </div>
       )}

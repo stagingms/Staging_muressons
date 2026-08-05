@@ -101,7 +101,7 @@ function Row({ label, value, accent }) {
             gap: '0.5rem',
             padding: '2px 0',
         }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--cs-muted)', flexShrink: 0, paddingTop: '1px' }}>
+            <span style={{ fontSize: 'var(--type-caption)', color: 'var(--cs-muted)', flexShrink: 0, paddingTop: '1px' }}>
                 {label}
             </span>
             <span style={{
@@ -137,7 +137,7 @@ function Panel({ icon, title, children, accentColor = '#3b82f6' }) {
             }}>
                 <span style={{ fontSize: '0.8rem' }}>{icon}</span>
                 <span style={{
-                    fontSize: '0.63rem',
+                    fontSize: 'var(--type-caption)',
                     fontWeight: 800,
                     textTransform: 'uppercase',
                     letterSpacing: '0.12em',
@@ -162,7 +162,7 @@ function Chip({ label, color }) {
             gap: '4px',
             padding: '2px 8px',
             borderRadius: '20px',
-            fontSize: '0.65rem',
+            fontSize: 'var(--type-caption)',
             fontWeight: 700,
             background: `${color}18`,
             border: `1px solid ${color}40`,
@@ -330,13 +330,13 @@ export default function CohortSummaryTooltip({ session, anchorRect, visible }) {
                         <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#e2e8f0', lineHeight: 1.2 }}>
                             {cohortName}
                         </div>
-                        <div style={{ fontSize: '0.63rem', color: '#64748b', fontFamily: 'monospace' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontFamily: 'monospace' }}>
                             {s.session_id?.slice(0, 20)}
                         </div>
                     </div>
                 </div>
                 <span style={{
-                    fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase',
+                    fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase',
                     letterSpacing: '0.12em', color: '#f59e0b',
                     background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
                     padding: '2px 8px', borderRadius: '6px',

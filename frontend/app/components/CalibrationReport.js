@@ -75,7 +75,7 @@ export default function CalibrationReport({ sessionId }) {
       marginTop: 16, padding: '16px 18px', borderRadius: 12, textAlign: 'left',
       background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)',
     }}>
-      <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a5b4fc', marginBottom: 4 }}>
+      <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a5b4fc', marginBottom: 4 }}>
         🎯 Your Calibration — did your mental model improve?
       </div>
       <div style={{ fontSize: '0.82rem', color: '#cbd5e1', marginBottom: 10 }}>
@@ -123,7 +123,7 @@ export default function CalibrationReport({ sessionId }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
         {view.perRound.map((r) => (
           <span key={r.round} style={{
-            fontSize: '0.68rem', fontWeight: 700, padding: '3px 8px', borderRadius: 999,
+            fontSize: 'var(--type-caption)', fontWeight: 700, padding: '3px 8px', borderRadius: 999,
             background: r.hitRate === 1 ? 'rgba(52,211,153,0.15)' : r.hitRate === 0 ? 'rgba(248,113,113,0.14)' : 'rgba(251,191,36,0.14)',
             color: r.hitRate === 1 ? '#34d399' : r.hitRate === 0 ? '#f87171' : '#fbbf24',
           }}>
@@ -131,7 +131,7 @@ export default function CalibrationReport({ sessionId }) {
           </span>
         ))}
       </div>
-      <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 8, fontStyle: 'italic' }}>
+      <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 8, fontStyle: 'italic' }}>
         Calibration — knowing how much to trust your own forecasts — is a leadership skill this simulation measures directly. A well-calibrated pessimist scores as well as a well-calibrated optimist.
       </div>
     </div>

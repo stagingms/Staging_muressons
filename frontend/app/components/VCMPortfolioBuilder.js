@@ -88,7 +88,7 @@ function IntegrityGauge({ score }) {
                 {/* Label */}
                 <text x={cx} y={cy + 20} textAnchor="middle" fontSize="9.5" fontWeight="700" fill="#0f172a">PORTFOLIO INTEGRITY SCORE</text>
             </svg>
-            <div style={{ fontSize: '0.72rem', color: score < 40 ? '#dc2626' : score < 70 ? '#d97706' : '#16a34a', fontWeight: score < 70 ? 700 : 600, marginTop: '0.25rem', maxWidth: 260, margin: '0 auto' }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: score < 40 ? '#dc2626' : score < 70 ? '#d97706' : '#16a34a', fontWeight: score < 70 ? 700 : 600, marginTop: '0.25rem', maxWidth: 260, margin: '0 auto' }}>
                 {riskText}
             </div>
         </div>
@@ -142,7 +142,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
         }}>
             <div style={{ background: '#fff', maxWidth: 600, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#0f172a', color: '#fff', padding: '1rem 1.5rem' }}>
-                    <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 5 — Board Directive</div>
+                    <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 5 — Board Directive</div>
                     <h2 style={{ margin: '0.3rem 0 0', fontSize: '1rem', fontWeight: 800 }}>The Carbon Exchange Opens</h2>
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
@@ -189,7 +189,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                 <div style={{ background: '#fff', padding: '0.9rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>VCM Portfolio Builder</h2>
-                        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.72rem' }}>
+                        <div style={{ display: 'flex', gap: '1.5rem', fontSize: 'var(--type-caption)' }}>
                             {[
                                 ['TOTAL COST', `${currencySymbol()}${(totalCost / 1000).toFixed(0)}k`],
                                 ['AVG COST/T', `${currencySymbol()}${avgCost.toFixed(2)}`],
@@ -202,7 +202,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                             ))}
                         </div>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: totalVol !== TOTAL_REQUIRED ? '#d97706' : '#16a34a', marginTop: '0.25rem', fontWeight: 600 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: totalVol !== TOTAL_REQUIRED ? '#d97706' : '#16a34a', marginTop: '0.25rem', fontWeight: 600 }}>
                         {totalVol !== TOTAL_REQUIRED
                             ? `⚠ Portfolio: ${totalVol.toLocaleString()}t / ${TOTAL_REQUIRED.toLocaleString()}t required`
                             : `✅ Portfolio complete: ${totalVol.toLocaleString()}t`}
@@ -218,7 +218,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                 {/* Tier key */}
                 <div style={{ display: 'flex', gap: '0.75rem', padding: '0.75rem 1.5rem', justifyContent: 'center' }}>
                     {TIERS.map(t => (
-                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#475569' }}>
+                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: 'var(--type-caption)', color: '#475569' }}>
                             <div style={{ width: 10, height: 10, borderRadius: 2, background: t.color, flexShrink: 0 }} />
                             {t.id.toUpperCase()}
                         </div>
@@ -229,7 +229,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                 <div style={{ padding: '0.5rem 1.5rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.25rem' }}>
                     {TIERS.map((t, i) => (
                         <div key={t.id} style={{ gridColumn: i === 2 ? '1' : 'auto' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '3px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', marginBottom: '3px' }}>
                                 <label style={{ color: '#475569', fontWeight: 600 }}>{t.label} (t)</label>
                                 <span style={{ fontWeight: 700, color: t.color }}>{currencySymbol()}{(vols[i] * t.cost / 1000).toFixed(0)}k</span>
                             </div>
@@ -242,7 +242,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                                     border: '1px solid #d1d5db', borderRadius: 5, fontSize: '0.78rem', fontWeight: 700,
                                 }}>{vols[i].toLocaleString()}</div>
                             </div>
-                            <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '2px' }}>{t.desc} — {currencySymbol()}{t.cost}/t</div>
+                            <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginTop: '2px' }}>{t.desc} — {currencySymbol()}{t.cost}/t</div>
                         </div>
                     ))}
                     <div style={{ gridColumn: '2', display: 'flex', alignItems: 'flex-end' }}>

@@ -283,7 +283,7 @@ export default function AnalyticsControlPanel({ sessionId }) {
                             <span className={styles.toggleKnob} />
                         </button>
                     </div>
-                    {swanStatus && <div style={{ fontSize: '0.74rem', fontWeight: 700, padding: '2px 4px' }}>{swanStatus}</div>}
+                    {swanStatus && <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, padding: '2px 4px' }}>{swanStatus}</div>}
 
                     {/* Negotiation Rooms — shown only when the caller's profile
                         carries the capability (super admin grants it in the
@@ -309,7 +309,7 @@ export default function AnalyticsControlPanel({ sessionId }) {
                                     <span className={styles.toggleKnob} />
                                 </button>
                             </div>
-                            {negoStatus && <div style={{ fontSize: '0.74rem', fontWeight: 700, padding: '2px 4px' }}>{negoStatus}</div>}
+                            {negoStatus && <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, padding: '2px 4px' }}>{negoStatus}</div>}
                         </>
                     )}
                 </div>
@@ -331,7 +331,7 @@ export default function AnalyticsControlPanel({ sessionId }) {
                             <div key={group}>
                                 <div className={styles.groupHeader ?? ''} style={{
                                     display: 'flex', alignItems: 'center', gap: 8,
-                                    margin: '14px 0 4px', fontSize: '0.64rem', fontWeight: 700,
+                                    margin: '14px 0 4px', fontSize: 'var(--type-caption)', fontWeight: 700,
                                     letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b',
                                 }}>
                                     <span>{group}</span>
@@ -370,20 +370,20 @@ export default function AnalyticsControlPanel({ sessionId }) {
                         <h3>Briefing Videos</h3>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 2px' }}>
-                        <label style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75 }}>URL pattern (optional, {'{round}'} = round no.)</label>
+                        <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75 }}>URL pattern (optional, {'{round}'} = round no.)</label>
                         <input type="text" value={videoBase} onChange={e => setVideoBase(e.target.value)}
                             placeholder="https://cdn.example.edu/briefing-{round}.mp4"
                             style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.3)', background: 'transparent', color: 'inherit', fontSize: '0.78rem' }} />
-                        <label style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75, marginTop: 4 }}>Per-round URLs — one per line, e.g. “1 = https://youtu.be/…”</label>
+                        <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75, marginTop: 4 }}>Per-round URLs — one per line, e.g. “1 = https://youtu.be/…”</label>
                         <textarea value={videoLines} onChange={e => setVideoLines(e.target.value)} rows={3}
                             placeholder={"1 = https://youtu.be/K_6cGzU7vrI\n2 = https://youtu.be/…"}
                             style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.3)', background: 'transparent', color: 'inherit', fontSize: '0.76rem', fontFamily: 'inherit', resize: 'vertical' }} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <button onClick={saveVideos}
-                                style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(99,102,241,0.18)', color: 'inherit', fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer' }}>
+                                style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(99,102,241,0.18)', color: 'inherit', fontWeight: 700, fontSize: 'var(--type-caption)', cursor: 'pointer' }}>
                                 💾 Save briefing videos
                             </button>
-                            {videoStatus && <span style={{ fontSize: '0.74rem', fontWeight: 700 }}>{videoStatus}</span>}
+                            {videoStatus && <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700 }}>{videoStatus}</span>}
                         </div>
                     </div>
 

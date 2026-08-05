@@ -145,7 +145,7 @@ class ErrorBoundary extends React.Component {
             <details style={{
               marginTop: 20,
               textAlign: 'left',
-              fontSize: '0.7rem',
+              fontSize: 'var(--type-caption)',
               color: '#64748b',
             }}>
               <summary style={{ cursor: 'pointer', userSelect: 'none', marginBottom: 6 }}>
@@ -157,7 +157,7 @@ class ErrorBoundary extends React.Component {
                 background: 'rgba(0,0,0,0.3)',
                 overflowX: 'auto',
                 maxHeight: 120,
-                fontSize: '0.65rem',
+                fontSize: 'var(--type-caption)',
                 lineHeight: 1.4,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',

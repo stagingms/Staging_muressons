@@ -97,9 +97,9 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
       paddingLeft: 12,
       marginLeft: 4,
     }}>
-      <span style={{ fontSize: '0.71rem', fontWeight: 500, color: '#f59e0b' }}>{label}</span>
+      <span style={{ fontSize: 'var(--type-caption)', fontWeight: 500, color: '#f59e0b' }}>{label}</span>
       <span style={{
-        fontSize: '0.72rem', fontWeight: 700,
+        fontSize: 'var(--type-caption)', fontWeight: 700,
         fontFamily: "'JetBrains Mono', monospace", color: '#fbbf24',
       }}>{fmtK(value)}</span>
     </div>
@@ -118,7 +118,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
             <div id="bs-modal-title" style={{ fontSize: '0.88rem', fontWeight: 800, color: '#38bdf8' }}>
               📊 Statement of Financial Position
             </div>
-            <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 2 }}>
               {isScholarly
                 ? 'IFRS Balance Sheet — Scholarly View (ESG Capitals On-Balance-Sheet)'
                 : 'IFRS-Compliant Balance Sheet'}
@@ -126,7 +126,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
           </div>
           <button onClick={onClose} style={{
             background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 6, color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700,
+            borderRadius: 6, color: '#94a3b8', fontSize: 'var(--type-caption)', fontWeight: 700,
             padding: '4px 12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
           }}>ESC · Close</button>
         </div>
@@ -147,12 +147,12 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
                 SCHOLARLY VIEW ACTIVE
               </span>
               <span style={{
-                fontSize: '0.6rem', fontWeight: 700, color: '#f59e0b',
+                fontSize: 'var(--type-caption)', fontWeight: 700, color: '#f59e0b',
                 background: 'rgba(245,158,11,0.15)', borderRadius: 4, padding: '1px 6px',
                 border: '1px solid rgba(245,158,11,0.3)',
               }}>WHAT-IF MODE</span>
             </div>
-            <div style={{ fontSize: '0.67rem', color: '#94a3b8', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', lineHeight: 1.5 }}>
               Social Licence Capital <strong style={{ color: '#fbbf24' }}>{fmtM(scholarlySLC)}</strong> and
               Reputation Capital <strong style={{ color: '#fbbf24' }}>{fmtM(scholarlyRep)}</strong> are
               recognised as Intangible Assets (+{fmtM(scholarlyTotal)} to Total Assets &amp; Equity).{' '}
@@ -184,7 +184,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
               {/* ── Scholarly: ESG capitals as on-GAAP intangibles ──────────── */}
               {isScholarly && (
                 <div style={{ marginTop: 4 }}>
-                  <div style={{ fontSize: '0.6rem', color: '#92400e', fontStyle: 'italic', marginBottom: 3, paddingLeft: 16 }}>
+                  <div style={{ fontSize: 'var(--type-caption)', color: '#92400e', fontStyle: 'italic', marginBottom: 3, paddingLeft: 16 }}>
                     † Scholarly recognition (IAS 38 debate — see banner above)
                   </div>
                   {scholarlyRow('† Social Licence Capital [Scholarly]', scholarlySLC)}
@@ -196,7 +196,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
                   non-GAAP <IR> Framework capitals, excluded from Total Assets (IAS 38). */}
               {!isScholarly && (esgCap.social_licence_capital || esgCap.reputation_capital) ? (
                 <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed rgba(148,163,184,0.1)' }}>
-                  <div style={{ fontSize: '0.6rem', color: '#475569', fontStyle: 'italic', marginBottom: 3 }}>
+                  <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontStyle: 'italic', marginBottom: 3 }}>
                     † Non-GAAP ESG Capitals (IAS 38 / &#60;IR&#62; Framework — excluded from total assets)
                   </div>
                   {lineRow('† Social Licence Capital', esgCap.social_licence_capital, { indent: true, color: '#64748b' })}
@@ -219,7 +219,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
                 <div style={{
                   marginTop: 4, padding: '3px 8px', borderRadius: 4,
                   background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)',
-                  fontSize: '0.62rem', color: '#f59e0b', textAlign: 'right',
+                  fontSize: 'var(--type-caption)', color: '#f59e0b', textAlign: 'right',
                 }}>
                   📚 +{fmtM(scholarlyTotal)} vs. standard IFRS view
                 </div>
@@ -252,7 +252,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
                 color: (balanceSheet.retained_earnings || 0) < 0 ? '#f87171' : (isScholarly ? '#fbbf24' : undefined),
               })}
               {isScholarly && (
-                <div style={{ fontSize: '0.6rem', color: '#92400e', fontStyle: 'italic', paddingLeft: 16, marginTop: -2, marginBottom: 2 }}>
+                <div style={{ fontSize: 'var(--type-caption)', color: '#92400e', fontStyle: 'italic', paddingLeft: 16, marginTop: -2, marginBottom: 2 }}>
                   ↑ Retained Earnings includes {fmtM(scholarlyTotal)} from ESG capital recognition
                 </div>
               )}
@@ -267,18 +267,18 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(148,163,184,0.1)' }}>
             {/* Ratios */}
             <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.1)' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>📐 Key Ratios</div>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>📐 Key Ratios</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)' }}>
                   <span style={{ color: '#94a3b8' }}>Debt / Equity</span>
                   <span style={{ fontWeight: 800, color: deRatio < 2.0 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace" }}>{deRatio.toFixed(2)}×</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)' }}>
                   <span style={{ color: '#94a3b8' }}>ND / EBITDA</span>
                   <span style={{ fontWeight: 800, color: ndEbitda <= 2.5 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace" }}>{ndEbitda.toFixed(2)}×</span>
                 </div>
                 {strandedExposure > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)' }}>
                     <span style={{ color: '#f59e0b' }}>Stranded Exposure</span>
                     <span style={{ fontWeight: 800, color: '#f59e0b', fontFamily: "'JetBrains Mono', monospace" }}>{fmtM(strandedExposure)}</span>
                   </div>
@@ -286,7 +286,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
                 {isScholarly && (
                   <div style={{
                     marginTop: 4, paddingTop: 4, borderTop: '1px dashed rgba(245,158,11,0.2)',
-                    fontSize: '0.63rem', color: '#f59e0b',
+                    fontSize: 'var(--type-caption)', color: '#f59e0b',
                   }}>
                     📚 D/E improved by ESG capitalisation
                   </div>
@@ -296,7 +296,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
 
             {/* Covenant */}
             <div style={{ padding: '10px 14px', borderRadius: 8, background: `${covenantColors[covenantStatus]}08`, border: `1px solid ${covenantColors[covenantStatus]}20` }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>🏛️ Covenant Status</div>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>🏛️ Covenant Status</div>
               <div style={{ fontSize: '0.85rem', fontWeight: 800, color: covenantColors[covenantStatus] }}>
                 {covenantLabels[covenantStatus] || covenantStatus}
               </div>
@@ -304,7 +304,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
 
             {/* Trend */}
             <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(56,189,248,0.03)', border: '1px solid rgba(56,189,248,0.08)' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>📈 Net Assets Trend</div>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>📈 Net Assets Trend</div>
               {balanceSheet.balance_sheet_history?.length > 1 ? (
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
                   {balanceSheet.balance_sheet_history.map((h, i) => {
@@ -321,7 +321,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
                   })}
                 </div>
               ) : (
-                <div style={{ fontSize: '0.7rem', color: '#475569' }}>Not enough data yet</div>
+                <div style={{ fontSize: 'var(--type-caption)', color: '#475569' }}>Not enough data yet</div>
               )}
             </div>
           </div>

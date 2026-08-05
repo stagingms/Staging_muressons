@@ -142,7 +142,7 @@ export default function RunBar({ cohortId, onOpenPacing }) {
     const chip = (bg, border, color) => ({
         display: 'inline-flex', alignItems: 'center', gap: 6,
         padding: '0.25rem 0.65rem', borderRadius: 8, whiteSpace: 'nowrap',
-        fontSize: '0.74rem', fontWeight: 700,
+        fontSize: 'var(--type-caption)', fontWeight: 700,
         background: bg, border: `1px solid ${border}`, color,
     });
 
@@ -196,7 +196,7 @@ export default function RunBar({ cohortId, onOpenPacing }) {
                     disabled={busy || (Number(pacing.unlocked_round) || 1) >= 10}
                     style={{
                         padding: '0.3rem 0.8rem', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
-                        fontWeight: 800, fontSize: '0.74rem',
+                        fontWeight: 800, fontSize: 'var(--type-caption)',
                         border: '1px solid rgba(34,197,94,0.5)', background: 'rgba(34,197,94,0.14)', color: '#4ade80',
                         opacity: (Number(pacing.unlocked_round) || 1) >= 10 ? 0.4 : 1,
                     }}
@@ -209,7 +209,7 @@ export default function RunBar({ cohortId, onOpenPacing }) {
                 <button
                     onClick={onOpenPacing}
                     style={{
-                        padding: '0.3rem 0.7rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.72rem',
+                        padding: '0.3rem 0.7rem', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 'var(--type-caption)',
                         border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(30,41,59,0.6)', color: '#cbd5e1',
                     }}
                     title="Round Pacing — mode, schedule, force advance, relock"
@@ -222,7 +222,7 @@ export default function RunBar({ cohortId, onOpenPacing }) {
                 target="_blank"
                 rel="noreferrer"
                 style={{
-                    padding: '0.3rem 0.7rem', borderRadius: 8, fontWeight: 600, fontSize: '0.72rem',
+                    padding: '0.3rem 0.7rem', borderRadius: 8, fontWeight: 600, fontSize: 'var(--type-caption)',
                     border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(30,41,59,0.6)', color: '#cbd5e1',
                     textDecoration: 'none',
                 }}
@@ -245,7 +245,7 @@ export default function RunBar({ cohortId, onOpenPacing }) {
             </span>
 
             {note && (
-                <span role="status" style={{ width: '100%', fontSize: '0.72rem', color: '#cbd5e1' }}>{note}</span>
+                <span role="status" style={{ width: '100%', fontSize: 'var(--type-caption)', color: '#cbd5e1' }}>{note}</span>
             )}
             {confirmModal}
         </div>

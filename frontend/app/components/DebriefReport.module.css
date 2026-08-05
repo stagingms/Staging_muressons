@@ -175,7 +175,7 @@
 }
 
 .expandIcon {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     color: #94a3b8;
     transition: transform 0.2s;
     flex-shrink: 0;
@@ -238,7 +238,7 @@
 }
 
 .decisionLabel {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -283,7 +283,7 @@
 }
 
 .metricLabel {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -317,7 +317,7 @@
 
 .capexSection h5 {
     margin: 0 0 0.5rem 0;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -340,7 +340,7 @@
 }
 
 .capexBu {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     font-weight: 600;
     margin-bottom: 4px;
@@ -367,7 +367,7 @@
 }
 
 .flagsLabel {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;

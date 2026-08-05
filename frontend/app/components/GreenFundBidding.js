@@ -170,10 +170,10 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                 {/* Letterhead */}
                 <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', color: '#fff', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.5, textTransform: 'uppercase' }}>Muressons Global Corporation — BOARD OF DIRECTORS</div>
+                        <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', opacity: 0.5, textTransform: 'uppercase' }}>Muressons Global Corporation — BOARD OF DIRECTORS</div>
                         <h2 style={{ margin: '0.2rem 0 0', fontSize: '1rem', fontWeight: 800 }}>MEMORANDUM — CONFIDENTIAL</h2>
                     </div>
-                    <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>MODULE 3 · Q3</div>
+                    <div style={{ fontSize: 'var(--type-caption)', opacity: 0.5 }}>MODULE 3 · Q3</div>
                 </div>
                 <div style={{ padding: '1.75rem 2rem' }}>
                     <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem', marginBottom: '1.25rem', fontSize: '0.78rem', color: '#94a3b8' }}>
@@ -209,11 +209,11 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                 {/* Header bar */}
                 <div style={{ background: '#0f172a', color: '#fff', padding: '0.9rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <div style={{ fontSize: '0.6rem', letterSpacing: '0.12em', opacity: 0.5, textTransform: 'uppercase' }}>Green Fund Bidding Room</div>
+                        <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.12em', opacity: 0.5, textTransform: 'uppercase' }}>Green Fund Bidding Room</div>
                         <h2 style={{ margin: '0.2rem 0 0', fontSize: '0.95rem', fontWeight: 800 }}>Select Projects to Fund — Budget: $5M</h2>
                     </div>
                     <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>
-                        <div style={{ color: '#94a3b8', fontSize: '0.65rem' }}>REMAINING</div>
+                        <div style={{ color: '#94a3b8', fontSize: 'var(--type-caption)' }}>REMAINING</div>
                         <div style={{ fontWeight: 800, color: remaining < 0 ? '#ef4444' : '#34d399' }}>{currencySymbol()}{(remaining / 1e6).toFixed(2)}M</div>
                     </div>
                 </div>
@@ -236,17 +236,17 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontWeight: 800, fontSize: '0.72rem', color: p.verdictColor, letterSpacing: '0.05em' }}>{p.verdict}</div>
-                                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>{isFunded ? '✅ Selected' : p.mac < 0 ? '🚫 Fund rejects' : 'Click to bid'}</div>
+                                        <div style={{ fontWeight: 800, fontSize: 'var(--type-caption)', color: p.verdictColor, letterSpacing: '0.05em' }}>{p.verdict}</div>
+                                        <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginTop: '2px' }}>{isFunded ? '✅ Selected' : p.mac < 0 ? '🚫 Fund rejects' : 'Click to bid'}</div>
                                     </div>
                                 </div>
                                 {(isRejected || p.mac < 0) && (
-                                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '0.4rem 0.6rem', fontSize: '0.72rem', color: '#b91c1c', marginTop: '0.35rem' }}>
+                                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '0.4rem 0.6rem', fontSize: 'var(--type-caption)', color: '#b91c1c', marginTop: '0.35rem' }}>
                                         ⛔ <strong>Green Fund Rejection:</strong> {p.lesson}
                                     </div>
                                 )}
                                 {isFunded && (
-                                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '0.4rem 0.6rem', fontSize: '0.72rem', color: '#166534', marginTop: '0.35rem' }}>
+                                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '0.4rem 0.6rem', fontSize: 'var(--type-caption)', color: '#166534', marginTop: '0.35rem' }}>
                                         ✅ <strong>Strategic rationale:</strong> {p.lesson}
                                     </div>
                                 )}
@@ -275,7 +275,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
             <div style={{ background: '#f8fafc', maxWidth: 580, width: '100%', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
                 <div style={{ background: '#0f172a', color: '#fff', padding: '0.9rem 1.5rem' }}>
                     <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>Marginal Abatement Cost Curve — Board Allocation View</h2>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: '0.2rem' }}>Bars to the left of the budget line are funded by the Green Fund. Shaded bars = unfunded.</div>
+                    <div style={{ fontSize: 'var(--type-caption)', opacity: 0.6, marginTop: '0.2rem' }}>Bars to the left of the budget line are funded by the Green Fund. Shaded bars = unfunded.</div>
                 </div>
                 <div style={{ background: '#fff', margin: '0.75rem', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.5rem 0.25rem 0' }}>
                     <MACCurve funded={funded} budgetLine={totalCost} />
@@ -287,7 +287,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                             return <span key={id} style={{ color: '#16a34a', fontWeight: 700 }}>✅ {p.name.split(' ')[0]}: {p.macLabel}</span>;
                         })}
                     </div>
-                    <div style={{ color: '#64748b', fontSize: '0.74rem' }}>
+                    <div style={{ color: '#64748b', fontSize: 'var(--type-caption)' }}>
                         Board ranking locks in: Projects with MAC below shadow price are prioritized. The budget line allocates remaining capital in order of cost-effectiveness.
                     </div>
                 </div>

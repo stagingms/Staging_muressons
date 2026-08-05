@@ -132,18 +132,18 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
 
                         {/* Row 2: Pedagogy */}
                         <div>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#a78bfa', marginBottom: '4px', display: 'block' }}>
+                            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#a78bfa', marginBottom: '4px', display: 'block' }}>
                                 🎓 Pedagogical Scaffolding
                             </span>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                 {enabledPedagogy.length > 0 ? enabledPedagogy.map(p => (
                                     <span key={p} style={{
-                                        padding: '3px 10px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600,
+                                        padding: '3px 10px', borderRadius: 12, fontSize: 'var(--type-caption)', fontWeight: 600,
                                         background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)',
                                         color: '#a78bfa', textTransform: 'capitalize',
                                     }}>{p}</span>
                                 )) : (
-                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>None enabled</span>
+                                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic' }}>None enabled</span>
                                 )}
                             </div>
                         </div>
@@ -151,13 +151,13 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                         {/* Row 3: Side Tracks */}
                         {sideTracks.length > 0 && (
                             <div>
-                                <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f59e0b', marginBottom: '4px', display: 'block' }}>
+                                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#f59e0b', marginBottom: '4px', display: 'block' }}>
                                     🛤️ Side Tracks
                                 </span>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                     {sideTracks.map(t => (
                                         <span key={typeof t === 'string' ? t : t.track_id} style={{
-                                            padding: '3px 10px', borderRadius: 12, fontSize: '0.7rem', fontWeight: 600,
+                                            padding: '3px 10px', borderRadius: 12, fontSize: 'var(--type-caption)', fontWeight: 600,
                                             background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
                                             color: '#f59e0b', textTransform: 'capitalize',
                                         }}>{(typeof t === 'string' ? t : t.track_id).replace(/_/g, ' ')}</span>
@@ -248,7 +248,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                                 style={{
                                                                     background: 'none', border: 'none', cursor: 'pointer',
                                                                     color: expandedConfigRow === s.session_id ? '#818cf8' : 'var(--text-muted)',
-                                                                    fontSize: '0.72rem', padding: '2px 4px', borderRadius: 4,
+                                                                    fontSize: 'var(--type-caption)', padding: '2px 4px', borderRadius: 4,
                                                                     transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                                                 }}
                                                                 title="Toggle cohort configuration details"
@@ -275,7 +275,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                              {s.cohort_name || formatSessionId(s)}
                                                              {canSeeSummaryTooltip && (
                                                                  <span style={{
-                                                                     fontSize: '0.55rem', verticalAlign: 'super',
+                                                                     fontSize: 'var(--type-caption)', verticalAlign: 'super',
                                                                      color: 'var(--text-muted)', marginLeft: '3px',
                                                                      opacity: 0.5,
                                                                  }}>ⓘ</span>
@@ -308,10 +308,10 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                         <td>
                                                             <div className={styles.scheduleCell} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                 {s.start_time ? (
-                                                                    <span className={styles.scheduleItem} style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                                                    <span className={styles.scheduleItem} style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                                                                         From: {new Date(s.start_time).toLocaleDateString()}
                                                                     </span>
-                                                                ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>}
+                                                                ) : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>—</span>}
                                                             </div>
                                                         </td>
                                                         <td style={{ textAlign: 'center' }}>
@@ -326,7 +326,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                                 return (
                                                                     <span style={{
                                                                         display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                        fontSize: '0.68rem', fontWeight: 600, padding: '3px 10px',
+                                                                        fontSize: 'var(--type-caption)', fontWeight: 600, padding: '3px 10px',
                                                                         borderRadius: 12, whiteSpace: 'nowrap',
                                                                         background: m.bg, color: m.color,
                                                                         border: `1px solid ${m.border}`,
@@ -394,7 +394,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
 function ConfigChip({ label, value, color, mono }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <span style={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
                 {label}
             </span>
             <span style={{

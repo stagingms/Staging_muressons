@@ -41,23 +41,23 @@
   border: 1px solid rgba(99, 102, 241, 0.15);
 }
 .commitCount {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 900;
   color: #818cf8;
   font-family: var(--font-mono, monospace);
 }
 .commitSep {
-  font-size: 0.55rem;
+  font-size: var(--type-caption);
   color: #475569;
 }
 .commitTotal {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: #64748b;
   font-family: var(--font-mono, monospace);
 }
 .commitLabel {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   margin-left: 2px;
 }
 

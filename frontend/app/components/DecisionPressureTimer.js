@@ -112,7 +112,7 @@ export default function DecisionPressureTimer({ sessionId, roundNumber, isCommit
         <span aria-hidden="true" style={{ fontSize: '0.95rem', lineHeight: 1 }}>
           {pacing.mode === 'manual' ? '🎬' : '∞'}
         </span>
-        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#94a3b8', whiteSpace: 'nowrap' }}>
           {label}
         </div>
         {totalN > 0 && (

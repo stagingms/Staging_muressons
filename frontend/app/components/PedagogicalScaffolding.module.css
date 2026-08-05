@@ -21,7 +21,7 @@
 }
 .pgIcon { font-size: 1.3rem; }
 .pgHeader h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary); flex: 1; }
-.pgTheory { font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
+.pgTheory { font-size: var(--type-caption); color: var(--text-muted); font-style: italic; }
 .pgPrompt { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px; }
 .pgPrompt strong { color: var(--text-primary); }
 
@@ -37,7 +37,7 @@
 .pgActions {
     display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
 }
-.pgCharCount { font-size: 0.72rem; color: var(--text-muted); }
+.pgCharCount { font-size: var(--type-caption); color: var(--text-muted); }
 .pgSubmitBtn {
     padding: 8px 20px; font-size: 0.8rem; font-weight: 700; color: #fff;
     background: linear-gradient(135deg, #7c3aed, var(--accent-purple)); border: none;
@@ -79,7 +79,7 @@
 }
 .brIcon { font-size: 1.4rem; }
 .brHeader h4 { margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-primary); flex: 1; letter-spacing: -0.01em; }
-.brTheory { font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
+.brTheory { font-size: var(--type-caption); color: var(--text-muted); font-style: italic; }
 
 .brTrigger {
     font-size: 0.78rem; color: #b45309; font-weight: 600;
@@ -110,11 +110,11 @@
 .brStage { margin-bottom: 14px; }
 .brStageHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .brStageBadge {
-    font-size: 0.68rem; font-weight: 800; color: #1d4ed8;
+    font-size: var(--type-caption); font-weight: 800; color: #1d4ed8;
     background: #dbeafe; padding: 4px 10px; border-radius: 99px;
     letter-spacing: 0.06em; border: 1px solid #93c5fd;
 }
-.brStageDuration { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
+.brStageDuration { font-size: var(--type-caption); color: var(--text-muted); font-weight: 500; }
 .brStagePrompt { font-size: 0.92rem; color: #0f172a; line-height: 1.6; font-weight: 700; margin-bottom: 12px; }
 
 .brTextarea {
@@ -206,21 +206,21 @@
 .rrHeader { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .rrIcon { font-size: 1.2rem; }
 .rrHeader h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary); flex: 1; }
-.rrRound { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+.rrRound { font-size: var(--type-caption); font-weight: 700; color: var(--text-muted); }
 
 .rrAnchor {
     text-align: center; padding: 12px; margin-bottom: 14px;
     background: rgba(16, 185, 129, 0.06); border-radius: var(--radius-md, 8px);
     border: 1px solid rgba(16, 185, 129, 0.15);
 }
-.rrAnchorLabel { display: block; font-size: 0.68rem; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.12em; }
+.rrAnchorLabel { display: block; font-size: var(--type-caption); color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.12em; }
 .rrAnchorText { font-size: 1.15rem; font-weight: 800; color: var(--gauge-green); letter-spacing: 0.08em; }
 
 .rrChains { display: flex; flex-direction: column; gap: 8px; }
 .rrChain { display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--radius-md, 8px); background: rgba(15, 23, 42, 0.5); }
 .rrChainIcon { font-size: 1.1rem; padding-top: 2px; }
 .rrChainContent { flex: 1; }
-.rrChainEngine { font-size: 0.68rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 2px; }
+.rrChainEngine { font-size: var(--type-caption); font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 2px; }
 .rrChainNarrative { margin: 0; font-size: 0.85rem; color: var(--text-primary); line-height: 1.5; }
 
 .rr_strategic { border-left: 3px solid #6366f1; }
@@ -293,7 +293,7 @@
 .mmHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .mmHeader h4 { margin: 0; font-size: 1rem; font-weight: 800; color: #0f172a; flex: 1; letter-spacing: -0.01em; }
 .mmRound {
-    font-size: 0.72rem; font-weight: 700; color: #0e7490;
+    font-size: var(--type-caption); font-weight: 700; color: #0e7490;
     background: #cffafe; padding: 4px 10px; border-radius: 99px;
     border: 1px solid #67e8f9;
 }
@@ -350,7 +350,7 @@
 .cpBody { padding: 16px; }
 .cpMetrics { display: flex; gap: 16px; margin-bottom: 16px; }
 .cpMetric { flex: 1; text-align: center; padding: 12px; background: rgba(15, 23, 42, 0.5); border-radius: var(--radius-md, 8px); }
-.cpMetricLabel { display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+.cpMetricLabel { display: block; font-size: var(--type-caption); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
 .cpMetricValue { font-size: 1.3rem; font-weight: 800; }
 
 .cpSection { margin-bottom: 12px; }
@@ -382,7 +382,7 @@
 
 .dbHeader { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
 .dbHeader h4 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary); flex: 1; }
-.dbTheory { font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
+.dbTheory { font-size: var(--type-caption); color: var(--text-muted); font-style: italic; }
 
 .dbPhases { display: flex; flex-direction: column; gap: 6px; }
 .dbPhase {
@@ -395,7 +395,7 @@
 .dbPhaseHeader { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
 .dbPhaseIcon { font-size: 1.3rem; }
 .dbPhaseHeader h5 { margin: 0; font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
-.dbPhaseDuration { font-size: 0.72rem; color: var(--text-muted); }
+.dbPhaseDuration { font-size: var(--type-caption); color: var(--text-muted); }
 
 .dbPhaseBody { padding: 0 14px 14px; }
 .dbInstruction { font-size: 0.84rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 10px; }

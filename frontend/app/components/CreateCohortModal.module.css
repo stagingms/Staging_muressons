@@ -418,7 +418,7 @@
 }
 /* Missing class stub */
 .checkText {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   font-weight: 500;
 }

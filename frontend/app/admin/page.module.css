@@ -84,7 +84,7 @@
 .godBadge {
     display: inline-block;
     margin-top: 8px;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -156,7 +156,7 @@
 }
 
 .categoryStripLabel {
-    font-size: 0.54rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -213,7 +213,7 @@
 }
 
 .categoryArrow {
-    font-size: 0.55rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     transition: transform 0.2s ease;
     display: inline-block;
@@ -332,7 +332,7 @@
 }
 
 .selectedTag {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--accent-gold);
     background: rgba(245, 158, 11, 0.06);
@@ -347,7 +347,7 @@
 
 .selectedTag strong {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -366,7 +366,7 @@
 
 .clock {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
 }
 
@@ -401,7 +401,7 @@
 .logCount {
     margin-left: auto;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     background: rgba(255, 255, 255, 0.04);
     padding: 2px 8px;
@@ -419,7 +419,7 @@
     align-items: center;
     gap: var(--space-sm, 0.5rem);
     padding: 5px var(--space-sm, 0.5rem);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     border-bottom: 1px solid rgba(255, 255, 255, 0.02);
     animation: fadeInUp 0.2s ease-out both;
 }
@@ -432,12 +432,12 @@
 .logTime {
     font-family: 'IBM Plex Mono', monospace;
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     min-width: 70px;
 }
 
 .logType {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     font-family: 'IBM Plex Mono', monospace;
     text-transform: uppercase;
@@ -476,7 +476,7 @@
     padding: 1.5rem;
     color: var(--text-muted);
     font-style: italic;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
 }
 
 /* â•â• Reset/Danger Panel â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
@@ -510,13 +510,13 @@
 }
 
 .resetHint {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     font-style: italic;
 }
 
 .resetSessionBtn {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     font-family: var(--font-sans);
     padding: 6px 14px;
@@ -535,11 +535,11 @@
 
 .resetSessionBtn code {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
 }
 
 .resetAllBtn {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     font-family: var(--font-sans);
     padding: 6px 14px;
@@ -585,7 +585,7 @@
     border: 1px solid rgba(99, 102, 241, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.03);
     color: #cbd5e1;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 500;
     line-height: 1.5;
     letter-spacing: 0.01em;

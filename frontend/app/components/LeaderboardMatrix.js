@@ -158,16 +158,16 @@ export default function LeaderboardMatrix({
 
     // Score badge helper
     const scoreBadge = (value, maxVal, unit = '%') => {
-        if (!value && value !== 0) return <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>;
+        if (!value && value !== 0) return <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>;
         const pct = maxVal ? (value / maxVal) * 100 : value;
         let bg, color;
         if (pct >= 80) { bg = 'rgba(16, 185, 129, 0.12)'; color = '#10b981'; }
         else if (pct >= 60) { bg = 'rgba(245, 158, 11, 0.12)'; color = '#f59e0b'; }
         else if (pct > 0) { bg = 'rgba(239, 68, 68, 0.12)'; color = '#ef4444'; }
-        else { return <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>; }
+        else { return <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>; }
         return (
             <span style={{
-                fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.5rem',
+                fontSize: 'var(--type-caption)', fontWeight: 700, padding: '0.15rem 0.5rem',
                 borderRadius: '4px', background: bg, color, fontFamily: 'var(--font-mono)',
                 border: `1px solid ${color}22`,
             }}>
@@ -209,7 +209,7 @@ export default function LeaderboardMatrix({
                             style={{
                                 padding: '0.3rem 0.6rem', borderRadius: 'var(--radius-chip, 6px)',
                                 border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
-                                color: 'var(--text-muted)', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600,
+                                color: 'var(--text-muted)', fontSize: 'var(--type-caption)', cursor: 'pointer', fontWeight: 600,
                             }}
                         >✕ Clear sort</button>
                     )}
@@ -222,7 +222,7 @@ export default function LeaderboardMatrix({
                             border: '1px solid var(--border-subtle)',
                             background: showAllCols ? 'var(--accent-soft, rgba(99,102,241,0.12))' : 'var(--bg-body)',
                             color: showAllCols ? 'var(--accent, #6366f1)' : 'var(--text-muted)',
-                            fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700,
+                            fontSize: 'var(--type-caption)', cursor: 'pointer', fontWeight: 700,
                         }}
                     >{showAllCols ? '▾ Fewer metrics' : '▸ More metrics'}</button>
                 </div>
@@ -278,7 +278,7 @@ export default function LeaderboardMatrix({
                                                 {rank}
                                             </span>
                                         ) : (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>└</span>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>└</span>
                                         )}
                                     </td>
                                     <td className={styles.cohortName}>
@@ -287,7 +287,7 @@ export default function LeaderboardMatrix({
                                         )}
                                         {isCohort && isPractice && <span title="Practice Mode Active" style={{ marginRight: '4px' }}>🎓</span>}
                                         {isPlayer ? (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', paddingLeft: '8px' }}>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)', paddingLeft: '8px' }}>
                                                 {sess.cohort_name}
                                             </span>
                                         ) : (
@@ -299,7 +299,7 @@ export default function LeaderboardMatrix({
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                                                 <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sess.player_id}</span>
                                                 {sess.player_name && (
-                                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'inherit' }}>
+                                                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'inherit' }}>
                                                         {sess.player_name}
                                                     </span>
                                                 )}
@@ -348,7 +348,7 @@ export default function LeaderboardMatrix({
                                     <td style={{ textAlign: 'center' }}>
                                         {sess.stakeholder_map_completed
                                             ? scoreBadge(sess.stakeholder_map_accuracy, 100)
-                                            : <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                            : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>
                                         }
                                     </td>
                                     )}
@@ -356,7 +356,7 @@ export default function LeaderboardMatrix({
                                     <td style={{ textAlign: 'center' }}>
                                         {sess.csrd_completed
                                             ? scoreBadge(sess.materiality_accuracy, 100)
-                                            : <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                            : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>
                                         }
                                     </td>
                                     )}
@@ -364,7 +364,7 @@ export default function LeaderboardMatrix({
                                     <td style={{ textAlign: 'center' }}>
                                         {sess.learning_bonus_count > 0 ? (
                                             <span style={{
-                                                fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.5rem',
+                                                fontSize: 'var(--type-caption)', fontWeight: 700, padding: '0.15rem 0.5rem',
                                                 borderRadius: '4px',
                                                 background: 'rgba(99, 102, 241, 0.12)',
                                                 color: '#6366f1',
@@ -372,12 +372,12 @@ export default function LeaderboardMatrix({
                                                 border: '1px solid rgba(99, 102, 241, 0.2)',
                                             }}>
                                                 📚 {sess.learning_bonus_count}
-                                                <span style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '3px' }}>
+                                                <span style={{ fontSize: 'var(--type-caption)', opacity: 0.7, marginLeft: '3px' }}>
                                                     (+{sess.learning_bonus_total.toLocaleString()})
                                                 </span>
                                             </span>
                                         ) : (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>
                                         )}
                                     </td>
                                     )}
@@ -410,7 +410,7 @@ export default function LeaderboardMatrix({
                                             <span
                                                 title={`Rejected: ${(sess.shadow_board_rejection || '').replace(/_/g, ' ')}`}
                                                 style={{
-                                                    fontSize: '0.72rem',
+                                                    fontSize: 'var(--type-caption)',
                                                     fontWeight: 700,
                                                     padding: '0.15rem 0.4rem',
                                                     borderRadius: '4px',
@@ -437,7 +437,7 @@ export default function LeaderboardMatrix({
                                                 {' '}{sess.shadow_board_archetype}
                                             </span>
                                         ) : (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>
                                         )}
                                     </td>
                                     )}
@@ -457,7 +457,7 @@ export default function LeaderboardMatrix({
                                                 {isLoading ? '⏳' : isPractice ? '🎓 ON' : 'OFF'}
                                             </button>
                                         ) : (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>
                                         )}
                                     </td>
                                     <td>
@@ -481,7 +481,7 @@ export default function LeaderboardMatrix({
                                                 </button>
                                             </div>
                                         ) : (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                            <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>–</span>
                                         )}
                                     </td>
                                 </tr>

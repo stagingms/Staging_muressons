@@ -56,15 +56,15 @@ export default function TurnaroundPhaseChip({ phase = 'crisis', round = 1, maxRo
                 {PHASES.map((p, i) => (
                     <span key={p} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <span style={{
-                            fontSize: '0.66rem', fontWeight: 700,
+                            fontSize: 'var(--type-caption)', fontWeight: 700,
                             color: i === idx ? 'var(--text-primary)'
                                  : i < idx ? 'var(--positive-text)' : 'var(--text-muted)',
                         }}>{LABEL[p]}</span>
-                        {i < PHASES.length - 1 && <span style={{ color: 'var(--text-muted)', fontSize: '0.6rem' }}>›</span>}
+                        {i < PHASES.length - 1 && <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>›</span>}
                     </span>
                 ))}
             </div>
-            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>{GATE[phase]}</div>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>{GATE[phase]}</div>
         </div>
     );
 }

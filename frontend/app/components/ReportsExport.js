@@ -12,7 +12,7 @@ const fmtNum = (v, d = 2) => (v ?? 0).toFixed(d);
 
 // ── Tiny inline sparkline (SVG) ──────────────────────────────────
 function Sparkline({ data = [], color = '#3b82f6', height = 28 }) {
-    if (!data || data.length < 2) return <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>—</span>;
+    if (!data || data.length < 2) return <span style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>—</span>;
     const min = Math.min(...data);
     const max = Math.max(...data);
     const range = max - min || 1;
@@ -37,7 +37,7 @@ function CEOScorePills({ scores = {} }) {
                 const col = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
                 return (
                     <span key={k} title={`${label}: ${v}/10`} style={{
-                        fontSize: '0.68rem', padding: '1px 5px', borderRadius: '4px',
+                        fontSize: 'var(--type-caption)', padding: '1px 5px', borderRadius: '4px',
                         background: `${col}20`, color: col, fontWeight: 600, border: `1px solid ${col}40`,
                     }}>
                         {label} {v.toFixed(1)}
@@ -100,7 +100,7 @@ function SessionDrillDown({ sessionId, onClose }) {
                     { label: 'Bonus Score', val: `+${k.bonus_score || 0}`, spark: null, col: '#f59e0b' },
                 ].map(({ label, val, spark, col }) => (
                     <div key={label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>{label}</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '2px' }}>{label}</div>
                         <div style={{ fontSize: '0.9rem', fontWeight: 700, color: col }}>{val}</div>
                         {spark && spark.length > 1 && <Sparkline data={spark} color={col} height={22} />}
                     </div>
@@ -110,16 +110,16 @@ function SessionDrillDown({ sessionId, onClose }) {
             {/* CEO Interview */}
             {data.ceo_interview && (
                 <div style={{ marginBottom: '1rem', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.75rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '6px' }}>🎤 CEO Interview — Overall {data.ceo_interview.overall_avg}/10</div>
+                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '6px' }}>🎤 CEO Interview — Overall {data.ceo_interview.overall_avg}/10</div>
                     <CEOScorePills scores={data.ceo_interview.final_scores} />
                 </div>
             )}
 
             {/* BU Breakdown */}
             <div style={{ marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '6px' }}>🏢 Business Unit Breakdown</div>
+                <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '6px' }}>🏢 Business Unit Breakdown</div>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--type-caption)' }}>
                         <thead>
                             <tr style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
                                 {['BU', 'Revenue', 'OPEX', 'Margin', 'CI', 'tCO₂e', 'SLO', 'NCD', 'Gov Risk', 'Burnout'].map(h => (
@@ -151,18 +151,18 @@ function SessionDrillDown({ sessionId, onClose }) {
             <div style={{ display: 'grid', gridTemplateColumns: data.sandbox ? '1fr 1fr' : '1fr', gap: '0.75rem' }}>
                 {data.sandbox && (
                     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.75rem' }}>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '6px' }}>🧪 Regulatory Sandbox</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '6px' }}>🧪 Regulatory Sandbox</div>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>{data.sandbox.active_regulations} active instrument{data.sandbox.active_regulations !== 1 ? 's' : ''}</div>
-                        {data.sandbox.instruments?.length > 0 && <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '3px' }}>{data.sandbox.instruments.join(', ')}</div>}
+                        {data.sandbox.instruments?.length > 0 && <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: '3px' }}>{data.sandbox.instruments.join(', ')}</div>}
                         <div style={{ fontSize: '0.78rem', color: '#ef4444', marginTop: '6px' }}>Compliance burden: {fmt$(data.sandbox.cumulative_compliance_burden)}</div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Complexity {fmtNum(data.sandbox.complexity_index, 0)}/100 · Capture risk {fmtNum(data.sandbox.capture_risk, 0)}%</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Complexity {fmtNum(data.sandbox.complexity_index, 0)}/100 · Capture risk {fmtNum(data.sandbox.capture_risk, 0)}%</div>
                     </div>
                 )}
                 {data.side_tracks?.length > 0 && (
                     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.75rem' }}>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '6px' }}>🛤️ Side Tracks</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '6px' }}>🛤️ Side Tracks</div>
                         {data.side_tracks.map(t => (
-                            <div key={t.track_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: '3px' }}>
+                            <div key={t.track_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', marginBottom: '3px' }}>
                                 <span style={{ color: 'var(--text-primary)' }}>{t.display_name}</span>
                                 <span style={{ color: t.completed ? '#10b981' : '#f59e0b', fontWeight: 600 }}>{t.grade} ({t.total_score})</span>
                             </div>
@@ -256,7 +256,7 @@ export default function ReportsExport({ leaderboard = [] }) {
     }, [sorted]);
 
     const SortTh = ({ label, k }) => (
-        <th onClick={() => toggleSort(k)} style={{ cursor: 'pointer', padding: '6px 10px', textAlign: 'left', color: sortKey === k ? '#60a5fa' : 'var(--text-muted)', userSelect: 'none', whiteSpace: 'nowrap', fontSize: '0.72rem', fontWeight: 600 }}>
+        <th onClick={() => toggleSort(k)} style={{ cursor: 'pointer', padding: '6px 10px', textAlign: 'left', color: sortKey === k ? '#60a5fa' : 'var(--text-muted)', userSelect: 'none', whiteSpace: 'nowrap', fontSize: 'var(--type-caption)', fontWeight: 600 }}>
             {label} {sortKey === k ? (sortDir === -1 ? '↓' : '↑') : ''}
         </th>
     );
@@ -285,7 +285,7 @@ export default function ReportsExport({ leaderboard = [] }) {
                         { label: '⚠️ Talent Risk', val: stats.talentRisk, col: stats.talentRisk > 0 ? '#f59e0b' : '#10b981' },
                     ].map(({ label, val, col }) => (
                         <div key={label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0.6rem 0.75rem' }}>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{label}</div>
+                            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>{label}</div>
                             <div style={{ fontSize: '0.95rem', fontWeight: 700, color: col }}>{val}</div>
                         </div>
                     ))}
@@ -313,9 +313,9 @@ export default function ReportsExport({ leaderboard = [] }) {
                                 <SortTh label="Avg SLO" k="avg_slo" />
                                 <SortTh label="Avg NCD" k="avg_ncd" />
                                 <SortTh label="Synergy" k="synergy" />
-                                <th style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>Flags</th>
-                                <th style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>Difficulty</th>
-                                <th style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: '0.72rem' }}>Deep-Dive</th>
+                                <th style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>Flags</th>
+                                <th style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>Difficulty</th>
+                                <th style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>Deep-Dive</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -334,18 +334,18 @@ export default function ReportsExport({ leaderboard = [] }) {
                                         <td style={{ color: d.avg_ncd > 1e6 ? '#ef4444' : 'var(--text-secondary)' }}>{fmt$(d.avg_ncd)}</td>
                                         <td style={{ color: d.synergy > 1.1 ? '#10b981' : 'var(--text-secondary)' }}>{fmtNum(d.synergy, 3)}</td>
                                         <td>
-                                            {d.active_flags > 0 && <span style={{ fontSize: '0.65rem', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: '4px' }}>{d.active_flags} active</span>}
-                                            {d.talent_risk && <span style={{ fontSize: '0.65rem', color: '#ef4444', marginLeft: '3px' }}>⚠️ talent</span>}
+                                            {d.active_flags > 0 && <span style={{ fontSize: 'var(--type-caption)', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', padding: '1px 5px', borderRadius: '4px' }}>{d.active_flags} active</span>}
+                                            {d.talent_risk && <span style={{ fontSize: 'var(--type-caption)', color: '#ef4444', marginLeft: '3px' }}>⚠️ talent</span>}
                                             {/* AC-3: auto-committed rounds are a grading caveat, so they
                                                 are visible on screen and not only in the export. */}
                                             {d.auto_committed_rounds?.length > 0 && (
                                                 <span
                                                     title={`Auto-committed (not played) in round(s): ${d.auto_committed_rounds.join(', ')}. The server submitted defaults or a saved draft because the round closed first.`}
-                                                    style={{ fontSize: '0.65rem', color: '#fbbf24', marginLeft: '4px', fontWeight: 700 }}
+                                                    style={{ fontSize: 'var(--type-caption)', color: '#fbbf24', marginLeft: '4px', fontWeight: 700 }}
                                                 >⏱ auto×{d.auto_committed_rounds.length}</span>
                                             )}
                                         </td>
-                                        <td><span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '1px 5px', borderRadius: '4px' }}>{d.difficulty}</span></td>
+                                        <td><span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', background: 'var(--bg-elevated)', padding: '1px 5px', borderRadius: '4px' }}>{d.difficulty}</span></td>
                                         <td style={{ color: '#60a5fa', fontSize: '0.75rem', fontWeight: 600 }}>{expandedSession === d.session_id ? '▲ Close' : '▼ Expand'}</td>
                                     </tr>
                                     {expandedSession === d.session_id && (

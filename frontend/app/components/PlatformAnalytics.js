@@ -531,7 +531,7 @@ function CalibrationAnalytics() {
             {withConf.length > 0 && (
                 <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
                             Confidence vs accuracy (one dot per team)
                         </div>
                         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: 460 }} aria-label="Team calibration scatter">
@@ -556,13 +556,13 @@ function CalibrationAnalytics() {
                                 </g>
                             ))}
                         </svg>
-                        <div style={{ fontSize: '0.68rem', color: '#8899a6', marginTop: 4 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#8899a6', marginTop: 4 }}>
                             🔴 above the line = overconfident · 🟡 below = underconfident · 🟢 on it = calibrated
                         </div>
                     </div>
 
                     <div style={{ minWidth: 240 }}>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
                             Cohort hit-rate by round
                         </div>
                         {(cal.round_trend || []).map(r => (
@@ -574,7 +574,7 @@ function CalibrationAnalytics() {
                                 <span style={{ width: 60, textAlign: 'right', color: '#cbd5e1' }}>{r.hit_rate == null ? '—' : `${Math.round(r.hit_rate * 100)}%`} <span style={{ color: '#64748b' }}>({r.n})</span></span>
                             </div>
                         ))}
-                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 6, fontStyle: 'italic' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 6, fontStyle: 'italic' }}>
                             A rising bar = the cohort's mental model of the system is sharpening.
                         </div>
                     </div>
@@ -583,7 +583,7 @@ function CalibrationAnalytics() {
 
             {sorted.length > 0 && (
                 <div style={{ marginTop: 16 }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
                         Most over- / under-confident
                     </div>
                     {[...sorted.slice(0, 3), ...sorted.slice(-2).filter(t => !sorted.slice(0, 3).includes(t))].map((t, i) => (

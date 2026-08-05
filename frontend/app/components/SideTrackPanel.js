@@ -118,7 +118,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
               padding: '7px 16px', borderRadius: 8, cursor: 'pointer',
               background: 'linear-gradient(135deg, rgba(0,229,195,0.15), rgba(99,102,241,0.15))',
               border: '1px solid rgba(0,229,195,0.35)', color: '#00e5c3',
-              fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em',
+              fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.04em',
               fontFamily: "'DM Sans', system-ui, sans-serif",
               display: 'flex', alignItems: 'center', gap: 6,
             }}>← Return to Main Session</button>
@@ -152,7 +152,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
               padding: '7px 16px', borderRadius: 8, cursor: 'pointer',
               background: 'linear-gradient(135deg, rgba(0,229,195,0.15), rgba(99,102,241,0.15))',
               border: '1px solid rgba(0,229,195,0.35)', color: '#00e5c3',
-              fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em',
+              fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.04em',
               fontFamily: "'DM Sans', system-ui, sans-serif",
               display: 'flex', alignItems: 'center', gap: 6,
             }}>← Return to Main Session</button>
@@ -164,7 +164,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
             <div className={styles.trackSelectorTitle}>Choose Your Track</div>
             <button onClick={() => { setShowAggregate(true); setViewMode('leaderboard'); }} style={{
               padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.3)',
-              background: 'rgba(99,102,241,0.08)', color: '#a5b4fc', fontSize: '0.68rem',
+              background: 'rgba(99,102,241,0.08)', color: '#a5b4fc', fontSize: 'var(--type-caption)',
               fontWeight: 700, cursor: 'pointer', letterSpacing: '0.05em',
             }}>🏆 All Tracks Leaderboard</button>
           </div>
@@ -190,12 +190,12 @@ export default function SideTrackPanel({ sessionId, onClose }) {
           <div style={{ position: 'absolute', inset: 0, zIndex: 5, background: 'rgba(10,15,30,0.97)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', padding: 28, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div>
-                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#818cf8' }}>🏆 Cross-Track Leaderboard</div>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#818cf8' }}>🏆 Cross-Track Leaderboard</div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f1f5f9', marginTop: 2 }}>Aggregate Side Track Performance</div>
               </div>
               <button onClick={() => { setShowAggregate(false); setViewMode('play'); }} style={{
                 padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)',
-                background: 'transparent', color: '#94a3b8', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
+                background: 'transparent', color: '#94a3b8', fontSize: 'var(--type-caption)', fontWeight: 700, cursor: 'pointer',
               }}>← Back to Tracks</button>
             </div>
             {aggregateData?.aggregate_leaderboard?.length > 0 ? (
@@ -221,7 +221,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                         <div style={{ fontSize: '0.78rem', fontWeight: 700, color: e.is_you ? '#00e5c3' : '#e2e8f0' }}>
                           {e.player_name || 'Team'} {e.is_you ? '(You)' : ''}
                         </div>
-                        <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: 2 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 2 }}>
                           {e.tracks_completed}/{e.tracks_available} tracks complete · {e.tracks_started} started
                         </div>
                         {/* Per-track mini badges */}
@@ -231,7 +231,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                             const trackInfo = aggregateData.available_tracks?.find(t => t.track_id === tid);
                             return (
                               <span key={tid} style={{
-                                padding: '2px 6px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 700,
+                                padding: '2px 6px', borderRadius: 4, fontSize: 'var(--type-caption)', fontWeight: 700,
                                 background: `${tColor}15`, border: `1px solid ${tColor}30`, color: tColor,
                                 fontFamily: "'JetBrains Mono', monospace",
                               }}>{trackInfo?.icon || '📦'} {td.grade} {td.total_score.toFixed(0)}</span>
@@ -241,7 +241,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '1.1rem', fontWeight: 900, color, fontFamily: "'JetBrains Mono', monospace" }}>{e.composite_grade}</div>
-                        <div style={{ fontSize: '0.65rem', color: '#64748b' }}>{e.composite_score}/100</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>{e.composite_score}/100</div>
                       </div>
                     </div>
                   );
@@ -280,14 +280,14 @@ export default function SideTrackPanel({ sessionId, onClose }) {
             <button key={m} onClick={() => setViewMode(m)} style={{
               padding: '5px 12px', borderRadius: 6, border: viewMode === m ? '1px solid rgba(0,229,195,0.4)' : '1px solid rgba(255,255,255,0.08)',
               background: viewMode === m ? 'rgba(0,229,195,0.1)' : 'transparent', color: viewMode === m ? '#00e5c3' : '#64748b',
-              fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer',
+              fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer',
             }}>{{ play: '▶ Play', history: '📜 History', leaderboard: '🏆 Board' }[m]}</button>
           ))}
-          <button onClick={() => setActiveTrack(null)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#64748b', fontSize: '0.6rem', fontWeight: 700, cursor: 'pointer' }}>← Tracks</button>
+          <button onClick={() => setActiveTrack(null)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#64748b', fontSize: 'var(--type-caption)', fontWeight: 700, cursor: 'pointer' }}>← Tracks</button>
           <button onClick={onClose} style={{
             padding: '5px 14px', borderRadius: 6, cursor: 'pointer',
             background: 'rgba(0,229,195,0.1)', border: '1px solid rgba(0,229,195,0.3)',
-            color: '#00e5c3', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.04em',
+            color: '#00e5c3', fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.04em',
           }}>← Main Sim</button>
           <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
@@ -335,7 +335,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
               <div className={styles.notStartedTitle}>Track Complete!</div>
               {activeTrack.track_state && (
                 <div className={styles.scorePanel}>
-                  <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#00e5c3', letterSpacing: '0.1em' }}>Final Score</div>
+                  <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', color: '#00e5c3', letterSpacing: '0.1em' }}>Final Score</div>
                   <div style={{ fontSize: '2rem', fontWeight: 800, color: '#f1f5f9', fontFamily: "'JetBrains Mono', monospace" }}>
                     {activeTrack.track_state.total_score || '—'}
                   </div>
@@ -395,7 +395,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                     border: '1px solid rgba(99,102,241,0.2)',
                   }}>
                     <div style={{
-                      fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
+                      fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase',
                       letterSpacing: '0.12em', color: '#818cf8', marginBottom: 12,
                       display: 'flex', alignItems: 'center', gap: 6,
                     }}>
@@ -412,11 +412,11 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                             borderRadius: 8, padding: '10px 12px',
                           }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e2e8f0' }}>
+                              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#e2e8f0' }}>
                                 {(s.icon || '👤')} {name.replace(/_/g, ' ')}
                               </span>
                               <span style={{
-                                padding: '2px 7px', borderRadius: 4, fontSize: '0.68rem',
+                                padding: '2px 7px', borderRadius: 4, fontSize: 'var(--type-caption)',
                                 fontWeight: 800, background: `${color}20`, border: `1px solid ${color}50`,
                                 color, textTransform: 'uppercase', letterSpacing: '0.04em',
                               }}>{cls}</span>
@@ -429,9 +429,9 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                                   background: s[attr] ? `${color}10` : 'rgba(255,255,255,0.02)',
                                   border: s[attr] ? `1px solid ${color}30` : '1px solid rgba(255,255,255,0.05)',
                                 }}>
-                                  <span style={{ fontSize: '0.7rem' }}>{attrIcons[attr]}</span>
+                                  <span style={{ fontSize: 'var(--type-caption)' }}>{attrIcons[attr]}</span>
                                   <span style={{
-                                    fontSize: '0.5rem', fontWeight: 700, marginTop: 2,
+                                    fontSize: 'var(--type-caption)', fontWeight: 700, marginTop: 2,
                                     color: s[attr] ? color : '#475569', textTransform: 'uppercase',
                                   }}>{attr.slice(0, 3)}</span>
                                 </div>
@@ -442,7 +442,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                       })}
                     </div>
                     <div style={{
-                      marginTop: 10, fontSize: '0.6rem', color: '#94a3b8', lineHeight: 1.5,
+                      marginTop: 10, fontSize: 'var(--type-caption)', color: '#94a3b8', lineHeight: 1.5,
                       fontStyle: 'italic', padding: '6px 8px', borderRadius: 6,
                       background: 'rgba(255,255,255,0.02)',
                     }}>
@@ -543,7 +543,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                           {opt.impacts.carbon != null && <span className={`${styles.impactBadge} ${opt.impacts.carbon <= 0 ? styles.impactPositive : styles.impactNegative}`}>🏭 {opt.impacts.carbon > 0 ? '+' : ''}{opt.impacts.carbon}t</span>}
                         </div>
                       )}
-                      {isLocked && <div style={{ marginTop: 8, fontSize: '0.6rem', color: '#f59e0b' }}>🔒 Requires: {opt.requires_flag?.replace(/_/g, ' ')}</div>}
+                      {isLocked && <div style={{ marginTop: 8, fontSize: 'var(--type-caption)', color: '#f59e0b' }}>🔒 Requires: {opt.requires_flag?.replace(/_/g, ' ')}</div>}
                     </div>
                   );
                 })}
@@ -579,7 +579,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                   <div className={styles.historyRound}>{h.round_number}</div>
                   <div className={styles.historyMeta}>
                     <div className={styles.historyChoice}>{h.choice || 'Unknown'}</div>
-                    <div style={{ fontSize: '0.65rem', color: '#64748b' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>
                       Treasury: {fmtCurrency(h.treasury_after)} · Rep: {(h.reputation_after || 50).toFixed(0)}
                     </div>
                   </div>
@@ -603,7 +603,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                   <div className={styles.historyRound} style={e.is_you ? { background: 'rgba(0,229,195,0.2)', color: '#00e5c3' } : {}}>#{e.rank}</div>
                   <div className={styles.historyMeta}>
                     <div className={styles.historyChoice}>{e.player_name || 'Team'} {e.is_you ? '(You)' : ''}</div>
-                    <div style={{ fontSize: '0.65rem', color: '#64748b' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>
                       Score: {e.total_score} · {e.grade} · {e.completed ? '✅ Done' : `R${e.rounds_done}/${e.num_rounds}`}
                     </div>
                   </div>

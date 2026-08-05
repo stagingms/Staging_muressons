@@ -300,7 +300,7 @@ function SessionCard({ sessionId, data, leaderboardEntry, isSelected, onSelect, 
                         }}>
                             {gs.active_event_flags.shadow_board_archetype}
                         </div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>
                             Shadow Board R5 — rejected {gs.active_event_flags.shadow_board_rejection?.replace(/_/g, ' ') || '?'}
                         </div>
                     </div>
@@ -363,7 +363,7 @@ function NegotiationTranscripts({ sessionId }) {
 
     return (
         <div style={{ marginTop: '0.75rem', padding: '10px 12px', borderRadius: 10, background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.18)' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted, #8899a6)', marginBottom: 6 }}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted, #8899a6)', marginBottom: 6 }}>
                 🤝 Negotiation transcripts ({data.rooms.length})
             </div>
             {data.rooms.map((room, i) => (
@@ -376,7 +376,7 @@ function NegotiationTranscripts({ sessionId }) {
                         </span>
                     </button>
                     {openIdx === i && (
-                        <div style={{ padding: '8px 10px', fontSize: '0.74rem', lineHeight: 1.5 }}>
+                        <div style={{ padding: '8px 10px', fontSize: 'var(--type-caption)', lineHeight: 1.5 }}>
                             {(room.turns || []).map((t, j) => (
                                 <div key={j} style={{ marginBottom: 4, color: t.who === 'player' ? 'var(--text-primary, #f1f5f9)' : 'var(--text-secondary, #b0bec5)' }}>
                                     <strong style={{ color: t.who === 'player' ? '#a5b4fc' : '#fbbf24' }}>{t.who === 'player' ? 'Team' : room.persona?.name}:</strong> {t.text}
@@ -392,7 +392,7 @@ function NegotiationTranscripts({ sessionId }) {
                 </div>
             ))}
             {data.promises?.length > 0 && (
-                <div style={{ marginTop: 4, fontSize: '0.72rem', color: 'var(--text-secondary, #b0bec5)' }}>
+                <div style={{ marginTop: 4, fontSize: 'var(--type-caption)', color: 'var(--text-secondary, #b0bec5)' }}>
                     {data.promises.map((p, i) => (
                         <div key={i}>
                             {p.state === 'open' ? '⏳' : p.state === 'kept' ? '✅' : '❌'} Promise to {String(p.agent_id).replace(/^the_/, '').replace(/_/g, ' ')}: {String(p.metric).replace(/_/g, ' ')} ≥ {p.target} by R{p.due_round} — {p.state}

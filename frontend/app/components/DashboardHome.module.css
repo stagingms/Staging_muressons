@@ -10,7 +10,7 @@
 .cardAlert { border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.04); }
 .cardIcon { font-size: 2rem; margin-bottom: 0.5rem; }
 .cardValue { font-size: 2rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
-.cardLabel { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-top: 0.5rem; }
+.cardLabel { font-size: var(--type-caption); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-top: 0.5rem; }
 
 /* -- Health Gauges -- */
 .gaugeRow { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -27,7 +27,7 @@
 .alertCard { display: flex; align-items: center; gap: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.75rem 1rem; flex: 1; min-width: 200px; }
 .alertCardIcon { font-size: 1.5rem; }
 .alertCard strong { font-size: 0.82rem; color: var(--text-primary); display: block; }
-.alertCard p { font-size: 0.72rem; color: var(--text-muted); margin: 0.2rem 0 0 0; }
+.alertCard p { font-size: var(--type-caption); color: var(--text-muted); margin: 0.2rem 0 0 0; }
 
 /* -- Quick Actions -- */
 .quickActions { }
@@ -39,14 +39,14 @@
 /* -- Session Table -- */
 .sessionTable { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
 .table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-.table th { text-align: left; padding: 0.75rem 1rem; background: var(--bg-elevated); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); }
+.table th { text-align: left; padding: 0.75rem 1rem; background: var(--bg-elevated); font-size: var(--type-caption); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); }
 .table td { padding: 0.65rem 1rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
 .table tr:last-child td { border-bottom: none; }
 .table tr:hover { background: rgba(59, 130, 246, 0.03); }
 .cohortName { font-weight: 600; color: var(--text-primary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.roundBadge { display: inline-block; background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: var(--radius-full); font-family: var(--font-mono); }
-.statusOk { font-size: 0.72rem; color: #22c55e; font-weight: 600; }
-.statusWarn { font-size: 0.72rem; color: var(--accent-gold); font-weight: 600; }
+.roundBadge { display: inline-block; background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); font-weight: 700; font-size: var(--type-caption); padding: 2px 8px; border-radius: var(--radius-full); font-family: var(--font-mono); }
+.statusOk { font-size: var(--type-caption); color: #22c55e; font-weight: 600; }
+.statusWarn { font-size: var(--type-caption); color: var(--accent-gold); font-weight: 600; }
 
 /* -- Empty State -- */
 .empty { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
@@ -89,7 +89,7 @@
 }
 
 .briefingDirectiveLabel {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: #c9a84c;
     letter-spacing: 0.14em;
@@ -109,7 +109,7 @@
     background: rgba(201, 168, 76, 0.08);
     border: 1px solid rgba(201, 168, 76, 0.2);
     color: #c9a84c;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     padding: 0.4rem 0.8rem;
     border-radius: 6px;
@@ -141,7 +141,7 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -163,7 +163,7 @@
 }
 
 .briefingMore {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin-top: 0.4rem;
     font-style: italic;
@@ -181,7 +181,7 @@
     background: rgba(245, 158, 11, 0.08);
     border: 1px solid rgba(245, 158, 11, 0.2);
     color: var(--accent-gold);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     font-family: var(--font-mono);
     letter-spacing: 0.02em;

@@ -247,7 +247,7 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
                                                     {(p.auto_committed_rounds || []).length > 0 && (
                                                         <span
                                                             title={`Auto-committed round(s): ${p.auto_committed_rounds.join(', ')} — the server submitted a saved draft or defaults because the round closed first. Relevant to grading.`}
-                                                            style={{ fontSize: '0.6rem', fontWeight: 800, color: '#fbbf24', marginLeft: 4, whiteSpace: 'nowrap' }}
+                                                            style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#fbbf24', marginLeft: 4, whiteSpace: 'nowrap' }}
                                                         >⏱{p.auto_committed_rounds.length}</span>
                                                     )}
                                                 </div>

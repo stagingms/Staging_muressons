@@ -291,7 +291,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
                                                 background: settings[t.key] === true ? 'rgba(20,184,166,0.15)' : 'rgba(148,163,184,0.08)',
                                                 color: settings[t.key] === true ? '#2dd4bf' : '#64748b',
-                                                fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
+                                                fontWeight: 700, fontSize: 'var(--type-caption)', cursor: 'pointer',
                                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
@@ -312,7 +312,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                 <div className={styles.controlTitle}>🧠 Pedagogical Scaffolding</div>
                                 <div className={styles.controlDesc}>
                                     Metacognitive features, formative checkpoints, and learner journey aids.
-                                    <span style={{ fontSize: '0.6rem', color: '#a78bfa', fontStyle: 'italic', marginLeft: 4 }}>
+                                    <span style={{ fontSize: 'var(--type-caption)', color: '#a78bfa', fontStyle: 'italic', marginLeft: 4 }}>
                                         Experience level is set per-cohort during creation
                                     </span>
                                 </div>
@@ -344,7 +344,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
                                                 background: settings[t.key] ? 'rgba(168,85,247,0.15)' : 'rgba(148,163,184,0.08)',
                                                 color: settings[t.key] ? '#c084fc' : '#64748b',
-                                                fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
+                                                fontWeight: 700, fontSize: 'var(--type-caption)', cursor: 'pointer',
                                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
@@ -365,7 +365,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                 <div className={styles.controlTitle}>🔬 System Engine Modules</div>
                                 <div className={styles.controlDesc}>
                                     High-fidelity simulation engines. Toggle modules for different cohort complexity levels.
-                                    <span style={{ fontSize: '0.6rem', color: '#4ade80', fontStyle: 'italic', marginLeft: 4 }}>
+                                    <span style={{ fontSize: 'var(--type-caption)', color: '#4ade80', fontStyle: 'italic', marginLeft: 4 }}>
                                         Disabled engines skip gracefully — no data loss
                                     </span>
                                 </div>
@@ -407,7 +407,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
                                                 background: settings[t.key] ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.08)',
                                                 color: settings[t.key] ? '#4ade80' : '#64748b',
-                                                fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
+                                                fontWeight: 700, fontSize: 'var(--type-caption)', cursor: 'pointer',
                                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
@@ -420,7 +420,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                 {/* Decision Timer Duration (only when timer is enabled) */}
                                 {settings.decision_timer_enabled && (
                                     <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>⏱️ Timer:</span>
+                                        <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600 }}>⏱️ Timer:</span>
                                         <input
                                             type="number"
                                             min="60" max="600" step="30"
@@ -443,10 +443,10 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                             style={{
                                                 width: '70px', padding: '2px 6px', borderRadius: 4,
                                                 border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
-                                                color: 'var(--text-primary)', fontSize: '0.72rem', fontWeight: 600,
+                                                color: 'var(--text-primary)', fontSize: 'var(--type-caption)', fontWeight: 600,
                                             }}
                                         />
-                                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>seconds per round</span>
+                                        <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>seconds per round</span>
                                     </div>
                                 )}
                             </div>
@@ -473,13 +473,13 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                 background: 'rgba(99,102,241,0.04)',
                                 border: '1px solid rgba(99,102,241,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8', marginBottom: '0.5rem' }}>
                                     🏦 Monetary Policy Distribution
                                 </div>
                                 {Object.entries(h.macro_rate_distribution || {}).map(([regime, count]) => (
                                     <div key={regime} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
                                         <span style={{ fontSize: '0.85rem' }}>{regimeIcons[regime] || '📊'}</span>
-                                        <span style={{ flex: 1, fontSize: '0.72rem', fontWeight: 600, color: regimeColors[regime] || '#94a3b8', textTransform: 'capitalize' }}>{regime}</span>
+                                        <span style={{ flex: 1, fontSize: 'var(--type-caption)', fontWeight: 600, color: regimeColors[regime] || '#94a3b8', textTransform: 'capitalize' }}>{regime}</span>
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}>{count}</span>
                                     </div>
                                 ))}
@@ -491,16 +491,16 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                 background: 'rgba(168,85,247,0.04)',
                                 border: '1px solid rgba(168,85,247,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa', marginBottom: '0.5rem' }}>
                                     🗺️ Active Ending Pathways
                                 </div>
                                 {Object.keys(h.pathway_distribution || {}).length > 0 ? Object.entries(h.pathway_distribution).map(([path, count]) => (
                                     <div key={path} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#c4b5fd', textTransform: 'capitalize' }}>{path.replace(/_/g, ' ')}</span>
+                                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: '#c4b5fd', textTransform: 'capitalize' }}>{path.replace(/_/g, ' ')}</span>
                                         <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}>{count}</span>
                                     </div>
                                 )) : (
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic' }}>No R10 completions yet</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontStyle: 'italic' }}>No R10 completions yet</div>
                                 )}
                             </div>
 
@@ -510,14 +510,14 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                 background: 'rgba(16,185,129,0.04)',
                                 border: '1px solid rgba(16,185,129,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#10b981', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#10b981', marginBottom: '0.5rem' }}>
                                     🌿 Stochastic Outcomes
                                 </div>
-                                <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginBottom: '0.3rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1', marginBottom: '0.3rem' }}>
                                     <strong style={{ color: '#4ade80' }}>NBS Success:</strong>{' '}
                                     {h.nbs_outcomes?.succeeded || 0} ✓ · {h.nbs_outcomes?.failed || 0} ✗ · {h.nbs_outcomes?.not_triggered || 0} pending
                                 </div>
-                                <div style={{ fontSize: '0.68rem', color: '#cbd5e1' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1' }}>
                                     <strong style={{ color: '#818cf8' }}>Retraining:</strong>{' '}
                                     {h.retraining_outcomes?.succeeded || 0} ✓ · {h.retraining_outcomes?.failed || 0} ✗
                                 </div>
@@ -529,14 +529,14 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                 background: 'rgba(245,158,11,0.04)',
                                 border: '1px solid rgba(245,158,11,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f59e0b', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f59e0b', marginBottom: '0.5rem' }}>
                                     📋 Regulatory Exposure
                                 </div>
-                                <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginBottom: '0.3rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1', marginBottom: '0.3rem' }}>
                                     <strong style={{ color: '#fbbf24' }}>Scope 3 Completeness:</strong>{' '}
                                     {h.avg_scope3_completeness != null ? `${h.avg_scope3_completeness}% avg` : 'Not yet triggered'}
                                 </div>
-                                <div style={{ fontSize: '0.68rem', color: '#cbd5e1' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1' }}>
                                     <strong style={{ color: '#f87171' }}>AI Monetised:</strong>{' '}
                                     {h.ai_monetised_count} sessions — {h.ai_monetised_count > 0 ? 'EU AI Act costs active R7+' : 'no AI deployment'}
                                 </div>
@@ -552,37 +552,37 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                         border: '1px solid rgba(99,102,241,0.2)',
                                         gridColumn: '1 / -1',
                                     }}>
-                                        <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8', marginBottom: '0.5rem' }}>
+                                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8', marginBottom: '0.5rem' }}>
                                             🌐 SDG Orchestrator Intelligence
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.6rem', marginBottom: '0.5rem' }}>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.sdg_track_completions || 0}</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Track Completions</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Track Completions</div>
                                             </div>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: '#00e5c3', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.avg_group_sdg_score?.toFixed(1) ?? '—'}</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Avg SDG Score</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Avg SDG Score</div>
                                             </div>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: sdg.avg_m_sdg >= 1.1 ? '#10b981' : '#f59e0b', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.avg_m_sdg?.toFixed(4) ?? '—'}×</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Avg M<sub>SDG</sub></div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Avg M<sub>SDG</sub></div>
                                             </div>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: (sdg.total_material_gaps || 0) > 5 ? '#ef4444' : '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.total_material_gaps || 0}</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active Gaps</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active Gaps</div>
                                             </div>
                                         </div>
                                         {sdg.m_sdg_distribution && Object.keys(sdg.m_sdg_distribution).length > 0 && (
                                             <div style={{ marginTop: '0.4rem' }}>
-                                                <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, marginBottom: '0.3rem' }}>M_SDG Distribution</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, marginBottom: '0.3rem' }}>M_SDG Distribution</div>
                                                 {Object.entries(sdg.m_sdg_distribution).map(([band, count]) => (
                                                     <div key={band} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                                                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#c4b5fd', width: '80px' }}>{band}</span>
+                                                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: '#c4b5fd', width: '80px' }}>{band}</span>
                                                         <div style={{ flex: 1, height: '6px', borderRadius: 3, background: 'rgba(255,255,255,0.04)' }}>
                                                             <div style={{ width: `${Math.min(count * 20, 100)}%`, height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #818cf8, #00e5c3)' }} />
                                                         </div>
-                                                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}>{count}</span>
+                                                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}>{count}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -601,29 +601,29 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                         border: '1px solid rgba(16,185,129,0.2)',
                                         gridColumn: '1 / -1',
                                     }}>
-                                        <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#10b981', marginBottom: '0.5rem' }}>
+                                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#10b981', marginBottom: '0.5rem' }}>
                                             🇮🇳 BRSR NGRBC Intelligence
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.6rem', marginBottom: '0.5rem' }}>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.brsr_track_completions || 0}</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Track Completions</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Track Completions</div>
                                             </div>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: (brsr.pioneer_count || 0) > 0 ? '#10b981' : '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.pioneer_count || 0}</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>BRSR Pioneers</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>BRSR Pioneers</div>
                                             </div>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: (brsr.greenwash_risk_count || 0) > 0 ? '#ef4444' : '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.greenwash_risk_count || 0}</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Greenwash Risk</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Greenwash Risk</div>
                                             </div>
                                             <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
                                                 <div style={{ fontSize: '1rem', fontWeight: 900, color: (brsr.governance_fragility_count || 0) > 0 ? '#f59e0b' : '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.governance_fragility_count || 0}</div>
-                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Gov Fragility</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Gov Fragility</div>
                                             </div>
                                         </div>
                                         {brsr.avg_brsr_score != null && (
-                                            <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginTop: '0.3rem' }}>
+                                            <div style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1', marginTop: '0.3rem' }}>
                                                 <strong style={{ color: '#10b981' }}>Avg BRSR Score:</strong>{' '}
                                                 {brsr.avg_brsr_score.toFixed(1)}/100 · <strong style={{ color: '#f59e0b' }}>Crises Injected:</strong> {brsr.crises_injected || 0}
                                             </div>

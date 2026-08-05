@@ -92,7 +92,7 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
       }}>
         <span style={{ fontSize: '0.85rem' }}>📊</span>
         <span style={{
-          fontSize: '0.72rem', fontWeight: 800,
+          fontSize: 'var(--type-caption)', fontWeight: 800,
           textTransform: 'uppercase', letterSpacing: '0.1em',
           color: colors.total,
         }}>
@@ -120,7 +120,7 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
                 margin: '10px 0 6px', paddingTop: 8,
                 borderTop: `1px dashed ${colors.borderColor}`,
               }}>
-                <span style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.09em',
+                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.09em',
                                textTransform: 'uppercase', color: colors.mutedColor }}>
                   Below EBITDA — cash movements this round
                 </span>
@@ -190,7 +190,7 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
         <div style={{
           marginTop: 10, padding: '6px 10px', borderRadius: 6,
           background: 'rgba(249,115,22,0.10)', border: '1px dashed rgba(249,115,22,0.45)',
-          color: colors.mutedColor, fontSize: '0.63rem', fontWeight: 600,
+          color: colors.mutedColor, fontSize: 'var(--type-caption)', fontWeight: 600,
         }}>
           ⚠ Revenue − OPEX no longer equals the engine's reported EBITDA. The
           bridge above may be incomplete.

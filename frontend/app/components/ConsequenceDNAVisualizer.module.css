@@ -91,7 +91,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
 }
 
@@ -125,7 +125,7 @@
   color: var(--accent-blue);
   cursor: pointer;
   padding: 6px 12px;
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   transition: background 0.2s;
 }
@@ -164,14 +164,14 @@
 }
 
 .nodeLabel {
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 600;
   fill: var(--text-primary);
   pointer-events: none;
 }
 
 .nodeSublabel {
-  font-size: 8px;
+  font-size: var(--type-caption);
   fill: var(--text-secondary);
   pointer-events: none;
 }
@@ -189,13 +189,13 @@
 }
 
 .conflictLabel {
-  font-size: 9px;
+  font-size: var(--type-caption);
   font-weight: 700;
   fill: var(--text-primary);
 }
 
 .conflictStage {
-  font-size: 7.5px;
+  font-size: var(--type-caption);
   fill: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -242,7 +242,7 @@
 }
 
 .badgeText {
-  font-size: 7px;
+  font-size: var(--type-caption);
   font-weight: 700;
   fill: var(--accent-gold);
 }
@@ -318,7 +318,7 @@
 }
 
 .statLabel {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -336,12 +336,12 @@
 }
 
 .mrLabel {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
 }
 
 .archetypeBadge {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   padding: 3px 10px;
   border-radius: 12px;
   font-weight: 700;
@@ -350,7 +350,7 @@
 
 /* â”€â”€ Column Headers â”€â”€ */
 .colHeader {
-  font-size: 9px;
+  font-size: var(--type-caption);
   font-weight: 700;
   fill: var(--text-secondary);
   text-transform: uppercase;
@@ -500,13 +500,13 @@
 }
 
 .nodeTooltipKey {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary, #94a3b8);
   white-space: nowrap;
 }
 
 .nodeTooltipVal {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-primary, #e2e8f0);
   text-align: right;
@@ -528,7 +528,7 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
   padding: 4px 12px;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--gauge-red);
   letter-spacing: 0.5px;

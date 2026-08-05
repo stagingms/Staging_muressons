@@ -87,7 +87,7 @@ export default function TurnaroundConsole({ sessionId }) {
                 </h3>
                 {status !== 'none' && (
                     <span style={{
-                        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px',
+                        fontSize: 'var(--type-caption)', fontWeight: 700, padding: '2px 8px', borderRadius: '6px',
                         background: 'var(--accent-soft)', color: 'var(--accent)',
                         fontFamily: 'var(--font-mono, monospace)', textTransform: 'uppercase',
                     }}>{status}</span>
@@ -114,7 +114,7 @@ export default function TurnaroundConsole({ sessionId }) {
                                     cursor: (!elig.eligible || busy) ? 'not-allowed' : 'pointer' }}
                             >Open Turnaround Arc (4 rounds)</button>
                             {!elig.eligible && (
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                                <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                                     Not currently eligible — needs the module enabled, your grant, a completed run, and M_R below {elig.threshold}.
                                 </div>
                             )}
@@ -133,7 +133,7 @@ export default function TurnaroundConsole({ sessionId }) {
                             return (
                                 <span key={p} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                     <span style={{
-                                        padding: '3px 9px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700,
+                                        padding: '3px 9px', borderRadius: '6px', fontSize: 'var(--type-caption)', fontWeight: 700,
                                         background: current ? 'var(--accent)' : reached ? 'var(--positive-soft)' : 'rgba(100,116,139,0.15)',
                                         color: current ? '#fff' : reached ? 'var(--positive-text)' : 'var(--text-muted)',
                                     }}>{PHASE_LABEL[p]}</span>
@@ -188,7 +188,7 @@ export default function TurnaroundConsole({ sessionId }) {
                         <br />Final phase: {PHASE_LABEL[amended.final_phase] || amended.final_phase} · rounds used: {amended.rounds_used}
                         <br />Recovered treasury ${Math.round((amended.recovered_treasury || 0) / 1e6)}M · reputation {Math.round(amended.recovered_reputation || 0)}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
                         The original R10 result remains the canonical record.
                     </div>
                 </div>

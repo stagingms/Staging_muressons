@@ -55,7 +55,7 @@
 
 .tol {
   font-family: var(--font-numeral, 'JetBrains Mono', monospace);
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 700;
   /* A11Y-F21: #cbd5e1 is a DARK-theme neutral; on the light agent card it
      measured 1.43:1 -- the tolerance number, invisible. */

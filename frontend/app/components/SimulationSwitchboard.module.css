@@ -111,7 +111,7 @@
 
 /* ── Section headers ─────────────────────────────────────────── */
 .sectionLabel {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -126,7 +126,7 @@
     content: '//';
     color: var(--accent-gold, #f59e0b);
     opacity: 0.6;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
 }
 
 /* ── Master switch ───────────────────────────────────────────── */
@@ -146,7 +146,7 @@
 }
 
 .masterLabel {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -161,7 +161,7 @@
     border-radius: var(--radius-sm, 6px);
     cursor: pointer;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -187,7 +187,7 @@
     background: rgba(59,130,246,0.04);
     cursor: pointer;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -210,7 +210,7 @@
     background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.12));
     cursor: pointer;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -260,7 +260,7 @@
 /* Matches .godBadge pattern from page.module.css */
 .statusChip {
     margin-top: 0.65rem;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -274,7 +274,7 @@
 
 .statusChipOn {
     margin-top: 0.65rem;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -330,7 +330,7 @@
 }
 
 .sliderName {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -347,7 +347,7 @@
 }
 
 .sliderUnit {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     color: var(--text-muted, #8899a6);
     margin-left: 2px;
     font-family: var(--font-mono, monospace);
@@ -413,7 +413,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 }
 
 .rightHeader {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -427,7 +427,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     content: '//';
     color: var(--accent-gold, #f59e0b);
     opacity: 0.5;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
 }
 
 /* Timeline visualiser card — hugs the diagram instead of stretching to fill
@@ -469,7 +469,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     border-radius: var(--radius-md, 10px);
     padding: 0.9rem 1.1rem;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     line-height: 1.8;
     min-height: 80px;
     position: relative;
@@ -479,7 +479,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 /* "SYSTEM_OUTPUT" header becomes a subtle amber label */
 .terminal::before {
     content: 'ENGINE LOG >';
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     color: var(--accent-gold, #f59e0b);
     opacity: 0.5;

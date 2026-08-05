@@ -69,7 +69,7 @@ export default function SystemicRiskControls() {
         }}>
             <span style={{ fontSize: '0.85rem' }}>{icon}</span>
             <span style={{
-                fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em',
+                fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.14em',
                 textTransform: 'uppercase', color: accent,
             }}>{text}</span>
             <span style={{ flex: 1, height: '1px', background: `${accent}22` }} />
@@ -91,15 +91,15 @@ export default function SystemicRiskControls() {
                         <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                             Systemic Risk Controls
                         </h2>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.05em' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.05em' }}>
                             PHASE-1 ENGINE CONFIGURATION
                         </div>
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {saving && <span style={{ fontSize: '0.7rem', color: '#f59e0b' }}>⏳ Saving...</span>}
-                    {saved && <span style={{ fontSize: '0.7rem', color: '#22c55e', fontWeight: 600 }}>✅ Saved</span>}
-                    {error && <span style={{ fontSize: '0.7rem', color: '#ef4444' }}>⚠️ {error}</span>}
+                    {saving && <span style={{ fontSize: 'var(--type-caption)', color: '#f59e0b' }}>⏳ Saving...</span>}
+                    {saved && <span style={{ fontSize: 'var(--type-caption)', color: '#22c55e', fontWeight: 600 }}>✅ Saved</span>}
+                    {error && <span style={{ fontSize: 'var(--type-caption)', color: '#ef4444' }}>⚠️ {error}</span>}
                 </div>
             </div>
 
@@ -184,14 +184,14 @@ export default function SystemicRiskControls() {
                                             color: isOn ? 'var(--text-primary)' : 'var(--text-muted)',
                                         }}>{toggle.label}</span>
                                         <span style={{
-                                            fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px',
+                                            fontSize: 'var(--type-caption)', padding: '1px 6px', borderRadius: '4px',
                                             background: isOn ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.08)',
                                             color: isOn ? '#22c55e' : '#ef4444',
                                             fontWeight: 700, fontFamily: 'var(--font-mono, monospace)',
                                         }}>{isOn ? 'ON' : 'OFF'}</span>
                                     </div>
                                     <div style={{
-                                        fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.5,
+                                        fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.5,
                                     }}>{toggle.desc}</div>
                                 </div>
                             </div>

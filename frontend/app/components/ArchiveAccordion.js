@@ -43,7 +43,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
           border: open ? '1px solid rgba(99, 102, 241, 0.40)' : '1px solid transparent',
           borderRadius: 5,
           cursor: 'pointer',
-          fontSize: '0.65rem',
+          fontSize: 'var(--type-caption)',
           fontWeight: 700,
           color: open ? 'var(--accent-text)' : 'var(--text-secondary)',
           textTransform: 'uppercase',
@@ -54,7 +54,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
       >
         <span>{open ? '▾' : '▸'} {roundLabel || `Round ${round}`}</span>
         <span style={{
-          fontSize: '0.68rem',
+          fontSize: 'var(--type-caption)',
           background: open ? 'rgba(99, 102, 241, 0.22)' : 'var(--ck-surface-2, rgba(255,255,255,0.06))',
           color: open ? 'var(--accent-text)' : 'var(--text-secondary)',
           padding: '2px 6px',
@@ -73,7 +73,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
                 display: 'block', width: '100%', textAlign: 'left',
                 background: 'none', font: 'inherit',
                 padding: '6px 10px 6px 18px',
-                fontSize: '0.65rem',
+                fontSize: 'var(--type-caption)',
                 color: 'var(--text-secondary)',
                 lineHeight: 1.5,
                 borderLeft: '2px solid rgba(99, 102, 241, 0.45)',
@@ -90,8 +90,8 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
               }}
             >
-              <strong style={{ fontSize: '0.65rem', color: 'var(--text-primary)' }}>{msg.title}</strong>
-              <p style={{ margin: '2px 0 0', fontSize: '0.62rem', color: 'var(--text-secondary)' }}>
+              <strong style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)' }}>{msg.title}</strong>
+              <p style={{ margin: '2px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-secondary)' }}>
                 {msg.body?.substring(0, 80)}...
               </p>
             </button>

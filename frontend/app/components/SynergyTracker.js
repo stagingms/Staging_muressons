@@ -74,7 +74,7 @@ export default function SynergyTracker({ globalState, roundNumber, workforceRead
           />
         </div>
         <div style={{
-          fontSize: '0.65rem', color: '#64748b',
+          fontSize: 'var(--type-caption)', color: '#64748b',
           display: 'flex', justifyContent: 'space-between',
         }}>
           <span>WR: {synergy.wrModifier}</span>

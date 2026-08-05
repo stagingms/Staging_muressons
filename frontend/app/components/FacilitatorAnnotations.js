@@ -166,7 +166,7 @@ export default function FacilitatorAnnotations({ sessionId, leaderboard = [] }) 
                                 <span style={{ fontSize: '1.1rem' }}>{tc.icon}</span>
                                 <div style={{ flex: 1 }}>
                                     <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{ann.text}</div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                                         R{ann.round} · {ann.tag.replace('_', ' ')} · {ann.created_at?.slice(0, 16)}
                                     </div>
                                 </div>

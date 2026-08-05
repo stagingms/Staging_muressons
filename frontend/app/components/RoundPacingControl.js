@@ -390,13 +390,13 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
             {mode === 'free' && (
                 <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c7d2fe', marginBottom: 4 }}>Auto-advance when everyone commits — or after a timeout</div>
-                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginBottom: 10 }}>
                         A round advances as soon as all teams commit. Set a per-round time limit so one absent
                         team can’t stall the cohort — when it lapses, any team that hasn’t committed is
                         auto-committed from its saved decisions. 0 = wait indefinitely.
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <label style={{ fontSize: '0.72rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <label style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 6 }}>
                             Per-round limit
                             <input
                                 type="number" min={0} max={120} step={1} value={faTimeoutMin}
@@ -405,14 +405,14 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
                             />
                             min
                         </label>
-                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', color: '#64748b' }}>
                             {Number(faTimeoutMin) > 0 ? `≈ ${Math.round(Number(faTimeoutMin) * 60)}s` : 'off — waits for all teams'}
                         </span>
                         <button
                             onClick={forceAdvance}
                             disabled={loading || !sessionId}
                             style={{
-                                marginLeft: 'auto', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.74rem',
+                                marginLeft: 'auto', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 'var(--type-caption)',
                                 border: '1px solid rgba(245,158,11,0.5)', background: 'rgba(245,158,11,0.14)', color: '#fbbf24',
                                 opacity: (loading || !sessionId) ? 0.5 : 1,
                             }}

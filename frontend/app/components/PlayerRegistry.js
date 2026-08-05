@@ -365,7 +365,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                         <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#34d399', marginBottom: '2px' }}>
                             Password reset for {resetToast.playerId}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8' }}>
                             New password (copied to clipboard):
                         </div>
                     </div>
@@ -450,14 +450,14 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                             <span>({session.short_code || session.session_id.slice(0, 8)})</span>
                                             {canSeeSummaryTooltip && (
                                                 <span style={{
-                                                    fontSize: '0.6rem', fontWeight: 400,
+                                                    fontSize: 'var(--type-caption)', fontWeight: 400,
                                                     color: 'var(--text-muted)', opacity: 0.55,
                                                 }}>ⓘ</span>
                                             )}
                                         </h3>
                                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                             <span style={{
-                                                fontSize: '0.72rem', fontWeight: 700,
+                                                fontSize: 'var(--type-caption)', fontWeight: 700,
                                                 background: 'rgba(99,102,241,0.15)',
                                                 padding: '3px 9px', borderRadius: '6px',
                                                 color: '#a5b4fc',
@@ -538,7 +538,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                         borderRadius: '6px',
                                                         padding: '0.4rem 0.85rem',
                                                         cursor: 'pointer',
-                                                        fontSize: '0.72rem',
+                                                        fontSize: 'var(--type-caption)',
                                                         fontWeight: 700,
                                                         display: 'flex',
                                                         alignItems: 'center',
@@ -559,7 +559,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                     style={{
                                                         background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
                                                         color: '#f87171', borderRadius: '6px', padding: '0.4rem 0.8rem',
-                                                        cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
+                                                        cursor: 'pointer', fontSize: 'var(--type-caption)', fontWeight: 600,
                                                     }}
                                                     title="Delete this cohort"
                                                 >
@@ -601,7 +601,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                         </span>
                                                         {cred.pending && (
                                                             <span style={{
-                                                                fontSize: '0.62rem', fontWeight: 700,
+                                                                fontSize: 'var(--type-caption)', fontWeight: 700,
                                                                 color: '#fb923c',
                                                                 background: 'rgba(251,146,60,0.1)',
                                                                 border: '1px solid rgba(251,146,60,0.25)',
@@ -617,7 +617,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                                 background: 'rgba(148,163,184,0.1)',
                                                                 border: '1px solid rgba(148,163,184,0.2)',
                                                                 borderRadius: '4px', cursor: 'pointer',
-                                                                padding: '4px 8px', fontSize: '0.72rem',
+                                                                padding: '4px 8px', fontSize: 'var(--type-caption)',
                                                                 fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap',
                                                             }}
                                                             onClick={() => {
@@ -653,7 +653,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                                 background: 'rgba(239,68,68,0.1)',
                                                                 border: '1px solid rgba(239,68,68,0.25)',
                                                                 borderRadius: '4px', cursor: 'pointer',
-                                                                padding: '4px 8px', fontSize: '0.72rem',
+                                                                padding: '4px 8px', fontSize: 'var(--type-caption)',
                                                                 fontWeight: 600, color: '#f87171', whiteSpace: 'nowrap',
                                                             }}
                                                             onClick={() => handleResetPassword(cred.player_id, session.session_id)}
@@ -664,7 +664,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                                 background: 'rgba(99,102,241,0.12)',
                                                                 border: '1px solid rgba(99,102,241,0.25)',
                                                                 borderRadius: '4px', cursor: 'pointer',
-                                                                padding: '4px 8px', fontSize: '0.72rem',
+                                                                padding: '4px 8px', fontSize: 'var(--type-caption)',
                                                                 fontWeight: 700, color: '#a5b4fc', whiteSpace: 'nowrap',
                                                             }}
                                                             onClick={() => {
@@ -771,7 +771,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                                         background: 'rgba(245,158,11,0.1)',
                                                                         border: '1px solid rgba(245,158,11,0.3)',
                                                                         borderRadius: '5px', cursor: 'pointer',
-                                                                        padding: '3px 8px', fontSize: '0.7rem',
+                                                                        padding: '3px 8px', fontSize: 'var(--type-caption)',
                                                                         fontWeight: 600, color: '#fbbf24', whiteSpace: 'nowrap',
                                                                         transition: 'all 0.15s ease',
                                                                     }}
@@ -785,7 +785,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                                         background: 'rgba(99,102,241,0.1)',
                                                                         border: '1px solid rgba(99,102,241,0.3)',
                                                                         borderRadius: '5px', cursor: 'pointer',
-                                                                        padding: '3px 8px', fontSize: '0.7rem',
+                                                                        padding: '3px 8px', fontSize: 'var(--type-caption)',
                                                                         fontWeight: 600, color: '#a5b4fc', whiteSpace: 'nowrap',
                                                                     }}
                                                                     title={`Team seats for ${p.player_id} — set team size (max 6) and issue the shared observer view code. The driver commits; observers watch.`}
@@ -837,7 +837,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                 <tr key={p.player_id}>
                                                     <td><strong>{p.name || '—'}</strong></td>
                                                     <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{p.player_id}</td>
-                                                    <td style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{getShortCode(p.session_id, sessions)}</td>
+                                                    <td style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>{getShortCode(p.session_id, sessions)}</td>
                                                     <td>
                                                         <button
                                                             onClick={() => handleDeletePlayer(p.player_id)}

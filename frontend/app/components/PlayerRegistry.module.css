@@ -44,7 +44,7 @@
 }
 
 .statBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 3px 10px;
     border-radius: 999px;
@@ -127,7 +127,7 @@
 }
 
 .playerCount {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: var(--accent-blue);
     background: rgba(59, 130, 246, 0.12);
@@ -139,7 +139,7 @@
 /* -- Induct Button ---------------------------------------------- */
 .inductBtn {
     padding: 6px 14px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: #fff;
     background: linear-gradient(135deg, #6366f1, var(--accent-blue));
@@ -169,7 +169,7 @@
 .table th {
     text-align: left;
     padding: 9px 16px;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.09em;
@@ -202,13 +202,13 @@
 }
 
 .emailText {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
 }
 
 /* -- BU Badge --------------------------------------------------- */
 .buBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     padding: 3px 10px;
     border-radius: 999px;
@@ -221,7 +221,7 @@
 /* -- Status badges ---------------------------------------------- */
 .countWaiting,
 .countPlaying {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 999px;
@@ -240,7 +240,7 @@
 }
 
 .statusBadge {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 3px;
@@ -276,7 +276,7 @@
 }
 
 .clearBtn {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 5px 12px;
     border: 1px solid rgba(239, 68, 68, 0.3);
@@ -324,7 +324,7 @@
 
 .registerBtn {
     padding: 8px 16px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: #fff;
     background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
@@ -385,7 +385,7 @@
 
 .playerId {
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: var(--text-muted);
     background: rgba(15, 23, 42, 0.5);
@@ -400,7 +400,7 @@
 }
 
 .teamTag {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: #a5b4fc;
     background: rgba(99, 102, 241, 0.12);
@@ -417,12 +417,12 @@
 
 .sessionTag {
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
 }
 
 .assignSelect {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     padding: 3px 6px;
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(148, 163, 184, 0.2);
@@ -442,7 +442,7 @@
 }
 
 .totalCount {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     font-weight: 600;
 }

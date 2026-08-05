@@ -34,18 +34,18 @@
 .headerLeft { display: flex; align-items: center; gap: 12px; }
 .headerIcon { font-size: 1.6rem; }
 .headerTitle {
-  font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+  font-size: var(--type-caption); font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.14em; color: var(--accent-blue);
   font-family: var(--font-mono);
 }
-.headerSub { font-size: 0.62rem; color: var(--text-muted); margin-top: 2px; }
+.headerSub { font-size: var(--type-caption); color: var(--text-muted); margin-top: 2px; }
 .headerRight { display: flex; gap: 6px; align-items: center; }
 
 .tabBtn {
   padding: 5px 12px; border-radius: 6px; cursor: pointer;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: transparent; color: var(--text-muted);
-  font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+  font-size: var(--type-caption); font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; transition: color 0.2s, background-color 0.2s, border-color 0.2s;
   font-family: var(--font-sans);
 }
@@ -74,7 +74,7 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 .scoreLabel {
-  font-size: 0.58rem; font-weight: 800; text-transform: uppercase;
+  font-size: var(--type-caption); font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 4px;
 }
 .scoreValue {
@@ -82,7 +82,7 @@
   font-family: var(--font-mono);
 }
 .scoreUnit {
-  font-size: 0.55rem; color: var(--text-secondary); margin-top: 2px;
+  font-size: var(--type-caption); color: var(--text-secondary); margin-top: 2px;
 }
 
 /* â”€â”€ Content â”€â”€ */
@@ -116,7 +116,7 @@
   fill: none; stroke: rgba(255, 255, 255, 0.06); stroke-width: 0.5;
 }
 .ringLabel {
-  font-size: 7px; fill: rgba(255, 255, 255, 0.15);
+  font-size: var(--type-caption); fill: rgba(255, 255, 255, 0.15);
   font-family: var(--font-mono);
 }
 .radarAxis { stroke: rgba(255, 255, 255, 0.08); stroke-width: 0.5; }
@@ -130,7 +130,7 @@
   filter: drop-shadow(0 0 4px currentColor);
 }
 .radarLabel {
-  font-size: 8px; font-weight: 800; fill: var(--text-primary);
+  font-size: var(--type-caption); font-weight: 800; fill: var(--text-primary);
   font-family: var(--font-sans);
 }
 
@@ -148,7 +148,7 @@
 }
 .buIcon { font-size: 1rem; }
 .buName {
-  font-size: 0.72rem; font-weight: 700; color: var(--text-primary); flex: 1;
+  font-size: var(--type-caption); font-weight: 700; color: var(--text-primary); flex: 1;
 }
 .buScore {
   font-size: 1rem; font-weight: 900;
@@ -156,9 +156,9 @@
 }
 .buSDGs { display: flex; flex-direction: column; gap: 4px; }
 .sdgRow { display: flex; align-items: center; gap: 6px; }
-.sdgIcon { font-size: 0.7rem; width: 18px; text-align: center; }
+.sdgIcon { font-size: var(--type-caption); width: 18px; text-align: center; }
 .sdgName {
-  font-size: 0.6rem; color: var(--text-muted); width: 42px;
+  font-size: var(--type-caption); color: var(--text-muted); width: 42px;
   font-family: var(--font-mono);
 }
 .sdgBar {
@@ -170,17 +170,17 @@
   transition: width 0.6s ease-out;
 }
 .sdgScore {
-  font-size: 0.58rem; font-weight: 800; color: var(--text-muted); width: 22px;
+  font-size: var(--type-caption); font-weight: 800; color: var(--text-muted); width: 22px;
   text-align: right; font-family: var(--font-mono);
 }
 .buGap {
   margin-top: 6px; padding: 4px 8px; border-radius: 4px;
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.2);
-  font-size: 0.58rem; color: #fca5a5;
+  font-size: var(--type-caption); color: #fca5a5;
 }
 .buLinkage {
-  margin-top: 4px; font-size: 0.55rem; color: var(--text-secondary);
+  margin-top: 4px; font-size: var(--type-caption); color: var(--text-secondary);
   font-style: italic;
 }
 
@@ -205,11 +205,11 @@
 }
 .heatmapIcon { font-size: 1rem; }
 .heatmapNum {
-  font-size: 0.68rem; font-weight: 800; color: var(--text-primary);
+  font-size: var(--type-caption); font-weight: 800; color: var(--text-primary);
   font-family: var(--font-mono);
 }
 .heatmapLabel {
-  font-size: 0.58rem; color: var(--text-muted); text-align: center;
+  font-size: var(--type-caption); color: var(--text-muted); text-align: center;
   margin-bottom: 8px; line-height: 1.3;
 }
 .heatmapScoreWrap { display: flex; justify-content: center; margin-bottom: 6px; }
@@ -229,13 +229,13 @@
   padding: 2px 5px; border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
 }
 
 /* â”€â”€ Alerts â”€â”€ */
 .alertSection { margin-top: 8px; }
 .alertTitle {
-  font-size: 0.68rem; font-weight: 800; color: #fca5a5;
+  font-size: var(--type-caption); font-weight: 800; color: #fca5a5;
   text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
 }
 .alertCard {
@@ -246,7 +246,7 @@
   margin-bottom: 6px;
 }
 .alertSeverity { font-size: 0.75rem; }
-.alertMsg { font-size: 0.62rem; color: var(--text-primary); line-height: 1.4; }
+.alertMsg { font-size: var(--type-caption); color: var(--text-primary); line-height: 1.4; }
 
 /* â”€â”€ SDG Track Tab â”€â”€ */
 .trackLayout { display: flex; flex-direction: column; gap: 16px; }
@@ -266,7 +266,7 @@
   border: 1px solid rgba(99, 102, 241, 0.15);
 }
 .trackScoreLabel {
-  font-size: 0.58rem; font-weight: 800; text-transform: uppercase;
+  font-size: var(--type-caption); font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.1em; color: var(--accent-blue); margin-bottom: 6px;
 }
 .trackScoreVal {
@@ -275,13 +275,13 @@
 }
 .trackFlagsSection { width: 100%; margin-top: 8px; }
 .trackFlagsTitle {
-  font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+  font-size: var(--type-caption); font-weight: 800; text-transform: uppercase;
   letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 8px;
 }
 .trackFlags { display: flex; flex-wrap: wrap; gap: 6px; }
 .trackFlag {
   padding: 4px 8px; border-radius: 5px;
-  font-size: 0.58rem; font-weight: 700;
+  font-size: var(--type-caption); font-weight: 700;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-muted); text-transform: capitalize;
@@ -298,7 +298,7 @@
 }
 .trackNotStartedIcon { font-size: 2.5rem; }
 .trackNotStartedTitle { font-size: 1rem; font-weight: 800; color: var(--text-primary); }
-.trackNotStartedDesc { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+.trackNotStartedDesc { font-size: var(--type-caption); color: var(--text-muted); text-align: center; }
 .trackRoundsList {
   width: 100%; display: flex; flex-direction: column; gap: 8px;
   margin-top: 8px;
@@ -310,10 +310,10 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 .trackRoundIcon { font-size: 1.1rem; }
-.trackRoundLabel { font-size: 0.72rem; font-weight: 700; color: var(--text-primary); }
-.trackRoundDesc { font-size: 0.6rem; color: var(--text-muted); margin-top: 2px; }
+.trackRoundLabel { font-size: var(--type-caption); font-weight: 700; color: var(--text-primary); }
+.trackRoundDesc { font-size: var(--type-caption); color: var(--text-muted); margin-top: 2px; }
 .trackNotStartedNote {
-  font-size: 0.62rem; color: var(--text-secondary); text-align: center;
+  font-size: var(--type-caption); color: var(--text-secondary); text-align: center;
   padding: 10px; border-radius: 6px;
   background: rgba(99, 102, 241, 0.04);
   border: 1px solid rgba(99, 102, 241, 0.1);
@@ -325,7 +325,7 @@
   padding: 6px 12px; border-radius: 8px; cursor: pointer;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(0, 229, 195, 0.08));
   border: 1px solid rgba(99, 102, 241, 0.25);
-  color: #a5b4fc; font-size: 0.62rem; font-weight: 700;
+  color: #a5b4fc; font-size: var(--type-caption); font-weight: 700;
   letter-spacing: 0.04em; position: relative;
   font-family: var(--font-sans);
   transition: border-color 0.2s, background 0.2s;
@@ -344,7 +344,7 @@
   background: rgba(0, 229, 195, 0.15);
   border: 1px solid rgba(0, 229, 195, 0.3);
   color: #00e5c3; font-family: var(--font-mono);
-  font-size: 0.6rem; font-weight: 800;
+  font-size: var(--type-caption); font-weight: 800;
 }
 
 /* â”€â”€ Animations â”€â”€ */

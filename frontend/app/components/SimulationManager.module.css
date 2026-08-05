@@ -9,22 +9,22 @@
 .groupCard { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
 .groupHeader { display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); }
 .groupFac { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
-.groupCount { font-size: 0.68rem; color: var(--text-muted); background: var(--bg-secondary); padding: 2px 8px; border-radius: var(--radius-full); }
+.groupCount { font-size: var(--type-caption); color: var(--text-muted); background: var(--bg-secondary); padding: 2px 8px; border-radius: var(--radius-full); }
 .groupStats { display: flex; gap: 1rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-subtle); }
 .groupStats > div { flex: 1; }
-.statLabel { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
+.statLabel { display: block; font-size: var(--type-caption); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
 .statVal { font-size: 0.9rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); }
 .sessionList { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
 .sessionItem { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-md); font-size: 0.78rem; }
 .sessionItem:hover { background: rgba(59,130,246,0.04); }
 .sessionName { flex: 1; font-weight: 600; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sessionRound { font-size: 0.68rem; font-weight: 700; color: var(--accent-blue); background: rgba(59,130,246,0.1); padding: 2px 6px; border-radius: var(--radius-full); font-family: var(--font-mono); }
-.sessionTreasury { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); min-width: 60px; text-align: right; }
+.sessionRound { font-size: var(--type-caption); font-weight: 700; color: var(--accent-blue); background: rgba(59,130,246,0.1); padding: 2px 6px; border-radius: var(--radius-full); font-family: var(--font-mono); }
+.sessionTreasury { font-size: var(--type-caption); color: var(--text-muted); font-family: var(--font-mono); min-width: 60px; text-align: right; }
 .empty { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.85rem; }
 
 .tableWrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-card); }
 .table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.table th { background: var(--bg-elevated); color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid var(--border-subtle); }
+.table th { background: var(--bg-elevated); color: var(--text-muted); font-weight: 700; text-transform: uppercase; font-size: var(--type-caption); letter-spacing: 0.05em; padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid var(--border-subtle); }
 .table td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); vertical-align: middle; }
 .table tr:last-child td { border-bottom: none; }
 .table tr:hover { background: rgba(255,255,255,0.02); }
@@ -40,7 +40,7 @@
 /* Missing class stubs */
 .scheduleCell {
   padding: 6px 8px;
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
 }
 .scheduleItem {
   display: flex;

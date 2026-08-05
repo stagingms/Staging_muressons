@@ -41,7 +41,7 @@ export default function RewindRibbon({ flags = {} }) {
   return (
     <div style={wrap}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-        <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-purple, #8b5cf6)' }}>
+        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-purple, #8b5cf6)' }}>
           ⏪ Rewind — 5 years of consequences
         </span>
         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--kpi-good, #10b981)', fontFamily: 'var(--font-mono, monospace)' }}>
@@ -69,14 +69,14 @@ export default function RewindRibbon({ flags = {} }) {
                   transform: isLit ? 'scale(1)' : 'scale(0.7)',
                   transition: 'all 0.4s ease',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.6rem',
+                  fontSize: 'var(--type-caption)',
                 }}
               >
                 {isLit ? (good ? '✓' : '✗') : ''}
               </div>
-              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted, #8899a6)', marginTop: 4, fontWeight: 700 }}>R{n.round}</div>
+              <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted, #8899a6)', marginTop: 4, fontWeight: 700 }}>R{n.round}</div>
               <div style={{
-                fontSize: '0.56rem', color: isLit ? 'var(--text-secondary, #b0bec5)' : 'transparent',
+                fontSize: 'var(--type-caption)', color: isLit ? 'var(--text-secondary, #b0bec5)' : 'transparent',
                 textAlign: 'center', lineHeight: 1.2, maxWidth: 70, transition: 'color 0.4s ease',
               }}>
                 {n.label}

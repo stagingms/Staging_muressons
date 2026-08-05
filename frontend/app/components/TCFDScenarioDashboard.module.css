@@ -53,7 +53,7 @@
 
 .subtitle {
   display: block;
-  font-size: 10px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -69,7 +69,7 @@
 
 .modeToggle {
   padding: 4px 10px;
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.04em;
   border: 1px solid rgba(148, 163, 184, 0.2);
@@ -158,7 +158,7 @@
 }
 
 .tabTag {
-  font-size: 8px;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   padding: 1px 5px;
@@ -216,14 +216,14 @@
 
 .bannerDesc {
   margin: 0;
-  font-size: 10.5px;
+  font-size: var(--type-caption);
   color: rgba(226, 232, 240, 0.7);
   line-height: 1.45;
 }
 
 .bannerTag {
   z-index: 1;
-  font-size: 9px;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.06em;
   padding: 3px 8px;
@@ -248,7 +248,7 @@
 }
 
 .kpiLabel {
-  font-size: 9px;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -294,7 +294,7 @@
 }
 
 .gaugeLabel {
-  font-size: 9px;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -312,12 +312,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 
 .riskBadge {
-  font-size: 9px;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.06em;
   padding: 2px 7px;
@@ -333,7 +333,7 @@
 }
 
 .buHeader {
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 10px;
@@ -347,7 +347,7 @@
 }
 
 .buName {
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-muted);
   text-transform: capitalize;
@@ -370,7 +370,7 @@
 }
 
 .buPct {
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   min-width: 42px;
@@ -386,14 +386,14 @@
 }
 
 .implHeader {
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .implItem {
-  font-size: 10.5px;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   line-height: 1.5;
   padding: 6px 0;
@@ -411,7 +411,7 @@
 }
 
 .natureHeader {
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--gauge-green);
   margin-bottom: 8px;
@@ -420,13 +420,13 @@
 .natureRow {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   padding: 3px 0;
 }
 
 .natureReco {
-  font-size: 10px;
+  font-size: var(--type-caption);
   color: #6ee7b7;
   margin-top: 6px;
   font-style: italic;
@@ -449,7 +449,7 @@
 }
 
 .ccHeader {
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 10px;
@@ -469,7 +469,7 @@
 }
 
 .compareLabel {
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-muted);
   width: 60px;
@@ -491,7 +491,7 @@
 }
 
 .compareVal {
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
@@ -508,7 +508,7 @@
 }
 
 .impactLabel {
-  font-size: 10px;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-muted);
   width: 50px;
@@ -530,7 +530,7 @@
 }
 
 .impactVal {
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 700;
   min-width: 42px;
   text-align: right;
@@ -550,7 +550,7 @@
 
 .insightText {
   margin: 0;
-  font-size: 10px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   line-height: 1.5;
   font-style: italic;
@@ -579,7 +579,7 @@
 }
 
 .loadingText, .errorText {
-  font-size: 11px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-weight: 500;
 }

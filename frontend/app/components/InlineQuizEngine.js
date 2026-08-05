@@ -161,11 +161,11 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
               🧩 Knowledge Quiz {attemptNumber > 1 ? `· Attempt ${attemptNumber}` : ''}
               <span style={{
                 background: diffBadge.color, borderRadius: 8, padding: '2px 8px',
-                fontSize: '0.6rem', fontWeight: 700, color: '#fff',
+                fontSize: 'var(--type-caption)', fontWeight: 700, color: '#fff',
               }}>{diffBadge.icon} {diffBadge.label}</span>
             </div>
             <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginTop: 2 }}>{title}</div>
@@ -237,7 +237,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
               background: '#f8fafc', borderRadius: 10, padding: '12px 16px', marginBottom: 16,
               border: '1px solid #e2e8f0', textAlign: 'left',
             }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase' }}>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#94a3b8', marginBottom: 8, textTransform: 'uppercase' }}>
                 Bonus Point Tiers
               </div>
               {[
@@ -328,7 +328,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
           /* ═══ Question Screen ═══ */
           <div style={{ padding: '28px 28px 20px' }}>
             <div style={{
-              fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600,
+              fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600,
               textTransform: 'uppercase', marginBottom: 10, letterSpacing: 0.5,
             }}>
               Question {currentQ + 1} of {questions.length}
@@ -373,7 +373,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       background: showResult && isCorrect ? '#22c55e' : showResult && isSelected ? '#ef4444' : '#e2e8f0',
                       color: showResult ? '#fff' : '#64748b',
-                      fontSize: '0.7rem', fontWeight: 700,
+                      fontSize: 'var(--type-caption)', fontWeight: 700,
                     }}>
                       {showResult && isCorrect ? '✓' : showResult && isSelected ? '✗' : String.fromCharCode(65 + i)}
                     </span>
@@ -389,7 +389,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
                 background: selected === q.correct ? '#f0fdf4' : '#fffbeb',
                 border: `1px solid ${selected === q.correct ? '#bbf7d0' : '#fde68a'}`,
               }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: selected === q.correct ? '#166534' : '#92400e', marginBottom: 4 }}>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: selected === q.correct ? '#166534' : '#92400e', marginBottom: 4 }}>
                   {selected === q.correct ? '✅ Correct!' : '💡 Explanation'}
                 </div>
                 <div style={{ fontSize: '0.82rem', color: '#334155', lineHeight: 1.5 }}>
@@ -400,7 +400,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
 
             {/* Bonus incentive */}
             {!showExplanation && currentQ === 0 && (
-              <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#94a3b8', marginBottom: 8 }}>
+              <div style={{ textAlign: 'center', fontSize: 'var(--type-caption)', color: '#94a3b8', marginBottom: 8 }}>
                 🏆 Score 60%+ for <strong style={{ color: '#4f46e5' }}>up to 3,000 bonus points</strong>
               </div>
             )}

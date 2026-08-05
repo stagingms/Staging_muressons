@@ -87,7 +87,7 @@ export default function DryRunSimulator({ sessionId, cohortName = '' }) {
           </div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <label style={{ fontSize: '0.72rem', color: '#8899a6' }}>
+          <label style={{ fontSize: 'var(--type-caption)', color: '#8899a6' }}>
             Reps/strategy{' '}
             <select value={reps} onChange={(e) => setReps(Number(e.target.value))}
               style={{ background: 'transparent', color: 'inherit', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 6, padding: '3px 6px' }}>
@@ -112,7 +112,7 @@ export default function DryRunSimulator({ sessionId, cohortName = '' }) {
               Difficulty: {report.difficulty_grade}
             </span>
             <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>{gm.blurb}</span>
-            <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#8899a6' }}>
+            <span style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', color: '#8899a6' }}>
               R{report.start_round}→R{report.end_round} · {report.n_reps} rep{report.n_reps > 1 ? 's' : ''}/strategy · medians
             </span>
           </div>
@@ -132,7 +132,7 @@ export default function DryRunSimulator({ sessionId, cohortName = '' }) {
               <div key={sid} style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.18)' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.88rem', marginBottom: 6 }}>{s.label}</div>
                 <Sparkline values={s.treasury_by_round} rounds={report.rounds_axis} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 10px', fontSize: '0.74rem', color: '#cbd5e1', marginTop: 6 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 10px', fontSize: 'var(--type-caption)', color: '#cbd5e1', marginTop: 6 }}>
                   <span>Bankruptcy risk</span>
                   <strong style={{ color: s.bankruptcy_risk >= 0.5 ? '#f87171' : s.bankruptcy_risk > 0 ? '#fbbf24' : '#34d399', textAlign: 'right' }}>
                     {Math.round(s.bankruptcy_risk * 100)}%{s.first_bankrupt_round ? ` (≈R${Math.round(s.first_bankrupt_round)})` : ''}
@@ -150,7 +150,7 @@ export default function DryRunSimulator({ sessionId, cohortName = '' }) {
           {/* Crisis bite */}
           {report.crisis_bite?.length > 0 && (
             <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
+              <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
                 Which rounds bite hardest (median Δ across all bots)
               </div>
               {report.crisis_bite.map((cb) => (
@@ -166,7 +166,7 @@ export default function DryRunSimulator({ sessionId, cohortName = '' }) {
             </div>
           )}
 
-          <div style={{ marginTop: 12, fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic' }}>
+          <div style={{ marginTop: 12, fontSize: 'var(--type-caption)', color: '#64748b', fontStyle: 'italic' }}>
             {report.notes?.map((n, i) => <div key={i}>· {n}</div>)}
           </div>
         </>

@@ -121,7 +121,7 @@ export default function AutoPauseConfig({ sessionId }) {
                         display: 'inline-block', marginTop: '0.35rem',
                         padding: '0.2rem 0.65rem', borderRadius: '99px',
                         background: '#3b82f618', border: '1px solid #3b82f640',
-                        fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa',
+                        fontSize: 'var(--type-caption)', fontWeight: 700, color: '#60a5fa',
                         fontFamily: 'monospace', letterSpacing: '0.04em',
                     }}>
                         {sessionId}
@@ -158,7 +158,7 @@ export default function AutoPauseConfig({ sessionId }) {
                             <span style={{ fontSize: '1.3rem' }}>{icon}</span>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{label}</div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{desc}</div>
+                                <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>{desc}</div>
                             </div>
                         </div>
                     ))}
@@ -167,7 +167,7 @@ export default function AutoPauseConfig({ sessionId }) {
                 {/* ── Pause Message ── */}
                 <div style={{ marginTop: '1rem' }}>
                     <label style={{
-                        display: 'block', fontSize: '0.72rem', fontWeight: 700,
+                        display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700,
                         textTransform: 'uppercase', letterSpacing: '0.1em',
                         color: 'var(--text-muted)', marginBottom: '0.3rem',
                     }}>

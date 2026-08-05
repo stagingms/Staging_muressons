@@ -71,13 +71,13 @@ export default function PlayerAnnotations({ sessionId, roundNumber }) {
       >
         <div style={{
           display: 'flex', alignItems: 'center', gap: '6px',
-          fontSize: '0.68rem', fontWeight: 800,
+          fontSize: 'var(--type-caption)', fontWeight: 800,
           textTransform: 'uppercase', letterSpacing: '0.1em',
           color: '#a5b4fc',
         }}>
           <span>📌</span> Facilitator Notes
           <span style={{
-            fontSize: '0.68rem', fontWeight: 700,
+            fontSize: 'var(--type-caption)', fontWeight: 700,
             background: 'rgba(99,102,241,0.2)',
             color: '#c7d2fe', padding: '1px 6px',
             borderRadius: '3px', marginLeft: '2px',
@@ -86,7 +86,7 @@ export default function PlayerAnnotations({ sessionId, roundNumber }) {
           </span>
         </div>
         <span style={{
-          fontSize: '0.65rem', color: '#64748b',
+          fontSize: 'var(--type-caption)', color: '#64748b',
           transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
           transition: 'transform 0.2s',
         }}>▼</span>
@@ -120,7 +120,7 @@ export default function PlayerAnnotations({ sessionId, roundNumber }) {
                     {ann.text}
                   </div>
                   <div style={{
-                    fontSize: '0.68rem', color: '#475569',
+                    fontSize: 'var(--type-caption)', color: '#475569',
                     marginTop: '2px', display: 'flex', gap: '6px',
                   }}>
                     <span>R{ann.round}</span>

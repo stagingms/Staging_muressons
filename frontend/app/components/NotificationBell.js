@@ -66,7 +66,7 @@ export default function NotificationBell({ activityLog = [] }) {
                     <span style={{
                         position: 'absolute', top: '-4px', right: '-4px',
                         background: '#ef4444', color: '#fff',
-                        fontSize: '0.68rem', fontWeight: 800,
+                        fontSize: 'var(--type-caption)', fontWeight: 800,
                         width: '16px', height: '16px',
                         borderRadius: '50%',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -108,7 +108,7 @@ export default function NotificationBell({ activityLog = [] }) {
                         <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
                             🔔 Notifications
                         </span>
-                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                             {notifications.length} events
                         </span>
                     </div>
@@ -119,7 +119,7 @@ export default function NotificationBell({ activityLog = [] }) {
                             color: 'var(--text-muted)', fontSize: '0.8rem',
                         }}>
                             No notifications yet.<br/>
-                            <span style={{ fontSize: '0.7rem' }}>God Mode changes will appear here in real-time.</span>
+                            <span style={{ fontSize: 'var(--type-caption)' }}>God Mode changes will appear here in real-time.</span>
                         </div>
                     ) : (
                         <div style={{ padding: '0.4rem' }}>
@@ -140,7 +140,7 @@ export default function NotificationBell({ activityLog = [] }) {
                                         {n.message}
                                     </div>
                                     <div style={{
-                                        fontSize: '0.68rem', color: 'var(--text-muted)',
+                                        fontSize: 'var(--type-caption)', color: 'var(--text-muted)',
                                         marginTop: '0.2rem',
                                     }}>
                                         {n.timestamp}

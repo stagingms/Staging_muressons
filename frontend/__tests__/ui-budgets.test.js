@@ -382,3 +382,59 @@ describe('semantic hue lock', () => {
     for (const name of ['--positive:', '--caution:', '--danger:']) expect(t).toContain(name);
   });
 });
+
+/* ── 2.6 THE TYPE FLOOR, EVERYWHERE ELSE ────────────────────────────────────
+   Phase 6.1 covered the player surface incrementally, file by file, because
+   every size change there is something a room of people looks at for an hour.
+   The admin surface got one mechanical pass instead: 1,490 declarations across
+   172 files, all of them below 12px, all of them now var(--type-caption).
+
+   585 were CSS, 905 were inline `fontSize` in JSX — which is why a stylelint
+   rule could never have found them, and why the count was invisible until
+   something walked both.
+
+   This budget is ZERO and is meant to stay zero. The player ledger above
+   carries real remaining debt and names it per file; there is nothing left to
+   carry out here, so the assertion is the simple kind: no file outside the
+   player list may contain a sub-12px type literal at all.
+
+   If a genuine exception ever arrives — a dense projector table, a print
+   stylesheet — it goes in an allowlist beside this comment with its reason,
+   the same way the pointer-only click targets are handled. Not by raising a
+   number. */
+describe('type floor outside the player surface', () => {
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(rel, out); continue; }
+      if (/\.(js|css)$/.test(e.name)) out.push(rel);
+    }
+    return out;
+  };
+
+  const offenders = () => {
+    const player = new Set(PLAYER_FILES);
+    const hits = [];
+    for (const f of walk('app')) {
+      if (player.has(f)) continue;
+      const s = read(f);
+      for (const m of s.matchAll(/font-size:\s*([^;{}]+);/g)) {
+        const px = toPx(m[1]);
+        if (px !== null && px < 12) hits.push(`${f}  font-size: ${m[1].trim()}`);
+      }
+      for (const m of s.matchAll(/fontSize:\s*['"]([^'"]+)['"]/g)) {
+        const px = toPx(m[1]);
+        if (px !== null && px < 12) hits.push(`${f}  fontSize: ${m[1]}`);
+      }
+    }
+    return hits;
+  };
+
+  test('no admin or shared file carries a sub-12px type literal', () => {
+    const hits = offenders();
+    // Show the first few rather than a bare count — a failure here should
+    // point at the line, not send someone hunting.
+    expect(hits.slice(0, 8)).toEqual([]);
+    expect(hits.length).toBe(0);
+  });
+});

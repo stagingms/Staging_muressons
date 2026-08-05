@@ -124,7 +124,7 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
                     <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
                         📊 Excel Import / Export
                     </h4>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted, #94a3b8)' }}>
+                    <p style={{ margin: '2px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #94a3b8)' }}>
                         Scope: <strong>{scopeLabel}</strong> — Two sheets: Issues + Interdependencies
                     </p>
                 </div>
@@ -173,7 +173,7 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
                         <p style={{ margin: '0.3rem 0 0', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary, #475569)' }}>
                             Drag & drop an .xlsx file here, or click to browse
                         </p>
-                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
+                        <p style={{ margin: '0.2rem 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #94a3b8)' }}>
                             Max 5 MB · Must contain an &ldquo;Issues&rdquo; sheet
                         </p>
                     </>
@@ -747,7 +747,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                     </p>
                 </div>
                 <span style={{
-                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em',
+                    fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.1em',
                     textTransform: 'uppercase', padding: '4px 10px', borderRadius: '6px',
                     background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)',
                     color: '#60a5fa', fontFamily: 'var(--font-mono,monospace)',
@@ -782,7 +782,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                     title={`Remove "${opt.label}" category`}
                                     style={{
                                         padding: '6px 8px', borderRadius: '0 20px 20px 0', cursor: 'pointer',
-                                        fontSize: '0.7rem', fontWeight: 700, 
+                                        fontSize: 'var(--type-caption)', fontWeight: 700, 
                                         borderWidth: '1.5px', borderStyle: 'solid', borderLeftWidth: '0',
                                         transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                         background: selectedDict === opt.id ? '#dc2626' : 'transparent',
@@ -799,7 +799,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                     <>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', width: '100%' }}>
                             <span style={{
-                                fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em',
+                                fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.1em',
                                 textTransform: 'uppercase', color: '#6366f1', whiteSpace: 'nowrap',
                             }}>★ Industry Verticals</span>
                             <div style={{ flex: 1, height: 1, background: 'rgba(99,102,241,0.25)' }} />
@@ -823,7 +823,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                     {v.icon} {v.label}
                                     {v.q1_count > 0 && (
                                         <span style={{
-                                            marginLeft: '0.4rem', fontSize: '0.68rem', fontWeight: 800,
+                                            marginLeft: '0.4rem', fontSize: 'var(--type-caption)', fontWeight: 800,
                                             background: selectedDict === v.id ? 'rgba(255,255,255,0.25)' : 'rgba(99,102,241,0.15)',
                                             padding: '1px 5px', borderRadius: '10px',
                                         }}>{v.q1_count} Q1</span>
@@ -856,7 +856,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                         display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end',
                     }}>
                         <div>
-                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ICON</div>
+                            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ICON</div>
                             <input
                                 value={newCategory.icon}
                                 onChange={e => setNewCategory(c => ({ ...c, icon: e.target.value }))}
@@ -865,7 +865,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                             />
                         </div>
                         <div style={{ flex: 1, minWidth: 120 }}>
-                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>LABEL</div>
+                            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>LABEL</div>
                             <input
                                 value={newCategory.label}
                                 onChange={e => setNewCategory(c => ({ ...c, label: e.target.value }))}
@@ -874,7 +874,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                             />
                         </div>
                         <div style={{ flex: 1, minWidth: 120 }}>
-                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ID (slug)</div>
+                            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ID (slug)</div>
                             <input
                                 value={newCategory.id}
                                 onChange={e => setNewCategory(c => ({ ...c, id: e.target.value.replace(/\s+/g, '_').toLowerCase() }))}
@@ -891,7 +891,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                             }}
                         >✓ Add</button>
                         {categoryMsg && (
-                            <div style={{ width: '100%', fontSize: '0.72rem', color: '#b45309', fontWeight: 600 }}>{categoryMsg}</div>
+                            <div style={{ width: '100%', fontSize: 'var(--type-caption)', color: '#b45309', fontWeight: 600 }}>{categoryMsg}</div>
                         )}
                     </div>
                 )}

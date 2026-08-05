@@ -211,13 +211,13 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
                 >{team.committed ? '✓' : team.has_saved_draft ? '◐' : '○'}</span>
                 {team.name?.substring(0, 12) || `Team ${ti + 1}`}
                 {team.auto_committed_last_round && (
-                  <span title="Last round was auto-committed, not played" style={{ marginLeft: 5, fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 999, background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.4)', color: '#fbbf24' }}>auto</span>
+                  <span title="Last round was auto-committed, not played" style={{ marginLeft: 5, fontSize: 'var(--type-caption)', fontWeight: 800, padding: '1px 5px', borderRadius: 999, background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.4)', color: '#fbbf24' }}>auto</span>
                 )}
                 {/* Negotiation rooms (Phase 2): live flag while a room is open */}
                 {team.current?.negotiating && (
                   <span
                     title={`In negotiation with ${String(team.current.negotiating).replace(/^the_/, '').replace(/_/g, ' ')}`}
-                    style={{ marginLeft: 6, fontSize: '0.62rem', fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}
+                    style={{ marginLeft: 6, fontSize: 'var(--type-caption)', fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}
                   >🤝 negotiating</span>
                 )}
               </div>
@@ -256,7 +256,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
                 )}
               </div>
               {/* Active Traps */}
-              <div className={styles.heatmapCell} style={{ width: '120px', justifyContent: 'flex-start', paddingLeft: '8px', fontSize: '0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div className={styles.heatmapCell} style={{ width: '120px', justifyContent: 'flex-start', paddingLeft: '8px', fontSize: 'var(--type-caption)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {team.current?.active_traps?.length > 0 ? (
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {team.current.active_traps.map((trap, idx) => {

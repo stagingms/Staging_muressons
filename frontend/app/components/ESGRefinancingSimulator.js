@@ -46,7 +46,7 @@ function ESGGauge({ score }) {
             </svg>
 
             {/* Tier badge */}
-            <div style={{ display: 'inline-block', border: `1.5px solid ${color}`, borderRadius: 20, padding: '3px 14px', fontSize: '0.72rem', fontWeight: 700, color, marginTop: '-8px' }}>
+            <div style={{ display: 'inline-block', border: `1.5px solid ${color}`, borderRadius: 20, padding: '3px 14px', fontSize: 'var(--type-caption)', fontWeight: 700, color, marginTop: '-8px' }}>
                 {label}
             </div>
         </div>
@@ -114,7 +114,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
         <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
             <div style={{ background: '#fff', maxWidth: 580, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#1e3a5f', color: '#fff', padding: '1rem 1.5rem' }}>
-                    <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 9 — CFO Directive</div>
+                    <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 9 — CFO Directive</div>
                     <h2 style={{ margin: '0.3rem 0 0', fontSize: '1rem', fontWeight: 800 }}>The $1 Billion Refinancing</h2>
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
@@ -140,16 +140,16 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
                 <div style={{ background: '#fff', padding: '0.9rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>ESG Refinancing Simulator</h2>
-                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
+                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: 'var(--type-caption)' }}>
                             {[['BOND PRINCIPAL', '$1.0B'], ['NEW RATE', `${(rate * 100).toFixed(2)}%`], ['10Y IMPACT', `${saved ? '-' : '+'}${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(1)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
+                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: 'var(--type-caption)' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: k === '10Y IMPACT' ? (saved ? '#16a34a' : '#dc2626') : '#0f172a' }}>{v}</div>
                                 </div>
                             ))}
                         </div>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: saved ? '#16a34a' : '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: saved ? '#16a34a' : '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>
                         10-Year Financial Impact: You {saved ? `Saved ${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(0)}M` : `Paid ${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(0)}M extra`} compared to market baseline.
                     </div>
                 </div>
@@ -168,7 +168,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
 
                 {/* Slider */}
                 <div style={{ padding: '0.5rem 1.5rem 1rem' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 600, marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
                         <span>Simulation ESG Score</span><span style={{ color, fontWeight: 800 }}>{score} — {tier}</span>
                     </div>
                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>

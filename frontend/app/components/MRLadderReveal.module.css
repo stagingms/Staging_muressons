@@ -141,7 +141,7 @@
 
 .blockedBadge,
 .missedBadge {
-  font-size: 0.55rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;

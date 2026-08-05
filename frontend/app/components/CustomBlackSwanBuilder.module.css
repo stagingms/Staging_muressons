@@ -49,7 +49,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -59,7 +59,7 @@
 
 .hint {
   font-weight: 400;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   text-transform: none;
   letter-spacing: 0;
@@ -268,7 +268,7 @@
 }
 
 .historyTime {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 

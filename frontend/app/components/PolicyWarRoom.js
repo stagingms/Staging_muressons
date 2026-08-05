@@ -102,7 +102,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
             <div style={{ background: '#fff', maxWidth: 580, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#1e3a5f', color: '#fff', padding: '1rem 1.5rem' }}>
-                    <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 8 — VP Government Affairs</div>
+                    <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 8 — VP Government Affairs</div>
                     <h2 style={{ margin: '0.3rem 0 0', fontSize: '1rem', fontWeight: 800 }}>The Non-Market War Chest</h2>
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
@@ -124,16 +124,16 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                 <div style={{ background: '#fff', padding: '0.9rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Executive Policy Allocator</h2>
-                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
+                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: 'var(--type-caption)' }}>
                             {[['LEGISLATIVE PROBABILITY', `${prob}%`], ['PROJECTED OUTCOME', outcome], ['REMAINING BUDGET', `${currencySymbol()}${(remaining / 1e6).toFixed(2)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
+                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: 'var(--type-caption)' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: '#0f172a', fontSize: k === 'PROJECTED OUTCOME' ? '0.75rem' : 'inherit' }}>{v}</div>
                                 </div>
                             ))}
                         </div>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.2rem' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: '0.2rem' }}>
                         By lobbying <em>{stanceObj.label.toLowerCase()}</em> with {currencySymbol()}{spend.toLocaleString()}, you have a {prob}% chance of shifting the regulatory landscape.
                     </div>
                 </div>
@@ -153,15 +153,15 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
 
                 <div style={{ padding: '0.5rem 1rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <div>
-                        <label style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Lobbying Stance</label>
+                        <label style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Lobbying Stance</label>
                         <select value={stance} onChange={e => setStance(e.target.value)}
                             style={{ width: '100%', padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: '0.78rem', fontFamily: 'inherit', background: '#fff' }}>
                             {STANCES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                         </select>
-                        <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '4px', lineHeight: 1.4 }}>{stanceObj.desc}</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginTop: '4px', lineHeight: 1.4 }}>{stanceObj.desc}</div>
                     </div>
                     <div>
-                        <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 600, marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
                             <span>War Chest Spend ($)</span><span style={{ fontWeight: 700 }}>{currencySymbol()}{spend.toLocaleString()}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

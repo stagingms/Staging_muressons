@@ -156,11 +156,11 @@ export default function TradingFloorPage() {
   const rivalRow = (
     <div key="npc-nordhaven" style={{ ...S.row, opacity: 0.55, border: '1px dashed rgba(148,163,184,0.35)', background: 'rgba(148,163,184,0.05)' }}>
       <span style={{ ...S.rank, fontSize: '1rem', color: '#8899a6' }}>—</span>
-      <span style={{ ...S.team, color: '#8899a6' }}>{RIVAL.avatar} {RIVAL.name.toUpperCase()} <span style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em' }}>· NPC BENCHMARK</span></span>
+      <span style={{ ...S.team, color: '#8899a6' }}>{RIVAL.avatar} {RIVAL.name.toUpperCase()} <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, letterSpacing: '0.08em' }}>· NPC BENCHMARK</span></span>
       <div style={S.barTrack}>
         <div style={{ ...S.barFill, width: `${Math.min(100, (rivalEV / maxTv) * 100)}%`, background: 'rgba(148,163,184,0.45)' }} />
       </div>
-      <span style={{ ...S.value, color: '#8899a6' }}>{fmtM(rivalEV)} <span style={{ fontSize: '0.6rem' }}>EST</span></span>
+      <span style={{ ...S.value, color: '#8899a6' }}>{fmtM(rivalEV)} <span style={{ fontSize: 'var(--type-caption)' }}>EST</span></span>
     </div>
   );
   const medal = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`);
@@ -176,7 +176,7 @@ export default function TradingFloorPage() {
         </div>
         {/* F-9 (v3): scope truth — the switch governs this tab's projection only. */}
         <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
-          <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
+          <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
           <span style={{ fontSize: '0.8rem', color: '#8899a6', fontWeight: 700 }}>{enabled ? 'ON' : 'OFF'}</span>
           <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good, #10b981)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
             <span style={{ ...S.knob, transform: enabled ? 'translateX(24px)' : 'translateX(0)' }} />

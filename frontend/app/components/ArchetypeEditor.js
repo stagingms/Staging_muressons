@@ -35,7 +35,7 @@ function PreviewCard({ archetype, metricLabel = 'M_R ≥' }) {
       {archetype.icon && <span style={{ fontSize: '1.4rem' }}>{archetype.icon}</span>}
       <div>
         <div style={{ fontWeight: 700, lineHeight: 1.2 }}>{archetype.title || 'Preview'}</div>
-        <div style={{ opacity: 0.8, fontSize: '0.65rem' }}>{metricLabel} {archetype.mr_threshold ?? '—'}</div>
+        <div style={{ opacity: 0.8, fontSize: 'var(--type-caption)' }}>{metricLabel} {archetype.mr_threshold ?? '—'}</div>
       </div>
     </div>
   );
@@ -173,7 +173,7 @@ export default function ArchetypeEditor() {
   };
 
   const sectionSub = {
-    fontSize: '0.69rem', color: '#6b7280', marginBottom: '0.85rem',
+    fontSize: 'var(--type-caption)', color: '#6b7280', marginBottom: '0.85rem',
   };
 
   const tblCell = {
@@ -234,28 +234,28 @@ export default function ArchetypeEditor() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div>
-              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>KEY (slug)</label>
+              <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>KEY (slug)</label>
               <input style={inputSm} placeholder="e.g. impact_leader" value={form.key}
                 onChange={e => setForm(f => ({ ...f, key: e.target.value.replace(/\s+/g, '_').toLowerCase() }))} />
             </div>
             <div>
-              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>TITLE</label>
+              <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>TITLE</label>
               <input style={inputSm} placeholder="e.g. The Impact Leader" value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
             </div>
             <div>
-              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>M_R THRESHOLD (≥)</label>
+              <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>M_R THRESHOLD (≥)</label>
               <input style={inputSm} type="number" step="0.05" placeholder="e.g. 1.5" value={form.mr_threshold}
                 onChange={e => setForm(f => ({ ...f, mr_threshold: e.target.value }))} />
             </div>
             <div>
-              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>ICON (optional)</label>
+              <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>ICON (optional)</label>
               <input style={inputSm} placeholder="" value={form.icon}
                 onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} />
             </div>
           </div>
           <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
               <input type="checkbox" checked={!!form.requires_solvent}
                 onChange={e => setForm(f => ({ ...f, requires_solvent: e.target.checked }))} />
               Requires solvency — only award if the company ended value-positive
@@ -264,18 +264,18 @@ export default function ArchetypeEditor() {
             </label>
           </div>
           <div style={{ marginBottom: '0.75rem' }}>
-            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>DESCRIPTION</label>
+            <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>DESCRIPTION</label>
             <textarea style={{ ...inputSm, height: 56, resize: 'vertical' }} placeholder="Describe this archetype for the player…"
               value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
           </div>
           <div style={{ marginBottom: '0.9rem' }}>
-            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>GRADIENT</label>
+            <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>GRADIENT</label>
             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
               {GRADIENT_PRESETS.map(p => (
                 <button key={p.value} onClick={() => setForm(f => ({ ...f, gradient: p.value }))}
                   style={{
                     background: p.value, color: '#fff', border: form.gradient === p.value ? '2px solid #1e293b' : '2px solid transparent',
-                    borderRadius: 6, padding: '0.25rem 0.6rem', fontSize: '0.65rem', cursor: 'pointer', fontWeight: 600,
+                    borderRadius: 6, padding: '0.25rem 0.6rem', fontSize: 'var(--type-caption)', cursor: 'pointer', fontWeight: 600,
                   }}>{p.label}</button>
               ))}
             </div>
@@ -310,12 +310,12 @@ export default function ArchetypeEditor() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
-                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Preview</th>
-                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Key</th>
-                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>M_R ≥</th>
-                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Description</th>
-                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Type</th>
-                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Actions</th>
+                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Preview</th>
+                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Key</th>
+                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>M_R ≥</th>
+                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Description</th>
+                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Type</th>
+                    <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -331,14 +331,14 @@ export default function ArchetypeEditor() {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             <input style={inputSm} placeholder="Title" value={editData.title}
                               onChange={e => setEditData(d => ({ ...d, title: e.target.value }))} />
-                            <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.68rem' }}
+                            <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: 'var(--type-caption)' }}
                               placeholder="key_slug" value={editData.key}
                               onChange={e => setEditData(d => ({ ...d, key: e.target.value.replace(/\s+/g, '_').toLowerCase() }))} />
                           </div>
                         ) : (
                           <>
                             <div style={{ fontWeight: 700, color: '#1e293b' }}>{a.title}</div>
-                            <div style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: '#94a3b8' }}>{a.key}</div>
+                            <div style={{ fontFamily: 'monospace', fontSize: 'var(--type-caption)', color: '#94a3b8' }}>{a.key}</div>
                           </>
                         )}
                       </td>
@@ -361,25 +361,25 @@ export default function ArchetypeEditor() {
                             style={{ ...inputSm, height: 52, resize: 'vertical' }}
                           />
                         ) : (
-                          <span style={{ color: '#64748b', fontSize: '0.71rem' }}>{a.description}</span>
+                          <span style={{ color: '#64748b', fontSize: 'var(--type-caption)' }}>{a.description}</span>
                         )}
                       </td>
                       <td style={{ ...tblCell, textAlign: 'center' }}>
                         {a.is_default ? (
                           <span style={{
                             background: '#f1f5f9', color: '#64748b', borderRadius: 5,
-                            padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 600,
+                            padding: '0.15rem 0.5rem', fontSize: 'var(--type-caption)', fontWeight: 600,
                           }}>Default</span>
                         ) : (
                           <span style={{
                             background: 'rgba(16,185,129,0.1)', color: '#065f46', borderRadius: 5,
-                            padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 600,
+                            padding: '0.15rem 0.5rem', fontSize: 'var(--type-caption)', fontWeight: 600,
                           }}>Custom</span>
                         )}
                         {a.requires_solvent && (
                           <div style={{
                             marginTop: 4, background: 'rgba(59,130,246,0.1)', color: '#1d4ed8',
-                            borderRadius: 5, padding: '0.1rem 0.4rem', fontSize: '0.6rem',
+                            borderRadius: 5, padding: '0.1rem 0.4rem', fontSize: 'var(--type-caption)',
                             fontWeight: 700, letterSpacing: '0.03em',
                           }} title="Only awarded to a solvent company (DMAV > 0)">◇ solvent-gated</div>
                         )}
@@ -392,7 +392,7 @@ export default function ArchetypeEditor() {
                               style={{
                                 background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff',
                                 border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem',
-                                fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
+                                fontSize: 'var(--type-caption)', fontWeight: 700, cursor: 'pointer',
                               }}>
                               Save
                             </button>
@@ -400,7 +400,7 @@ export default function ArchetypeEditor() {
                               onClick={cancelEdit}
                               style={{
                                 background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
-                                padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#64748b',
+                                padding: '0.3rem 0.7rem', fontSize: 'var(--type-caption)', cursor: 'pointer', color: '#64748b',
                               }}>
                               Cancel
                             </button>
@@ -411,7 +411,7 @@ export default function ArchetypeEditor() {
                             title="Edit this archetype"
                             style={{
                               background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
-                              padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#475569',
+                              padding: '0.3rem 0.7rem', fontSize: 'var(--type-caption)', cursor: 'pointer', color: '#475569',
                             }}>
                             Edit
                           </button>
@@ -428,7 +428,7 @@ export default function ArchetypeEditor() {
           {/* ── Info callout ── */}
           <div style={{
             background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)',
-            borderRadius: 10, padding: '0.9rem 1.2rem', fontSize: '0.74rem', color: '#065f46', lineHeight: 1.6,
+            borderRadius: 10, padding: '0.9rem 1.2rem', fontSize: 'var(--type-caption)', color: '#065f46', lineHeight: 1.6,
           }}>
             <strong>How it works:</strong> At Round 10 the terminal archetype is a <strong>two-axis</strong> classification.
             <em>Axis 1 — M_R</em> (Regenerative Multiple): archetypes are checked highest-threshold first and the player earns the first one whose threshold their M_R meets or exceeds.
@@ -550,12 +550,12 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
           <thead>
             <tr style={{ background: '#f8fafc' }}>
-              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Preview</th>
-              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Key</th>
-              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Score ≥</th>
-              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Description</th>
-              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Type</th>
-              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Actions</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Preview</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Key</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Score ≥</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Description</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Type</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: 'var(--type-caption)', textTransform: 'uppercase' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -571,14 +571,14 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <input style={inputSm} placeholder="Title" value={editData.title}
                           onChange={e => setEditData(d => ({ ...d, title: e.target.value }))} />
-                        <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.68rem' }}
+                        <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: 'var(--type-caption)' }}
                           placeholder="key_slug" value={editData.key}
                           onChange={e => setEditData(d => ({ ...d, key: e.target.value.replace(/\s+/g, '_').toLowerCase() }))} />
                       </div>
                     ) : (
                       <>
                         <div style={{ fontWeight: 700, color: '#1e293b' }}>{a.title}</div>
-                        <div style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: '#94a3b8' }}>{a.key}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: 'var(--type-caption)', color: '#94a3b8' }}>{a.key}</div>
                       </>
                     )}
                   </td>
@@ -597,30 +597,30 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
                         onChange={e => setEditData(d => ({ ...d, description: e.target.value }))}
                         style={{ ...inputSm, height: 52, resize: 'vertical' }} />
                     ) : (
-                      <span style={{ color: '#64748b', fontSize: '0.71rem' }}>{a.description}</span>
+                      <span style={{ color: '#64748b', fontSize: 'var(--type-caption)' }}>{a.description}</span>
                     )}
                   </td>
                   <td style={{ ...tblCell, textAlign: 'center' }}>
                     <span style={{
                       background: '#f1f5f9', color: '#64748b', borderRadius: 5,
-                      padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 600,
+                      padding: '0.15rem 0.5rem', fontSize: 'var(--type-caption)', fontWeight: 600,
                     }}>Default</span>
                   </td>
                   <td style={{ ...tblCell, textAlign: 'center' }}>
                     {isEditing ? (
                       <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
                         <button onClick={() => saveEdit(a.key)}
-                          style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
+                          style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: 'var(--type-caption)', fontWeight: 700, cursor: 'pointer' }}>
                           Save
                         </button>
                         <button onClick={cancelEdit}
-                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#64748b' }}>
+                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: 'var(--type-caption)', cursor: 'pointer', color: '#64748b' }}>
                           Cancel
                         </button>
                       </div>
                     ) : (
                       <button onClick={() => startEdit(a)} title="Edit this archetype"
-                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#475569' }}>
+                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: 'var(--type-caption)', cursor: 'pointer', color: '#475569' }}>
                         Edit
                       </button>
                     )}

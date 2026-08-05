@@ -56,7 +56,7 @@
 }
 
 .label {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -200,7 +200,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -210,7 +210,7 @@
 }
 
 .sectionBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     padding: 2px 8px;
     border-radius: 20px;
     background: rgba(99,102,241,0.1);
@@ -247,7 +247,7 @@
 }
 
 .lockBadge {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     opacity: 0.5;
 }
 
@@ -296,7 +296,7 @@
 }
 
 .optionsLabel {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -326,7 +326,7 @@
 }
 
 .optionKeyBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;

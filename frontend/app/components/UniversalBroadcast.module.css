@@ -23,6 +23,6 @@
 .hist_critical { border-left: 3px solid var(--gauge-red); }
 .histTitle { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); }
 .histMsg { font-size: 0.82rem; color: var(--text-secondary); margin: 0.3rem 0; }
-.histMeta { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); }
+.histMeta { display: flex; justify-content: space-between; font-size: var(--type-caption); color: var(--text-muted); }
 .histPriority { text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
 

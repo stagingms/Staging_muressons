@@ -100,9 +100,9 @@
     gap: 4px;
     margin-bottom: 4px;
 }
-.heatLabel { font-size: 0.72rem; font-weight: 800; color: var(--text-muted); display: flex; align-items: center; }
+.heatLabel { font-size: var(--type-caption); font-weight: 800; color: var(--text-muted); display: flex; align-items: center; }
 .heatColHead {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -124,13 +124,13 @@
     flex-direction: column;
     gap: 2px;
 }
-.heatPct { font-size: 0.6rem; font-weight: 600; opacity: 0.7; }
+.heatPct { font-size: var(--type-caption); font-weight: 600; opacity: 0.7; }
 .heatTotal { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 
 /* Stacked Bars */
 .stackedBars { display: flex; flex-direction: column; gap: 6px; }
 .stackedRow { display: flex; align-items: center; gap: 8px; }
-.barLabel { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); min-width: 30px; }
+.barLabel { font-size: var(--type-caption); font-weight: 700; color: var(--text-muted); min-width: 30px; }
 .barTrack {
     flex: 1;
     height: 24px;
@@ -157,7 +157,7 @@
 }
 .timingHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .timingRound { font-size: 0.85rem; font-weight: 800; color: var(--accent-blue); }
-.timingCount { font-size: 0.7rem; color: var(--text-muted); }
+.timingCount { font-size: var(--type-caption); color: var(--text-muted); }
 .timingBar {
     height: 28px;
     background: rgba(59, 130, 246, 0.08);
@@ -172,13 +172,13 @@
     display: flex;
     align-items: center;
     padding: 0 10px;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     color: #fff;
     white-space: nowrap;
     transition: width 0.5s ease;
 }
-.timingStats { display: flex; gap: 16px; font-size: 0.7rem; color: var(--text-muted); }
+.timingStats { display: flex; gap: 16px; font-size: var(--type-caption); color: var(--text-muted); }
 .timingStats strong { color: var(--text-primary); }
 
 /* Cohort Comparison Chart */
@@ -188,7 +188,7 @@
     border-radius: 8px;
     border: 1px solid var(--border-subtle);
     background: var(--bg-elevated);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     cursor: pointer;
     color: var(--text-muted);
@@ -206,7 +206,7 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     text-align: right;
     padding: 4px 4px 20px 0;
@@ -235,13 +235,13 @@
     right: 0;
     display: flex;
     justify-content: space-between;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     padding: 4px 0;
 }
 
 .legend { display: flex; flex-wrap: wrap; gap: 12px; }
-.legendItem { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 600; color: var(--text-primary); }
+.legendItem { display: flex; align-items: center; gap: 6px; font-size: var(--type-caption); font-weight: 600; color: var(--text-primary); }
 .legendDot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
 /* Convergence */
@@ -258,7 +258,7 @@
     border-radius: 12px;
     transition: width 0.6s ease;
 }
-.gaugeLabels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); }
+.gaugeLabels { display: flex; justify-content: space-between; font-size: var(--type-caption); color: var(--text-muted); }
 .gaugeVal { font-size: 0.85rem; color: var(--text-primary); }
 
 .convergenceGrid { border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; }
@@ -267,7 +267,7 @@
     grid-template-columns: 60px 1fr 120px;
     padding: 8px 12px;
     background: var(--bg-elevated);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -296,7 +296,7 @@
 }
 .sumIcon { font-size: 1.5rem; margin-bottom: 4px; }
 .sumVal { font-size: 1.6rem; font-weight: 900; color: var(--text-primary); }
-.sumLabel { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.sumLabel { font-size: var(--type-caption); color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
 .badgeGrid { margin-bottom: 1rem; }
 .badgeGrid h4 { margin: 0 0 8px; font-size: 0.85rem; color: var(--text-primary); }
@@ -348,7 +348,7 @@
     transition: height 0.4s ease;
     min-height: 2px;
 }
-.riskRound { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+.riskRound { font-size: var(--type-caption); color: var(--text-muted); margin-top: 2px; }
 
 /* Empty & Loading */
 .loading, .error {

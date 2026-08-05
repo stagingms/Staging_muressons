@@ -98,7 +98,7 @@
     border: 1px solid var(--border-subtle);
     padding: 3px 10px;
     border-radius: var(--radius-sm);
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: var(--text-secondary);
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
@@ -176,7 +176,7 @@
 }
 
 .itemDesc {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -190,7 +190,7 @@
     border: 1px solid #6366f1;
     border-radius: var(--radius-sm);
     padding: 3px 6px;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--accent-blue);
     cursor: pointer;
@@ -209,7 +209,7 @@
 }
 
 .roundTag {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     padding: 1px 6px;
     background: #6366f1;
     color: #fff;

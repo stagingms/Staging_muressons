@@ -159,7 +159,7 @@ export default function TerminalValuationCalc({
       </div>
 
       {/* Equity Bridge divider */}
-      <div style={{ fontSize: '0.65rem', color: '#475569', margin: '6px 0 2px', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 700 }}>
+      <div style={{ fontSize: 'var(--type-caption)', color: '#475569', margin: '6px 0 2px', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 700 }}>
         Equity Bridge (EV − Net Debt)
       </div>
       <div className={styles.terminalComponent}>
@@ -186,10 +186,10 @@ export default function TerminalValuationCalc({
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8' }}>
+        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#94a3b8' }}>
           📈 Est. Share Price
           <br />
-          <span style={{ fontSize: '0.6rem', color: '#475569' }}>
+          <span style={{ fontSize: 'var(--type-caption)', color: '#475569' }}>
             vs IPO $50.00 ({calc.spChangePct > 0 ? '+' : ''}{calc.spChangePct}%)
           </span>
         </span>

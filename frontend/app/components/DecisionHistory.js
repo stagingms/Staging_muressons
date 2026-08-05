@@ -11,7 +11,7 @@ const DeltaBadge = ({ value, invert = false, suffix = '' }) => {
   const isGood = invert ? value < 0 : value > 0;
   return (
     <span style={{
-      fontSize: '0.6rem', fontWeight: 700, padding: '1px 5px', borderRadius: 4,
+      fontSize: 'var(--type-caption)', fontWeight: 700, padding: '1px 5px', borderRadius: 4,
       background: isGood ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
       color: isGood ? '#059669' : '#dc2626',
       whiteSpace: 'nowrap',
@@ -66,12 +66,12 @@ export default function DecisionHistory({ historyData }) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e293b' }}>
+                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#1e293b' }}>
                   Round {h.round}
                 </span>
                 <DeltaBadge value={dEbitda} />
               </div>
-              <span style={{ fontSize: '0.6rem', color: '#94a3b8', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
+              <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)' }}>▼</span>
             </button>
 
             {/* Accordion Content */}
@@ -87,7 +87,7 @@ export default function DecisionHistory({ historyData }) {
                   <div style={{
                     padding: '8px 10px', background: '#f1f5f9',
                     borderLeft: '3px solid #6366f1', borderRadius: '0 0 6px 0',
-                    fontSize: '0.65rem', lineHeight: 1.6,
+                    fontSize: 'var(--type-caption)', lineHeight: 1.6,
                   }}>
                     {/* KPI Grid */}
                     <div style={{
@@ -95,26 +95,26 @@ export default function DecisionHistory({ historyData }) {
                       marginBottom: 8,
                     }}>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Treasury</div>
-                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
+                        <div style={{ color: '#64748b', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Treasury</div>
+                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--type-caption)' }}>
                           {fmtCurrency(h.treasury)} <DeltaBadge value={dTreasury} />
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>EBITDA</div>
-                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
+                        <div style={{ color: '#64748b', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>EBITDA</div>
+                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--type-caption)' }}>
                           {fmtCurrency(h.ebitda)} <DeltaBadge value={dEbitda} />
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reputation</div>
-                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
+                        <div style={{ color: '#64748b', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reputation</div>
+                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--type-caption)' }}>
                           {h.reputation.toFixed(0)}/100 <DeltaBadge value={dReputation} />
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>CO₂</div>
-                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
+                        <div style={{ color: '#64748b', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>CO₂</div>
+                        <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--type-caption)' }}>
                           {h.tco2e.toLocaleString()}t <DeltaBadge value={dCO2} invert />
                         </div>
                       </div>
@@ -126,15 +126,15 @@ export default function DecisionHistory({ historyData }) {
                         padding: '4px 8px', background: 'rgba(99,102,241,0.06)', borderRadius: 4,
                         marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       }}>
-                        <span style={{ color: '#475569', fontSize: '0.68rem', fontWeight: 600 }}>Synergy Multiplier</span>
-                        <span style={{ color: '#6366f1', fontWeight: 800, fontSize: '0.65rem' }}>{h.synergy.toFixed(2)}×</span>
+                        <span style={{ color: '#475569', fontSize: 'var(--type-caption)', fontWeight: 600 }}>Synergy Multiplier</span>
+                        <span style={{ color: '#6366f1', fontWeight: 800, fontSize: 'var(--type-caption)' }}>{h.synergy.toFixed(2)}×</span>
                       </div>
                     )}
 
                     {/* Business Units */}
                     {h.bu_count > 0 && (
                       <div style={{
-                        fontSize: '0.68rem', color: '#64748b',
+                        fontSize: 'var(--type-caption)', color: '#64748b',
                         padding: '3px 0', borderTop: '1px solid #e2e8f0', marginTop: 4,
                       }}>
                         {h.bu_count} business unit{h.bu_count !== 1 ? 's' : ''} managed

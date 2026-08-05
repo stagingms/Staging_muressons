@@ -250,7 +250,7 @@ export default function GlobalTooltip() {
                                     border: `1px solid ${isLight ? 'rgba(124,58,237,0.2)' : 'rgba(196,181,253,0.2)'}`,
                                     borderRadius: '4px',
                                     padding: '2px 8px',
-                                    fontSize: '0.68rem',
+                                    fontSize: 'var(--type-caption)',
                                     fontWeight: 700,
                                     letterSpacing: '0.07em',
                                     textTransform: 'uppercase',

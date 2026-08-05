@@ -43,7 +43,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   text-transform: capitalize;
 }
@@ -112,7 +112,7 @@
 }
 
 .summaryLabel {
-  font-size: 11px;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 

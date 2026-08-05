@@ -300,7 +300,7 @@ export default function RegulatorySandboxControl({ sessionId, isGodMode = false 
                                     <div className={styles.exoMeta}>
                                         <span>Rounds: {evt.trigger_rounds.join(', ')}</span>
                                         <span>•</span>
-                                        <span style={{ fontSize: '0.65rem', fontStyle: 'italic', color: '#64748b' }}>{(evt.theory || '').split('—')[0].trim()}</span>
+                                        <span style={{ fontSize: 'var(--type-caption)', fontStyle: 'italic', color: '#64748b' }}>{(evt.theory || '').split('—')[0].trim()}</span>
                                     </div>
                                     <div className={styles.exoEffects}>
                                         {Object.entries(evt.effects || {}).map(([k, v]) => (

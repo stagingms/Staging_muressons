@@ -75,7 +75,7 @@ const S = {
   vignette: { position: 'absolute', inset: 0, boxShadow: 'inset 0 0 240px 60px rgba(239,68,68,0.55)', animation: 'mur-pulse 1.4s ease-in-out infinite', pointerEvents: 'none' },
   inner: { position: 'relative', textAlign: 'center', color: '#fff', maxWidth: 620, padding: '0 24px' },
   klaxonIcon: { fontSize: '4rem', marginBottom: 8 },
-  badge: { display: 'inline-block', padding: '4px 14px', borderRadius: 999, background: '#ef4444', color: '#fff', fontWeight: 800, letterSpacing: '0.15em', fontSize: '0.7rem', marginBottom: 16 },
+  badge: { display: 'inline-block', padding: '4px 14px', borderRadius: 999, background: '#ef4444', color: '#fff', fontWeight: 800, letterSpacing: '0.15em', fontSize: 'var(--type-caption)', marginBottom: 16 },
   title: { fontSize: '2.4rem', fontWeight: 900, lineHeight: 1.1, marginBottom: 12, textShadow: '0 2px 20px rgba(239,68,68,0.6)' },
   narrative: { fontSize: '1.1rem', color: '#e2e8f0', lineHeight: 1.5, marginBottom: 18 },
   impacts: { display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 22 },

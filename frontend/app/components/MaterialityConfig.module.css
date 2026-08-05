@@ -58,7 +58,7 @@
 }
 
 .formGroup label {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -124,7 +124,7 @@
     background: rgba(239, 68, 68, 0.08);
     color: var(--gauge-red);
     border: 1px solid rgba(239, 68, 68, 0.25);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     padding: 0.35rem 0.8rem;
 }
 
@@ -215,7 +215,7 @@
 .impactBadges {
     display: flex;
     gap: 0.4rem;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-family: var(--font-mono);
     align-items: center;
     flex-wrap: wrap;

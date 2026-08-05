@@ -68,7 +68,7 @@ export default function GodModeAuditLog() {
                         key={qf.value}
                         onClick={() => setFilter(qf.value)}
                         style={{
-                            padding: '0.25rem 0.6rem', borderRadius: '12px', fontSize: '0.7rem',
+                            padding: '0.25rem 0.6rem', borderRadius: '12px', fontSize: 'var(--type-caption)',
                             fontWeight: filter === qf.value ? 700 : 500, cursor: 'pointer',
                             border: `1px solid ${filter === qf.value ? 'rgba(59,130,246,0.4)' : 'var(--border-subtle)'}`,
                             background: filter === qf.value ? 'rgba(59,130,246,0.12)' : 'transparent',
@@ -80,13 +80,13 @@ export default function GodModeAuditLog() {
                         {qf.value === 'role_changed' && roleChangeCount > 0 && (
                             <span style={{
                                 marginLeft: '4px', padding: '0 4px', borderRadius: '8px',
-                                background: 'rgba(245,158,11,0.2)', color: '#f59e0b', fontSize: '0.6rem', fontWeight: 700,
+                                background: 'rgba(245,158,11,0.2)', color: '#f59e0b', fontSize: 'var(--type-caption)', fontWeight: 700,
                             }}>{roleChangeCount}</span>
                         )}
                         {qf.value === 'regulatory_sandbox' && sandboxCount > 0 && (
                             <span style={{
                                 marginLeft: '4px', padding: '0 4px', borderRadius: '8px',
-                                background: 'rgba(16,185,129,0.2)', color: '#10b981', fontSize: '0.6rem', fontWeight: 700,
+                                background: 'rgba(16,185,129,0.2)', color: '#10b981', fontSize: 'var(--type-caption)', fontWeight: 700,
                             }}>{sandboxCount}</span>
                         )}
                     </button>

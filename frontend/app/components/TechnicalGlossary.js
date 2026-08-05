@@ -491,7 +491,7 @@ function TermCard({ term, clusterAccent, searchQuery }) {
   };
 
   const sectionLabelStyle = {
-    fontSize: '10px',
+    fontSize: 'var(--type-caption)',
     fontWeight: 700,
     letterSpacing: '0.15em',
     textTransform: 'uppercase',
@@ -538,7 +538,7 @@ function TermCard({ term, clusterAccent, searchQuery }) {
           </div>
         </div>
         <span style={{
-          fontSize: '10px', fontFamily: 'var(--font-mono, monospace)',
+          fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono, monospace)',
           letterSpacing: '0.08em', color: 'var(--text-muted)',
           padding: '2px 8px', border: '1px solid var(--border-subtle)',
           borderRadius: '3px', whiteSpace: 'nowrap', flexShrink: 0,
@@ -621,7 +621,7 @@ export default function TechnicalGlossary() {
                 Technical Glossary
               </h2>
               <span style={{
-                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em',
+                fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.12em',
                 textTransform: 'uppercase', padding: '3px 8px', borderRadius: '4px',
                 background: 'linear-gradient(135deg, #c9a84c22, #c9a84c11)',
                 border: '1px solid #c9a84c44', color: '#c9a84c',
@@ -657,13 +657,13 @@ export default function TechnicalGlossary() {
 
         {/* Cluster filter pills */}
         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Filter:</span>
+          <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Filter:</span>
           {[{ id: 'all', label: 'All Clusters', color: '#7c7c7c' }, ...CLUSTERS.map(c => ({ id: c.id, label: c.title, color: c.accentColor }))].map(f => (
             <button
               key={f.id}
               onClick={() => setActiveCluster(f.id)}
               style={{
-                padding: '4px 12px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                padding: '4px 12px', borderRadius: '20px', fontSize: 'var(--type-caption)', fontWeight: 700,
                 cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                 background: activeCluster === f.id ? f.color : 'transparent',
                 color: activeCluster === f.id ? '#fff' : f.color,
@@ -676,7 +676,7 @@ export default function TechnicalGlossary() {
               {f.label}
             </button>
           ))}
-          {q && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 4 }}>{totalVisible} result{totalVisible !== 1 ? 's' : ''}</span>}
+          {q && <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginLeft: 4 }}>{totalVisible} result{totalVisible !== 1 ? 's' : ''}</span>}
         </div>
       </div>
 
@@ -703,7 +703,7 @@ export default function TechnicalGlossary() {
             </div>
             <div>
               <div style={{
-                fontSize: '10px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
+                fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
                 padding: '2px 8px', borderRadius: '3px', display: 'inline-block', marginBottom: '6px',
                 background: `${cluster.accentColor}18`, color: cluster.accentColor,
               }}>{cluster.tag}</div>
@@ -727,7 +727,7 @@ export default function TechnicalGlossary() {
       <div style={{
         marginTop: '32px', padding: '12px 16px', borderRadius: '8px',
         background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-        fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono,monospace)',
+        fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono,monospace)',
         letterSpacing: '0.04em',
       }}>
         ?? Verified against engine.py, round_logic.py, round2_csrd.py · Muressons Global Corporation — Build 2026-R10

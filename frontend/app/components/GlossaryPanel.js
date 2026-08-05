@@ -131,7 +131,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
               <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#64748b', marginBottom: 4 }}>
                 Type to search
               </div>
-              <div style={{ fontSize: '0.72rem', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 'var(--type-caption)', lineHeight: 1.6 }}>
                 Search by keyword, term name, or topic<br />
                 <span style={{ opacity: 0.7 }}>e.g. "carbon", "treasury", "governance"</span>
               </div>
@@ -148,7 +148,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
               <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#64748b' }}>
                 No matching terms found
               </div>
-              <div style={{ fontSize: '0.7rem', marginTop: 4 }}>
+              <div style={{ fontSize: 'var(--type-caption)', marginTop: 4 }}>
                 Try a different keyword
               </div>
             </div>
@@ -171,7 +171,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
                   }}>
                     <span style={{
                       background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                      color: '#fff', fontSize: '0.68rem',
+                      color: '#fff', fontSize: 'var(--type-caption)',
                       fontWeight: 800, padding: '2px 6px', borderRadius: 4,
                       letterSpacing: '0.05em',
                     }}>TERM</span>
@@ -182,7 +182,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
                          title="Learn more">🔗</a>
                     )}
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: '#475569', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: 'var(--type-caption)', color: '#475569', lineHeight: 1.6 }}>
                     {item.definition}
                   </div>
                 </div>
@@ -194,7 +194,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
                     borderTop: '1px solid #e2e8f0',
                   }}>
                     <div style={{
-                      fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8',
+                      fontSize: 'var(--type-caption)', fontWeight: 700, color: '#94a3b8',
                       letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4,
                     }}>Related</div>
                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
@@ -205,7 +205,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
                           style={{
                             background: '#fff', border: '1px solid #e2e8f0',
                             borderRadius: 6, padding: '3px 8px',
-                            fontSize: '0.65rem', fontWeight: 600, color: '#6366f1',
+                            fontSize: 'var(--type-caption)', fontWeight: 600, color: '#6366f1',
                             cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                           }}
                           onMouseOver={e => { e.target.style.background = '#eef2ff'; e.target.style.borderColor = '#c7d2fe'; }}

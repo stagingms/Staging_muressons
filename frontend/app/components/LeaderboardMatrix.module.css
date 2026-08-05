@@ -33,7 +33,7 @@
 .count {
     margin-left: auto;
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     background: var(--bg-secondary);
     padding: 3px 12px;
@@ -54,7 +54,7 @@
 .table th {
     text-align: left;
     padding: 12px 14px;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -131,7 +131,7 @@
     padding: 3px 10px;
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-align: center;
     min-width: 50px;
@@ -203,7 +203,7 @@
     border: 1px solid var(--border-subtle);
     background: transparent;
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     cursor: pointer;
     transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
@@ -254,7 +254,7 @@
     background: none;
     border: 1px solid var(--border-subtle);
     cursor: pointer;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     opacity: 0.4;
     transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
     padding: 3px 6px;

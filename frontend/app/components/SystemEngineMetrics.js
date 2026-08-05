@@ -23,7 +23,7 @@ export default function SystemEngineMetrics({ globalState, pedToggles, isHealthc
     widgets.push(
       <div key="biodiversity" style={{ padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: `1px solid ${bio.ecosystem_health_index < 40 ? 'rgba(239,68,68,0.4)' : bio.ecosystem_health_index < 60 ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>🌿 Ecosystem Health</span>
+          <span style={{ fontSize: 'var(--type-caption)', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>🌿 Ecosystem Health</span>
           <span style={{ fontSize: '0.75rem', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace', color: bio.ecosystem_health_index < 40 ? '#f87171' : bio.ecosystem_health_index < 60 ? '#fbbf24' : '#4ade80' }}>
             {bio.ecosystem_health_index.toFixed(1)}
           </span>
@@ -31,7 +31,7 @@ export default function SystemEngineMetrics({ globalState, pedToggles, isHealthc
         <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
           <div style={{ height: '100%', width: `${bio.ecosystem_health_index}%`, background: bio.ecosystem_health_index < 40 ? '#ef4444' : bio.ecosystem_health_index < 60 ? '#f59e0b' : '#10b981', borderRadius: 2, transition: 'width 0.5s' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748b' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', color: '#64748b' }}>
           <span>Risk: {bio.species_risk_score} Spp</span>
           <span>ESV: {fmtCurrency(bio.ecosystem_services_value)}/yr</span>
         </div>
@@ -45,7 +45,7 @@ export default function SystemEngineMetrics({ globalState, pedToggles, isHealthc
     widgets.push(
       <div key="supply_chain" style={{ padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: `1px solid ${sc.network_resilience_score < 40 ? 'rgba(239,68,68,0.4)' : sc.network_resilience_score < 70 ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>🔗 Supply Chain Resilience</span>
+          <span style={{ fontSize: 'var(--type-caption)', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>🔗 Supply Chain Resilience</span>
           <span style={{ fontSize: '0.75rem', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace', color: sc.network_resilience_score < 40 ? '#f87171' : sc.network_resilience_score < 70 ? '#fbbf24' : '#4ade80' }}>
             {sc.network_resilience_score.toFixed(1)}
           </span>
@@ -53,7 +53,7 @@ export default function SystemEngineMetrics({ globalState, pedToggles, isHealthc
         <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
           <div style={{ height: '100%', width: `${sc.network_resilience_score}%`, background: sc.network_resilience_score < 40 ? '#ef4444' : sc.network_resilience_score < 70 ? '#f59e0b' : '#10b981', borderRadius: 2, transition: 'width 0.5s' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748b' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', color: '#64748b' }}>
           <span>Risk Exp: {sc.csddd_risk_exposure.toFixed(1)}</span>
           <span>Vis: {sc.tier_visibility_depth.toFixed(1)} Tiers</span>
         </div>
@@ -67,7 +67,7 @@ export default function SystemEngineMetrics({ globalState, pedToggles, isHealthc
     widgets.push(
       <div key="board_governance" style={{ padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: `1px solid ${bg.board_confidence_score < 40 ? 'rgba(239,68,68,0.4)' : bg.board_confidence_score < 70 ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.2)'}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>🏛️ Board Confidence</span>
+          <span style={{ fontSize: 'var(--type-caption)', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>🏛️ Board Confidence</span>
           <span style={{ fontSize: '0.75rem', fontWeight: 800, fontFamily: 'JetBrains Mono, monospace', color: bg.board_confidence_score < 40 ? '#f87171' : bg.board_confidence_score < 70 ? '#fbbf24' : '#4ade80' }}>
             {bg.board_confidence_score.toFixed(1)}
           </span>
@@ -75,7 +75,7 @@ export default function SystemEngineMetrics({ globalState, pedToggles, isHealthc
         <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
           <div style={{ height: '100%', width: `${bg.board_confidence_score}%`, background: bg.board_confidence_score < 40 ? '#ef4444' : bg.board_confidence_score < 70 ? '#f59e0b' : '#10b981', borderRadius: 2, transition: 'width 0.5s' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#64748b' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', color: '#64748b' }}>
           <span>ESG Focus: {(bg.esg_competency_index * 100).toFixed(0)}%</span>
           <span>Revolt Risk: {(bg.activist_pressure_level * 100).toFixed(0)}%</span>
         </div>

@@ -50,7 +50,7 @@
 }
 
 .headerSubtitle {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-family: var(--font-mono);
   letter-spacing: 0.05em;
@@ -86,7 +86,7 @@
 }
 
 .toggleText {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -114,7 +114,7 @@
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
@@ -153,7 +153,7 @@
 }
 
 .heatmapTeamHeader {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.1em;
@@ -162,7 +162,7 @@
 }
 
 .heatmapRoundHeader {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.08em;
@@ -178,7 +178,7 @@
 }
 
 .heatmapTeamName {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-primary);
   padding: 0.4rem 0.5rem;
@@ -210,7 +210,7 @@
 }
 
 .cellValue {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
   font-family: var(--font-mono);
@@ -225,10 +225,10 @@
     grid-template-columns: 80px repeat(10, 1fr) 1fr;
   }
   .cellValue {
-    font-size: 0.5rem;
+    font-size: var(--type-caption);
   }
   .metricBtn {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     padding: 0.35rem 0.3rem;
   }
 }

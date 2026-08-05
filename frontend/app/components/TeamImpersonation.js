@@ -127,7 +127,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
         if (!items || items.length === 0) return null;
         return (
             <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span>{icon}</span> {title}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -139,7 +139,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
                                 padding: '5px 10px', borderRadius: 6,
                                 border: `1px solid ${sty.borderColor}`,
                                 background: sty.background,
-                                fontSize: '0.72rem',
+                                fontSize: 'var(--type-caption)',
                             }}>
                                 <span style={{ fontWeight: 600, color: '#cbd5e1' }}>{item.label}</span>
                                 <span style={{ fontWeight: 700, color: sty.color, fontFamily: "'JetBrains Mono', monospace" }}>{item.value}</span>
@@ -250,7 +250,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
                                 style={{
                                     marginTop: 8, padding: '4px 10px', borderRadius: 4,
                                     background: 'transparent', border: '1px solid rgba(148,163,184,0.15)',
-                                    color: '#475569', fontSize: '0.65rem', fontWeight: 600,
+                                    color: '#475569', fontSize: 'var(--type-caption)', fontWeight: 600,
                                     cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase',
                                 }}
                             >
@@ -260,7 +260,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
                                 <pre style={{
                                     marginTop: 8, padding: 12, borderRadius: 6,
                                     background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(148,163,184,0.1)',
-                                    fontSize: '0.62rem', color: '#64748b', overflow: 'auto',
+                                    fontSize: 'var(--type-caption)', color: '#64748b', overflow: 'auto',
                                     maxHeight: 300, fontFamily: "'JetBrains Mono', monospace",
                                     lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                                 }}>

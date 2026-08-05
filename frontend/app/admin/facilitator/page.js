@@ -180,7 +180,7 @@ function FacilitatorLoginGate({ onLogin }) {
                     <div>
                         <label style={{
                             display: 'block',
-                            fontSize: '0.72rem',
+                            fontSize: 'var(--type-caption)',
                             fontWeight: 700,
                             textTransform: 'uppercase',
                             letterSpacing: '0.1em',
@@ -212,7 +212,7 @@ function FacilitatorLoginGate({ onLogin }) {
                     <div>
                         <label style={{
                             display: 'block',
-                            fontSize: '0.72rem',
+                            fontSize: 'var(--type-caption)',
                             fontWeight: 700,
                             textTransform: 'uppercase',
                             letterSpacing: '0.1em',
@@ -946,13 +946,13 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                 border: '1px solid var(--border-subtle)', marginBottom: '1rem',
                                 alignItems: 'center', overflow: 'visible',
                             }}>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.5rem' }}>
+                                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.5rem' }}>
                                     🔧 Active Scaffolding:
                                 </span>
                                 {scaffoldingStatus.features.map(f => (
                                     <div key={f.key} className={styles.pillWrap} data-tip={f.description || ''}>
                                     <span style={{
-                                        fontSize: '0.7rem', padding: '0.2rem 0.5rem',
+                                        fontSize: 'var(--type-caption)', padding: '0.2rem 0.5rem',
                                         borderRadius: '6px', fontWeight: 600,
                                         background: f.enabled ? 'rgba(34,197,94,0.15)' : 'rgba(107,114,128,0.12)',
                                         color: f.enabled ? '#22c55e' : 'var(--text-muted)',
@@ -963,16 +963,16 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                     </div>
                                 ))}
                                 {scaffoldingStatus.system_frozen && (
-                                    <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 700, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                                    <span style={{ fontSize: 'var(--type-caption)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 700, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
                                         🧊 SYSTEM FROZEN
                                     </span>
                                 )}
                                 {scaffoldingSync.failed ? (
-                                    <span style={{ marginLeft: 'auto', fontSize: '0.68rem', fontWeight: 700, color: '#ef4444' }}>
+                                    <span style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', fontWeight: 700, color: '#ef4444' }}>
                                         ⚠️ Not synced{scaffoldingSync.at ? ` — showing state from ${new Date(scaffoldingSync.at).toLocaleTimeString()}` : ''}
                                     </span>
                                 ) : scaffoldingSync.at ? (
-                                    <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                    <span style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                                         synced {new Date(scaffoldingSync.at).toLocaleTimeString()}
                                     </span>
                                 ) : null}
@@ -1401,7 +1401,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
                     <div style={{
-                        fontSize: '0.72rem',
+                        fontSize: 'var(--type-caption)',
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         letterSpacing: '0.18em',
@@ -1415,7 +1415,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                         border: '1px solid rgba(59, 130, 246, 0.2)',
                         boxShadow: 'none',
                         color: '#60a5fa',
-                        fontSize: '0.72rem',
+                        fontSize: 'var(--type-caption)',
                         letterSpacing: '0.06em',
                         fontFamily: 'var(--font-mono)',
                     }}>
@@ -1431,7 +1431,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                             borderTop: '1px solid var(--border-subtle)',
                         }}>
                             <span style={{
-                                fontSize: '0.72rem',
+                                fontSize: 'var(--type-caption)',
                                 color: 'var(--text-muted)',
                                 fontWeight: 600,
                             }}>
@@ -1447,7 +1447,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                         background: 'none',
                                         border: '1px solid rgba(59, 130, 246, 0.3)',
                                         color: '#60a5fa',
-                                        fontSize: '0.65rem',
+                                        fontSize: 'var(--type-caption)',
                                         fontWeight: 700,
                                         padding: '3px 8px',
                                         borderRadius: '4px',
@@ -1464,7 +1464,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                         background: 'none',
                                         border: '1px solid rgba(239, 68, 68, 0.3)',
                                         color: '#ef4444',
-                                        fontSize: '0.65rem',
+                                        fontSize: 'var(--type-caption)',
                                         fontWeight: 700,
                                         padding: '3px 8px',
                                         borderRadius: '4px',
@@ -1507,7 +1507,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                 padding: '6px 10px',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
-                                fontSize: '0.74rem',
+                                fontSize: 'var(--type-caption)',
                                 fontWeight: 800,
                                 letterSpacing: '0.04em',
                                 background: liveRoundMode ? 'rgba(239,68,68,0.12)' : 'var(--bg-elevated)',
@@ -1518,7 +1518,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                         >
                             {liveRoundMode ? '🎬 Live Round' : '📚 All Tabs'}
                         </button>
-                        <div id="live-round-count" style={{ marginTop: '0.35rem', fontSize: '0.66rem', color: 'var(--text-muted)', lineHeight: 1.35 }}>
+                        <div id="live-round-count" style={{ marginTop: '0.35rem', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.35 }}>
                             {liveRoundMode
                                 ? `${liveRoundTabCount} of ${allTabCount} tabs · showing live-round essentials`
                                 : `All ${allTabCount} tabs shown · switch to Live Round for essentials only`}
@@ -1536,7 +1536,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                     borderRadius: '6px',
                                     background: 'var(--bg-elevated)',
                                     border: '1px dashed var(--border-subtle)',
-                                    fontSize: '0.65rem',
+                                    fontSize: 'var(--type-caption)',
                                     color: 'var(--text-muted)',
                                     lineHeight: 1.4,
                                 }}
@@ -1554,7 +1554,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                         border: '1px solid var(--border-subtle)',
                                         background: 'var(--bg-body)',
                                         color: 'var(--text-primary)',
-                                        fontSize: '0.65rem',
+                                        fontSize: 'var(--type-caption)',
                                         fontWeight: 700,
                                         cursor: 'pointer',
                                     }}
@@ -1604,7 +1604,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                     >
                                         {item.icon && <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>{item.icon}</span>}
                                         <span>{item.label}</span>
-                                        {item._locked && <span aria-hidden="true" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>🔒</span>}
+                                        {item._locked && <span aria-hidden="true" style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)' }}>🔒</span>}
                                     </button>
                                 ))}
                             </div>
@@ -1741,7 +1741,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
             }}>
                 {/* Role badge */}
                 <span style={{
-                    padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 700, fontSize: '0.68rem',
+                    padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 700, fontSize: 'var(--type-caption)',
                     textTransform: 'uppercase', letterSpacing: '0.05em',
                     background: authData?.role === 'super_admin' ? 'rgba(245,158,11,0.15)' :
                                 authData?.role === 'lead_facilitator' ? 'rgba(99,102,241,0.15)' : 'rgba(59,130,246,0.15)',
@@ -1761,7 +1761,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                         ? 'Real-time connection healthy'
                         : 'Live updates interrupted — reconnecting automatically; data refreshes every 30s meanwhile. Events during the gap are in the server audit trail (Decision History).'}
                     style={{
-                        padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 700, fontSize: '0.68rem',
+                        padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 700, fontSize: 'var(--type-caption)',
                         background: wsState === 'live' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.15)',
                         color: wsState === 'live' ? '#22c55e' : '#f59e0b',
                         border: `1px solid ${wsState === 'live' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.35)'}`,
@@ -1805,7 +1805,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                         : !selectedSession ? 'Select a cohort first — click its row in the Leaderboard'
                         : 'Open Manual Overrides for the selected cohort'}
                     style={{
-                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
+                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: 'var(--type-caption)',
                         fontWeight: 600, border: '1px solid rgba(245,158,11,0.3)',
                         background: 'rgba(245,158,11,0.1)', color: '#f59e0b',
                         cursor: selectedSession && canAccessTab('manual_override') ? 'pointer' : 'not-allowed',
@@ -1818,7 +1818,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                     title={!selectedSession ? 'Select a cohort first — click its row in the Leaderboard'
                         : 'Send a message to the selected cohort'}
                     style={{
-                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
+                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: 'var(--type-caption)',
                         fontWeight: 600, border: '1px solid rgba(59,130,246,0.3)',
                         background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
                         cursor: selectedSession ? 'pointer' : 'not-allowed',
@@ -1832,7 +1832,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                         : !selectedSession ? 'Select a cohort first — click its row in the Leaderboard'
                         : 'Roll back a round for the selected cohort'}
                     style={{
-                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
+                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: 'var(--type-caption)',
                         fontWeight: 600, border: '1px solid rgba(107,114,128,0.3)',
                         background: 'rgba(107,114,128,0.1)', color: 'var(--text-muted)',
                         cursor: selectedSession && canAccessTab('undo_round') ? 'pointer' : 'not-allowed',
@@ -1841,7 +1841,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 >↩️ Undo</button>
 
                 {/* Keyboard shortcut hints — F-8 (v3): count matches this role's groups */}
-                <span className="fac-bar-hint" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
+                <span className="fac-bar-hint" style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
                     Ctrl+1–{RENDERED_SIDEBAR.length}: toggle groups · Ctrl+Shift+B: broadcast · ?: shortcuts
                 </span>
             </div>
@@ -1959,12 +1959,12 @@ function SoloModeToggle() {
             >
                 <span>🎮 Solo Sessions</span>
                 <span style={{
-                    padding: '1px 7px', borderRadius: 999, fontSize: '0.68rem',
+                    padding: '1px 7px', borderRadius: 999, fontSize: 'var(--type-caption)',
                     background: on ? 'rgba(20,184,166,0.25)' : 'rgba(148,163,184,0.18)',
                     color: on ? '#5eead4' : '#94a3b8',
                 }}>{saving ? '…' : on ? 'ON' : 'OFF'}</span>
             </button>
-            {err && <span style={{ fontSize: '0.7rem', color: '#f87171' }}>{err}</span>}
+            {err && <span style={{ fontSize: 'var(--type-caption)', color: '#f87171' }}>{err}</span>}
         </div>
     );
 }
@@ -2069,7 +2069,7 @@ function QuizControlPanel({ sessions = [] }) {
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
                     {/* Difficulty Toggle */}
                     <div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', marginBottom: 6 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', marginBottom: 6 }}>
                             Difficulty Level
                         </div>
                         <div style={{ display: 'flex', gap: 4 }}>
@@ -2095,7 +2095,7 @@ function QuizControlPanel({ sessions = [] }) {
 
                     {/* Per-Cohort Toggle */}
                     <div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', marginBottom: 6 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', marginBottom: 6 }}>
                             🎯 Quiz Availability by Cohort
                         </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -2112,7 +2112,7 @@ function QuizControlPanel({ sessions = [] }) {
                                             border: `1px solid ${enabled ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)'}`,
                                             background: enabled ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.10)',
                                             color: enabled ? '#4ade80' : '#f87171',
-                                            fontWeight: 600, fontSize: '0.72rem', cursor: 'pointer',
+                                            fontWeight: 600, fontSize: 'var(--type-caption)', cursor: 'pointer',
                                             transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                         }}
                                         title={`${enabled ? 'Disable' : 'Enable'} quiz for ${s.cohort_name}`}
@@ -2221,7 +2221,7 @@ function InterviewControlPanel({ sessions = [] }) {
                 background: 'rgba(245,158,11,0.08)', borderRadius: 14,
                 padding: '16px 20px', border: '1px solid rgba(245,158,11,0.3)',
             }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', marginBottom: 8 }}>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', marginBottom: 8 }}>
                     🎙️ Per-Cohort Configuration
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -2244,7 +2244,7 @@ function InterviewControlPanel({ sessions = [] }) {
                                         padding: '4px 12px', borderRadius: 6, border: 'none',
                                         background: cfg.enabled ? '#10b981' : 'rgba(148,163,184,0.15)',
                                         color: cfg.enabled ? '#fff' : 'var(--text-muted)',
-                                        fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
+                                        fontWeight: 700, fontSize: 'var(--type-caption)', cursor: 'pointer',
                                     }}
                                 >
                                     {cfg.enabled ? '● ON' : '○ OFF'}
@@ -2255,7 +2255,7 @@ function InterviewControlPanel({ sessions = [] }) {
                                         style={{
                                             padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.35)',
                                             background: 'rgba(99,102,241,0.10)',
-                                            color: '#818cf8', fontWeight: 700, fontSize: '0.65rem', cursor: 'pointer',
+                                            color: '#818cf8', fontWeight: 700, fontSize: 'var(--type-caption)', cursor: 'pointer',
                                         }}
                                     >
                                         {cfg.voice_gender === 'female' ? '👩‍💼 Victoria' : '👨‍💼 Alexander'}
@@ -2327,7 +2327,7 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
 
     const labelStyle = {
         display: 'block',
-        fontSize: '0.72rem',
+        fontSize: 'var(--type-caption)',
         fontWeight: 700,
         textTransform: 'uppercase',
         letterSpacing: '0.1em',

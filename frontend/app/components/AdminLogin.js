@@ -66,7 +66,7 @@ export default function AdminLogin({ onSuccess, subtitle }) {
   };
 
   const labelStyle = {
-    display: 'block', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase',
+    display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase',
     letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '0.4rem',
   };
   const inputStyle = {

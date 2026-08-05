@@ -49,11 +49,11 @@ export default function SessionHealthDashboard() {
                 <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>🏥 Session Health Monitor</h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     {refreshFailed ? (
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#ef4444' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#ef4444' }}>
                             ⚠️ Refresh failed{lastUpdated ? ` — showing data as of ${new Date(lastUpdated).toLocaleTimeString()}` : ''}
                         </span>
                     ) : lastUpdated ? (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                             Updated {new Date(lastUpdated).toLocaleTimeString()}
                         </span>
                     ) : null}
@@ -88,13 +88,13 @@ export default function SessionHealthDashboard() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                                 <div>
                                     <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{s.cohort_name}</div>
-                                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.facilitator_id} · {s.paradigm}</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>{s.facilitator_id} · {s.paradigm}</div>
                                 </div>
                                 <div style={{
                                     display: 'flex', alignItems: 'center', gap: '0.25rem',
                                     padding: '0.2rem 0.6rem', borderRadius: '4px',
                                     background: `${s.status_color}15`, color: s.status_color,
-                                    fontSize: '0.72rem', fontWeight: 700,
+                                    fontSize: 'var(--type-caption)', fontWeight: 700,
                                     animation: s.status === 'critical' ? 'criticalPulse 1.5s infinite' : (s.status === 'healthy' ? 'healthPulse 3s infinite' : 'none'),
                                 }}>
                                     {STATUS_ICONS[s.status]} {s.status.toUpperCase()}
@@ -113,7 +113,7 @@ export default function SessionHealthDashboard() {
                                     { label: 'Grade', value: s.caroic?.grade || '—', color: (s.caroic?.grade === 'A+' || s.caroic?.grade === 'A') ? '#22c55e' : (s.caroic?.grade === 'B' || s.caroic?.grade === 'C') ? '#f59e0b' : '#ef4444' },
                                 ].map((m, i) => (
                                     <div key={i} style={{ padding: '0.4rem', borderRadius: '6px', background: 'var(--bg-body)', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.label}</div>
+                                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.label}</div>
                                         <div style={{ fontSize: '0.9rem', fontWeight: 700, color: m.color, fontFamily: 'var(--font-mono)' }}>{m.value}</div>
                                     </div>
                                 ))}
@@ -121,7 +121,7 @@ export default function SessionHealthDashboard() {
 
                             {/* Relative advantage bar */}
                             <div style={{ marginTop: '0.75rem', padding: '0.4rem 0.6rem', borderRadius: '6px', background: s.relative_advantage >= 1 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>vs Competitor</span>
+                                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>vs Competitor</span>
                                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: s.relative_advantage >= 1 ? '#22c55e' : '#ef4444', fontFamily: 'var(--font-mono)' }}>
                                     {s.relative_advantage >= 1 ? '▲' : '▼'} {s.relative_advantage}x
                                 </span>

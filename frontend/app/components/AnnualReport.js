@@ -212,7 +212,7 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
             <div style={{ fontSize: '0.8rem', letterSpacing: '0.28em', color: '#0d9488', fontWeight: 700, marginTop: 4 }}>
               INTEGRATED ANNUAL REPORT · YEAR {m.year} (FY{m.fy})
             </div>
-            {teamName && <div style={{ fontSize: '0.72rem', color: '#777', marginTop: 3 }}>{teamName}</div>}
+            {teamName && <div style={{ fontSize: 'var(--type-caption)', color: '#777', marginTop: 3 }}>{teamName}</div>}
           </div>
 
           {/* KPI row */}
@@ -224,9 +224,9 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
               { label: 'Reputation', val: `${m.reputation.toFixed(0)}/100`, delta: kpiDelta(m.reputation, m.yaGs?.group_reputation, (d) => d.toFixed(1)) },
             ].map(({ label, val, delta }) => (
               <div key={label} style={{ background: '#faf8f3', border: '1px solid #d9d2c4', padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', color: '#777', textTransform: 'uppercase' }}>{label}</div>
+                <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.14em', color: '#777', textTransform: 'uppercase' }}>{label}</div>
                 <div style={{ fontSize: '1.05rem', fontWeight: 800, marginTop: 2 }}>{val}</div>
-                {delta && <div style={{ fontSize: '0.62rem', color: delta.color, marginTop: 1 }}>{delta.text}</div>}
+                {delta && <div style={{ fontSize: 'var(--type-caption)', color: delta.color, marginTop: 1 }}>{delta.text}</div>}
               </div>
             ))}
           </div>
@@ -238,18 +238,18 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 90, borderBottom: '1px solid #d9d2c4', padding: '0 4px' }}>
                 {m.emissions.map((e) => (
                   <div key={e.round} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <div style={{ fontSize: '0.52rem', color: '#555' }}>{Math.round(e.tco2e).toLocaleString()}</div>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#555' }}>{Math.round(e.tco2e).toLocaleString()}</div>
                     <div style={{ width: '70%', height: Math.max(3, (e.tco2e / maxE) * 62), background: '#0d9488', opacity: 0.75 }} />
-                    <div style={{ fontSize: '0.55rem', color: '#888' }}>R{e.round}</div>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#888' }}>R{e.round}</div>
                   </div>
                 ))}
               </div>
             </div>
             {m.rating && (
               <div style={{ flex: 1, background: '#faf8f3', border: '1px solid #d9d2c4', padding: '10px 12px', textAlign: 'center', alignSelf: 'flex-start' }}>
-                <div style={{ fontSize: '0.58rem', letterSpacing: '0.12em', color: '#777' }}>{AGENCY.name.toUpperCase()}</div>
+                <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.12em', color: '#777' }}>{AGENCY.name.toUpperCase()}</div>
                 <div style={{ fontSize: '1.9rem', fontWeight: 900, color: '#5b21b6', lineHeight: 1.2 }}>{m.rating.grade}</div>
-                <div style={{ fontSize: '0.6rem', color: '#666' }}>{m.rating.direction.toUpperCase()} · {m.rating.score}/100</div>
+                <div style={{ fontSize: 'var(--type-caption)', color: '#666' }}>{m.rating.direction.toUpperCase()} · {m.rating.score}/100</div>
               </div>
             )}
           </div>
@@ -264,7 +264,7 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
             </div>
             {m.materiality ? (
               <>
-                <div style={{ fontSize: '0.66rem', color: '#555', margin: '3px 0 8px' }}>
+                <div style={{ fontSize: 'var(--type-caption)', color: '#555', margin: '3px 0 8px' }}>
                   Double-materiality assessment accuracy: <strong>{m.materiality.accuracy}%</strong>
                   {m.materiality.status && <> · Board stance: <strong>{m.materiality.status}</strong></>}
                 </div>
@@ -272,7 +272,7 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
                   const ok = (iss.credit || 0) >= 1;
                   const half = (iss.credit || 0) === 0.5;
                   return (
-                    <div key={iss.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 0', borderBottom: '1px dotted #e2dccd', fontSize: '0.7rem' }}>
+                    <div key={iss.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 0', borderBottom: '1px dotted #e2dccd', fontSize: 'var(--type-caption)' }}>
                       <span>{iss.title || iss.id}</span>
                       <span style={{ whiteSpace: 'nowrap', color: ok ? '#059669' : half ? '#d97706' : '#dc2626', fontWeight: 700 }}>
                         {ok ? '✓ addressed' : half ? '◐ partially assessed' : '✗ mis-assessed'}
@@ -282,13 +282,13 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
                 })}
               </>
             ) : (
-              <div style={{ fontSize: '0.68rem', color: '#777', fontStyle: 'italic', marginTop: 4 }}>
+              <div style={{ fontSize: 'var(--type-caption)', color: '#777', fontStyle: 'italic', marginTop: 4 }}>
                 Double-materiality assessment not yet performed this cycle.
               </div>
             )}
           </div>
 
-          <div style={{ fontSize: '0.6rem', color: '#888', marginTop: 14, borderTop: '1px solid #d9d2c4', paddingTop: 8 }}>
+          <div style={{ fontSize: 'var(--type-caption)', color: '#888', marginTop: 14, borderTop: '1px solid #d9d2c4', paddingTop: 8 }}>
             Prepared from live simulation data at the close of Round {m.roundNumber}. Deterministic — figures match the boardroom cockpit.
           </div>
         </div>

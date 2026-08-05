@@ -125,7 +125,7 @@
 }
 
 .ceoTitle {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   color: var(--accent-blue);
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -147,7 +147,7 @@
 }
 
 .dimTitle {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -173,13 +173,13 @@
 }
 
 .dimLabel {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .dimDesc {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   line-height: 1.3;
 }
@@ -207,7 +207,7 @@
 }
 
 .progressLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -232,7 +232,7 @@
 }
 
 .ceoIntro {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   color: var(--accent-blue);
   font-weight: 600;
   font-style: italic;
@@ -253,7 +253,7 @@
 }
 
 .dimTag {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
@@ -302,7 +302,7 @@
 }
 
 .charCount {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-weight: 600;
   font-family: var(--font-mono);
@@ -329,7 +329,7 @@
 }
 
 .resultsSubtitle {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--accent-blue);
   font-weight: 600;
 }
@@ -356,7 +356,7 @@
 }
 
 .avgLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -400,13 +400,13 @@
 }
 
 .radarLabel {
-  font-size: 7px;
+  font-size: var(--type-caption);
   fill: var(--text-muted);
   font-weight: 600;
 }
 
 .radarScore {
-  font-size: 8px;
+  font-size: var(--type-caption);
   fill: var(--accent-blue);
   font-weight: 800;
   font-family: var(--font-mono);
@@ -432,7 +432,7 @@
 }
 
 .dimRowLabel {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -459,7 +459,7 @@
 .dimRowSub {
   display: flex;
   justify-content: space-between;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   font-weight: 600;
 }
@@ -473,7 +473,7 @@
 }
 
 .feedbackTitle {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: var(--text-primary);
   margin-bottom: 0.6rem;
@@ -506,7 +506,7 @@
 }
 
 .insightTitle {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: var(--text-primary);
   text-transform: uppercase;
@@ -515,7 +515,7 @@
 }
 
 .insightItem {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   line-height: 1.5;
   padding: 0.4rem 0.6rem;
@@ -571,7 +571,7 @@
   color: var(--text-muted);
   border: none;
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   cursor: pointer;
   transition: color 0.15s;
 }
@@ -596,7 +596,7 @@
   background: rgba(99,102,241,0.08);
   border: 1px solid rgba(99,102,241,0.15);
   border-radius: 20px;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--accent-blue);
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -622,7 +622,7 @@
 .modeBtn {
   padding: 0.35rem 0.8rem;
   border-radius: 6px;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   border: 1px solid rgba(148,163,184,0.12);
   background: rgba(255,255,255,0.03);
@@ -712,7 +712,7 @@
 
 .recordDot {
   color: var(--gauge-red);
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   animation: recordDotBlink 1s ease-in-out infinite;
 }
 
@@ -749,7 +749,7 @@
 }
 
 .methodologyTitle {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: var(--text-primary);
   text-transform: uppercase;
@@ -757,7 +757,7 @@
 }
 
 .methodologyText {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -803,7 +803,7 @@
 }
 
 .dimCardDesc {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -815,7 +815,7 @@
 }
 
 .dimExpandIcon {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   transition: transform 0.25s ease;
   display: inline-block;
@@ -853,14 +853,14 @@
 }
 
 .blendLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--accent-blue);
   letter-spacing: 0.04em;
 }
 
 .blendValue {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-weight: 600;
@@ -886,13 +886,13 @@
 }
 
 .splitBarLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-secondary);
 }
 
 .splitBarScore {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   font-family: var(--font-mono);
 }
@@ -912,7 +912,7 @@
 
 /* Rationale Text */
 .rationaleText {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   line-height: 1.65;
   padding: 0.35rem 0.5rem;

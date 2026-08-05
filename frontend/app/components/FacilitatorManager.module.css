@@ -108,7 +108,7 @@
 }
 
 .statLabel {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -180,7 +180,7 @@
 .table th {
     text-align: left;
     padding: 0.65rem 1rem;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
@@ -233,7 +233,7 @@
 }
 
 .contactItem {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -243,7 +243,7 @@
 
 /* â”€â”€ Programme Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .programmeBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-muted);
     background: rgba(148, 163, 184, 0.08);
@@ -264,14 +264,14 @@
 }
 
 .scheduleItem {
-    font-size: 0.66rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     font-family: var(--font-mono);
     white-space: nowrap;
 }
 
 .paradigmBadge {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 10px;
@@ -280,7 +280,7 @@
 }
 
 .date {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     font-family: var(--font-mono);
     white-space: nowrap;
@@ -358,7 +358,7 @@
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.4);
     color: var(--gauge-red);
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 0.25rem 0.5rem;
     animation: pulse 0.8s ease-in-out infinite alternate;
@@ -435,7 +435,7 @@
 }
 
 .drawerSubtitle {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin: 0;
 }
@@ -478,7 +478,7 @@
     border-radius: 50%;
     border: 2px solid var(--border-subtle);
     color: var(--text-muted);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -546,7 +546,7 @@
 }
 
 .stepDesc {
-    font-size: 0.73rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin: 0;
     line-height: 1.5;
@@ -574,7 +574,7 @@
 
 .formLabel {
     display: block;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -633,7 +633,7 @@
 }
 
 .formHint {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     opacity: 0.7;
 }
@@ -749,7 +749,7 @@
 }
 
 .paradigmSub {
-    font-size: 0.66rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin-top: 1px;
 }
@@ -798,7 +798,7 @@
 
 .permLabel {
     flex: 1;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-secondary);
 }
@@ -837,7 +837,7 @@
 }
 
 .reviewSectionTitle {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -863,7 +863,7 @@
 }
 
 .reviewKey {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -901,7 +901,7 @@
 }
 
 .bulkFormatTitle {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 0.5rem;
@@ -909,7 +909,7 @@
 
 .bulkFormatCode {
     display: block;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-family: var(--font-mono);
     color: #a5b4fc;
     background: rgba(0, 0, 0, 0.2);
@@ -920,13 +920,13 @@
 }
 
 .bulkFormatHint {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin: 0 0 0.75rem;
     line-height: 1.5;
 }
 .bulkFormatHint code {
-    font-size: 0.66rem;
+    font-size: var(--type-caption);
     background: rgba(0,0,0,0.15);
     padding: 1px 4px;
     border-radius: 3px;
@@ -939,7 +939,7 @@
     border: 1px solid rgba(99, 102, 241, 0.25);
     background: rgba(99, 102, 241, 0.08);
     color: #a5b4fc;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
@@ -984,7 +984,7 @@
 }
 
 .dropzoneHint {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
 }
 
@@ -998,7 +998,7 @@
 }
 
 .bulkErrorRow {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--gauge-red);
     padding: 0.2rem 0;
 }

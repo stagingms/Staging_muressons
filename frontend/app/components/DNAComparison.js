@@ -69,7 +69,7 @@ export default function DNAComparison({ sessionId, leaderboard = [] }) {
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{typeof a === 'number' ? a.toFixed(2) : a}</span>
           <span style={{
-            fontWeight: 700, fontSize: '0.72rem',
+            fontWeight: 700, fontSize: 'var(--type-caption)',
             color: diff === 0 ? 'var(--text-muted)' : better ? '#10b981' : '#ef4444',
           }}>
             {diff > 0 ? '▲' : diff < 0 ? '▼' : '='} {Math.abs(diff).toFixed(2)}
@@ -99,7 +99,7 @@ export default function DNAComparison({ sessionId, leaderboard = [] }) {
         {/* Session selectors */}
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+            <label style={{ display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
               Team A
             </label>
             <select
@@ -120,7 +120,7 @@ export default function DNAComparison({ sessionId, leaderboard = [] }) {
             </select>
           </div>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+            <label style={{ display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
               Team B
             </label>
             <select

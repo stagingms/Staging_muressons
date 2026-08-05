@@ -339,7 +339,7 @@ export default function SDGAlignmentRadar({ sessionId, globalState, buStates, is
                     </div>
                     <div className={styles.trackScoreCard}>
                       <span className={styles.trackScoreLabel}>Terminal Formula</span>
-                      <span className={styles.trackScoreVal} style={{ fontSize: '0.72rem' }}>
+                      <span className={styles.trackScoreVal} style={{ fontSize: 'var(--type-caption)' }}>
                         V<sub>T</sub> = EBITDA × Exit × M<sub>R</sub> × M<sub>SDG</sub>
                       </span>
                     </div>
@@ -375,7 +375,7 @@ export default function SDGAlignmentRadar({ sessionId, globalState, buStates, is
                         padding: '0.9rem', margin: '0.75rem 0',
                         border: '1px solid rgba(255,255,255,0.05)',
                       }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.65rem' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.65rem' }}>
                           Round-by-Round SDG Progression
                         </div>
 
@@ -386,7 +386,7 @@ export default function SDGAlignmentRadar({ sessionId, globalState, buStates, is
                             const col = CHOICE_COLORS[h.choice] || '#818cf8';
                             return (
                               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                                <div style={{ fontSize: '0.5rem', color: col, fontWeight: 800 }}>
+                                <div style={{ fontSize: 'var(--type-caption)', color: col, fontWeight: 800 }}>
                                   {h.points >= 0 ? `+${h.points}` : h.points}
                                 </div>
                                 <div style={{ position: 'relative', width: '100%', flex: 1, display: 'flex', alignItems: 'flex-end' }}>
@@ -397,7 +397,7 @@ export default function SDGAlignmentRadar({ sessionId, globalState, buStates, is
                                   }} title={`ST-R${h.sdg_track_round} (${ROUND_NAMES[h.sdg_track_round]}): ${h.choice?.replace('option_', 'Option ')} | +${h.points}pts → Total: ${h.score}`} />
                                 </div>
                                 <div style={{
-                                  fontSize: '0.48rem', fontWeight: 800, color: '#fff',
+                                  fontSize: 'var(--type-caption)', fontWeight: 800, color: '#fff',
                                   background: col, padding: '1px 4px', borderRadius: '3px',
                                 }}>{CHOICE_LABELS[h.choice] || '?'}</div>
                               </div>
@@ -408,7 +408,7 @@ export default function SDGAlignmentRadar({ sessionId, globalState, buStates, is
                         {/* Round labels */}
                         <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.6rem' }}>
                           {history.map((h, i) => (
-                            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '0.45rem', color: '#475569', lineHeight: 1.2 }}>
+                            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 'var(--type-caption)', color: '#475569', lineHeight: 1.2 }}>
                               {ROUND_NAMES[h.sdg_track_round] || `R${h.sdg_track_round}`}
                             </div>
                           ))}
@@ -416,7 +416,7 @@ export default function SDGAlignmentRadar({ sessionId, globalState, buStates, is
 
                         {/* M_SDG SVG trend line */}
                         <div style={{ marginBottom: '0.4rem' }}>
-                          <div style={{ fontSize: '0.52rem', color: '#64748b', fontWeight: 700, marginBottom: '3px' }}>M<sub>SDG</sub> trajectory</div>
+                          <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, marginBottom: '3px' }}>M<sub>SDG</sub> trajectory</div>
                           <svg width="100%" viewBox={`0 0 ${svgW} ${svgH}`} style={{ overflow: 'visible', display: 'block' }}>
                             {/* Grid lines */}
                             {[1.0, 1.0625, 1.125, 1.1875, 1.2625].map((v, i) => (
@@ -444,14 +444,14 @@ export default function SDGAlignmentRadar({ sessionId, globalState, buStates, is
                               );
                             })}
                           </svg>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.45rem', color: '#334155', marginTop: '2px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', color: '#334155', marginTop: '2px' }}>
                             <span>1.000× (baseline)</span><span>1.2625× (max)</span>
                           </div>
                         </div>
 
                         {/* Cumulative score callout */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0.6rem', borderRadius: '6px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
-                          <span style={{ fontSize: '0.62rem', color: '#94a3b8' }}>Final cumulative SDG Impact Score</span>
+                          <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8' }}>Final cumulative SDG Impact Score</span>
                           <span style={{ fontSize: '0.82rem', fontWeight: 900, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace" }}>
                             {history[history.length - 1]?.score ?? 0} / 105
                           </span>

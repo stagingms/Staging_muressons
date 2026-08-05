@@ -692,7 +692,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
                       <div className={styles.timerDisplay}>
                         <span className={styles.recordDot}>●</span>
                         {Math.floor(recordingTimer / 60)}:{String(recordingTimer % 60).padStart(2, '0')}
-                        <span style={{ fontSize: '0.68rem', color: '#64748b', marginLeft: 4 }}>remaining</span>
+                        <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginLeft: 4 }}>remaining</span>
                       </div>
                     )}
                   </div>
@@ -872,7 +872,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
                     <div key={i} className={styles.insightCard} style={{ border: '1px solid rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.02)' }}>
                       <div className={styles.insightTitle} style={{ color: '#4f46e5' }}>{c.headline}</div>
                       <div style={{ fontSize: '0.75rem', color: '#334155', lineHeight: 1.5, marginBottom: 8 }}>{c.brief}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontStyle: 'italic' }}>
+                      <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontStyle: 'italic' }}>
                         <strong>Relevance:</strong> {c.relevance}
                       </div>
                     </div>
@@ -1019,13 +1019,13 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
     .header { text-align: center; padding: 32px 24px; border-radius: 16px; margin-bottom: 28px;
               background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06));
               border: 1px solid rgba(99,102,241,0.2); }
-    .header .badge { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #6366f1; margin-bottom: 8px; }
+    .header .badge { font-size: var(--type-caption); letter-spacing: 3px; text-transform: uppercase; color: #6366f1; margin-bottom: 8px; }
     .header h1 { font-size: 24px; font-weight: 900; color: #0f172a; margin: 8px 0 4px; }
     .header .subtitle { font-size: 13px; color: #475569; }
     .avg-card { display: flex; align-items: baseline; justify-content: center; gap: 6px;
                 padding: 16px; background: rgba(99,102,241,0.06);
                 border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; margin-bottom: 24px; }
-    .avg-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
+    .avg-label { font-size: var(--type-caption); font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
     .avg-value { font-size: 36px; font-weight: 900; color: #4f46e5; font-family: 'JetBrains Mono', monospace; }
     .avg-scale { font-size: 14px; color: #64748b; font-weight: 600; }
     .methodology { display: flex; gap: 12px; padding: 12px 16px; background: rgba(59,130,246,0.05);
@@ -1035,16 +1035,16 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
                 border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 12px; }
     .dim-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .dim-label { font-size: 13px; font-weight: 800; color: #0f172a; }
-    .dim-desc { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .dim-desc { font-size: var(--type-caption); color: #64748b; margin-top: 2px; }
     .dim-score { font-size: 18px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
     .bar-track { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
     .bar-fill { height: 100%; border-radius: 3px; }
-    .blend-formula { font-size: 11px; color: #475569; font-family: 'JetBrains Mono', monospace; padding: 6px 10px;
+    .blend-formula { font-size: var(--type-caption); color: #475569; font-family: 'JetBrains Mono', monospace; padding: 6px 10px;
                      background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.12); border-radius: 6px; margin-bottom: 12px; }
     .split-bars { display: flex; flex-direction: column; gap: 10px; }
     .split-bar { display: flex; flex-direction: column; gap: 4px; }
-    .split-header { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #1e293b; }
-    .rationale { font-size: 11px; color: #334155; line-height: 1.65; padding: 6px 8px; background: #f8fafc;
+    .split-header { display: flex; justify-content: space-between; font-size: var(--type-caption); font-weight: 700; color: #1e293b; }
+    .rationale { font-size: var(--type-caption); color: #334155; line-height: 1.65; padding: 6px 8px; background: #f8fafc;
                  border-left: 3px solid rgba(99,102,241,0.3); border-radius: 0 6px 6px 0; margin-top: 4px; }
     .section { margin-top: 28px; }
     .section h2 { font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 12px; padding-bottom: 6px;
@@ -1053,7 +1053,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
     .narrative { font-size: 13px; color: #334155; line-height: 1.7; margin-bottom: 10px; }
     .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
     .insight-card { display: flex; flex-direction: column; gap: 6px; }
-    .insight-title { font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.06em; }
+    .insight-title { font-size: var(--type-caption); font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.06em; }
     .insight { font-size: 12px; color: #334155; line-height: 1.5; padding: 6px 10px; border-left: 3px solid #94a3b8;
                background: #f8fafc; border-radius: 0 6px 6px 0; }
     .insight.strength { border-left-color: #10b981; }
@@ -1062,14 +1062,14 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
                  border-radius: 8px; margin-bottom: 10px; }
     .case-headline { font-size: 12px; font-weight: 800; color: #4f46e5; margin-bottom: 4px; }
     .case-brief { font-size: 12px; color: #1e293b; line-height: 1.5; margin-bottom: 6px; }
-    .case-relevance { font-size: 11px; color: #475569; font-style: italic; }
+    .case-relevance { font-size: var(--type-caption); color: #475569; font-style: italic; }
     .leverage-card { padding: 14px; border-left: 3px solid #10b981; background: #f0fdf4; border-radius: 0 8px 8px 0; }
     .leverage-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px; }
     .leverage-examples { margin-top: 10px; font-size: 12px; color: #334155; }
     .leverage-examples ul { padding-left: 18px; margin-top: 4px; }
     .leverage-examples li { margin-bottom: 4px; }
     .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0;
-              color: #64748b; font-size: 11px; }
+              color: #64748b; font-size: var(--type-caption); }
     @media print {
       body { background: #ffffff !important; color: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .report { padding: 20px; }

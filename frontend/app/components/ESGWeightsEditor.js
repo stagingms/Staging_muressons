@@ -148,10 +148,10 @@ export default function ESGWeightsEditor() {
             <div style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: 10 }}>{dim.icon} {dim.label}</div>
             {Object.keys(DEFAULT_ESG_WEIGHTS[dim.id]).map((k) => (
               <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 7 }}>
-                <span style={{ fontSize: '0.74rem', color: '#cbd5e1' }}>
+                <span style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1' }}>
                   {SIGNAL_LABELS[k] || k}
                   {Number(weights?.[dim.id]?.[k]) !== DEFAULT_ESG_WEIGHTS[dim.id][k] && (
-                    <span title={`Default: ${DEFAULT_ESG_WEIGHTS[dim.id][k]}`} style={{ marginLeft: 6, fontSize: '0.62rem', color: '#fbbf24' }}>• edited</span>
+                    <span title={`Default: ${DEFAULT_ESG_WEIGHTS[dim.id][k]}`} style={{ marginLeft: 6, fontSize: 'var(--type-caption)', color: '#fbbf24' }}>• edited</span>
                   )}
                 </span>
                 <input

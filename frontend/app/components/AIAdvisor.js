@@ -118,7 +118,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
           <span style={{ fontSize: '1.2rem' }}>🤖</span>
           <div>
             <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff' }}>Strategic Advisor</div>
-            <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.7)' }}>AI-powered assistant</div>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(255,255,255,0.7)' }}>AI-powered assistant</div>
           </div>
         </div>
         <button onClick={onClose} style={{
@@ -142,7 +142,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
               ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
               : '#f8fafc',
             color: msg.role === 'user' ? '#fff' : '#334155',
-            fontSize: '0.73rem', lineHeight: 1.6,
+            fontSize: 'var(--type-caption)', lineHeight: 1.6,
             border: msg.role === 'assistant' ? '1px solid #e2e8f0' : 'none',
             whiteSpace: 'pre-wrap',
           }}>
@@ -153,7 +153,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
           <div style={{
             alignSelf: 'flex-start', padding: '8px 16px',
             background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0',
-            fontSize: '0.73rem', color: '#94a3b8',
+            fontSize: 'var(--type-caption)', color: '#94a3b8',
           }}>
             <span style={{ animation: 'pulse 1s infinite' }}>●</span> Thinking...
           </div>
@@ -171,7 +171,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
               onClick={() => handleSend(prompt)}
               style={{
                 padding: '4px 8px', borderRadius: 6, border: '1px solid #e2e8f0',
-                background: '#f8fafc', fontSize: '0.6rem', color: '#475569',
+                background: '#f8fafc', fontSize: 'var(--type-caption)', color: '#475569',
                 cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 600,
               }}
             >{prompt}</button>
@@ -202,7 +202,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
           style={{
             padding: '7px 14px', borderRadius: 8, border: 'none',
             background: '#6366f1', color: '#fff', fontWeight: 700,
-            cursor: 'pointer', fontSize: '0.72rem',
+            cursor: 'pointer', fontSize: 'var(--type-caption)',
             opacity: !input.trim() || loading ? 0.5 : 1,
           }}
         >Send</button>

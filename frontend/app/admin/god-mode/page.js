@@ -108,7 +108,7 @@ function MasterPasswordModal({ onClose }) {
         color: 'var(--text-primary, #1e293b)', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
     };
     const labelStyle = {
-        display: 'block', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase',
+        display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase',
         letterSpacing: '0.1em', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem',
     };
 
@@ -240,7 +240,7 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
     };
 
     const labelStyle = {
-        display: 'block', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase',
+        display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase',
         letterSpacing: '0.1em', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem',
     };
 
@@ -797,7 +797,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
                     <div style={{
-                        fontSize: '0.72rem',
+                        fontSize: 'var(--type-caption)',
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         letterSpacing: '0.18em',
@@ -817,7 +817,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                             borderTop: '1px solid var(--border-subtle)',
                         }}>
                             <span style={{
-                                fontSize: '0.72rem',
+                                fontSize: 'var(--type-caption)',
                                 color: 'var(--text-muted)',
                                 fontWeight: 600,
                             }}>
@@ -830,7 +830,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                                         background: 'none',
                                         border: '1px solid rgba(245, 158, 11, 0.3)',
                                         color: '#f59e0b',
-                                        fontSize: '0.65rem',
+                                        fontSize: 'var(--type-caption)',
                                         fontWeight: 700,
                                         padding: '3px 8px',
                                         borderRadius: '4px',
@@ -851,7 +851,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                                         background: 'none',
                                         border: '1px solid rgba(239, 68, 68, 0.3)',
                                         color: '#ef4444',
-                                        fontSize: '0.65rem',
+                                        fontSize: 'var(--type-caption)',
                                         fontWeight: 700,
                                         padding: '3px 8px',
                                         borderRadius: '4px',
@@ -907,7 +907,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                     {/* G-1 (v3): break-glass credential rotation lives here —
                         physically apart from the routine header password button,
                         with Danger-Zone-red framing. Opens the same modal. */}
-                    <div style={{ margin: '14px 8px 4px', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>
+                    <div style={{ margin: '14px 8px 4px', fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>
                         Break-Glass
                     </div>
                     <button

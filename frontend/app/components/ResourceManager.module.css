@@ -109,7 +109,7 @@
     display: inline-block;
     padding: 0.15rem 0.5rem;
     border-radius: 6px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.04em;
 }
@@ -266,7 +266,7 @@
     display: inline-block;
     padding: 0.15rem 0.45rem;
     border-radius: 6px;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     background: rgba(245, 158, 11, 0.15);
     color: #fbbf24;
@@ -340,7 +340,7 @@
 }
 
 .toggleMeta {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-secondary);
 }
 
@@ -397,7 +397,7 @@
     border: none;
     padding: 0.3rem 0.6rem;
     border-radius: 6px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
@@ -627,7 +627,7 @@
 }
 
 .nbCardMeta {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-secondary);
     font-weight: 500;
 }
@@ -657,7 +657,7 @@
     display: inline-block;
     padding: 0.15rem 0.45rem;
     border-radius: 5px;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-secondary);

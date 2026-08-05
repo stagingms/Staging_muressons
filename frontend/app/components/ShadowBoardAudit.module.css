@@ -65,7 +65,7 @@
     border: 1px solid rgba(239, 68, 68, 0.4);
     padding: 5px 18px;
     border-radius: 20px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     letter-spacing: 2.5px;
     color: #fca5a5;
@@ -139,7 +139,7 @@
 }
 
 .sectionLabel {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -204,7 +204,7 @@
 }
 
 .personaTitle {
-    font-size: 0.62rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin: 0 0 0.3rem;
     line-height: 1.3;
@@ -212,7 +212,7 @@
 
 .personaArchetype {
     display: inline-block;
-    font-size: 0.58rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -236,7 +236,7 @@
 }
 
 .personaMetricLabel {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -244,13 +244,13 @@
 }
 
 .personaMetricValue {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     margin-left: auto;
 }
 
 .personaScript {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     line-height: 1.55;
     color: var(--text-secondary);
     padding: 0.8rem 1rem;
@@ -262,7 +262,7 @@
 }
 
 .personaCitation {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     line-height: 1.4;
     padding: 0 1.2rem;
@@ -282,7 +282,7 @@
     border: 1px solid rgba(239, 68, 68, 0.25);
     border-radius: 10px;
     color: #fca5a5;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
@@ -332,7 +332,7 @@
 }
 
 .confirmText {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-secondary);
     text-align: center;
     margin-bottom: 1rem;
@@ -431,7 +431,7 @@
 }
 
 .consequencePreviewLabel {
-    font-size: 0.62rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -450,7 +450,7 @@
 .consequenceNode {
     padding: 6px 14px;
     border-radius: 8px;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     white-space: nowrap;
 }
@@ -487,7 +487,7 @@
     padding: 0.8rem 1.2rem;
     margin: 0 auto 1.5rem;
     max-width: 500px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: #fca5a5;
     display: flex;
     align-items: center;
@@ -551,7 +551,7 @@
 }
 
 .footerNoteText {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     line-height: 1.5;
     max-width: 600px;

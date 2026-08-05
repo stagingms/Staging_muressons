@@ -306,7 +306,7 @@ export function RoundRecap({ recapData }) {
             {/* B3: Attributable grouping — decision vs background */}
             {hasGrouping && decisionChains.length > 0 ? (
                 <>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--kpi-good, #10b981)', margin: '8px 0 4px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--kpi-good, #10b981)', margin: '8px 0 4px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                         🎯 Because of your decision
                     </div>
                     <div className={styles.rrChains}>
@@ -318,7 +318,7 @@ export function RoundRecap({ recapData }) {
                                 onClick={() => setBgExpanded(!bgExpanded)}
                                 style={{
                                     background: 'none', border: 'none', cursor: 'pointer',
-                                    fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted, #64748b)',
+                                    fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-muted, #64748b)',
                                     margin: '6px 0 2px', padding: 0, letterSpacing: '0.04em',
                                     textTransform: 'uppercase', fontFamily: 'inherit',
                                 }}
@@ -715,7 +715,7 @@ export function R6RevelationPanel({ onMicroDecision, onVisible }) {
                             {dec.description}
                         </div>
                         {dec.stochastic && (
-                            <div style={{ fontSize: '0.68rem', color: '#f59e0b', marginTop: 4 }}>
+                            <div style={{ fontSize: 'var(--type-caption)', color: '#f59e0b', marginTop: 4 }}>
                                 ⚠️ {(dec.stochastic.backfire_probability * 100).toFixed(0)}% backfire probability
                             </div>
                         )}
@@ -833,7 +833,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                             style={{ width: '100%', accentColor: '#10b981', height: 6 }}
                         />
                         {allocs[key] >= init.synergy_threshold && (
-                            <div style={{ fontSize: '0.7rem', color: '#d97706', marginTop: 6, fontWeight: 600 }}>
+                            <div style={{ fontSize: 'var(--type-caption)', color: '#d97706', marginTop: 6, fontWeight: 600 }}>
                                 🎯 Synergy bonus threshold reached!
                             </div>
                         )}
@@ -930,7 +930,7 @@ export function StakeholderTribunal({ onResponses, onVisible }) {
                 {challenges.map((ch, i) => (
                     <div key={i} className={`${styles.brProgressStep} ${i === currentIdx ? styles.brProgressActive : ''} ${i < currentIdx ? styles.brProgressDone : ''}`}>
                         <span>{ch.icon}</span>
-                        <span style={{ fontSize: '0.68rem' }}>{ch.stakeholder.split(' ')[0]}</span>
+                        <span style={{ fontSize: 'var(--type-caption)' }}>{ch.stakeholder.split(' ')[0]}</span>
                     </div>
                 ))}
             </div>
@@ -1014,7 +1014,7 @@ export function FlagDependencyWarnings({ roundNumber, activeFlags = {} }) {
                         background: c.bg, border: `1px solid ${c.border}`,
                         fontSize: '0.82rem', color: c.text, lineHeight: 1.5,
                     }}>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>
                             From Round {w.from_round} ({w.from_option.replace('option_', 'Option ').toUpperCase()})
                         </div>
                         {w.warning}
@@ -1147,7 +1147,7 @@ export function OrientationPanel({ onComplete, onOpenStakeholderMap, hasComplete
                 {allDone ? '✓ Ready to Make Your First Decision →' : `Complete ${tasks.length - completedCount} remaining task${tasks.length - completedCount !== 1 ? 's' : ''}`}
             </button>
 
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #64748b)', marginTop: 8, fontStyle: 'italic', textAlign: 'center' }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)', marginTop: 8, fontStyle: 'italic', textAlign: 'center' }}>
                 {config.pedagogical_purpose}
             </div>
         </div>

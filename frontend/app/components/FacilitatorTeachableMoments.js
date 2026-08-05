@@ -37,7 +37,7 @@ export default function FacilitatorTeachableMoments({ cohortId, pollMs = 20000 }
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
-        fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.06em',
+        fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.06em',
         textTransform: 'uppercase', color: '#d97706',
       }}>
         <span>💡</span> Teachable Moments

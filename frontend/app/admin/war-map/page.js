@@ -121,7 +121,7 @@ export default function WarMapPage() {
           </div>
         </div>
         <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
-          <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
+          <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
           <span style={{ fontSize: '0.8rem', color: '#8899a6', fontWeight: 700 }}>{enabled ? 'ON' : 'OFF'}</span>
           <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good, #10b981)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
             <span style={{ ...S.knob, transform: enabled ? 'translateX(24px)' : 'translateX(0)' }} />
@@ -224,7 +224,7 @@ export default function WarMapPage() {
             }}>
               <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#2dd4bf', marginBottom: 6, letterSpacing: '0.03em' }}>{tip.title}</div>
               {tip.lines.map((l, i) => (
-                <div key={i} style={{ fontSize: '0.74rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: i < tip.lines.length - 1 ? 6 : 0 }}>{l}</div>
+                <div key={i} style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1', lineHeight: 1.5, marginBottom: i < tip.lines.length - 1 ? 6 : 0 }}>{l}</div>
               ))}
             </div>
           )}
@@ -256,8 +256,8 @@ const S = {
   center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' },
   map: { width: '100%', maxHeight: '72vh', display: 'block', border: '1px solid rgba(45,212,191,0.12)', borderRadius: 12, background: 'rgba(2,6,14,0.5)' },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginTop: 12, flexWrap: 'wrap' },
-  legend: { display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: '#8899a6', flexWrap: 'wrap' },
+  legend: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--type-caption)', color: '#8899a6', flexWrap: 'wrap' },
   dot: { display: 'inline-block', width: 10, height: 10, borderRadius: '50%', marginLeft: 10 },
-  eventStrip: { display: 'flex', gap: 18, fontSize: '0.72rem', fontFamily: 'var(--font-mono, monospace)', color: '#fbbf24', overflow: 'hidden', whiteSpace: 'nowrap' },
+  eventStrip: { display: 'flex', gap: 18, fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono, monospace)', color: '#fbbf24', overflow: 'hidden', whiteSpace: 'nowrap' },
   eventItem: { whiteSpace: 'nowrap' },
 };

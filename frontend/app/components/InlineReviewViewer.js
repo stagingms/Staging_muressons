@@ -53,7 +53,7 @@ export default function InlineReviewViewer({ isOpen, onClose, title, content = '
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
               📝 Study Review
             </div>
             <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', marginTop: 2 }}>{title}</div>

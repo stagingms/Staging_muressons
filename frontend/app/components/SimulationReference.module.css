@@ -58,7 +58,7 @@
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(168, 85, 247, 0.06));
     border: 1px solid rgba(99, 102, 241, 0.15);
     border-radius: 8px;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -118,7 +118,7 @@
     font-variant-numeric: tabular-nums;
 }
 .statLabel {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -198,7 +198,7 @@
     border-radius: 8px;
 }
 .paramLabel {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -227,7 +227,7 @@
 }
 .dataTable th {
     padding: 8px 12px;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -259,7 +259,7 @@
     background: rgba(239, 68, 68, 0.06) !important;
 }
 .sourceCell {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted) !important;
     font-style: italic;
 }
@@ -277,7 +277,7 @@
     border-radius: 6px;
     background: transparent;
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
@@ -313,7 +313,7 @@
     margin-bottom: 8px;
 }
 .formulaNum {
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.1);
@@ -327,7 +327,7 @@
     flex: 1;
 }
 .formulaCat {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -339,7 +339,7 @@
 .formulaCode {
     display: block;
     font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     line-height: 1.5;
     color: var(--text-secondary);
     background: rgba(0, 0, 0, 0.03);
@@ -390,7 +390,7 @@
 }
 .roundIcon { font-size: 1.1rem; }
 .roundNum {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.1);
@@ -431,7 +431,7 @@
     background: rgba(245, 158, 11, 0.06);
     border: 1px solid rgba(245, 158, 11, 0.15);
     border-radius: 6px;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: #b45309;
     margin-bottom: 1rem;
     font-weight: 600;
@@ -452,13 +452,13 @@
     background: rgba(99, 102, 241, 0.08);
     border: 1px solid rgba(99, 102, 241, 0.15);
     border-radius: 4px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-family: 'Cascadia Code', 'Fira Code', monospace;
     color: var(--accent-blue);
     white-space: nowrap;
 }
 .framingCell {
-    font-size: 0.68rem !important;
+    font-size: var(--type-caption) !important;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -499,7 +499,7 @@
 }
 .depFlag {
     font-family: 'Cascadia Code', 'Fira Code', monospace;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     padding: 2px 8px;
     background: rgba(99, 102, 241, 0.08);
     border: 1px solid rgba(99, 102, 241, 0.15);
@@ -559,7 +559,7 @@
     font-variant-numeric: tabular-nums;
 }
 .feeRound {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -568,7 +568,7 @@
 
 /* â”€â”€ Status Badge â”€â”€ */
 .statusBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     padding: 3px 10px;
     border-radius: 20px;
@@ -611,7 +611,7 @@
     color: var(--text-primary);
 }
 .archetypeThreshold {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;

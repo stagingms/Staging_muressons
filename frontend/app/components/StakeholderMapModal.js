@@ -98,7 +98,7 @@ function DraggableChip({ stakeholder, isDragging }) {
                 {`Intel: ${stakeholder.intel_dossier.map((d) => (typeof d === 'string' ? d : (d.text || d.label || ''))).filter(Boolean).join('. ')}`}
               </span>
             )}
-            {hasDossier && <span style={{ fontSize: '0.68rem', color: '#60a5fa', marginLeft: 'auto', flexShrink: 0 }}>📋</span>}
+            {hasDossier && <span style={{ fontSize: 'var(--type-caption)', color: '#60a5fa', marginLeft: 'auto', flexShrink: 0 }}>📋</span>}
             {/* C15: Intel Dossier Tooltip */}
             {showDossier && hasDossier && (
                 <div style={{
@@ -109,14 +109,14 @@ function DraggableChip({ stakeholder, isDragging }) {
                     boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                     zIndex: 100, pointerEvents: 'none',
                 }}>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#60a5fa', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#60a5fa', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>
                         Intelligence Dossier
                     </div>
-                    <div style={{ fontSize: '0.65rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '4px' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '4px' }}>
                         {stakeholder.description}
                     </div>
                     {stakeholder.intel_dossier.map((clip, i) => (
-                        <div key={i} style={{ fontSize: '0.6rem', color: '#94a3b8', lineHeight: 1.4, padding: '2px 0', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                        <div key={i} style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', lineHeight: 1.4, padding: '2px 0', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                             {clip}
                         </div>
                     ))}
@@ -342,7 +342,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     </span>
                                 ) : (
                                     <button onClick={() => setTimerActive(true)} style={{
-                                        fontSize: '0.65rem', padding: '3px 10px', borderRadius: '6px',
+                                        fontSize: 'var(--type-caption)', padding: '3px 10px', borderRadius: '6px',
                                         background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
                                         color: '#818cf8', fontWeight: 700, cursor: 'pointer',
                                     }}>
@@ -378,21 +378,21 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.passed ? '#10b981' : '#ef4444' }}>
                                         {result.accuracy_percentage}%
                                     </div>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Accuracy</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Accuracy</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.passed ? '#f59e0b' : '#94a3b8' }}>
                                         {result.correct_count}/{result.total_count}
                                     </div>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Correct</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Correct</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.points_awarded > 0 ? '#6366f1' : '#94a3b8' }}>
                                         +{result.points_awarded}
                                     </div>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Bonus Pts</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Bonus Pts</div>
                                 </div>
                             </div>
 
@@ -412,9 +412,9 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                               <div className={styles.resultColLeft}>
                                 {result.details && (
                                   <div style={{ textAlign: 'left' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 1px', fontSize: '0.7rem' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 1px', fontSize: 'var(--type-caption)' }}>
                                         <thead>
-                                            <tr style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                                            <tr style={{ fontSize: 'var(--type-caption)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
                                                 <th style={{ padding: '3px 4px', textAlign: 'left', width: '20px' }}></th>
                                                 <th style={{ padding: '3px 4px', textAlign: 'left' }}>Stakeholder</th>
                                                 <th style={{ padding: '3px 4px', textAlign: 'center' }}>Your Placement</th>
@@ -431,10 +431,10 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                         <td style={{ padding: '3px 4px', fontSize: '0.8rem', textAlign: 'center' }}>{d.is_correct ? '✅' : '❌'}</td>
                                                         <td style={{ padding: '3px 4px', fontWeight: 600 }}><span>{s?.icon || ''} {d.name}</span></td>
                                                         <td style={{ padding: '3px 4px', textAlign: 'center' }}>
-                                                            <span style={{ fontWeight: 600, fontSize: '0.65rem', color: d.is_correct ? (playerQ?.color || '#10b981') : '#ef4444' }}>{playerQ?.label || '—'}</span>
+                                                            <span style={{ fontWeight: 600, fontSize: 'var(--type-caption)', color: d.is_correct ? (playerQ?.color || '#10b981') : '#ef4444' }}>{playerQ?.label || '—'}</span>
                                                         </td>
                                                         <td style={{ padding: '3px 4px', textAlign: 'center' }}>
-                                                            <span style={{ fontWeight: 600, fontSize: '0.65rem', color: correctQ?.color || '#6366f1' }}>{correctQ?.label || '—'}</span>
+                                                            <span style={{ fontWeight: 600, fontSize: 'var(--type-caption)', color: correctQ?.color || '#6366f1' }}>{correctQ?.label || '—'}</span>
                                                         </td>
                                                     </tr>
                                                 );
@@ -447,17 +447,17 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 {/* Ambiguous Stakeholder Callout */}
                                 {result.details?.filter(d => d.alternate_quadrant).map(d => (
                                     <div key={`amb-${d.id}`} style={{ padding: '0.4rem 0.5rem', background: 'transparent', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b' }}>
-                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fbbf24', marginBottom: '0.2rem' }}>⚖️ Ambiguous Classification — {d.name}</div>
-                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.4 }}>{d.alternate_rationale}</div>
+                                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#fbbf24', marginBottom: '0.2rem' }}>⚖️ Ambiguous Classification — {d.name}</div>
+                                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.4 }}>{d.alternate_rationale}</div>
                                     </div>
                                 ))}
 
                                 {/* Scoring Tier & Penalty Banner */}
                                 {(result.scoring_tier || result.treasury_penalty || result.reputation_penalty) && (
                                     <div style={{ padding: '0.4rem 0.5rem', background: 'transparent', borderRadius: '8px', border: `1px solid ${result.passed ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                        {result.scoring_tier && (<span style={{ fontSize: '0.65rem', fontWeight: 700, color: result.passed ? '#10b981' : '#f59e0b' }}>📊 {result.scoring_tier}</span>)}
-                                        {result.reputation_penalty < 0 && (<span style={{ fontSize: '0.63rem', fontWeight: 600, color: '#ef4444' }}>🌍 Reputation {result.reputation_penalty}</span>)}
-                                        {result.treasury_penalty < 0 && (<span style={{ fontSize: '0.63rem', fontWeight: 600, color: '#ef4444' }}>💰 Treasury {currencySymbol()}{Math.abs(result.treasury_penalty / 1000)}K penalty</span>)}
+                                        {result.scoring_tier && (<span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: result.passed ? '#10b981' : '#f59e0b' }}>📊 {result.scoring_tier}</span>)}
+                                        {result.reputation_penalty < 0 && (<span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: '#ef4444' }}>🌍 Reputation {result.reputation_penalty}</span>)}
+                                        {result.treasury_penalty < 0 && (<span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: '#ef4444' }}>💰 Treasury {currencySymbol()}{Math.abs(result.treasury_penalty / 1000)}K penalty</span>)}
                                     </div>
                                 )}
                               </div>
@@ -467,18 +467,18 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 {/* Urgency & Legitimacy Debrief */}
                                 {result.urgency_debrief?.length > 0 && (
                                     <div style={{ padding: '0.4rem', background: 'transparent', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '8px' }}>
-                                        <h3 style={{ margin: '0 0 0.3rem', fontSize: '0.72rem', color: '#a78bfa' }}>
-                                            🔬 Stakeholder Salience Debrief <span style={{ fontSize: '0.55rem', fontWeight: 400, color: 'var(--text-muted)' }}>(Mitchell, Agle & Wood 1997)</span>
+                                        <h3 style={{ margin: '0 0 0.3rem', fontSize: 'var(--type-caption)', color: '#a78bfa' }}>
+                                            🔬 Stakeholder Salience Debrief <span style={{ fontSize: 'var(--type-caption)', fontWeight: 400, color: 'var(--text-muted)' }}>(Mitchell, Agle & Wood 1997)</span>
                                         </h3>
-                                        <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.25rem', lineHeight: 1.3 }}>
+                                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '0.25rem', lineHeight: 1.3 }}>
                                             Beyond Power × Interest, real-world stakeholder analysis considers <strong>Urgency</strong> (time-sensitivity of claims) and <strong>Legitimacy</strong> (moral/legal standing).
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px' }}>
                                             {result.urgency_debrief.map(u => (
                                                 <div key={u.id} style={{ padding: '3px 6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                    <span style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{u.name}</span>
-                                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: u.urgency === 'high' ? '#f87171' : u.urgency === 'medium' ? '#fbbf24' : '#94a3b8' }}>⏱ {u.urgency}</span>
-                                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: u.legitimacy === 'high' ? '#4ade80' : u.legitimacy === 'medium' ? '#fbbf24' : '#94a3b8' }}>⚖ {u.legitimacy}</span>
+                                                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{u.name}</span>
+                                                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: u.urgency === 'high' ? '#f87171' : u.urgency === 'medium' ? '#fbbf24' : '#94a3b8' }}>⏱ {u.urgency}</span>
+                                                    <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: u.legitimacy === 'high' ? '#4ade80' : u.legitimacy === 'medium' ? '#fbbf24' : '#94a3b8' }}>⚖ {u.legitimacy}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -495,14 +495,14 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                 if (qStakeholders.length === 0) return null;
                                                 return (
                                                     <div key={q.id} style={{ background: 'var(--bg-elevated, #16213e)', borderRadius: '8px', padding: '0.35rem 0.5rem', borderLeft: `3px solid ${q.color}` }}>
-                                                        <div style={{ fontWeight: 700, fontSize: '0.65rem', color: q.color, marginBottom: '0.2rem' }}>
-                                                            {q.label} <span style={{ fontSize: '0.6rem', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '4px' }}>{q.power} Power · {q.interest} Interest</span>
+                                                        <div style={{ fontWeight: 700, fontSize: 'var(--type-caption)', color: q.color, marginBottom: '0.2rem' }}>
+                                                            {q.label} <span style={{ fontSize: 'var(--type-caption)', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '4px' }}>{q.power} Power · {q.interest} Interest</span>
                                                         </div>
                                                         {qStakeholders.map(d => { const s = getStakeholder(d.id); return (
-                                                            <div key={d.id} style={{ display: 'flex', gap: '4px', alignItems: 'center', padding: '2px 0', fontSize: '0.65rem', color: d.is_correct ? '#10b981' : '#ef4444' }}>
+                                                            <div key={d.id} style={{ display: 'flex', gap: '4px', alignItems: 'center', padding: '2px 0', fontSize: 'var(--type-caption)', color: d.is_correct ? '#10b981' : '#ef4444' }}>
                                                                 <span style={{ fontSize: '0.75rem' }}>{s?.icon || '•'}</span>
                                                                 <span style={{ fontWeight: 600 }}>{d.name}</span>
-                                                                <span style={{ fontSize: '0.62rem' }}>{d.is_correct ? '✓' : '✗'}</span>
+                                                                <span style={{ fontSize: 'var(--type-caption)' }}>{d.is_correct ? '✓' : '✗'}</span>
                                                             </div>
                                                         ); })}
                                                     </div>
@@ -515,16 +515,16 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 {/* Engagement Tactics */}
                                 {result.engagement_tactics?.length > 0 && (
                                     <div style={{ padding: '0.4rem', background: 'transparent', border: '1px solid rgba(59,130,246,0.12)', borderRadius: '8px' }}>
-                                        <h3 style={{ margin: '0 0 0.3rem', fontSize: '0.72rem', color: '#60a5fa' }}>🎯 Engagement Strategy — "Manage Closely"</h3>
-                                        <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>For high-power, high-interest stakeholders, what engagement tactic would you deploy?</div>
+                                        <h3 style={{ margin: '0 0 0.3rem', fontSize: 'var(--type-caption)', color: '#60a5fa' }}>🎯 Engagement Strategy — "Manage Closely"</h3>
+                                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>For high-power, high-interest stakeholders, what engagement tactic would you deploy?</div>
                                         {result.engagement_tactics.map(et => (
                                             <div key={et.stakeholder_id} style={{ marginBottom: '0.4rem' }}>
-                                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>{et.stakeholder_name}</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>{et.stakeholder_name}</div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                     {et.tactics.map(t => (
                                                         <div key={t.id} style={{ padding: '3px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                                                            <div style={{ fontSize: '0.62rem', fontWeight: 600, color: t.correct ? '#10b981' : 'var(--text-secondary)' }}>{t.correct ? '✅' : '❌'} {t.label}</div>
-                                                            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: '1px', fontStyle: 'italic' }}>{t.rationale}</div>
+                                                            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: t.correct ? '#10b981' : 'var(--text-secondary)' }}>{t.correct ? '✅' : '❌'} {t.label}</div>
+                                                            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: '1px', fontStyle: 'italic' }}>{t.rationale}</div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -542,7 +542,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 border: '1px solid rgba(245,158,11,0.12)',
                                 borderRadius: '8px',
                             }}>
-                                <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#fbbf24', display: 'block', marginBottom: '0.2rem' }}>
+                                <label style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#fbbf24', display: 'block', marginBottom: '0.2rem' }}>
                                     ✍️ Executive Rationale — Justify your most controversial placement:
                                 </label>
                                 <textarea
@@ -552,7 +552,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     style={{
                                         width: '100%', minHeight: '40px', padding: '5px 7px', borderRadius: '6px',
                                         background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
-                                        color: 'var(--text-primary, #e2e8f0)', fontSize: '0.68rem', fontFamily: 'inherit',
+                                        color: 'var(--text-primary, #e2e8f0)', fontSize: 'var(--type-caption)', fontFamily: 'inherit',
                                         resize: 'vertical', outline: 'none', lineHeight: 1.4,
                                     }}
                                 />
@@ -639,15 +639,15 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                         <div className={styles.progress}>
                             {placedCount} / {stakeholders.length} stakeholders placed
                             {placedCount < minRequired && (
-                                <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>
+                                <span style={{ marginLeft: 8, fontSize: 'var(--type-caption)', color: '#f59e0b', fontWeight: 600 }}>
                                     — {minRequired - placedCount} more required
                                 </span>
                             )}
                             {placedCount >= minRequired && placedCount < stakeholders.length && (
-                                <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#22c55e', fontWeight: 600 }}>✓ Minimum met — place more for higher accuracy</span>
+                                <span style={{ marginLeft: 8, fontSize: 'var(--type-caption)', color: '#22c55e', fontWeight: 600 }}>✓ Minimum met — place more for higher accuracy</span>
                             )}
                             {placedCount >= stakeholders.length && (
-                                <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#22c55e', fontWeight: 600 }}>✓ All stakeholders placed</span>
+                                <span style={{ marginLeft: 8, fontSize: 'var(--type-caption)', color: '#22c55e', fontWeight: 600 }}>✓ All stakeholders placed</span>
                             )}
                         </div>
                         <button

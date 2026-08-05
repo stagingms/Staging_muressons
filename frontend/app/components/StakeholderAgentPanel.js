@@ -120,7 +120,7 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMe
                   padding: '2px 8px', borderRadius: 999,
                   border: '1px solid rgba(239,68,68,0.40)',
                   background: 'rgba(239,68,68,0.10)',
-                  fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.04em',
+                  fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.04em',
                   color: '#fca5a5',
                 }}
                 title="This stakeholder will meet you. Expand the card to open a negotiation room."
@@ -228,7 +228,7 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMe
             {dealChips.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                 {dealChips.map((d, i) => (
-                  <span key={i} style={{ fontSize: '0.66rem', fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.35)', color: '#34d399' }}>
+                  <span key={i} style={{ fontSize: 'var(--type-caption)', fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.35)', color: '#34d399' }}>
                     🤝 {d.label} (R{d.round})
                   </span>
                 ))}

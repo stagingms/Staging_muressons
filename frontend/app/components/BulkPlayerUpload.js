@@ -258,7 +258,7 @@ export default function BulkPlayerUpload({
         modeChip: (single) => ({
             display: 'inline-flex', alignItems: 'center', gap: 5,
             marginTop: '0.55rem', padding: '3px 9px', borderRadius: 999,
-            fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.02em',
+            fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.02em',
             border: '1px solid',
             ...(single
                 ? { background: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.45)', color: '#a5b4fc' }
@@ -272,10 +272,10 @@ export default function BulkPlayerUpload({
         pill: {
             display: 'inline-block', margin: '2px 4px 2px 0', padding: '2px 7px',
             borderRadius: 5, background: 'rgba(148,163,184,0.12)',
-            border: '1px solid rgba(148,163,184,0.22)', fontSize: '0.7rem',
+            border: '1px solid rgba(148,163,184,0.22)', fontSize: 'var(--type-caption)',
             color: '#cbd5e1', fontFamily: 'monospace',
         },
-        th: { textAlign: 'left', padding: '5px 8px', color: '#94a3b8', fontSize: '0.68rem',
+        th: { textAlign: 'left', padding: '5px 8px', color: '#94a3b8', fontSize: 'var(--type-caption)',
               textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(148,163,184,0.2)' },
         td: { padding: '5px 8px', fontSize: '0.78rem', borderBottom: '1px solid rgba(148,163,184,0.08)' },
     };
@@ -337,7 +337,7 @@ export default function BulkPlayerUpload({
                         columns have changed. */}
                     {mode === 'cohort' && shape && (
                         <div style={S.scopeBox}>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#cbd5e1',
+                            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#cbd5e1',
                                           textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                 Columns on this cohort’s sheet
                             </div>

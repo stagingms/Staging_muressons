@@ -261,7 +261,7 @@ export default function SystemExport() {
                                 <span style={{ color: 'var(--text-muted)' }}>
                                     {entry.sessions} sessions · {entry.facilitators} facilitators · {entry.auditEntries} audit entries
                                 </span>
-                                {i === 0 && <span style={{ fontSize: '0.68rem', color: '#6366f1', fontWeight: 700 }}>LATEST</span>}
+                                {i === 0 && <span style={{ fontSize: 'var(--type-caption)', color: '#6366f1', fontWeight: 700 }}>LATEST</span>}
                             </div>
                         ))}
                     </div>

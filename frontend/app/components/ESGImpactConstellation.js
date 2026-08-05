@@ -192,7 +192,7 @@ function DecisionNode({ node, isFiltered, isSelected, onSelect, onHover }) {
             borderRadius: 6,
             padding: '3px 8px',
             whiteSpace: 'nowrap',
-            fontSize: '0.65rem',
+            fontSize: 'var(--type-caption)',
             fontWeight: 700,
             color: node.color,
             fontFamily: "'DM Sans', sans-serif",

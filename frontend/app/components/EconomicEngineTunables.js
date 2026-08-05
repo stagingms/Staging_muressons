@@ -109,13 +109,13 @@ function Tooltip({ data, accentColor }) {
             boxShadow: `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04), 0 2px 8px ${accentColor}22`,
             backdropFilter: 'blur(12px)',
         }}>
-            <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: accentColor, marginBottom: '6px' }}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: accentColor, marginBottom: '6px' }}>
                 Definition
             </div>
             <p style={{ margin: '0 0 10px', fontSize: '0.75rem', color: '#e2e8f0', lineHeight: 1.6 }}>
                 {data.def}
             </p>
-            <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#f59e0b', marginBottom: '6px' }}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#f59e0b', marginBottom: '6px' }}>
                 ⚡ Simulation Impact
             </div>
             <p style={{ margin: 0, fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.6 }}>
@@ -186,7 +186,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
                         {label}
                     </div>
                     {/* Machine key */}
-                    <code style={{ fontSize: '0.68rem', color: 'var(--text-muted,#64748b)', fontFamily: 'var(--font-mono,monospace)', letterSpacing: '0.04em' }}>
+                    <code style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', fontFamily: 'var(--font-mono,monospace)', letterSpacing: '0.04em' }}>
                         {varKey}
                     </code>
                 </div>
@@ -262,7 +262,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
 
             {/* Description — always visible, never truncated */}
             {tdata && (
-                <p style={{ margin: '8px 0 0', fontSize: '0.68rem', color: 'var(--text-muted,#64748b)', lineHeight: 1.55 }}>
+                <p style={{ margin: '8px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', lineHeight: 1.55 }}>
                     {tdata.def}
                 </p>
             )}
@@ -380,11 +380,11 @@ export default function EconomicEngineTunables() {
                 }}>
                     <span style={{ fontSize: '0.9rem' }}>⚡</span>
                     <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-primary,#f1f5f9)' }}>Scenario Presets</span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted,#64748b)', marginLeft: '4px' }}>— One-click templates & custom snapshots</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', marginLeft: '4px' }}>— One-click templates & custom snapshots</span>
                     <button
                         onClick={() => setShowCreatePreset(!showCreatePreset)}
                         style={{
-                            marginLeft: 'auto', padding: '4px 10px', borderRadius: '5px', fontSize: '0.68rem',
+                            marginLeft: 'auto', padding: '4px 10px', borderRadius: '5px', fontSize: 'var(--type-caption)',
                             fontWeight: 700, border: '1px solid var(--border-subtle,#334155)', cursor: 'pointer',
                             background: showCreatePreset ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)',
                             color: showCreatePreset ? '#f87171' : 'var(--text-muted,#94a3b8)',
@@ -439,15 +439,15 @@ export default function EconomicEngineTunables() {
                                 onMouseOver={e => { if (!isActive && !isApplying) { e.currentTarget.style.borderColor = pc.color; e.currentTarget.style.background = pc.bg; }}}
                                 onMouseOut={e => { if (!isActive && !isApplying) { e.currentTarget.style.borderColor = pc.border; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}}
                             >
-                                {p.is_custom && <span onClick={e => { e.stopPropagation(); deletePreset(p.id); }} style={{ position: 'absolute', top: '6px', right: '8px', fontSize: '0.7rem', color: 'var(--text-muted,#64748b)', cursor: 'pointer' }} title="Delete">×</span>}
+                                {p.is_custom && <span onClick={e => { e.stopPropagation(); deletePreset(p.id); }} style={{ position: 'absolute', top: '6px', right: '8px', fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', cursor: 'pointer' }} title="Delete">×</span>}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                                     <span style={{ fontSize: '1.1rem' }}>{p.icon}</span>
                                     <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isActive ? pc.color : 'var(--text-primary,#f1f5f9)' }}>
                                         {isApplying ? '⏳ Applying…' : p.name}
                                     </span>
-                                    {p.is_custom && <span style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '3px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>Custom</span>}
+                                    {p.is_custom && <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '3px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>Custom</span>}
                                 </div>
-                                <p style={{ margin: 0, fontSize: '0.68rem', color: 'var(--text-muted,#64748b)', lineHeight: 1.5 }}>{p.description}</p>
+                                <p style={{ margin: 0, fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', lineHeight: 1.5 }}>{p.description}</p>
                             </button>
                         );
                     })}
@@ -469,7 +469,7 @@ export default function EconomicEngineTunables() {
                 }}>
                     <span style={{ fontSize: '0.9rem' }}>💱</span>
                     <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#fbbf24' }}>Simulation Currency</span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted,#64748b)', marginLeft: '4px' }}>— Display currency for all monetary values</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', marginLeft: '4px' }}>— Display currency for all monetary values</span>
                     {/* Active indicator */}
                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{
@@ -477,7 +477,7 @@ export default function EconomicEngineTunables() {
                             lineHeight: 1,
                         }}>{currency.flag}</span>
                         <span style={{
-                            fontSize: '0.68rem', fontWeight: 700,
+                            fontSize: 'var(--type-caption)', fontWeight: 700,
                             padding: '2px 8px', borderRadius: '4px',
                             background: 'rgba(251,191,36,0.1)',
                             border: '1px solid rgba(251,191,36,0.25)',
@@ -533,7 +533,7 @@ export default function EconomicEngineTunables() {
                                         transition: 'color 0.18s',
                                     }}>{c.symbol}</span>
                                     <span style={{
-                                        fontSize: '0.6rem', fontWeight: 600,
+                                        fontSize: 'var(--type-caption)', fontWeight: 600,
                                         color: isActive ? '#fbbf24' : 'var(--text-muted,#64748b)',
                                         letterSpacing: '0.04em', transition: 'color 0.18s',
                                     }}>{c.code}</span>
@@ -542,7 +542,7 @@ export default function EconomicEngineTunables() {
                         })}
                     </div>
                     <p style={{
-                        margin: '10px 0 0', fontSize: '0.68rem',
+                        margin: '10px 0 0', fontSize: 'var(--type-caption)',
                         color: 'var(--text-muted,#64748b)', lineHeight: 1.55,
                     }}>
                         Sets the symbol displayed on all monetary KPIs, investment panels, leaderboard values, and reports across both the Executive Cockpit and Facilitator Dashboard. Takes effect immediately — no session restart required.
@@ -582,7 +582,7 @@ export default function EconomicEngineTunables() {
                                 {group.label}
                             </span>
                             <span style={{
-                                marginLeft: 'auto', fontSize: '0.6rem', fontFamily: 'var(--font-mono,monospace)',
+                                marginLeft: 'auto', fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono,monospace)',
                                 color: 'var(--text-muted,#64748b)', padding: '1px 8px',
                                 background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle,#334155)', borderRadius: '3px',
                             }}>
@@ -628,7 +628,7 @@ export default function EconomicEngineTunables() {
                     {dirty && (
                         <span style={{
                             display: 'flex', alignItems: 'center', gap: '5px',
-                            fontSize: '0.72rem', fontWeight: 600, color: '#f59e0b',
+                            fontSize: 'var(--type-caption)', fontWeight: 600, color: '#f59e0b',
                             padding: '3px 10px', borderRadius: '4px',
                             background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
                         }}>
@@ -646,7 +646,7 @@ export default function EconomicEngineTunables() {
                         </span>
                     )}
                     {!dirty && !saved && !error && (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted,#64748b)' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)' }}>
                             {Object.keys(tunables).length} parameters loaded · changes auto-overwrite the live simulation engine
                         </span>
                     )}

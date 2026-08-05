@@ -111,7 +111,7 @@ export default function WhatIfSandbox({
           padding: '8px 12px',
           background: 'none', border: 'none',
           color: colors.accent,
-          fontSize: '0.72rem', fontWeight: 700,
+          fontSize: 'var(--type-caption)', fontWeight: 700,
           cursor: 'pointer',
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
@@ -120,7 +120,7 @@ export default function WhatIfSandbox({
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           🧪 What-If Sandbox
           {isOpen && <span style={{
-            fontSize: '0.68rem', fontWeight: 600,
+            fontSize: 'var(--type-caption)', fontWeight: 600,
             background: 'rgba(0,229,195,0.15)',
             padding: '1px 6px', borderRadius: '3px',
             color: colors.accent, textTransform: 'none',
@@ -130,7 +130,7 @@ export default function WhatIfSandbox({
         <span style={{
           transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
           transition: 'transform 0.2s',
-          fontSize: '0.6rem',
+          fontSize: 'var(--type-caption)',
         }}>▼</span>
       </button>
 
@@ -155,7 +155,7 @@ export default function WhatIfSandbox({
                     border: `1px solid ${isActive ? colors.accent : 'rgba(255,255,255,0.08)'}`,
                     background: isActive ? 'rgba(0,229,195,0.12)' : 'rgba(255,255,255,0.03)',
                     color: isActive ? colors.accent : colors.text,
-                    fontSize: '0.72rem',
+                    fontSize: 'var(--type-caption)',
                     fontWeight: isActive ? 700 : 500,
                     cursor: 'pointer',
                     transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
@@ -216,17 +216,17 @@ export default function WhatIfSandbox({
                   textAlign: 'center',
                 }}>
                   <div style={{
-                    fontSize: '0.68rem', color: colors.muted,
+                    fontSize: 'var(--type-caption)', color: colors.muted,
                     fontWeight: 700, textTransform: 'uppercase',
                     letterSpacing: '0.06em', marginBottom: '3px',
                   }}>{metric.label}</div>
                   <div style={{
-                    fontSize: '0.72rem', fontWeight: 800,
+                    fontSize: 'var(--type-caption)', fontWeight: 800,
                     color: colors.text,
                     fontFamily: "'JetBrains Mono', monospace",
                   }}>{metric.current}</div>
                   <div style={{
-                    fontSize: '0.68rem', fontWeight: 700,
+                    fontSize: 'var(--type-caption)', fontWeight: 700,
                     color: metric.color,
                     marginTop: '2px',
                   }}>
@@ -234,7 +234,7 @@ export default function WhatIfSandbox({
                     {metric.delta !== 0 ? (metric.delta > 0 ? '+' : '') + (typeof metric.delta === 'number' && Math.abs(metric.delta) >= 1000 ? fmt$(metric.delta) : metric.delta.toFixed(1)) : '0'}
                   </div>
                   <div style={{
-                    fontSize: '0.68rem', color: colors.accent,
+                    fontSize: 'var(--type-caption)', color: colors.accent,
                     marginTop: '2px', fontWeight: 600,
                   }}>→ {metric.projected}</div>
                 </div>
@@ -243,7 +243,7 @@ export default function WhatIfSandbox({
           ) : (
             <div style={{
               textAlign: 'center', padding: '12px',
-              fontSize: '0.72rem', color: colors.muted,
+              fontSize: 'var(--type-caption)', color: colors.muted,
             }}>
               Select an option above to preview estimated outcomes
             </div>
@@ -252,7 +252,7 @@ export default function WhatIfSandbox({
           {/* Disclaimer */}
           <div style={{
             marginTop: '8px',
-            fontSize: '0.68rem', color: colors.muted,
+            fontSize: 'var(--type-caption)', color: colors.muted,
             textAlign: 'center', fontStyle: 'italic',
             lineHeight: 1.4,
           }}>

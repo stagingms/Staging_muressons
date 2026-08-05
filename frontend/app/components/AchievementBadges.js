@@ -55,7 +55,7 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
           <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
             🏅 Achievements
             <span style={{
-              fontSize: '0.65rem', fontWeight: 700, background: '#f0fdf4',
+              fontSize: 'var(--type-caption)', fontWeight: 700, background: '#f0fdf4',
               color: '#16a34a', padding: '2px 8px', borderRadius: 10, marginLeft: 8,
             }}>{unlocked.length}/{ACHIEVEMENTS.length}</span>
           </h2>
@@ -70,7 +70,7 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
         {/* Unlocked */}
         {unlocked.length > 0 && (
           <div style={{ marginBottom: '1rem' }}>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
               🎉 Unlocked
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -81,8 +81,8 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
                   border: '1px solid #bbf7d0',
                 }}>
                   <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{a.icon}</div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0f172a' }}>{a.title}</div>
-                  <div style={{ fontSize: '0.68rem', color: '#16a34a' }}>{a.desc}</div>
+                  <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#0f172a' }}>{a.title}</div>
+                  <div style={{ fontSize: 'var(--type-caption)', color: '#16a34a' }}>{a.desc}</div>
                 </div>
               ))}
             </div>
@@ -92,7 +92,7 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
         {/* Locked */}
         {locked.length > 0 && (
           <div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
               🔒 Locked
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -103,8 +103,8 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
                   opacity: 0.6,
                 }}>
                   <div style={{ fontSize: '1.5rem', marginBottom: 4, filter: 'grayscale(1)' }}>{a.icon}</div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b' }}>{a.title}</div>
-                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{a.desc}</div>
+                  <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#64748b' }}>{a.title}</div>
+                  <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8' }}>{a.desc}</div>
                 </div>
               ))}
             </div>

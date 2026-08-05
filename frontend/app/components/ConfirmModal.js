@@ -120,7 +120,7 @@ export default function ConfirmModal({
                         >
                             Type <code style={{
                                 background: 'rgba(239,68,68,0.12)', color: '#ef4444', padding: '2px 6px',
-                                borderRadius: '3px', fontWeight: 700, fontSize: '0.72rem',
+                                borderRadius: '3px', fontWeight: 700, fontSize: 'var(--type-caption)',
                             }}>{requirePhrase}</code> to unlock:
                         </label>
                         <input

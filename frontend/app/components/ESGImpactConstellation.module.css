@@ -45,7 +45,7 @@
 }
 
 .subtitle {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-weight: 500;
 }
@@ -59,7 +59,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
@@ -100,7 +100,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
@@ -119,7 +119,7 @@
 }
 
 .filterLabel {
-  font-size: 0.62rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: var(--text-secondary);
   letter-spacing: 0.1em;
@@ -143,7 +143,7 @@
 }
 
 .timelineLabel {
-  font-size: 0.62rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -157,7 +157,7 @@
 }
 
 .timelineValue {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: #5eead4;
   font-family: var(--font-mono);
@@ -191,7 +191,7 @@
 }
 
 .tooltipRound {
-  font-size: 0.62rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: #5eead4;
   text-transform: uppercase;
@@ -202,7 +202,7 @@
 .tooltipRow {
   display: flex;
   justify-content: space-between;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
   padding: 2px 0;
 }
@@ -215,7 +215,7 @@
 
 .tooltipDelta {
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
 }
 
 .tooltipDeltaUp { color: var(--gauge-green); }
@@ -237,7 +237,7 @@
 }
 
 .legendTitle {
-  font-size: 0.58rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: var(--text-secondary);
   text-transform: uppercase;
@@ -249,7 +249,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 
@@ -281,7 +281,7 @@
 }
 
 .statLabel {
-  font-size: 0.62rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -289,7 +289,7 @@
 }
 
 .statValue {
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: var(--text-primary);
   font-family: var(--font-mono);

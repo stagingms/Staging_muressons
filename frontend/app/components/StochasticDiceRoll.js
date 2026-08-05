@@ -140,7 +140,7 @@ export default function StochasticDiceRoll({
           {/* Labels */}
           <div style={{
             display: 'flex', justifyContent: 'space-between',
-            marginTop: 4, fontSize: '0.7rem', fontWeight: 600,
+            marginTop: 4, fontSize: 'var(--type-caption)', fontWeight: 600,
           }}>
             <span style={{ color: '#f87171' }}>⚠️ Damage ({thresholdPct.toFixed(0)}%)</span>
             <span style={{ color: '#4ade80' }}>✓ Safe ({(100 - thresholdPct).toFixed(0)}%)</span>
@@ -177,7 +177,7 @@ export default function StochasticDiceRoll({
               }
             </div>
             <div style={{
-              fontSize: '0.72rem', color: '#64748b', marginTop: 6, fontStyle: 'italic',
+              fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 6, fontStyle: 'italic',
             }}>
               Your infrastructure investment protects against FUTURE events, not this one (2-round construction delay).
             </div>

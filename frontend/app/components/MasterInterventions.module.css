@@ -122,7 +122,7 @@
 
 .dangerBadge,
 .triggerBadge {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     padding: 2px 6px;
     background: var(--bg-main);
     border: 1px solid var(--border-subtle);
@@ -130,7 +130,7 @@
 }
 
 .roundBadge {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     padding: 2px 6px;
     background: #6366f1;
     color: #fff;
@@ -139,7 +139,7 @@
 }
 
 .anyBadge {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     padding: 2px 6px;
     background: var(--bg-main);
     border: 1px solid var(--border-subtle);

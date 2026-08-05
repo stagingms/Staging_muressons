@@ -65,7 +65,7 @@ export default function GlossaryManager() {
             Glossary Manager
           </h3>
           <span style={{
-            fontSize: '0.6rem', fontWeight: 700, background: 'rgba(99,102,241,0.12)',
+            fontSize: 'var(--type-caption)', fontWeight: 700, background: 'rgba(99,102,241,0.12)',
             color: '#818cf8', padding: '2px 8px', borderRadius: 10,
           }}>{terms.length} terms</span>
         </div>
@@ -74,7 +74,7 @@ export default function GlossaryManager() {
           style={{
             background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
             color: '#fff', border: 'none', borderRadius: 8,
-            padding: '6px 14px', fontSize: '0.72rem', fontWeight: 700,
+            padding: '6px 14px', fontSize: 'var(--type-caption)', fontWeight: 700,
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
           }}
         >
@@ -132,7 +132,7 @@ export default function GlossaryManager() {
                   <td style={tdStyle}>
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{t.term}</span>
                   </td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)', lineHeight: 1.5, maxWidth: 200, fontSize: '0.7rem' }}>
+                  <td style={{ ...tdStyle, color: 'var(--text-secondary)', lineHeight: 1.5, maxWidth: 200, fontSize: 'var(--type-caption)' }}>
                     {t.definition.length > 100 ? t.definition.slice(0, 100) + '…' : t.definition}
                   </td>
                   <td style={tdStyle}>
@@ -140,12 +140,12 @@ export default function GlossaryManager() {
                       {(t.tags || []).slice(0, 3).map(tag => (
                         <span key={tag} style={{
                           background: 'rgba(99,102,241,0.12)', color: '#818cf8',
-                          fontSize: '0.68rem', fontWeight: 700,
+                          fontSize: 'var(--type-caption)', fontWeight: 700,
                           padding: '1px 4px', borderRadius: 3,
                         }}>{tag}</span>
                       ))}
                       {(t.tags || []).length > 3 && (
-                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>+{t.tags.length - 3}</span>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>+{t.tags.length - 3}</span>
                       )}
                     </div>
                   </td>
@@ -191,7 +191,7 @@ export default function GlossaryManager() {
 
 const thStyle = {
   textAlign: 'left', padding: '8px 10px',
-  fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)',
+  fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)',
   letterSpacing: '0.04em', textTransform: 'uppercase',
   borderBottom: '1px solid var(--border-subtle)',
 };
@@ -305,7 +305,7 @@ function EditTermModal({ term, onSave, onClose }) {
 
 const fieldStyle = { marginBottom: 10 };
 const labelStyle = {
-  display: 'block', fontSize: '0.68rem', fontWeight: 700,
+  display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700,
   color: 'var(--text-secondary)', marginBottom: 3,
 };
 const inputStyle = {

@@ -627,12 +627,12 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
         body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; padding: 0; }
         .report { max-width: 900px; margin: 0 auto; padding: 40px 32px; }
         .header { text-align: center; padding: 40px 24px; border-radius: 16px; margin-bottom: 32px; background: ${theme.gradient}; }
-        .header .badge { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; opacity: 0.85; margin-bottom: 8px; }
+        .header .badge { font-size: var(--type-caption); letter-spacing: 3px; text-transform: uppercase; opacity: 0.85; margin-bottom: 8px; }
         .header h1 { font-size: 28px; font-weight: 700; margin: 8px 0; }
         .header p { font-size: 14px; opacity: 0.9; max-width: 600px; margin: 0 auto; }
         .top-metrics { display: flex; gap: 16px; margin-bottom: 32px; }
         .top-card { flex: 1; background: rgba(30,41,59,0.8); border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; padding: 20px; text-align: center; }
-        .top-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; display: block; margin-bottom: 6px; }
+        .top-label { font-size: var(--type-caption); text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; display: block; margin-bottom: 6px; }
         .top-value { font-size: 24px; font-weight: 700; color: #f1f5f9; }
         h2 { font-size: 18px; font-weight: 700; color: #f1f5f9; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(99,102,241,0.2); }
         h3 { font-size: 15px; font-weight: 600; color: #cbd5e1; margin: 16px 0 10px; }
@@ -644,10 +644,10 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
         .kpi-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         .kpi-label { font-size: 13px; font-weight: 600; color: #cbd5e1; }
         .kpi-value { font-size: 16px; font-weight: 700; color: #f1f5f9; }
-        .kpi-note { font-size: 11px; color: #64748b; margin-bottom: 6px; }
+        .kpi-note { font-size: var(--type-caption); color: #64748b; margin-bottom: 6px; }
         .kpi-diagnostic { font-size: 12px; color: #94a3b8; line-height: 1.5; }
         .data-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
-        .data-table th { text-align: left; padding: 10px 12px; background: rgba(30,41,59,0.8); color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid rgba(99,102,241,0.2); }
+        .data-table th { text-align: left; padding: 10px 12px; background: rgba(30,41,59,0.8); color: #94a3b8; font-size: var(--type-caption); text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid rgba(99,102,241,0.2); }
         .data-table td { padding: 10px 12px; border-bottom: 1px solid rgba(51,65,85,0.5); color: #cbd5e1; }
         .data-table tr:hover { background: rgba(30,41,59,0.4); }
         .total-row { background: rgba(99,102,241,0.1); font-weight: 600; }
@@ -1025,14 +1025,14 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     padding: '14px 16px', borderRadius: 10, textAlign: 'center',
                                     background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)',
                                 }}>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Assets</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Assets</div>
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: totalAssets >= 0 ? '#38bdf8' : '#f87171', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(totalAssets)}</div>
                                 </div>
                                 <div style={{
                                     padding: '14px 16px', borderRadius: 10, textAlign: 'center',
                                     background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)',
                                 }}>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Liabilities</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Liabilities</div>
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f87171', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(totalLiabilities)}</div>
                                 </div>
                                 <div style={{
@@ -1040,7 +1040,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     background: netAssets >= 0 ? 'rgba(74,222,128,0.06)' : 'rgba(239,68,68,0.06)',
                                     border: `1px solid ${netAssets >= 0 ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)'}`,
                                 }}>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Assets</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Assets</div>
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: netAssets >= 0 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(netAssets)}</div>
                                 </div>
                             </div>
@@ -1101,22 +1101,22 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 20 }}>
                                 <div style={{ padding: '14px', borderRadius: 10, background: 'rgba(56,189,248,0.04)', border: '1px solid rgba(56,189,248,0.1)', textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>⚖️</div>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>D/E Ratio</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>D/E Ratio</div>
                                     <div style={{ fontSize: '1rem', fontWeight: 800, color: deRatio < 2.0 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{deRatio.toFixed(2)}×</div>
                                 </div>
                                 <div style={{ padding: '14px', borderRadius: 10, background: 'rgba(56,189,248,0.04)', border: '1px solid rgba(56,189,248,0.1)', textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>📄</div>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>ND/EBITDA</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>ND/EBITDA</div>
                                     <div style={{ fontSize: '1rem', fontWeight: 800, color: ndEbitda <= 2.5 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{ndEbitda.toFixed(2)}×</div>
                                 </div>
                                 <div style={{ padding: '14px', borderRadius: 10, background: strandedExposure > 0 ? 'rgba(245,158,11,0.06)' : 'rgba(56,189,248,0.04)', border: `1px solid ${strandedExposure > 0 ? 'rgba(245,158,11,0.15)' : 'rgba(56,189,248,0.1)'}`, textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>⚠️</div>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stranded Exposure</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stranded Exposure</div>
                                     <div style={{ fontSize: '1rem', fontWeight: 800, color: strandedExposure > 0 ? '#f59e0b' : '#4ade80', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(strandedExposure)}</div>
                                 </div>
                                 <div style={{ padding: '14px', borderRadius: 10, background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.1)', textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>💎</div>
-                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Brand Value</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Brand Value</div>
                                     <div style={{ fontSize: '1rem', fontWeight: 800, color: '#a78bfa', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(brandValue)}</div>
                                 </div>
                             </div>
@@ -1255,12 +1255,12 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             {!anyFull && ' (This run predates full line-item history, so only the summary rows are available per year.)'}
                                         </p>
                                         <div style={{ overflowX: 'auto', border: '1px solid rgba(148,163,184,0.12)', borderRadius: 10 }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', minWidth: 520 }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--type-caption)', minWidth: 520 }}>
                                                 <thead>
                                                     <tr>
-                                                        <th style={{ textAlign: 'left', padding: '8px 12px', position: 'sticky', left: 0, background: '#0f172a', color: '#94a3b8', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Line Item</th>
+                                                        <th style={{ textAlign: 'left', padding: '8px 12px', position: 'sticky', left: 0, background: '#0f172a', color: '#94a3b8', fontWeight: 700, fontSize: 'var(--type-caption)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Line Item</th>
                                                         {yearCols.map((c, i) => (
-                                                            <th key={i} title={`Year-end position (Round ${c.round}${c.half === 'H1' ? ', H1 — year still in progress' : ''})`} style={{ textAlign: 'right', padding: '8px 12px', color: i === yearCols.length - 1 ? '#7dd3fc' : '#94a3b8', fontWeight: 700, fontSize: '0.7rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                                                            <th key={i} title={`Year-end position (Round ${c.round}${c.half === 'H1' ? ', H1 — year still in progress' : ''})`} style={{ textAlign: 'right', padding: '8px 12px', color: i === yearCols.length - 1 ? '#7dd3fc' : '#94a3b8', fontWeight: 700, fontSize: 'var(--type-caption)', fontFamily: "'JetBrains Mono', monospace" }}>
                                                                 Year {c.year}{i === yearCols.length - 1 ? ' ·terminal' : ''}
                                                             </th>
                                                         ))}
@@ -1269,7 +1269,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                 <tbody>
                                                     {ROWS.map((row, ri) => row.section ? (
                                                         <tr key={ri}>
-                                                            <td colSpan={yearCols.length + 1} style={{ padding: '10px 12px 4px', color: '#64748b', fontWeight: 800, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{row.section}</td>
+                                                            <td colSpan={yearCols.length + 1} style={{ padding: '10px 12px 4px', color: '#64748b', fontWeight: 800, fontSize: 'var(--type-caption)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{row.section}</td>
                                                         </tr>
                                                     ) : (
                                                         <tr key={ri} style={{ borderTop: (row.total || row.grand) ? '1px solid rgba(148,163,184,0.15)' : 'none' }}>
@@ -1896,7 +1896,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                             style={{
                               background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)',
                               borderRadius: 8, color: '#818cf8', cursor: 'pointer', padding: '6px 14px',
-                              fontSize: '0.72rem', fontWeight: 600, transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
+                              fontSize: 'var(--type-caption)', fontWeight: 600, transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                             }}
                           >
                             📸 Export PNG
@@ -1961,7 +1961,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                 {chain.length > 0 && (
                                     <>
                                         <div style={{
-                                            fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+                                            fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase',
                                             color: '#94a3b8', letterSpacing: '0.08em', marginBottom: '0.5rem',
                                         }}>
                                             Foreshadowing Signals — Rounds {chain[0]?.round || '?'} to {chain[chain.length - 1]?.round || '?'}
@@ -1982,20 +1982,20 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                             flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
                                                             background: i === chain.length - 1 ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.05)',
                                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                            fontSize: '0.65rem', fontWeight: 800, color: i === chain.length - 1 ? '#a78bfa' : '#64748b',
+                                                            fontSize: 'var(--type-caption)', fontWeight: 800, color: i === chain.length - 1 ? '#a78bfa' : '#64748b',
                                                             border: i === chain.length - 1 ? '1px solid rgba(167,139,250,0.4)' : '1px solid rgba(255,255,255,0.1)',
                                                         }}>R{step.round}</span>
                                                         <div style={{ flex: 1 }}>
-                                                            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                                            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#e2e8f0' }}>
                                                                 {headline || `${rt.icon || '📌'} ${rt.theme || `Round ${step.round}`}`}
                                                             </div>
                                                             {detail && (
-                                                                <div style={{ fontSize: '0.66rem', color: '#94a3b8', marginTop: '0.15rem', lineHeight: 1.45 }}>
+                                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginTop: '0.15rem', lineHeight: 1.45 }}>
                                                                     {detail}
                                                                 </div>
                                                             )}
                                                             {!detail && rt.desc && (
-                                                                <div style={{ fontSize: '0.66rem', color: '#64748b', marginTop: '0.15rem', fontStyle: 'italic' }}>
+                                                                <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: '0.15rem', fontStyle: 'italic' }}>
                                                                     {rt.desc}
                                                                 </div>
                                                             )}
@@ -2013,7 +2013,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         marginTop: '0.8rem', padding: '0.6rem 0.8rem', borderRadius: '6px',
                                         background: 'rgba(168,85,247,0.06)',
                                         border: '1px solid rgba(168,85,247,0.2)',
-                                        fontSize: '0.72rem', color: '#c4b5fd', lineHeight: 1.5,
+                                        fontSize: 'var(--type-caption)', color: '#c4b5fd', lineHeight: 1.5,
                                         fontStyle: 'italic',
                                     }}>
                                         <strong>💡 Facilitator Note:</strong> {pd.pedagogical_note}
@@ -2137,30 +2137,30 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
                                             background: `${choiceColor}18`,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '0.6rem', fontWeight: 800, color: choiceColor,
+                                            fontSize: 'var(--type-caption)', fontWeight: 800, color: choiceColor,
                                             border: `1px solid ${choiceColor}40`,
                                         }}>{roundNum}</span>
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: 'var(--type-caption)', fontWeight: 700, color: '#e2e8f0' }}>
                                                 <span>{rd.icon || '📌'}</span>
                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rd.theme || `Round ${roundNum}`}</span>
                                             </div>
                                             {choiceLabel && (
-                                                <div style={{ fontSize: '0.62rem', color: '#94a3b8', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {choiceLabel}
                                                 </div>
                                             )}
                                         </div>
                                         <span style={{
                                             flexShrink: 0, padding: '2px 8px', borderRadius: '4px',
-                                            fontSize: '0.65rem', fontWeight: 800,
+                                            fontSize: 'var(--type-caption)', fontWeight: 800,
                                             background: `${choiceColor}18`, color: choiceColor,
                                             border: `1px solid ${choiceColor}30`,
                                             fontFamily: "'JetBrains Mono', monospace",
                                         }}>{choiceLetter}</span>
                                         {deltaStr && (
                                             <span style={{
-                                                flexShrink: 0, fontSize: '0.62rem', fontWeight: 700,
+                                                flexShrink: 0, fontSize: 'var(--type-caption)', fontWeight: 700,
                                                 color: delta >= 0 ? '#4ade80' : '#f87171',
                                                 fontFamily: "'JetBrains Mono', monospace",
                                                 minWidth: '48px', textAlign: 'right',
@@ -2181,7 +2181,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             animation: 'fadeIn 0.15s ease-out',
                                         }}>
                                             {/* Crisis Context */}
-                                            <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.4rem' }}>
+                                            <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.4rem' }}>
                                                 Round {roundNum} — Crisis Context
                                             </div>
                                             <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.55, marginBottom: '0.7rem', fontStyle: 'italic', borderLeft: '2px solid #475569', paddingLeft: '0.6rem' }}>
@@ -2191,21 +2191,21 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             {/* Your Decision */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
                                                 <span style={{
-                                                    padding: '3px 10px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800,
+                                                    padding: '3px 10px', borderRadius: '4px', fontSize: 'var(--type-caption)', fontWeight: 800,
                                                     background: `${choiceColor}20`, color: choiceColor,
                                                     border: `1px solid ${choiceColor}40`,
                                                 }}>
                                                     Option {choiceLetter}: {optionData.label}
                                                 </span>
                                                 {optionData.cost && (
-                                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>
+                                                    <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>
                                                         ({optionData.cost})
                                                     </span>
                                                 )}
                                             </div>
 
                                             {/* Impact Chain */}
-                                            <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                            <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.35rem' }}>
                                                 ⛓️ Impact Chain & Consequences
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -2216,10 +2216,10 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                         background: 'rgba(255,255,255,0.02)',
                                                         borderLeft: `2px solid ${idx === 0 ? choiceColor : idx === optionData.impacts.length - 1 ? '#a78bfa' : '#334155'}`,
                                                     }}>
-                                                        <span style={{ flexShrink: 0, fontSize: '0.65rem', color: idx === 0 ? choiceColor : '#64748b', marginTop: '1px' }}>
+                                                        <span style={{ flexShrink: 0, fontSize: 'var(--type-caption)', color: idx === 0 ? choiceColor : '#64748b', marginTop: '1px' }}>
                                                             {idx === 0 ? '▸' : idx === optionData.impacts.length - 1 ? '◆' : '│'}
                                                         </span>
-                                                        <span style={{ fontSize: '0.72rem', color: '#e2e8f0', lineHeight: 1.5 }}>
+                                                        <span style={{ fontSize: 'var(--type-caption)', color: '#e2e8f0', lineHeight: 1.5 }}>
                                                             {impact}
                                                         </span>
                                                     </div>
@@ -2234,7 +2234,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         return (
                             <section style={{ padding: '20px 0' }}>
                                 <h2 className={styles.sectionTitle}>📜 Full Decision Journey — 10 Rounds</h2>
-                                <p style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.8rem', lineHeight: 1.5 }}>
+                                <p style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginBottom: '0.8rem', lineHeight: 1.5 }}>
                                     Hover over each round to reveal the full impact chain — how your strategic choice cascaded through financial, reputational, and systemic consequences.
                                 </p>
 
@@ -2262,7 +2262,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             border: '1px solid rgba(99,102,241,0.15)',
                                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                         }}>
-                                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                                 Net Treasury Impact (10 Rounds)
                                             </span>
                                             <span style={{

@@ -80,14 +80,14 @@
 }
 .metricIcon { font-size: 0.8rem; }
 .metricLabel {
-  font-size: 0.5rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted, var(--neutral));
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .metricValue {
-  font-size: 0.7rem;
+  font-size: var(--type-caption);
   font-weight: 900;
   font-family: var(--font-mono, monospace);
 }

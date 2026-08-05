@@ -597,7 +597,7 @@ body.theme-transitioning::before {
   }
 
   .cockpit .headerCenter {
-    font-size: 0.65rem !important;
+    font-size: var(--type-caption) !important;
   }
 }
 
@@ -1088,7 +1088,7 @@ body.theme-transitioning::before {
   gap: 4px;
   padding: 3px 10px;
   border-radius: 6px;
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   font-family: var(--font-mono);
   transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);

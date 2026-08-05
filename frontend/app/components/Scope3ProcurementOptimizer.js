@@ -121,7 +121,7 @@ export default function Scope3ProcurementOptimizer({ sessionId, onComplete }) {
         <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
             <div style={{ background: '#fff', maxWidth: 580, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#1e293b', color: '#fff', padding: '1rem 1.5rem' }}>
-                    <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 6 — Two-Phase Alert</div>
+                    <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 6 — Two-Phase Alert</div>
                     <h2 style={{ margin: '0.3rem 0 0', fontSize: '1rem', fontWeight: 800 }}>The Scope 3 Ultimatum</h2>
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
@@ -148,7 +148,7 @@ export default function Scope3ProcurementOptimizer({ sessionId, onComplete }) {
                 <div style={{ background: '#fff', padding: '0.9rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Scope 3 Procurement Optimizer</h2>
-                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
+                        <div style={{ display: 'flex', gap: '1.2rem', fontSize: 'var(--type-caption)' }}>
                             {[['CO2 INTENSITY', `${avgCO2.toFixed(2)} kg/u`], ['UNIT COST', `${currencySymbol()}${avgCost.toFixed(2)}`], ['GROSS PROFIT', `${currencySymbol()}${(profit / 1000).toFixed(0)}k`], ['STATUS', contractSafe ? 'SECURED' : 'LOST']].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em' }}>{k}</div>
@@ -157,7 +157,7 @@ export default function Scope3ProcurementOptimizer({ sessionId, onComplete }) {
                             ))}
                         </div>
                     </div>
-                    <div style={{ fontSize: '0.72rem', marginTop: '0.2rem', color: contractSafe ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                    <div style={{ fontSize: 'var(--type-caption)', marginTop: '0.2rem', color: contractSafe ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
                         {contractSafe ? `✅ Carbon threshold met (${avgCO2.toFixed(2)} kg/u ≤ ${THRESHOLD_CO2} kg/u threshold)` : `⚠ WARNING: Carbon threshold exceeded (${avgCO2.toFixed(2)} kg/u > ${THRESHOLD_CO2} kg/u). Contract at risk!`}
                     </div>
                 </div>
@@ -182,7 +182,7 @@ export default function Scope3ProcurementOptimizer({ sessionId, onComplete }) {
                 <div style={{ padding: '0.75rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1rem' }}>
                     {SUPPLIERS.map((s, i) => (
                         <div key={s.id} style={{ gridColumn: i === 2 ? '1' : 'auto' }}>
-                            <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 600, marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
+                            <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 600, marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{s.label}</span>
                                 <span style={{ color: s.color }}>CO₂: {s.co2}kg · {currencySymbol()}{s.cost}/u</span>
                             </div>

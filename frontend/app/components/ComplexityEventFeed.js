@@ -38,14 +38,14 @@ function EventCard({ evt, showCohort, cohortColor }) {
             </div>
             {showCohort && evt._cohort_name && (
                 <span style={{
-                    padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700,
+                    padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: 'var(--type-caption)', fontWeight: 700,
                     background: `${cohortColor || '#64748b'}20`, color: cohortColor || '#64748b',
                     border: `1px solid ${cohortColor || '#64748b'}40`,
                     maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>{evt._cohort_name}</span>
             )}
             <span style={{
-                padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700,
+                padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: 'var(--type-caption)', fontWeight: 700,
                 background: SEV_COLORS[evt.severity] || '#64748b', color: '#fff',
             }}>R{evt.round}</span>
         </div>
@@ -72,7 +72,7 @@ function RoundGroup({ round, events, defaultOpen, showCohort, cohortColorMap }) 
                 transition: 'background 0.15s',
             }}>
                 <span style={{
-                    fontSize: '0.7rem', transition: 'transform 0.2s',
+                    fontSize: 'var(--type-caption)', transition: 'transform 0.2s',
                     transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
                     color: 'var(--text-muted)',
                 }}>▶</span>
@@ -87,18 +87,18 @@ function RoundGroup({ round, events, defaultOpen, showCohort, cohortColorMap }) 
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                     {critCount > 0 && (
                         <span style={{
-                            padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 700,
+                            padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: 'var(--type-caption)', fontWeight: 700,
                             background: 'rgba(239,68,68,0.12)', color: '#ef4444',
                         }}>{critCount} critical</span>
                     )}
                     {warnCount > 0 && (
                         <span style={{
-                            padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 700,
+                            padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: 'var(--type-caption)', fontWeight: 700,
                             background: 'rgba(245,158,11,0.12)', color: '#f59e0b',
                         }}>{warnCount} warning</span>
                     )}
                     <span style={{
-                        padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 600,
+                        padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: 'var(--type-caption)', fontWeight: 600,
                         background: 'rgba(99,102,241,0.1)', color: '#818cf8',
                     }}>{events.length} event{events.length !== 1 ? 's' : ''}</span>
                 </div>
@@ -150,7 +150,7 @@ function CohortGroup({ cohort, color, filterSev, sortDir, defaultOpen }) {
                 borderBottom: open ? `1px solid ${color}20` : 'none',
             }}>
                 <span style={{
-                    fontSize: '0.7rem', transition: 'transform 0.2s',
+                    fontSize: 'var(--type-caption)', transition: 'transform 0.2s',
                     transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
                     color: 'var(--text-muted)',
                 }}>▶</span>
@@ -165,17 +165,17 @@ function CohortGroup({ cohort, color, filterSev, sortDir, defaultOpen }) {
                     {cohort.cohort_name}
                 </span>
                 <span style={{
-                    fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600,
+                    fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontWeight: 600,
                 }}>R{cohort.round}</span>
                 <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                     {critTotal > 0 && (
                         <span style={{
-                            padding: '0.15rem 0.45rem', borderRadius: '10px', fontSize: '0.62rem', fontWeight: 700,
+                            padding: '0.15rem 0.45rem', borderRadius: '10px', fontSize: 'var(--type-caption)', fontWeight: 700,
                             background: 'rgba(239,68,68,0.12)', color: '#ef4444',
                         }}>🔴 {critTotal}</span>
                     )}
                     <span style={{
-                        padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: '0.62rem', fontWeight: 600,
+                        padding: '0.15rem 0.5rem', borderRadius: '10px', fontSize: 'var(--type-caption)', fontWeight: 600,
                         background: `${color}18`, color,
                     }}>{totalFiltered} event{totalFiltered !== 1 ? 's' : ''}</span>
                 </div>
@@ -303,7 +303,7 @@ export default function ComplexityEventFeed({ sessionId }) {
     });
 
     const viewBtnStyle = (isActive) => ({
-        padding: '0.35rem 0.75rem', borderRadius: '5px', fontSize: '0.72rem', fontWeight: 700,
+        padding: '0.35rem 0.75rem', borderRadius: '5px', fontSize: 'var(--type-caption)', fontWeight: 700,
         border: 'none', cursor: 'pointer', transition: 'all 0.15s',
         background: isActive ? 'rgba(99,102,241,0.2)' : 'transparent',
         color: isActive ? '#a5b4fc' : 'var(--text-muted)',
@@ -351,7 +351,7 @@ export default function ComplexityEventFeed({ sessionId }) {
                             value={cohortFilter}
                             onChange={e => setCohortFilter(e.target.value)}
                             style={{
-                                padding: '0.3rem 0.6rem', borderRadius: '5px', fontSize: '0.72rem', fontWeight: 600,
+                                padding: '0.3rem 0.6rem', borderRadius: '5px', fontSize: 'var(--type-caption)', fontWeight: 600,
                                 border: '1px solid var(--border-subtle)',
                                 background: 'var(--bg-body)', color: 'var(--text-primary)',
                                 cursor: 'pointer',
@@ -366,7 +366,7 @@ export default function ComplexityEventFeed({ sessionId }) {
                         </select>
                     )}
                     <button onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')} style={{
-                        padding: '0.35rem 0.75rem', borderRadius: '5px', fontSize: '0.72rem', fontWeight: 700,
+                        padding: '0.35rem 0.75rem', borderRadius: '5px', fontSize: 'var(--type-caption)', fontWeight: 700,
                         border: '1px solid var(--border-subtle)', cursor: 'pointer', transition: 'all 0.15s',
                         background: 'transparent', color: 'var(--text-muted)',
                         display: 'flex', alignItems: 'center', gap: '0.35rem',

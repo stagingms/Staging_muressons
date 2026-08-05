@@ -88,7 +88,7 @@ export default function BalancedScorecardEvaluator({ scores: propScores, readOnl
             {/* Header */}
             <div style={{ padding: '0.9rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Board Assessment Scorecard</h2>
-                <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.72rem' }}>
+                <div style={{ display: 'flex', gap: '1.5rem', fontSize: 'var(--type-caption)' }}>
                     {[['WEIGHTED SCORE', `${weighted}%`], ['STATUS', `${tier.label.split(':')[0]}: ${tier.label.split(': ')[1].split('(')[0]}`]].map(([k, v]) => (
                         <div key={k} style={{ textAlign: 'center' }}>
                             <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em' }}>{k}</div>
@@ -107,7 +107,7 @@ export default function BalancedScorecardEvaluator({ scores: propScores, readOnl
                         <div style={{ fontSize: '0.85rem', fontWeight: 800, color: tier.color, marginTop: '0.25rem', letterSpacing: '0.03em' }}>
                             {tier.label}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.5rem', lineHeight: 1.6, maxWidth: 180 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: '0.5rem', lineHeight: 1.6, maxWidth: 180 }}>
                             {tier.desc}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: tier.color, fontWeight: 700, marginTop: '0.5rem' }}>
@@ -121,7 +121,7 @@ export default function BalancedScorecardEvaluator({ scores: propScores, readOnl
             <div style={{ padding: '0.75rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem 1.25rem' }}>
                 {PILLARS.map((p, i) => (
                     <div key={p.id}>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
+                        <div style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: '#475569', marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>
                             <span>{p.label} ({Math.round(p.weight * 100)}%)</span>
                             <span style={{ color: p.color, fontWeight: 800 }}>{scores[i]}</span>
                         </div>

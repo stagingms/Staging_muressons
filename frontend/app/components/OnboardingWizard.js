@@ -345,7 +345,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                             {current.icon}
                         </div>
                         <span style={{
-                            fontSize: '0.68rem', fontWeight: 700,
+                            fontSize: 'var(--type-caption)', fontWeight: 700,
                             color: 'var(--text-muted, #64748b)',
                             fontFamily: 'var(--font-mono, monospace)',
                             letterSpacing: '0.05em',

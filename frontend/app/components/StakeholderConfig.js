@@ -593,7 +593,7 @@ export default function StakeholderConfig() {
                                     <p style={{ margin: 0, color: 'var(--text-muted, #64748b)', fontSize: '0.82rem' }}>
                                         <strong style={{ color: 'var(--text-primary, #e2e8f0)' }}>Drop .xlsx file here</strong> or click to browse
                                     </p>
-                                    <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.72rem' }}>
+                                    <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted, #64748b)', fontSize: 'var(--type-caption)' }}>
                                         {bulkMode ? 'Max 10 MB • .xlsx • preview first, nothing is written yet' : 'Max 5 MB • .xlsx only'}
                                     </p>
                                 </>
@@ -625,8 +625,8 @@ export default function StakeholderConfig() {
                                         <div key={sc.config_id} style={{ padding: '9px 14px', borderTop: '1px solid var(--border-subtle, #2d3446)', fontSize: '0.78rem' }}>
                                             <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
                                                 <span style={{ fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>{sc.config_id}</span>
-                                                <span style={{ fontSize: '0.66rem', padding: '1px 7px', borderRadius: 999, background: 'rgba(148,163,184,0.15)', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', fontWeight: 700 }}>{sc.scope_kind}</span>
-                                                {sc.is_new_config && <span style={{ fontSize: '0.66rem', color: '#22c55e', fontWeight: 700 }}>NEW</span>}
+                                                <span style={{ fontSize: 'var(--type-caption)', padding: '1px 7px', borderRadius: 999, background: 'rgba(148,163,184,0.15)', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', fontWeight: 700 }}>{sc.scope_kind}</span>
+                                                {sc.is_new_config && <span style={{ fontSize: 'var(--type-caption)', color: '#22c55e', fontWeight: 700 }}>NEW</span>}
                                                 <span style={{ marginLeft: 'auto', color: 'var(--text-muted, #64748b)' }}>
                                                     {sc.existing_overrides} → {sc.incoming_overrides} override(s)
                                                 </span>
@@ -650,7 +650,7 @@ export default function StakeholderConfig() {
                                 </div>
 
                                 {bulkPreview.note && (
-                                    <p style={{ margin: 0, padding: '9px 14px', borderTop: '1px solid var(--border-subtle, #2d3446)', fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.6 }}>
+                                    <p style={{ margin: 0, padding: '9px 14px', borderTop: '1px solid var(--border-subtle, #2d3446)', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)', lineHeight: 1.6 }}>
                                         {bulkPreview.note}
                                     </p>
                                 )}

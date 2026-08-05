@@ -162,7 +162,7 @@ export default function InlinePodcastPlayer({ isOpen, onClose, title, transcript
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
               🎧 AI Podcast
             </div>
             <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginTop: 4 }}>{title}</div>
@@ -235,7 +235,7 @@ export default function InlinePodcastPlayer({ isOpen, onClose, title, transcript
                 }}>
                 <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>{info.avatar}</span>
                 <div>
-                  <div style={{ fontSize: '0.65rem', color: info.color, fontWeight: 600, marginBottom: 2 }}>{info.shortName}</div>
+                  <div style={{ fontSize: 'var(--type-caption)', color: info.color, fontWeight: 600, marginBottom: 2 }}>{info.shortName}</div>
                   <div style={{ fontSize: '0.82rem', color: '#e2e8f0', lineHeight: 1.5 }}>{line.text}</div>
                 </div>
               </div>
@@ -248,7 +248,7 @@ export default function InlinePodcastPlayer({ isOpen, onClose, title, transcript
           <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
             <div style={{ height: '100%', background: 'linear-gradient(90deg, #8b5cf6, #3b82f6)', borderRadius: 2, width: `${progress}%`, transition: 'width 0.3s' }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#64748b', marginTop: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 4 }}>
             <span>{currentLine} / {transcript.length} segments</span>
             <span>{Math.round(progress)}%</span>
           </div>
@@ -256,7 +256,7 @@ export default function InlinePodcastPlayer({ isOpen, onClose, title, transcript
 
         {/* Reward info */}
         {!bonusBanner && !hasEnded && (
-          <div style={{ textAlign: 'center', padding: '4px 24px', fontSize: '0.68rem', color: '#64748b' }}>
+          <div style={{ textAlign: 'center', padding: '4px 24px', fontSize: 'var(--type-caption)', color: '#64748b' }}>
             🏆 Listen to the full podcast to earn <strong style={{ color: '#10b981' }}>+1,000 bonus points</strong>
           </div>
         )}

@@ -104,7 +104,7 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
 
   return (
     <div style={{ paddingTop: 4 }}>
-      <div style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+      <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
         🔬 Active System Engines
       </div>
 
@@ -126,9 +126,9 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
             <Pill label="Water Stress" value={`${((bio.water_stress_index ?? 0) * 100).toFixed(0)}%`} good={(bio.water_stress_index ?? 0) < 0.5} />
             {bio.tnfd_flags?.length > 0 && (
               <div style={{ marginTop: 6 }}>
-                <div style={{ fontSize: '0.6rem', color: '#64748b', marginBottom: 3 }}>TNFD Flags:</div>
+                <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginBottom: 3 }}>TNFD Flags:</div>
                 {bio.tnfd_flags.map((f, i) => (
-                  <div key={i} style={{ fontSize: '0.65rem', color: '#fbbf24', marginBottom: 2 }}>⚠ {f}</div>
+                  <div key={i} style={{ fontSize: 'var(--type-caption)', color: '#fbbf24', marginBottom: 2 }}>⚠ {f}</div>
                 ))}
               </div>
             )}
@@ -155,12 +155,12 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
             <Pill label="Say-on-Pay Approval" value={`${(board.say_on_pay_approval ?? 0).toFixed(0)}%`} good={(board.say_on_pay_approval ?? 0) >= 70} />
             {/* The board only shifts when its COMPOSITION shifts, so a static
                 reading is the engine working, not a stuck panel. Say so. */}
-            <div style={{ marginTop: 6, fontSize: '0.6rem', color: '#64748b', lineHeight: 1.4 }}>
+            <div style={{ marginTop: 6, fontSize: 'var(--type-caption)', color: '#64748b', lineHeight: 1.4 }}>
               Board ESG alignment moves when board composition changes — activist
               nominees seated, or directors replaced.
             </div>
             {board.resolution_outcome && (
-              <div style={{ marginTop: 6, padding: '5px 8px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', fontSize: '0.65rem', color: '#a5b4fc' }}>
+              <div style={{ marginTop: 6, padding: '5px 8px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', fontSize: 'var(--type-caption)', color: '#a5b4fc' }}>
                 📋 Last Resolution: {board.resolution_outcome}
               </div>
             )}
@@ -198,12 +198,12 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
             {/* Visibility only rises when the player pays for an audit — the
                 intended lesson (disclosure costs money). A static reading here
                 means nobody has audited yet, not that the panel is broken. */}
-            <div style={{ marginTop: 6, fontSize: '0.6rem', color: '#64748b', lineHeight: 1.4 }}>
+            <div style={{ marginTop: 6, fontSize: 'var(--type-caption)', color: '#64748b', lineHeight: 1.4 }}>
               Visibility rises only when you commission a supply-chain audit —
               deeper tiers cost more.
             </div>
             {supply.disruption_events?.length > 0 && (
-              <div style={{ marginTop: 6, fontSize: '0.68rem', color: '#ef4444' }}>
+              <div style={{ marginTop: 6, fontSize: 'var(--type-caption)', color: '#ef4444' }}>
                 ⚡ {supply.disruption_events[0]}
               </div>
             )}
@@ -229,15 +229,15 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
             <div className={styles.ewBody}>
               {/* Compact 3-line summary */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Assets</span>
                   <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#38bdf8' }}>{fmtM(totalAssets)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Liabilities</span>
                   <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#f87171' }}>{fmtM(totalLiabilities)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: 3 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: 3 }}>
                   <span style={{ fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>Net Assets</span>
                   <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: netAssets >= 0 ? '#4ade80' : '#ef4444' }}>{fmtM(netAssets)}</span>
                 </div>
@@ -245,7 +245,7 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
               {/* Quick ratio pills */}
               <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
                 <Pill label="D/E" value={`${deRatio.toFixed(1)}×`} good={deRatio < 2.0} />
-                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: covenantColors[covenantStatus], padding: '2px 6px', borderRadius: 4, background: `${covenantColors[covenantStatus]}15`, border: `1px solid ${covenantColors[covenantStatus]}25` }}>
+                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: covenantColors[covenantStatus], padding: '2px 6px', borderRadius: 4, background: `${covenantColors[covenantStatus]}15`, border: `1px solid ${covenantColors[covenantStatus]}25` }}>
                   {covenantStatus === 'green' ? '🟢' : covenantStatus === 'amber' ? '🟡' : '🔴'} Covenant
                 </span>
               </div>
@@ -255,7 +255,7 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
                 style={{
                   marginTop: 8, width: '100%', padding: '5px 0', borderRadius: 5,
                   background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)',
-                  color: '#38bdf8', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer',
+                  color: '#38bdf8', fontSize: 'var(--type-caption)', fontWeight: 700, cursor: 'pointer',
                   fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.04em',
                   transition: 'background 0.15s',
                 }}

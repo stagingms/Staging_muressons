@@ -24,7 +24,7 @@
     margin-left: 8px;
     padding: 2px 8px;
     border-radius: 6px;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 700;
 }
 .savingBadge { background: rgba(245, 158, 11, 0.15); color: var(--accent-gold); }
@@ -69,7 +69,7 @@
 .toggleInfo { display: flex; align-items: center; gap: 10px; }
 .toggleIcon { font-size: 1.1rem; }
 .toggleLabel { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); }
-.toggleDesc { font-size: 0.65rem; color: var(--text-muted); }
+.toggleDesc { font-size: var(--type-caption); color: var(--text-muted); }
 
 .toggleBtn {
     width: 44px;
@@ -104,7 +104,7 @@
 }
 .footer p {
     margin: 0;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
 }
 

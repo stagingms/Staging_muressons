@@ -69,7 +69,7 @@
 }
 
 .statusKey {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -133,7 +133,7 @@
 
 .modeBtnDesc {
     display: block;
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin-top: 0.15rem;
 }
@@ -160,7 +160,7 @@
 }
 
 .scheduleHeaderLabel {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -261,7 +261,7 @@
 
 .scheduleNote {
     padding: 0.5rem 1rem;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     background: #f8fafc;
     border-top: 1px solid #e2e8f0;

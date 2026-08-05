@@ -50,7 +50,7 @@
   border-radius: 999px;
   background: rgba(168, 85, 247, 0.12);
   border: 1px solid rgba(168, 85, 247, 0.25);
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: #c084fc;
   text-transform: uppercase;
@@ -99,7 +99,7 @@
 }
 
 .compLabel {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-muted, #94a3b8);
   text-transform: uppercase;
@@ -115,7 +115,7 @@
 }
 
 .compDelta {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: #10b981;
   margin-top: 2px;

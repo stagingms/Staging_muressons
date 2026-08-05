@@ -36,7 +36,7 @@ export default function MarketIntel({ history, roundNumber }) {
   return (
     <div style={{ marginTop: 12 }}>
       <div style={{
-        fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.1em',
+        fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.1em',
         textTransform: 'uppercase', color: 'var(--text-muted)', margin: '0 0 6px 2px',
         display: 'flex', alignItems: 'center', gap: 5,
       }}>
@@ -51,21 +51,21 @@ export default function MarketIntel({ history, roundNumber }) {
           borderLeft: `3px solid ${RIVAL.color}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-            <span style={{ fontSize: '0.7rem' }}>{RIVAL.avatar}</span>
-            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: RIVAL.textColor || RIVAL.color }}>{RIVAL.name}</span>
+            <span style={{ fontSize: 'var(--type-caption)' }}>{RIVAL.avatar}</span>
+            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: RIVAL.textColor || RIVAL.color }}>{RIVAL.name}</span>
             {/* A11Y-M2: this chip was #64748b text on rgba(100,116,139,0.12) —
                 the SAME hue as its own background. It measured 1:1 in BOTH
                 themes: a label rendered in its own backdrop. Not a theme bug,
                 an authoring one. */}
             <span style={{
-              fontSize: '0.6rem', fontWeight: 800, color: 'var(--text-secondary)',
+              fontSize: 'var(--type-caption)', fontWeight: 800, color: 'var(--text-secondary)',
               background: 'rgba(100,116,139,0.12)', padding: '1px 5px',
               borderRadius: 3, letterSpacing: '0.06em',
             }}>MARKET NEWS</span>
           </div>
-          <strong style={{ fontSize: '0.68rem', color: 'var(--text-primary)' }}>{release.title}</strong>
-          <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{release.body}</p>
-          <div style={{ fontSize: '0.58rem', color: 'var(--neutral)', marginTop: 4 }}>
+          <strong style={{ fontSize: 'var(--type-caption)', color: 'var(--text-primary)' }}>{release.title}</strong>
+          <p style={{ margin: '2px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{release.body}</p>
+          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--neutral)', marginTop: 4 }}>
             Wire report · Round {release.round} results · derived from market data
           </div>
         </div>
@@ -81,10 +81,10 @@ export default function MarketIntel({ history, roundNumber }) {
             borderLeft: `3px solid ${AGENCY.color}`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-              <span style={{ fontSize: '0.7rem' }}>{AGENCY.avatar}</span>
-              <span style={{ fontSize: '0.68rem', fontWeight: 600, color: AGENCY.textColor || AGENCY.color }}>{AGENCY.name}</span>
+              <span style={{ fontSize: 'var(--type-caption)' }}>{AGENCY.avatar}</span>
+              <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: AGENCY.textColor || AGENCY.color }}>{AGENCY.name}</span>
               <span style={{
-                fontSize: '0.6rem', fontWeight: 800, color: dir.textColor || dir.color,
+                fontSize: 'var(--type-caption)', fontWeight: 800, color: dir.textColor || dir.color,
                 background: 'rgba(100,116,139,0.08)', padding: '1px 5px',
                 borderRadius: 3, letterSpacing: '0.06em',
               }}>{dir.arrow} {dir.label}</span>
@@ -95,12 +95,12 @@ export default function MarketIntel({ history, roundNumber }) {
                 fontFamily: 'var(--font-numeral, monospace)', letterSpacing: '0.04em',
               }}>{letter.grade}</span>
               {letter.prevGrade && letter.prevGrade !== letter.grade && (
-                <span style={{ fontSize: '0.62rem', color: 'var(--neutral)' }}>from {letter.prevGrade}</span>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--neutral)' }}>from {letter.prevGrade}</span>
               )}
-              <span style={{ fontSize: '0.6rem', color: 'var(--neutral)' }}>ESG composite {letter.score}/100</span>
+              <span style={{ fontSize: 'var(--type-caption)', color: 'var(--neutral)' }}>ESG composite {letter.score}/100</span>
             </div>
-            <p style={{ margin: '3px 0 0', fontSize: '0.65rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{letter.rationale}</p>
-            <div style={{ fontSize: '0.58rem', color: 'var(--neutral)', marginTop: 4 }}>
+            <p style={{ margin: '3px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{letter.rationale}</p>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--neutral)', marginTop: 4 }}>
               Semi-annual review · after Round {letter.round} · methodology: reputation 45% · carbon 25% · natural capital 15% · capital access 15%
             </div>
           </div>
@@ -110,7 +110,7 @@ export default function MarketIntel({ history, roundNumber }) {
       {/* A11Y-M2: #b6c2d1 is a DARK-theme neutral; on the light card it was
           1.65:1. This is the disclaimer that says the numbers are simulated —
           the one line here a reader must not miss. */}
-      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', margin: '2px 2px 0', fontStyle: 'italic' }}>
+      <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', margin: '2px 2px 0', fontStyle: 'italic' }}>
         Simulated market colour, derived from your session data — informational only.
       </div>
     </div>

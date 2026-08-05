@@ -209,7 +209,7 @@
 
 .indicatorTag {
   font-family: 'Courier New', Courier, monospace;
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -278,7 +278,7 @@
 /* --- Footer Disclaimer --- */
 .footerDisclaimer {
   font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: #708090;
   text-align: center;
   padding-top: 0.5rem;
@@ -313,7 +313,7 @@
     width: auto;
   }
   .complianceTable {
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
   }
   .complianceTable thead th,
   .complianceTable tbody td {

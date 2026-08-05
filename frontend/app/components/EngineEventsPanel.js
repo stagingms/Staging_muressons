@@ -584,7 +584,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
       </span>
       {badge && (
         <span style={{
-          padding: '3px 8px', borderRadius: 6, fontSize: '0.6rem', fontWeight: 700,
+          padding: '3px 8px', borderRadius: 6, fontSize: 'var(--type-caption)', fontWeight: 700,
           background: `${accentColor}20`, color: accentColor,
           border: `1px solid ${accentColor}40`, whiteSpace: 'nowrap',
         }}>
@@ -592,7 +592,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
         </span>
       )}
       <span style={{
-        fontSize: '0.65rem', color: '#64748b',
+        fontSize: 'var(--type-caption)', color: '#64748b',
         transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
       }}>▾</span>
     </button>
@@ -619,7 +619,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '6px 10px', marginBottom: 8, borderRadius: 6,
                 background: 'rgba(94,234,212,0.06)', border: '1px solid rgba(94,234,212,0.1)',
-                fontSize: '0.68rem', color: 'var(--neutral)', fontWeight: 600,
+                fontSize: 'var(--type-caption)', color: 'var(--neutral)', fontWeight: 600,
               }}>
                 <span>{events.length} events</span>
                 <span>{grouped.risks.length} risks</span>
@@ -632,7 +632,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                   return (
                     <div key={cat} style={{ marginBottom: 8 }}>
                       <div style={{
-                        fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase',
+                        fontSize: 'var(--type-caption)', fontWeight: 800, textTransform: 'uppercase',
                         letterSpacing: '0.08em', color: meta.color, padding: '4px 0',
                         borderBottom: `1px solid ${meta.color}20`, marginBottom: 5,
                         display: 'flex', alignItems: 'center', gap: 5,
@@ -648,12 +648,12 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                         >
                           <span style={{ flexShrink: 0, fontSize: '0.85rem' }}>{evt.icon}</span>
                           <div style={{ flex: 1 }}>
-                            <span style={{ fontSize: '0.72rem', color: '#cbd5e1', lineHeight: 1.5 }}>{evt.text}</span>
+                            <span style={{ fontSize: 'var(--type-caption)', color: '#cbd5e1', lineHeight: 1.5 }}>{evt.text}</span>
                             {expandedEvent === `${cat}-${i}` && evt.tooltip && (
                               <div style={{
                                 marginTop: 4, padding: '6px 8px', borderRadius: 4,
                                 background: 'rgba(94,234,212,0.04)', border: '1px solid rgba(94,234,212,0.1)',
-                                fontSize: '0.65rem', color: 'var(--neutral)', lineHeight: 1.6, fontStyle: 'italic',
+                                fontSize: 'var(--type-caption)', color: 'var(--neutral)', lineHeight: 1.6, fontStyle: 'italic',
                               }}>
                                 💡 {evt.tooltip}
                               </div>
@@ -713,19 +713,19 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                         background: '#111827', border: '1px solid #1e293b',
                       }}>
                         <div style={{
-                          fontSize: '0.68rem', fontWeight: 700, color: '#c4b5fd',
+                          fontSize: 'var(--type-caption)', fontWeight: 700, color: '#c4b5fd',
                           marginBottom: 4, textTransform: 'capitalize',
                         }}>
                           {optionLabels[opt] || opt}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: tBetter ? 'var(--positive-text)' : 'var(--danger-text)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: tBetter ? 'var(--positive-text)' : 'var(--danger-text)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
                           💰 {fmtDelta(data.treasury_delta)}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: rBetter ? 'var(--positive-text)' : 'var(--danger-text)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: rBetter ? 'var(--positive-text)' : 'var(--danger-text)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
                           ⭐ {data.reputation_delta >= 0 ? '+' : ''}{data.reputation_delta?.toFixed(1) || '0'} rep
                         </div>
                         {data.ebitda_delta != null && (
-                          <div style={{ fontSize: '0.65rem', color: 'var(--neutral)', marginTop: 2 }}>
+                          <div style={{ fontSize: 'var(--type-caption)', color: 'var(--neutral)', marginTop: 2 }}>
                             📊 EBITDA: {fmtDelta(data.ebitda_delta)}
                           </div>
                         )}

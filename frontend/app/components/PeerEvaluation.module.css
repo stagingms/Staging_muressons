@@ -8,7 +8,7 @@
 .input { padding: 0.55rem 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; font-family: inherit; outline: none; width: 100%; box-sizing: border-box; }
 .ratingsRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
 .ratingGroup { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
-.ratingLabel { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.ratingLabel { font-size: var(--type-caption); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 .stars { display: flex; gap: 2px; }
 .star { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); transition: color 0.15s; padding: 0; }
 .starActive { color: var(--accent-gold); }
@@ -18,14 +18,14 @@
 .avgSection { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
 .avgTitle { font-size: 0.85rem; font-weight: 700; margin: 0; padding: 0.75rem 1rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); }
 .table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-.table th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); }
+.table th { text-align: left; padding: 0.5rem 0.75rem; font-size: var(--type-caption); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); }
 .table td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
 .playerName { font-weight: 600; color: var(--text-primary); }
 .evalList { display: flex; flex-direction: column; gap: 0.5rem; }
 .evalCard { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.75rem 1rem; position: relative; }
 .evalHeader { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
 .evalHeader strong { color: var(--text-primary); }
-.evalTime { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); }
+.evalTime { font-size: var(--type-caption); color: var(--text-muted); font-family: var(--font-mono); }
 .evalScores { display: flex; gap: 0.75rem; font-size: 0.78rem; color: var(--text-secondary); }
 .evalComment { font-size: 0.78rem; color: var(--text-muted); margin: 0.3rem 0 0; font-style: italic; }
 .deleteBtn { position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; font-size: 0.8rem; cursor: pointer; opacity: 0.3; }

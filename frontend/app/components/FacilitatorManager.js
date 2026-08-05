@@ -793,8 +793,8 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     };
 
     const SortIcon = ({ col }) => {
-        if (sortKey !== col) return <span style={{ opacity: 0.3, fontSize: '0.6rem' }}>⇅</span>;
-        return <span style={{ fontSize: '0.6rem', color: '#06b6d4' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
+        if (sortKey !== col) return <span style={{ opacity: 0.3, fontSize: 'var(--type-caption)' }}>⇅</span>;
+        return <span style={{ fontSize: 'var(--type-caption)', color: '#06b6d4' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
     };
 
     // ── Derived data ─────────────────────────────────────────
@@ -892,7 +892,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             >
                                 <span style={{ fontSize: '1.5rem' }}>{r.icon}</span>
                                 <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isSelected ? '#fff' : '#94a3b8' }}>{r.label}</span>
-                                <span style={{ fontSize: '0.62rem', color: isSelected ? '#cbd5e1' : '#64748b', lineHeight: 1.2 }}>{r.desc}</span>
+                                <span style={{ fontSize: 'var(--type-caption)', color: isSelected ? '#cbd5e1' : '#64748b', lineHeight: 1.2 }}>{r.desc}</span>
                             </button>
                         );
                     })}
@@ -948,7 +948,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         onChange={e => updateForm('createdBy', e.target.value)}
                         style={{ borderColor: !form.createdBy.trim() && form.name.trim() ? 'rgba(239,68,68,0.5)' : undefined }}
                     />
-                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>Person creating this facilitator account</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 2 }}>Person creating this facilitator account</span>
                 </div>
 
                 <div className={styles.formGroup}>
@@ -961,7 +961,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         onChange={e => updateForm('dateCreated', e.target.value)}
                         style={{ borderColor: !form.dateCreated && form.name.trim() ? 'rgba(239,68,68,0.5)' : undefined }}
                     />
-                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>Date this account is being created</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 2 }}>Date this account is being created</span>
                 </div>
             </div>
 
@@ -1079,7 +1079,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: 10, marginTop: '1.25rem' }}>
                     <span style={{ fontSize: '1.25rem', marginRight: 8 }}>⚙️</span>
                     <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700 }}>Cohort Creation Presets Not Applicable</span>
-                    <p style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 6, lineHeight: 1.4 }}>Presets are not required because Super Administrators have full configuration rights on the cohort creation screen itself.</p>
+                    <p style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 6, lineHeight: 1.4 }}>Presets are not required because Super Administrators have full configuration rights on the cohort creation screen itself.</p>
                 </div>
             ) : (
                 <div className={styles.permissionsSection} style={{ marginTop: '1.25rem' }}>
@@ -1264,7 +1264,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                 );
                             })}
                             {sideTrackCatalog.length === 0 && (
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Loading side tracks...</span>
+                                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontStyle: 'italic' }}>Loading side tracks...</span>
                             )}
                         </div>
                     </div>
@@ -1444,7 +1444,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                 >
                                     <span style={{ fontSize: '1.5rem' }}>{r.icon}</span>
                                     <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isSelected ? '#fff' : '#94a3b8' }}>{r.label}</span>
-                                    <span style={{ fontSize: '0.62rem', color: isSelected ? '#cbd5e1' : '#64748b', lineHeight: 1.2 }}>{r.desc}</span>
+                                    <span style={{ fontSize: 'var(--type-caption)', color: isSelected ? '#cbd5e1' : '#64748b', lineHeight: 1.2 }}>{r.desc}</span>
                                 </button>
                             );
                         })}
@@ -1837,7 +1837,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             <tbody>
                                 {bulkData.map((row, i) => (
                                     <tr key={i} className={!row.name ? styles.rowDanger : ''}>
-                                        <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.72rem' }}>{i + 1}</td>
+                                        <td style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-caption)' }}>{i + 1}</td>
                                         <td className={styles.facName}>{row.name || <span style={{ color: '#ef4444' }}>MISSING</span>}</td>
                                         <td>{row.email || '—'}</td>
                                         <td>{row.programme || '—'}</td>
@@ -1916,7 +1916,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     </div>
                     <div style={{ flex: 1 }} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Global utilisation</span>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Global utilisation</span>
                         <div style={{ width: '80px', height: '6px', borderRadius: '3px', background: 'var(--border-subtle)', overflow: 'hidden' }}>
                             <div style={{
                                 width: `${Math.round((totalCohortsUsed / Math.max(totalCapacity, 1)) * 100)}%`,
@@ -1925,7 +1925,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                 transition: 'width 0.4s ease',
                             }} />
                         </div>
-                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                             {Math.round((totalCohortsUsed / Math.max(totalCapacity, 1)) * 100)}%
                         </span>
                     </div>
@@ -2076,7 +2076,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                         <td>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <span className={styles.facName}>{fac.name}</span>
-                                                <code className={styles.facId} style={{ opacity: fac.enabled === false ? 0.5 : 1, fontSize: '0.7rem' }}>
+                                                <code className={styles.facId} style={{ opacity: fac.enabled === false ? 0.5 : 1, fontSize: 'var(--type-caption)' }}>
                                                     {fac.facilitator_id}
                                                 </code>
                                             </div>
@@ -2110,7 +2110,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                                 <span>{createdDate.display}</span>
                                                 {createdDate.relative && (
-                                                    <span style={{ fontSize: '0.68rem', opacity: 0.7 }}>{createdDate.relative}</span>
+                                                    <span style={{ fontSize: 'var(--type-caption)', opacity: 0.7 }}>{createdDate.relative}</span>
                                                 )}
                                             </div>
                                         </td>
@@ -2366,7 +2366,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                     />
                                     <span>
                                         <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>{opt.label}</span>
-                                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{opt.sub}</span>
+                                        <span style={{ display: 'block', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 2 }}>{opt.sub}</span>
                                     </span>
                                 </label>
                             ))}
@@ -2477,7 +2477,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: 16 }}>
                             <div>
                                 <label style={{
-                                    display: 'block', fontSize: '0.7rem', fontWeight: 700,
+                                    display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700,
                                     textTransform: 'uppercase', letterSpacing: '0.1em',
                                     color: 'var(--text-muted)', marginBottom: '0.35rem',
                                 }}>God Mode Facilitator ID</label>
@@ -2500,7 +2500,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             </div>
                             <div>
                                 <label style={{
-                                    display: 'block', fontSize: '0.7rem', fontWeight: 700,
+                                    display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700,
                                     textTransform: 'uppercase', letterSpacing: '0.1em',
                                     color: 'var(--text-muted)', marginBottom: '0.35rem',
                                 }}>Password</label>
@@ -2579,7 +2579,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             }}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>
+                                <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600 }}>
                                     🔐 New password {facId ? `for ${facId}` : ''}
                                 </span>
                                 <button
@@ -2630,7 +2630,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                         border: pwCopied ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(99,102,241,0.25)',
                                         borderRadius: '6px', padding: '4px 10px',
                                         color: pwCopied ? '#22c55e' : '#818cf8',
-                                        fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
+                                        fontSize: 'var(--type-caption)', fontWeight: 700, cursor: 'pointer',
                                         transition: 'all 0.2s',
                                         whiteSpace: 'nowrap',
                                     }}
@@ -2639,7 +2639,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             </div>
                             {emailSent !== undefined && (
                                 <div style={{
-                                    fontSize: '0.68rem', color: emailSent ? '#22c55e' : '#f59e0b',
+                                    fontSize: 'var(--type-caption)', color: emailSent ? '#22c55e' : '#f59e0b',
                                     fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px',
                                 }}>
                                     {emailSent

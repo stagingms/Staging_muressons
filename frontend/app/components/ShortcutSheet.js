@@ -59,7 +59,7 @@ export default function ShortcutSheet({ shortcuts = [], onClose }) {
                         </div>
                     ))}
                 </div>
-                <div style={{ marginTop: '1rem', fontSize: '0.72rem', color: 'var(--text-muted, #64748b)' }}>
+                <div style={{ marginTop: '1rem', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)' }}>
                     Press ? or Esc to close
                 </div>
             </div>

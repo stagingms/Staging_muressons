@@ -19,8 +19,8 @@
 .entryAction { font-weight: 700; font-size: 0.85rem; color: var(--text-primary); text-transform: capitalize; min-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .entryMeta { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; display: flex; align-items: center; }
 .entryDetailsContainer { flex: 1; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; overflow: hidden; }
-.entryDetailChip { background: rgba(255,255,255,0.03); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; max-width: 300px; }
+.entryDetailChip { background: rgba(255,255,255,0.03); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: var(--type-caption); color: var(--text-secondary); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; max-width: 300px; }
 .entryDetailChip strong { color: var(--text-primary); font-weight: 600; }
 .roleChangeInline { display: flex; gap: 0.5rem; align-items: center; font-size: 0.75rem; color: var(--accent-gold); font-weight: 600; }
-.entryId { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); margin-left: auto; white-space: nowrap; }
+.entryId { font-size: var(--type-caption); color: var(--text-muted); font-family: var(--font-mono); margin-left: auto; white-space: nowrap; }
 .empty { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; }

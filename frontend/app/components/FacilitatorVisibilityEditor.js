@@ -85,11 +85,11 @@ export default function FacilitatorVisibilityEditor({ facilitator, onClose }) {
                     <span style={{ fontSize: '1.1rem' }}>👁️</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '0.98rem', fontWeight: 800 }}>Visibility profile — {facilitator.name}</div>
-                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{facId} · facilitator-dashboard panels this account can see</div>
+                        <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8' }}>{facId} · facilitator-dashboard panels this account can see</div>
                     </div>
-                    <button onClick={onClose} style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(148,163,184,0.25)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 700, fontSize: '0.72rem' }}>✕ Close</button>
+                    <button onClick={onClose} style={{ padding: '4px 10px', borderRadius: 7, border: '1px solid rgba(148,163,184,0.25)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--type-caption)' }}>✕ Close</button>
                 </div>
-                <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: '6px 0 12px', lineHeight: 1.5 }}>
+                <p style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', margin: '6px 0 12px', lineHeight: 1.5 }}>
                     Account-level baseline, layered <em>global defaults → this profile → per-cohort overrides</em>.
                     Unmodified panels follow the global default; {overriddenCount > 0 ? `${overriddenCount} overridden here.` : 'nothing is overridden yet.'}
                 </p>
@@ -118,7 +118,7 @@ export default function FacilitatorVisibilityEditor({ facilitator, onClose }) {
                                 >
                                     <span style={{ fontSize: '0.85rem' }}>{a.icon}</span>
                                     <span style={{ flex: 1, minWidth: 0, fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.label}</span>
-                                    {overridden && <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#fbbf24', letterSpacing: '0.05em' }}>SET</span>}
+                                    {overridden && <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, color: '#fbbf24', letterSpacing: '0.05em' }}>SET</span>}
                                     <span style={{ width: 34, height: 18, borderRadius: 9, position: 'relative', flexShrink: 0, background: on ? '#10b981' : 'rgba(148,163,184,0.3)', transition: 'background 0.15s' }}>
                                         <span style={{ position: 'absolute', top: 2, left: on ? 18 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
                                     </span>
@@ -132,7 +132,7 @@ export default function FacilitatorVisibilityEditor({ facilitator, onClose }) {
                     <button
                         onClick={resetAll}
                         disabled={saving || loading || overriddenCount === 0}
-                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(148,163,184,0.08)', color: '#cbd5e1', cursor: overriddenCount ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: '0.74rem', opacity: overriddenCount ? 1 : 0.5 }}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(148,163,184,0.08)', color: '#cbd5e1', cursor: overriddenCount ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: 'var(--type-caption)', opacity: overriddenCount ? 1 : 0.5 }}
                     >
                         ↺ Clear profile (follow global defaults)
                     </button>

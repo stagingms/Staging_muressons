@@ -77,7 +77,7 @@ export default function DecisionTimeline({ sessionId, leaderboard = [] }) {
                                         { label: 'CoC', value: `${(current.cost_of_capital * 100).toFixed(1)}%`, color: '#64748b' },
                                     ].map((m, i) => (
                                         <div key={i} style={{ padding: '0.5rem', borderRadius: '6px', background: 'var(--bg-body)' }}>
-                                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{m.label}</div>
+                                            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{m.label}</div>
                                             <div style={{ fontSize: '1rem', fontWeight: 700, color: m.color, fontFamily: 'var(--font-mono)' }}>{m.value}</div>
                                         </div>
                                     ))}

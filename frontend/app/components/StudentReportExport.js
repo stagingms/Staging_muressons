@@ -36,11 +36,11 @@ h1{font-size:1.8rem;font-weight:900;color:#0f172a;margin-bottom:4px}h2{font-size
 .header{text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:3px solid #6366f1}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
 .kpi-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center}
-.kpi-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b}
+.kpi-label{font-size: var(--type-caption);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b}
 .kpi-value{font-size:1.2rem;font-weight:800;font-family:monospace;margin-top:4px}
 table{width:100%;border-collapse:collapse;font-size:.82rem;margin:8px 0}
-th{text-align:left;padding:6px 10px;font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0}
-.footer{margin-top:32px;padding-top:16px;border-top:2px solid #e2e8f0;text-align:center;font-size:.7rem;color:#94a3b8}
+th{text-align:left;padding:6px 10px;font-size: var(--type-caption);font-weight:700;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0}
+.footer{margin-top:32px;padding-top:16px;border-top:2px solid #e2e8f0;text-align:center;font-size: var(--type-caption);color:#94a3b8}
 @media print{body{padding:20px}.no-print{display:none!important}}</style></head>
 <body>
 <div class="header"><div style="font-size:.8rem;color:#64748b;letter-spacing:.15em;text-transform:uppercase;font-weight:700">Muressons Global Corporation</div>

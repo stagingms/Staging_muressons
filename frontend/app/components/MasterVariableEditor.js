@@ -178,7 +178,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
 
                     {/* Scope badge */}
                     <span style={{
-                        fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                        fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
                         padding: '2px 7px', borderRadius: '3px',
                         background: scopeStyle.bg, color: scopeStyle.color,
                         border: `1px solid ${scopeStyle.color}33`,
@@ -188,7 +188,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
 
                     {/* Boundary */}
                     <span style={{
-                        marginLeft: 'auto', fontSize: '0.68rem', fontFamily: 'var(--font-mono,monospace)',
+                        marginLeft: 'auto', fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono,monospace)',
                         color: 'var(--text-muted,#64748b)', padding: '2px 7px',
                         background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle,#334155)',
                         borderRadius: '3px',
@@ -198,7 +198,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                 </div>
 
                 {/* Row 2: Human-readable name */}
-                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-primary,#f1f5f9)', marginBottom: '10px', lineHeight: 1.3 }}>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-primary,#f1f5f9)', marginBottom: '10px', lineHeight: 1.3 }}>
                     {humanize(v.key)}
                 </div>
 
@@ -227,7 +227,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                             padding: '6px 12px', borderRadius: '6px',
                             background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle,#334155)',
                         }}>
-                            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted,#475569)' }}>⏹</span>
+                            <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#475569)' }}>⏹</span>
                             <span style={{
                                 fontFamily: 'var(--font-mono,monospace)', fontSize: '0.82rem', fontWeight: 600,
                                 color: 'var(--text-muted,#94a3b8)',
@@ -235,7 +235,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                                 {v.defaultDisplay}
                             </span>
                             <span style={{
-                                fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em',
+                                fontSize: 'var(--type-caption)', fontWeight: 700, letterSpacing: '0.08em',
                                 color: 'var(--text-muted,#475569)', textTransform: 'uppercase',
                             }}>
                                 Read-only
@@ -250,7 +250,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                         display: 'inline-block', marginBottom: '8px',
                         padding: '3px 10px', borderRadius: '4px',
                         background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
-                        fontFamily: 'var(--font-mono,monospace)', fontSize: '0.7rem', fontWeight: 600,
+                        fontFamily: 'var(--font-mono,monospace)', fontSize: 'var(--type-caption)', fontWeight: 600,
                         color: '#10b981',
                     }}>
                         ƒ {v.formula}
@@ -263,7 +263,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                 >
                     <div style={{
-                        fontSize: '0.72rem', color: 'var(--text-muted,#94a3b8)', lineHeight: 1.65,
+                        fontSize: 'var(--type-caption)', color: 'var(--text-muted,#94a3b8)', lineHeight: 1.65,
                         overflow: 'hidden',
                         maxHeight: expanded ? '200px' : '2.8em',
                         transition: 'max-height 0.25s ease',
@@ -273,7 +273,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                     {v.logic.length > 100 && (
                         <button style={{
                             background: 'none', border: 'none', padding: '4px 0 0', cursor: 'pointer',
-                            fontSize: '0.68rem', fontWeight: 700, color: sectionColor,
+                            fontSize: 'var(--type-caption)', fontWeight: 700, color: sectionColor,
                             letterSpacing: '0.06em', textTransform: 'uppercase',
                         }}>
                             {expanded ? '▲ Less' : '▼ More'}
@@ -284,12 +284,12 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                 {/* Row 6: Cross-reference tags */}
                 {v.refs && v.refs.length > 0 && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted,#475569)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', alignSelf: 'center', marginRight: '2px' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#475569)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', alignSelf: 'center', marginRight: '2px' }}>
                             Refs:
                         </span>
                         {v.refs.map(r => (
                             <span key={r} style={{
-                                fontSize: '0.68rem', fontFamily: 'var(--font-mono,monospace)',
+                                fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono,monospace)',
                                 padding: '1px 6px', borderRadius: '3px',
                                 background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle,#334155)',
                                 color: 'var(--text-muted,#64748b)',
@@ -404,14 +404,14 @@ export default function MasterVariableEditor() {
                             <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary,#f1f5f9)' }}>
                                 Master Variables
                             </h2>
-                            <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-muted,#64748b)' }}>
+                            <p style={{ margin: '2px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)' }}>
                                 Exhaustive global dataset — overrides defaults for newly created simulation cohorts
                             </p>
                         </div>
                     </div>
                     {/* Stats */}
                     <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted,#475569)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-muted,#475569)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                             {totalVars} Variables · {editableCount} Editable · {SECTIONS.length} Sections
                         </span>
                     </div>
@@ -477,7 +477,7 @@ export default function MasterVariableEditor() {
                                 {style.label}
                             </span>
                             <span style={{
-                                marginLeft: 'auto', fontSize: '0.68rem', fontFamily: 'var(--font-mono,monospace)',
+                                marginLeft: 'auto', fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono,monospace)',
                                 color: 'var(--text-muted,#64748b)', padding: '1px 8px',
                                 background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle,#334155)',
                                 borderRadius: '3px',
@@ -521,14 +521,14 @@ export default function MasterVariableEditor() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {hasChanges ? (
                         <span style={{
-                            fontSize: '0.72rem', fontWeight: 600, color: '#f59e0b',
+                            fontSize: 'var(--type-caption)', fontWeight: 600, color: '#f59e0b',
                             padding: '3px 10px', borderRadius: '4px',
                             background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)',
                         }}>
                             ● Unsaved changes
                         </span>
                     ) : (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted,#64748b)' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)' }}>
                             Publishing overwrites defaults for all future simulation cohorts
                         </span>
                     )}

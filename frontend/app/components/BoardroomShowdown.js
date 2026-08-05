@@ -116,7 +116,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                         display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
                         background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)',
                         border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8,
-                        color: '#fca5a5', fontSize: '0.72rem', fontWeight: 700,
+                        color: '#fca5a5', fontSize: 'var(--type-caption)', fontWeight: 700,
                         fontFamily: "'DM Sans', system-ui, sans-serif",
                         cursor: 'pointer', transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',

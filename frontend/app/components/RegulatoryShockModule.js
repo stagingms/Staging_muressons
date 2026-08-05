@@ -149,7 +149,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                 overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.4)',
             }}>
                 <div style={{ background: '#16a34a', color: '#fff', padding: '1rem 1.5rem' }}>
-                    <div style={{ fontSize: '0.65rem', letterSpacing: '0.1em', opacity: 0.8, textTransform: 'uppercase' }}>Module 4 Complete</div>
+                    <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.1em', opacity: 0.8, textTransform: 'uppercase' }}>Module 4 Complete</div>
                     <div style={{ fontSize: '1.05rem', fontWeight: 800, marginTop: 2 }}>✅ CBAM Crisis Response Recorded</div>
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
@@ -157,17 +157,17 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                         <>
                             <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
                                 <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Carbon Fee</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Carbon Fee</div>
                                     <div style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>{currencySymbol()}{result.effective_fee}/t</div>
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Treasury Impact</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Treasury Impact</div>
                                     <div style={{ fontWeight: 800, color: result.total_treasury_delta < 0 ? '#ef4444' : '#16a34a', fontSize: '1.1rem' }}>
                                         {result.total_treasury_delta >= 0 ? '+' : ''}{fmt(result.total_treasury_delta)}
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
-                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>BUs Impacted</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>BUs Impacted</div>
                                     <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1.1rem' }}>{Object.keys(result.applied_impacts || {}).length}</div>
                                 </div>
                             </div>
@@ -225,10 +225,10 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                 }}>
                     <span style={{ fontSize: '1.4rem', animation: 'pulse 0.8s infinite' }}>🚨</span>
                     <div>
-                        <div style={{ fontSize: '0.65rem', letterSpacing: '0.15em', fontWeight: 700, opacity: 0.85 }}>BREAKING — REGULATORY ALERT</div>
+                        <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', fontWeight: 700, opacity: 0.85 }}>BREAKING — REGULATORY ALERT</div>
                         <div style={{ fontSize: '1rem', fontWeight: 800 }}>CBAM + ETS Double Strike</div>
                     </div>
-                    <div style={{ marginLeft: 'auto', fontSize: '0.7rem', opacity: 0.7 }}>MODULE 4</div>
+                    <div style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', opacity: 0.7 }}>MODULE 4</div>
                 </div>
                 <div style={{ padding: '1.75rem 2rem' }}>
                     <p style={{ fontSize: '0.92rem', lineHeight: 1.75, color: '#1e293b', margin: '0 0 1.25rem' }}>
@@ -280,7 +280,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                 <div style={{ background: '#fff', padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.2rem' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Carbon Shock P&L Tester</h2>
-                        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.72rem' }}>
+                        <div style={{ display: 'flex', gap: '1.5rem', fontSize: 'var(--type-caption)' }}>
                             {[
                                 ['PRICE', `${currencySymbol()}${fee}/t`],
                                 ['DIV A MARGIN', `${mA}%`],
@@ -368,7 +368,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                 boxShadow: '0 30px 80px rgba(0,0,0,0.3)',
             }}>
                 <div style={{ background: '#0f172a', color: '#fff', padding: '1rem 1.5rem', borderRadius: '12px 12px 0 0' }}>
-                    <div style={{ fontSize: '0.65rem', letterSpacing: '0.12em', opacity: 0.6, textTransform: 'uppercase' }}>Module 4 — Crisis Management</div>
+                    <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.12em', opacity: 0.6, textTransform: 'uppercase' }}>Module 4 — Crisis Management</div>
                     <h2 style={{ margin: '0.2rem 0 0', fontSize: '1rem', fontWeight: 800 }}>Choose Your Crisis Response — Per Business Unit</h2>
                 </div>
                 <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -406,7 +406,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                                                     transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                                 }}>
                                                 <div style={{ fontWeight: 700, fontSize: '0.78rem', color: opt.color }}>{opt.label}</div>
-                                                <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>{opt.desc}</div>
+                                                <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 2 }}>{opt.desc}</div>
                                             </button>
                                         ))}
                                     </div>

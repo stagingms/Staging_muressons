@@ -330,7 +330,7 @@ export default function DebriefReport({ sessionId }) {
                             ].map((s, i) => (
                                 <div key={i} style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.1rem', fontWeight: 800, color: s.color, fontFamily: 'var(--font-mono, monospace)' }}>{s.value}</div>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</div>
+                                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</div>
                                 </div>
                             ))}
                         </div>
