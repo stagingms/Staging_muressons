@@ -1376,6 +1376,26 @@ export default function ExecutiveCockpit({
               {railsPinnedOpen ? 'Narrow panels' : 'Open panels'}
             </button>
             <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
+            {/* PHASE 5.2 — the drawer opener, where the mock puts it: beside
+                the clock, in the header, as an icon button. */}
+            {CONTEXT_DRAWER && (
+              <button
+                type="button"
+                className={styles.contextOpenBtn}
+                onClick={() => setContextOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={contextOpen}
+                aria-label={unreadCount > 0
+                  ? `Messages and intelligence, ${unreadCount} unread`
+                  : 'Messages and intelligence'}
+                title="Messages and intelligence"
+              >
+                <span aria-hidden="true">✉</span>
+                {unreadCount > 0 && (
+                  <span className={styles.contextOpenBadge} aria-hidden="true">{unreadCount}</span>
+                )}
+              </button>
+            )}
             {/* WOW-11: Enhanced timer with competitive commit counter */}
             {isPlayerVisible('decision_pressure_timer') && (
               <DecisionPressureTimer
@@ -1423,6 +1443,10 @@ export default function ExecutiveCockpit({
            fading. See the data-rails block in ExecutiveCockpit.module.css for
            why the opacity mechanism could not work. */
         data-rails={railsCollapsed ? 'collapsed' : 'open'}
+        /* PHASE 5.2: with no right rail, .centerConsole's fixed 52% leaves a
+           quarter of the viewport as dead black. This is the hook that lets it
+           reflow — see .mainContent[data-drawer="on"] .centerConsole. */
+        data-drawer={CONTEXT_DRAWER ? 'on' : 'off'}
       >
 
         {/* TEAM-1 (UX audit #7) — Slot: Canvas stage. Read-only seat notice.
@@ -1865,10 +1889,28 @@ export default function ExecutiveCockpit({
               {!sim?.gameOver && (
                 <div style={{ width: '100%', padding: '0 6px 6px', flexShrink: 0 }}>
                   <button
+                    /* IT IS A TOGGLE, AND IT ONLY EVER TURNED ON.
+                       onClick was handleFocusReenter() unconditionally, so a
+                       button reading "FOCUS MODE · ACTIVE" re-entered focus
+                       mode when pressed. There was no way back to the
+                       dashboard from the rail at all — the only exit was the
+                       canvas's own close control, which a player who came in
+                       via this button has no reason to look for.
+
+                       handleFocusDismiss is the same action that control runs:
+                       it clears the step, sets focusDismissed, and from round 3
+                       records the preference (Phase 5.3). So the pair is
+                       symmetric — this button now turns focus mode off exactly
+                       the way the canvas does. */
                     onClick={() => {
+                      if (isFocusActive) { handleFocusDismiss(); return; }
                       setLeftPanelTab('focus');
                       handleFocusReenter();
                     }}
+                    aria-pressed={isFocusActive}
+                    title={isFocusActive
+                      ? 'Leave the guided flow and use the dashboard'
+                      : 'Step through the round one stage at a time'}
                     style={{
                       width: '100%', padding: '8px 14px', border: 'none', cursor: 'pointer',
                       borderRadius: 8,
@@ -3714,6 +3756,22 @@ export default function ExecutiveCockpit({
                     reads as pressure applied to the press. Renders nothing when
                     the facilitator has set no limit, which is most rounds. */}
                 <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} variant="bar" />
+                {/* PHASE 5.2 — the mock's second opener. Two of them is not a
+                    duplicate: the header one is for a player whose eye is at
+                    the top of the screen, this one is for a player who is
+                    reading the decision and has not looked up in ten minutes.
+                    Both open the same drawer. */}
+                {CONTEXT_DRAWER && (
+                  <button
+                    type="button"
+                    className={styles.contextGhostBtn}
+                    onClick={() => setContextOpen(true)}
+                    aria-haspopup="dialog"
+                    aria-expanded={contextOpen}
+                  >
+                    Context{unreadCount > 0 ? ` · ${unreadCount}` : ''} ⌄
+                  </button>
+                )}
               </div>
             )}
             {/* ── Commit Footer (compact) ── */}
@@ -4390,27 +4448,16 @@ export default function ExecutiveCockpit({
             );
           }
 
+          /* NO SPINE. I built one and it was wrong.
+             The mock has no right rail and no spine: the rail is removed
+             outright and the drawer is summoned from two places the eye is
+             already going — an envelope in the header, beside the clock, and
+             a "Context" button in the belt. The 56px column I put here read
+             as "the panel is missing", because a single unlabelled icon above
+             1300px of empty space IS a missing panel. The openers now live
+             where the mock puts them; see the header and the action bar. */
           return (
             <>
-              {/* The spine. 56px, and it is NAVIGATION, not chrome — the same
-                  reason the left tab bar survived the rail collapse. */}
-              <aside className={styles.rightSpine} aria-label="Context">
-                <button
-                  type="button"
-                  className={styles.spineBtn}
-                  onClick={() => setContextOpen(true)}
-                  aria-haspopup="dialog"
-                  aria-expanded={contextOpen}
-                  aria-label={unreadCount > 0
-                    ? `Messages and intelligence, ${unreadCount} unread`
-                    : 'Messages and intelligence'}
-                  title="Messages and intelligence (C)"
-                >
-                  <span aria-hidden="true">✉</span>
-                  {unreadCount > 0 && <span className={styles.spineBadge} aria-hidden="true">{unreadCount}</span>}
-                </button>
-              </aside>
-
               {contextOpen && (
                 <Dialog
                   className={styles.contextDrawer}

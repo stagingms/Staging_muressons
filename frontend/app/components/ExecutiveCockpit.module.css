@@ -3346,56 +3346,47 @@
    still supplies the focus trap and Escape — a keyboard user gets modal
    semantics even though the eye does not. */
 
-.rightSpine {
-  width: 56px;
-  min-width: 56px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) 0;
-  background: var(--ck-surface-1);
-  border-left: 1px solid var(--ck-border);
-  flex-shrink: 0;
-}
+/* THE SPINE IS GONE — see ExecutiveCockpit.js. The mock has no right rail.
+   A 56px column holding one unlabelled icon above 1300px of nothing does not
+   read as "compact navigation", it reads as "the panel is missing", which is
+   exactly what it was reported as. The openers moved to the header and the
+   belt, where the mock puts them.
 
-/* 44x44 minimum, which is also the Phase 8 target floor — a spine is the one
-   place where a small icon button is most tempting and least defensible. */
-.spineBtn {
+   .rightSpine / .spineBtn / .spineBadge deleted rather than left unused: an
+   orphaned class is the next person's five minutes. */
+
+/* The header opener. 32px in the mock; 44px here, because Phase 8 sets the
+   hit-target floor and a header icon is not exempt from it. */
+.contextOpenBtn {
   position: relative;
   width: 44px;
   height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
+  border: none;
   border-radius: var(--radius-chip);
   background: transparent;
-  color: var(--ck-text-2);
+  color: var(--ck-text-3);
   font-size: var(--type-title);
   cursor: pointer;
+  flex-shrink: 0;
   transition: background var(--motion-fast) var(--motion-ease),
               color var(--motion-fast) var(--motion-ease);
 }
 
-.spineBtn:hover {
+.contextOpenBtn:hover,
+.contextOpenBtn[aria-expanded="true"] {
   background: var(--ck-surface-2);
   color: var(--ck-text-1);
 }
 
-.spineBtn[aria-expanded="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent-text);
-}
-
-/* Corner-pinned, not inline: an inline badge stretches the button and that is
-   exactly how the Resources pill ended up 186px wide holding one emoji. */
-.spineBadge {
+/* Corner-pinned. An inline badge stretches its parent, which is how the
+   Resources pill ended up 186px wide holding one emoji. */
+.contextOpenBadge {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: var(--space-0);
+  right: var(--space-0);
   min-width: 16px;
   height: 16px;
   padding: 0 var(--space-0);
@@ -3406,6 +3397,29 @@
   line-height: 16px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* The belt opener. Text, not an icon: down here the player is reading, and a
+   word is cheaper to recognise than a glyph they have to decode. */
+.contextGhostBtn {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  margin-left: auto;
+  border: 1px solid var(--ck-border);
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--ck-text-2);
+  font: inherit;
+  font-size: var(--type-caption);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.contextGhostBtn:hover,
+.contextGhostBtn[aria-expanded="true"] {
+  background: var(--ck-surface-2);
+  color: var(--ck-text-1);
 }
 
 .contextDrawer {
@@ -3460,4 +3474,27 @@
    fine; the drawer arriving from off-screen while someone is reading is not. */
 @media (prefers-reduced-motion: reduce) {
   .contextDrawer { animation: none; }
+}
+
+/* ═══ PHASE 5.2 — THE CENTRE RECLAIMS THE SPACE THE RAIL RELEASED ══════════
+   .centerConsole is width: 52%, chosen when a 24% rail sat on either side.
+   Remove the right rail and that 24% becomes dead black — which is exactly
+   what the first attempt at this shipped, and what got reported as "the right
+   panel is missing". It was not missing; it was gone, and nothing grew into
+   the hole it left.
+
+   The measure is capped rather than let loose. The mock caps its stage at
+   820px and centres it, because a 34ch stage question set across 1400px is
+   not a decision anyone can read. Here the cap is expressed in ch so it
+   tracks the type scale rather than a pixel guess that 6.1 would invalidate. */
+.mainContent[data-drawer="on"] .centerConsole {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mainContent[data-drawer="on"] .centerConsole > * {
+  max-width: 92ch;
+  margin-inline: auto;
+  width: 100%;
 }

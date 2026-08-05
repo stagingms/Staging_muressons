@@ -926,15 +926,43 @@ describe('the context drawer is a relocation, not a second copy', () => {
     expect(c).toMatch(/closeOnBackdrop=\{false\}/);
   });
 
-  test('the spine button is 44x44 and its badge is corner-pinned', () => {
-    // The Resources pill rendered 186px wide holding one emoji because
-    // min-width does nothing to a stretched flex child and an inline badge
-    // stretches its parent. Both mistakes are cheap to repeat here.
-    const spine = css.match(/\.spineBtn \{[^}]*\}/)[0];
-    expect(spine).toMatch(/width: 44px/);
-    expect(spine).toMatch(/height: 44px/);
-    const badge = css.match(/\.spineBadge \{[^}]*\}/)[0];
+  test('there is no spine — the mock has no right rail at all', () => {
+    /* The first attempt built a 56px spine holding one icon. The mock does
+       not have one: it removes the rail outright and summons the drawer from
+       an envelope in the header and a "Context" button in the belt. A 56px
+       column with a single unlabelled glyph above 1300px of nothing does not
+       read as compact navigation; it was reported as "the right panel is
+       missing", which is a fair description of what it was. */
+    expect(css).not.toMatch(/\.rightSpine \{/);
+    expect(c).not.toMatch(/styles\.rightSpine/);
+  });
+
+  test('there are two openers, and both are real controls', () => {
+    // Two is not a duplicate: the header one is for a player whose eye is at
+    // the top of the screen, the belt one for a player who has been reading
+    // the decision and has not looked up in ten minutes.
+    expect(c).toMatch(/className=\{styles\.contextOpenBtn\}/);
+    expect(c).toMatch(/className=\{styles\.contextGhostBtn\}/);
+    for (const cls of ['contextOpenBtn', 'contextGhostBtn']) {
+      const block = css.match(new RegExp(`\\.${cls} \\{[^}]*\\}`))[0];
+      // Phase 8's hit-target floor. The mock draws a 32px icon button; a
+      // header icon is not exempt from the floor just because it is small in
+      // someone else's file.
+      expect(`${cls} meets 44px: ${/(min-)?height: 44px/.test(block)}`)
+        .toBe(`${cls} meets 44px: true`);
+    }
+    const badge = css.match(/\.contextOpenBadge \{[^}]*\}/)[0];
     expect(badge).toMatch(/position: absolute/);
+  });
+
+  test('the centre reclaims the width the rail released', () => {
+    /* .centerConsole is width: 52%, chosen when a 24% rail sat on either
+       side. Remove the right rail without this and that 24% is dead black —
+       which is what the first attempt shipped. */
+    expect(c).toMatch(/data-drawer=\{CONTEXT_DRAWER \? 'on' : 'off'\}/);
+    expect(css).toMatch(/\.mainContent\[data-drawer="on"\] \.centerConsole \{/);
+    // ...but capped, because a stage question set across 1400px is unreadable.
+    expect(css).toMatch(/max-width: 92ch/);
   });
 
   test('the drawer does not cover the whole screen on a narrow one', () => {
@@ -965,5 +993,35 @@ describe('the rail stays where the player put it', () => {
     // Removing the automatic expansion is only safe because the panels it used
     // to reveal are reachable another way.
     expect(c).toMatch(/setRailsPinnedOpen\(true\)/);
+  });
+});
+
+/* ── The Focus Mode button is a toggle, not a one-way switch ──────────────── */
+describe('focus mode can be turned off from the rail', () => {
+  const c = read('app/components/ExecutiveCockpit.js');
+
+  test('pressing it while active dismisses instead of re-entering', () => {
+    /* onClick was handleFocusReenter() unconditionally, so a button labelled
+       "FOCUS MODE · ACTIVE" re-entered focus mode when pressed. There was no
+       route back to the dashboard from the rail at all — the only exit was
+       the canvas's own close control, which a player who arrived via this
+       button has no reason to go looking for. */
+    expect(c).toMatch(/if \(isFocusActive\) \{ handleFocusDismiss\(\); return; \}/);
+  });
+
+  test('it announces its state, since the label alone does not change', () => {
+    // The visible label stays "Focus Mode" in both states; only a separate
+    // ACTIVE badge moves. aria-pressed is what carries that to a screen
+    // reader, and it is also what makes it read as a toggle rather than an
+    // action.
+    expect(c).toMatch(/aria-pressed=\{isFocusActive\}/);
+  });
+
+  test('off and on are the same pair the canvas uses', () => {
+    // Symmetry matters more than either half: a dismiss that behaves
+    // differently from the canvas's dismiss would leave the persisted
+    // preference (Phase 5.3) in one state and the UI in another.
+    expect(c).toMatch(/handleFocusDismiss\(\)/);
+    expect(c).toMatch(/handleFocusReenter\(\)/);
   });
 });
