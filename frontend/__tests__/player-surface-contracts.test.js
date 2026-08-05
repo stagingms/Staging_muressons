@@ -955,6 +955,37 @@ describe('the context drawer is a relocation, not a second copy', () => {
     expect(badge).toMatch(/position: absolute/);
   });
 
+  test('resources never lives inside the drawer', () => {
+    /* FOUR TIMES this one control has been made unreachable while narrowing
+       this rail: hidden in the collapsed rail; "fixed" at 186px wide holding
+       one emoji; the rails collapsing with no way back; and then sealed
+       behind an envelope labelled "Messages and intelligence", which a player
+       looking for the library has no reason to open.
+
+       It is a LAUNCHER for a separate surface, not intelligence about this
+       round. With the rail gone it belongs in the header. */
+    expect(c).toMatch(/\{onResourcesOpen && !CONTEXT_DRAWER && \(/);
+    expect(c).toMatch(/\{CONTEXT_DRAWER && onResourcesOpen && \(/);
+    // Labelled, not a bare glyph: a book icon beside an envelope icon is two
+    // puzzles in a row.
+    const hdr = c.slice(c.indexOf('{CONTEXT_DRAWER && onResourcesOpen && ('));
+    expect(hdr.slice(0, 600)).toMatch(/Resources/);
+  });
+
+  test('the left rail does not pay for the right rail leaving', () => {
+    /* .leftSidebar is width: 24% with default flex-shrink: 1. Harmless while
+       three columns summed to 100%; give the centre flex: 1 and the only
+       shrinkable item left is the left rail. It collapsed to ~155px - tabs
+       wrapped, chart squashed, benchmark label broken over two lines. */
+    expect(css).toMatch(/\.mainContent\[data-drawer="on"\] \.leftSidebar \{/);
+    const block = css.match(/\.mainContent\[data-drawer="on"\] \.leftSidebar \{[^}]*\}/)[0];
+    expect(block).toMatch(/flex: 0 0 auto/);
+    expect(block).toMatch(/min-width: 172px/);   // the DESIGNED collapsed width,
+    // not a larger number invented here — 172px was measured and accepted in
+    // Phase 0, and overriding it from this file would undo that decision
+    // silently. The bug was shrinking below it, not the width itself.
+  });
+
   test('the centre reclaims the width the rail released', () => {
     /* .centerConsole is width: 52%, chosen when a 24% rail sat on either
        side. Remove the right rail without this and that 24% is dead black —

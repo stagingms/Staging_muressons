@@ -1376,6 +1376,20 @@ export default function ExecutiveCockpit({
               {railsPinnedOpen ? 'Narrow panels' : 'Open panels'}
             </button>
             <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
+            {/* Resources, promoted out of the vanished rail. Labelled, not an
+                icon: the library is a destination, and a bare book glyph beside
+                a bare envelope glyph is two puzzles in a row. */}
+            {CONTEXT_DRAWER && onResourcesOpen && (
+              <button
+                type="button"
+                className={styles.contextGhostBtn}
+                onClick={onResourcesOpen}
+                title="Open the resource library (R)"
+              >
+                <span aria-hidden="true">📚</span> Resources
+                {hasNewResources && <span className={styles.contextOpenBadge} aria-hidden="true" />}
+              </button>
+            )}
             {/* PHASE 5.2 — the drawer opener, where the mock puts it: beside
                 the clock, in the header, as an icon button. */}
             {CONTEXT_DRAWER && (
@@ -4074,8 +4088,20 @@ export default function ExecutiveCockpit({
           {/* Floating Resources Pill — the panel's only launcher besides the R
               key, so it must disappear with it. page.js passes onResourcesOpen
               as null when the resources_sidebar switch is off; rendering the
-              button anyway would leave a control that visibly does nothing. */}
-          {onResourcesOpen && (
+              button anyway would leave a control that visibly does nothing.
+
+              AND IT DOES NOT LIVE IN THE DRAWER. This is the FOURTH time this
+              one control has been made unreachable while narrowing this rail:
+              hidden entirely in the collapsed rail; then "fixed" at 186px wide
+              holding one emoji; then the rails collapsing with no way back;
+              then here, sealed behind an envelope labelled "Messages and
+              intelligence" — which a player looking for the library has no
+              reason to open.
+
+              Resources is a LAUNCHER for a separate surface, not intelligence
+              about this round. With the rail gone it belongs in the header,
+              beside the other always-visible controls. See below. */}
+          {onResourcesOpen && !CONTEXT_DRAWER && (
           <button className={styles.resourcesPill} onClick={onResourcesOpen}>
             <span style={{ fontSize: '0.9rem' }}>📚</span>
             <span className={styles.resourcesPillLabel}>Resources</span>

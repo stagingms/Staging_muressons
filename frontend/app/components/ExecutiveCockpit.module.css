@@ -3498,3 +3498,27 @@
   margin-inline: auto;
   width: 100%;
 }
+
+/* THE LEFT RAIL MUST NOT PAY FOR THE RIGHT RAIL LEAVING.
+   .leftSidebar is width: 24% with the default flex-shrink: 1. That was
+   harmless while the three columns summed to 100% and nothing had to shrink.
+   Give the centre flex: 1 and the sum exceeds the container, so every
+   shrinkable item shrinks proportionally — and the only shrinkable item left
+   is the left rail. It went to about 155px: tabs wrapped to two rows, the
+   stock chart squashed to illegibility, "FTSE 100 ESG BENCHMARKS" broken
+   across two lines.
+
+   flex: 0 0 auto pins it: the rail keeps whatever width its own rules give it
+   — 24% open, 172px collapsed — and the centre absorbs the rest, which is what
+   "the centre reclaims the released width" was supposed to mean.
+
+   min-width is set to that same 172px rather than to something larger, on
+   purpose. 172px IS the designed collapsed width, measured and accepted in
+   Phase 0; overriding it here would silently undo a decision made elsewhere
+   from a file that has no business making it. The bug was shrinking BELOW the
+   designed width, not the designed width itself. A player who wants the rail
+   wider presses "Open panels", which is what that control is for. */
+.mainContent[data-drawer="on"] .leftSidebar {
+  flex: 0 0 auto;
+  min-width: 172px;
+}
