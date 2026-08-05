@@ -218,7 +218,29 @@ describe('the newspaper is a full-screen four-column broadsheet', () => {
 
   test('the edition itself takes the whole screen', () => {
     expect(frontPage).toMatch(/position: 'fixed', inset: 0/);
-    expect(frontPage).toMatch(/aria-modal="true"/);
+  });
+
+  /* PHASE 8. This used to assert the literal string aria-modal="true" in the
+     source. That passed for as long as the modal hand-rolled its own overlay —
+     and it passed while the same overlay had NO focus trap, NO focus restore
+     and an Escape handler that fired even when something was stacked on top of
+     it. A source-text assertion on one attribute cannot tell a declared modal
+     from an honoured one.
+
+     The edition now goes through the Dialog primitive, which is where
+     aria-modal, the trap, the restore and topmost-only Escape all come from.
+     Assert the adoption, not the attribute — and assert the two properties
+     specific to THIS modal, because Dialog's own guarantees are tested in
+     Dialog's own suite. */
+  test('the edition is a real modal: it adopts Dialog, and the paper is not a backdrop', () => {
+    expect(frontPage).toMatch(/import Dialog from '\.\/Dialog'/);
+    expect(frontPage).toMatch(/<Dialog\b/);
+    // The paper fills the viewport, so a "backdrop" click is a click on the
+    // newspaper. Closing on it would fire on every stray click in the margin.
+    expect(frontPage).toMatch(/closeOnBackdrop=\{false\}/);
+    // And the overlay must no longer carry a hand-rolled Escape listener:
+    // two handlers for one key is how a stacked dialog collapses both.
+    expect(frontPage).not.toMatch(/addEventListener\('keydown'/);
   });
 
   test('it occupies one slot: a launcher in the results stage, the paper in the overlay', () => {

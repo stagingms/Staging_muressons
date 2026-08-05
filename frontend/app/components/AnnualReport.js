@@ -1,8 +1,9 @@
 'use client';
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback } from 'react';
+import Dialog from './Dialog';
 import { calculateRoundStockPrice } from './stockValuationEngine';
 import { deriveRatingLetter, AGENCY } from './rivalIntel';
-import { roundToQuarter } from '../utils/roundToQuarter';
+import { roundToQuarter } from '../utils/roundToQuarter';
 import { currencySymbol } from '../utils/format';
 
 /**
@@ -97,13 +98,10 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
     [roundNumber, commitResults, history, businessUnits]
   );
 
-  // Escape closes — never blocks anything else
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  /* PHASE 8. Escape used to be handled here, unconditionally, on window — so
+     this modal closed on Escape even when something was stacked on top of it.
+     Dialog owns Escape now (topmost-only, via a module-level stack) along with
+     the focus trap and focus restore this never had. */
 
   const download = useCallback(() => {
     const W = 1200, H = 1560;
@@ -186,15 +184,14 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
   const maxE = Math.max(1, ...m.emissions.map(e => e.tco2e));
 
   return (
-    <div
-      role="dialog"
-      aria-label={`Year ${m.year} Integrated Annual Report`}
+    <Dialog
+      onClose={onClose}
+      label={`Year ${m.year} Integrated Annual Report`}
       style={{
         position: 'fixed', inset: 0, zIndex: 10500,
         background: 'rgba(10, 14, 26, 0.72)', backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem',
       }}
-      onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -306,6 +303,6 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
           }}>Back to results</button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

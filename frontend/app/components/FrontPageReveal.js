@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import Dialog from './Dialog';
 import { deriveKeyInsights, fmtDeltaM, roundLedger } from '../lib/keyInsights';
 import { currencySymbol } from '../utils/format';
 
@@ -392,13 +393,11 @@ export default function FrontPageReveal({
     return () => { cancelled = true; };
   }, [sessionId, peers]);
 
-  // Escape closes the edition.
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  /* PHASE 8. Escape lived here and nothing else did: no focus trap, so Tab
+     walked out of a full-viewport overlay into the scorecard underneath it,
+     and no focus restore, so closing the edition dropped focus on <body>
+     instead of returning it to the button that opened it. Dialog owns all
+     three now. The close button still says "(Esc)" and that is still true. */
 
   const t = useMemo(() => {
     const mr = Number(data.regenerative_multiple) || 0;
@@ -713,11 +712,13 @@ export default function FrontPageReveal({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="The Muressons Times — Year 5 terminal edition"
+    <Dialog
+      onClose={() => setOpen(false)}
+      label="The Muressons Times — Year 5 terminal edition"
       className="fpr-paper"
+      /* The paper IS the dialog surface, not a scrim over one — a backdrop
+         click would be a click on the newspaper itself. */
+      closeOnBackdrop={false}
       style={{
         position: 'fixed', inset: 0, zIndex: 9000, overflowY: 'auto',
         padding: '0 0 48px',
@@ -1072,6 +1073,6 @@ export default function FrontPageReveal({
           recorded, it is shown as “—” rather than estimated.
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -27,23 +27,37 @@ import PillarSelectDropdown from './PillarSelectDropdown';
  *   - roundNumber:     number — for round-tier styling
  */
 
+/* `color` was carried on each entry and read by nothing — four raw hues held
+   alive by a field no JSX in this file references. Removed rather than
+   tokenised: the cheapest way to pay a debt is to delete its cause. */
 const OPT_META = {
-  option_a: { icon: '⚡', label: 'OPTION A', color: '#ef4444' },
-  option_b: { icon: '⚖️', label: 'OPTION B', color: '#3b82f6' },
-  option_c: { icon: '🛡️', label: 'OPTION C', color: '#16a34a' },
+  option_a: { icon: '⚡', label: 'OPTION A' },
+  option_b: { icon: '⚖️', label: 'OPTION B' },
+  option_c: { icon: '🛡️', label: 'OPTION C' },
 };
 
 /**
  * Build a one-line "projected trade-off" from an option's impacts, so the
  * player reasons about the choice BEFORE committing (the pedagogical goal).
- * Favourable directions: treasury < 0 (frees cash), reputation > 0, carbon < 0.
+ * Favourable directions: treasury > 0 (frees cash), reputation > 0, carbon < 0.
  * Uses only data already passed to the tile — no new fetch, no state.
+ *
+ * THE SIGN. `round_configs.py` writes an option's cost as a NEGATIVE treasury
+ * impact — of the 26 treasury impacts in that file, 22 are negative and none
+ * are positive, because every priced option in the game is an expense.
+ * `round_logic.py:1586` then converts it (`abs(t) if t < 0 else -t`) before
+ * subtracting. So negative means SPEND, and this file had it backwards in
+ * three places: here, the screen-reader description, and the cost colour.
+ * Every priced option announced its cost as a gain.
+ *
+ * The same inversion was found and fixed in the projected-impact chip and the
+ * KPI belt; it survived here because nothing was looking at this file.
  */
 function buildTradeoff(impacts) {
   if (!impacts) return null;
   const good = [], bad = [];
   const t = impacts.treasury, r = impacts.reputation, c = impacts.carbon;
-  if (typeof t === 'number' && t !== 0) (t < 0 ? good : bad).push(t < 0 ? 'frees cash' : 'spends cash');
+  if (typeof t === 'number' && t !== 0) (t > 0 ? good : bad).push(t > 0 ? 'frees cash' : 'spends cash');
   if (typeof r === 'number' && r !== 0) (r > 0 ? good : bad).push(r > 0 ? 'lifts reputation' : 'risks reputation');
   if (typeof c === 'number' && c !== 0) (c < 0 ? good : bad).push(c < 0 ? 'cuts carbon' : 'adds carbon');
   if (!good.length && !bad.length) return null;
@@ -66,7 +80,7 @@ export default function DecisionTile({
   roundNumber = 1,
 }) {
   if (!option) return null;
-  const meta = OPT_META[optId] || { icon: '📌', label: optId.toUpperCase(), color: '#6366f1' };
+  const meta = OPT_META[optId] || { icon: '📌', label: optId.toUpperCase() };
   const costVal = option.impacts?.treasury || option.cost_impact || 0;
   const costBarPct = Math.min(100, (Math.abs(costVal) / Math.max(1, maxCost)) * 100);
 
@@ -110,7 +124,10 @@ export default function DecisionTile({
             if (to.bad.length) parts.push(`Projected downside: ${to.bad.join(', ')}.`);
           }
           if (typeof costVal === 'number' && costVal !== 0 && fmtCurrency) {
-            parts.push(`${costVal < 0 ? 'Frees' : 'Costs'} ${fmtCurrency(Math.abs(costVal))}.`);
+            /* SIGN: negative = spend. This said "Frees ₹30M" for a ₹30M
+               expense — the inversion above, in the screen-reader channel,
+               where nobody could see it was wrong. */
+            parts.push(`${costVal > 0 ? 'Frees' : 'Costs'} ${fmtCurrency(Math.abs(costVal))}.`);
           } else if (costVal === 0) {
             parts.push('No capital expenditure.');
           }
@@ -140,14 +157,14 @@ export default function DecisionTile({
         if (!to) return null;
         return (
           <div style={{
-            marginTop: 4, fontSize: '0.7rem', lineHeight: 1.5,
+            marginTop: 4, fontSize: 'var(--type-caption)', lineHeight: 1.5,
             display: 'flex', flexWrap: 'wrap', gap: '2px 8px',
           }} title="Projected — commit and see next round whether you were right.">
             {to.good.length > 0 && (
-              <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {to.good.join(', ')}</span>
+              <span style={{ color: 'var(--positive-text)', fontWeight: 600 }}>✓ {to.good.join(', ')}</span>
             )}
             {to.bad.length > 0 && (
-              <span style={{ color: '#d97706', fontWeight: 600 }}>✗ {to.bad.join(', ')}</span>
+              <span style={{ color: 'var(--caution-text)', fontWeight: 600 }}>✗ {to.bad.join(', ')}</span>
             )}
           </div>
         );
@@ -160,21 +177,24 @@ export default function DecisionTile({
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             marginBottom: 3,
           }}>
-            <span style={{ fontSize: '0.75rem', color: '#8899a6', fontWeight: 600 }}>💰 Cost</span>
+            <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontWeight: 600 }}>💰 Cost</span>
             <span style={{
-              fontSize: '0.75rem', fontWeight: 800,
-              color: costVal < 0 ? '#16a34a' : '#ef4444',
+              fontSize: 'var(--type-caption)', fontWeight: 800,
+              /* SIGN: negative = spend, so negative is the RED one. This was
+                 the visible half of the inversion — 22 of the 25 priced
+                 options rendered their cost in green. */
+              color: costVal > 0 ? 'var(--positive-text)' : 'var(--danger-text)',
             }}>
               {fmtCurrency(costVal)}
             </span>
           </div>
           <div style={{
-            height: 4, background: '#e2e8f0', borderRadius: 2,
+            height: 4, background: 'var(--neutral-soft)', borderRadius: 2,
             overflow: 'hidden',
           }}>
             <div style={{
               width: `${costBarPct}%`, height: '100%',
-              background: '#6366f1', borderRadius: 2,
+              background: 'var(--accent)', borderRadius: 2,
               transition: 'width 0.3s ease',
             }} />
           </div>
@@ -182,31 +202,31 @@ export default function DecisionTile({
       ) : (
         /* Zero-cost deferred risk warning */
         <div style={{ marginTop: compact ? 4 : 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b' }}>⚠️ $0 CapEx</span>
-          <span style={{ fontSize: '0.72rem', color: '#92400e' }}>— deferred risk</span>
+          <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--caution-text)' }}>⚠️ $0 CapEx</span>
+          <span style={{ fontSize: 'var(--type-caption)', color: 'var(--caution-text)' }}>— deferred risk</span>
         </div>
       )}
 
       {/* Impact Preview (shown only when selected) */}
       {isActive && option.impacts && !compact && (
         <div style={{
-          marginTop: 6, padding: '4px 6px', background: '#f8fafc',
-          borderRadius: 4, fontSize: '0.72rem', lineHeight: 1.6,
+          marginTop: 6, padding: '4px 6px', background: 'var(--neutral-faint)',
+          borderRadius: 4, fontSize: 'var(--type-caption)', lineHeight: 1.6,
         }}>
           {option.impacts.treasury && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: option.impacts.treasury < 0 ? '#16a34a' : '#ef4444' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: option.impacts.treasury > 0 ? 'var(--positive-text)' : 'var(--danger-text)' }}>
               <span>💰 Treasury</span>
               <span style={{ fontWeight: 700 }}>{fmtCurrency(treasury)} → {fmtCurrency(treasury + (option.impacts.treasury || 0))} {option.impacts.treasury < 0 ? '▼' : '▲'}</span>
             </div>
           )}
           {option.impacts.reputation !== undefined && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: option.impacts.reputation > 0 ? '#16a34a' : '#ef4444' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: option.impacts.reputation > 0 ? 'var(--positive-text)' : 'var(--danger-text)' }}>
               <span>🌍 Reputation</span>
               <span style={{ fontWeight: 700 }}>{reputation} → {reputation + (option.impacts.reputation || 0)} {option.impacts.reputation > 0 ? '▲' : '▼'}</span>
             </div>
           )}
           {option.impacts.carbon !== undefined && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: option.impacts.carbon < 0 ? '#16a34a' : '#ef4444' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: option.impacts.carbon < 0 ? 'var(--positive-text)' : 'var(--danger-text)' }}>
               <span>🏭 Carbon</span>
               <span style={{ fontWeight: 700 }}>{option.impacts.carbon > 0 ? '+' : ''}{option.impacts.carbon}t</span>
             </div>

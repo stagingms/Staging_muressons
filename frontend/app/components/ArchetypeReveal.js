@@ -26,6 +26,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import Dialog from './Dialog';
 import { logoutAnchorStyle, LOGOUT_GUTTER } from './logoutChrome';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { REVEAL_EASE } from '../styles/reveal';
@@ -398,19 +399,24 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
   }, []);
 
-  // Prevent any scroll/interaction bleed-through on the body while mounted
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+  /* PHASE 8. This declared role="dialog" and aria-modal="true" and then
+     honoured neither: no focus trap, no focus restore, and no Escape — Tab
+     walked out of a full-screen terminal reveal into the cockpit underneath,
+     which the comment at the foot of this file asserts is impossible.
 
+     The body-overflow lock that used to live here is gone: Dialog does the
+     same thing, refcounted, so a nested dialog cannot unlock early. Two
+     independent locks racing over one style property is how you get a page
+     stuck unscrollable.
+
+     dismissible={false} because there is nothing to dismiss TO — the
+     simulation is over and the way forward is onContinue, which is a real
+     button. Dialog still gives the trap and the focus restore. */
   return (
-    <div
+    <Dialog
       className={styles.root}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Simulation complete. Archetype: ${theme.label}`}
+      label={`Simulation complete. Archetype: ${theme.label}`}
+      dismissible={false}
       style={{
         background: `linear-gradient(160deg, ${theme.gradientStart} 0%, ${theme.gradientMid} 50%, ${theme.gradientEnd} 100%)`,
       }}
@@ -753,7 +759,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
         {/* Bottom spacer */}
         <div style={{ height: '3rem' }} />
       </div>
-    </div>
+    </Dialog>
   );
 }
 

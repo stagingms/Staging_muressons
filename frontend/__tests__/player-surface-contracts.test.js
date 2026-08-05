@@ -651,3 +651,94 @@ describe('dashboard preference', () => {
   });
 });
 
+
+/* ── PHASE 8: every modal goes through the one primitive ──────────────────────
+
+   Dialog.js provides role="dialog", aria-modal, an accessible name, a focus
+   trap (2.1.2), focus restore (2.4.3), topmost-only Escape via a module-level
+   stack, and a refcounted scroll lock. Four components declared the first two
+   attributes by hand and honoured none of the rest:
+
+     AnnualReport      Escape only — no trap, no restore
+     FrontPageReveal   Escape only — no trap, no restore, full-viewport
+     ArchetypeReveal   nothing at all, on a terminal screen
+     ShortcutSheet     nothing of its own — a keyboard-shortcut sheet that a
+                       keyboard user could Tab straight out of
+
+   The defect this locks is not "a modal lacks a trap". It is that declaring
+   aria-modal="true" by hand LOOKS like the fix, passes any grep for it, and
+   delivers none of the behaviour the attribute promises to a screen reader.
+
+   So: assert that nothing outside Dialog.js writes those attributes on a
+   plain element. A new modal either adopts the primitive or fails here. */
+describe('modal accessibility is centralised', () => {
+  const parser = require('@babel/parser');
+
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(rel, out); continue; }
+      if (e.name.endsWith('.js')) out.push(rel);
+    }
+    return out;
+  };
+
+  const handRolled = () => {
+    const offenders = [];
+    for (const f of walk('app')) {
+      if (f === 'app/components/Dialog.js') continue;
+      let ast;
+      try {
+        ast = parser.parse(read(f), { sourceType: 'module', plugins: ['jsx'] });
+      } catch { continue; }
+      JSON.stringify(ast, (k, v) => {
+        if (v && v.type === 'JSXOpeningElement' && v.name?.type === 'JSXIdentifier'
+            && v.name.name !== 'Dialog') {
+          for (const a of v.attributes) {
+            if (a.type !== 'JSXAttribute') continue;
+            const isRoleDialog = a.name.name === 'role'
+              && a.value?.type === 'StringLiteral' && a.value.value === 'dialog';
+            if (isRoleDialog || a.name.name === 'aria-modal') {
+              offenders.push(`${f}:${v.loc.start.line}`);
+            }
+          }
+        }
+        return v;
+      });
+    }
+    return [...new Set(offenders)];
+  };
+
+  test('no component hand-rolls role="dialog" or aria-modal', () => {
+    expect(handRolled()).toEqual([]);
+  });
+
+  test('the four that used to are now adopters', () => {
+    for (const f of ['AnnualReport', 'FrontPageReveal', 'ArchetypeReveal', 'ShortcutSheet']) {
+      const s = read(`app/components/${f}.js`);
+      expect(`${f} imports Dialog: ${/import Dialog from '\.\/Dialog'/.test(s)}`)
+        .toBe(`${f} imports Dialog: true`);
+      expect(`${f} renders Dialog: ${/<Dialog\b/.test(s)}`)
+        .toBe(`${f} renders Dialog: true`);
+    }
+  });
+
+  test('none of them keeps a private Escape listener beside the shared one', () => {
+    // Two handlers for one key is how a stacked dialog collapses both — which
+    // is the exact reason Dialog keeps a module-level stack.
+    for (const f of ['AnnualReport', 'FrontPageReveal', 'ArchetypeReveal', 'ShortcutSheet']) {
+      const s = read(`app/components/${f}.js`).replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(`${f}: ${/addEventListener\('keydown'/.test(s)}`).toBe(`${f}: false`);
+    }
+  });
+
+  test('the terminal reveal is non-dismissible, not un-trapped', () => {
+    // ArchetypeReveal has nowhere to dismiss TO — the run is over. That is a
+    // reason for dismissible={false}, not a reason to skip the trap.
+    const s = read('app/components/ArchetypeReveal.js');
+    expect(s).toMatch(/dismissible=\{false\}/);
+    // And its own body-overflow lock is gone: two independent locks racing
+    // over one style property is how a page gets stuck unscrollable.
+    expect(s).not.toMatch(/document\.body\.style\.overflow = 'hidden'/);
+  });
+});

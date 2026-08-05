@@ -2,20 +2,33 @@
 
 /**
  * ShortcutSheet — Phase 6 (F12): discoverable keyboard shortcuts.
- * Toggled with '?' on both admin dashboards. Purely presentational.
+ * Toggled with '?' on both admin dashboards.
+ *
+ * PHASE 8. This hand-rolled its own role="dialog" overlay: no focus trap, no
+ * focus restore. Tab walked straight out of it into the dashboard behind
+ * (2.1.2), and closing it dropped focus on <body> rather than returning it to
+ * whatever opened it (2.4.3). Both parents already bound Escape, so the
+ * "Press ? or Esc to close" line was true — it was the only true part.
+ *
+ * A keyboard-shortcut sheet that a keyboard user cannot navigate is the
+ * sharpest version of this defect in the product.
+ *
+ * Dialog is a wrapper, not a redesign: className, styles and inner markup are
+ * unchanged. Escape now comes from Dialog (topmost-only, so it cannot collapse
+ * a stack), which is strictly better than the parents' unconditional handler.
  */
+import Dialog from './Dialog';
+
 export default function ShortcutSheet({ shortcuts = [], onClose }) {
     return (
-        <div
+        <Dialog
+            onClose={onClose}
+            label="Keyboard shortcuts"
             style={{
                 position: 'fixed', inset: 0, zIndex: 24000,
                 background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Keyboard shortcuts"
         >
             <div style={{
                 background: 'var(--bg-card, #111827)', border: '1px solid var(--border-subtle, #334155)',
@@ -50,6 +63,6 @@ export default function ShortcutSheet({ shortcuts = [], onClose }) {
                     Press ? or Esc to close
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }
