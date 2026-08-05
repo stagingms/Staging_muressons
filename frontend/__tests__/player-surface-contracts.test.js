@@ -888,3 +888,82 @@ describe('crisis speech synthesis can be turned off', () => {
     expect(c).toMatch(/catch \{ return true; \}/);
   });
 });
+
+/* ── PHASE 5: the spine, the drawer, and the rail that stops moving ────────── */
+describe('the context drawer is a relocation, not a second copy', () => {
+  const c = read('app/components/ExecutiveCockpit.js');
+  const css = read('app/components/ExecutiveCockpit.module.css');
+
+  test('it is a one-line switch, and the switch is a plain boolean literal', () => {
+    /* This asserted `= false` while the drawer was unreviewed, as a guard
+       against it reaching production by accident. That guard has now done its
+       job and been deliberately released: the only environment this can be
+       evaluated in is the deployed site, so it ships ON and rolls back by
+       editing this one line.
+
+       What is still worth pinning is that it stays a bare literal. The moment
+       it becomes a prop, an env var or a facilitator setting, "revert the rail
+       change" stops being a one-line operation performed under time pressure
+       between sessions - which is the only reason the constant exists. */
+    expect(c).toMatch(/^const CONTEXT_DRAWER = (true|false);$/m);
+  });
+
+  test('the rail content is captured once and mounted into whichever shell', () => {
+    // The failure this guards is the obvious implementation: render the panels
+    // in the aside AND again in the drawer. Two mounts means two copies of
+    // every panel's state, and the mailbox unread count diverging from itself.
+    expect((c.match(/const contextPanels = \(<>/g) || []).length).toBe(1);
+    expect((c.match(/\{contextPanels\}/g) || []).length).toBe(2); // one per shell
+    // ...but only one of the two shells can ever render.
+    expect(c).toMatch(/if \(!CONTEXT_DRAWER\) \{/);
+  });
+
+  test('the drawer keeps modal semantics without a scrim', () => {
+    // A scrim makes it an interruption; the mock draws a panel you consult
+    // WHILE reading the decision. Dialog still supplies trap + Escape, so a
+    // keyboard user gets modal behaviour even though the eye does not.
+    expect(c).toMatch(/className=\{styles\.contextDrawer\}/);
+    expect(c).toMatch(/closeOnBackdrop=\{false\}/);
+  });
+
+  test('the spine button is 44x44 and its badge is corner-pinned', () => {
+    // The Resources pill rendered 186px wide holding one emoji because
+    // min-width does nothing to a stretched flex child and an inline badge
+    // stretches its parent. Both mistakes are cheap to repeat here.
+    const spine = css.match(/\.spineBtn \{[^}]*\}/)[0];
+    expect(spine).toMatch(/width: 44px/);
+    expect(spine).toMatch(/height: 44px/);
+    const badge = css.match(/\.spineBadge \{[^}]*\}/)[0];
+    expect(badge).toMatch(/position: absolute/);
+  });
+
+  test('the drawer does not cover the whole screen on a narrow one', () => {
+    const d = css.match(/\.contextDrawer \{[^}]*\}/)[0];
+    expect(d).toMatch(/width: 360px/);
+    expect(d).toMatch(/max-width: 92vw/);
+  });
+
+  test('the slide is removed under reduced motion, not merely shortened', () => {
+    // Arriving instantly is fine. Arriving from off-screen while someone is
+    // reading is the part that is not.
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.contextDrawer \{ animation: none; \}/);
+  });
+});
+
+describe('the rail stays where the player put it', () => {
+  const c = read('app/components/ExecutiveCockpit.js');
+
+  test('no stage forces it open', () => {
+    // Was `roundStage !== 'results' && !railsPinnedOpen`, so reaching results
+    // forced both rails open regardless of the player's choice — and closing
+    // them, then advancing a round, forced them open again.
+    expect(c).toMatch(/const railsCollapsed = !railsPinnedOpen;/);
+    expect(c).not.toMatch(/railsCollapsed = roundStage !== 'results'/);
+  });
+
+  test('the results links that need the rail still open it explicitly', () => {
+    // Removing the automatic expansion is only safe because the panels it used
+    // to reveal are reachable another way.
+    expect(c).toMatch(/setRailsPinnedOpen\(true\)/);
+  });
+});

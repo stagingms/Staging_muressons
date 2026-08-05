@@ -3334,3 +3334,130 @@
   color: var(--text-muted);
 }
 
+
+/* ═══ PHASE 5.1 + 5.2 — THE SPINE AND THE CONTEXT DRAWER ═══════════════════
+   Active only when CONTEXT_DRAWER is true in ExecutiveCockpit.js. Written
+   against the mock's own measurements: a 56px spine, a 360px drawer pinned to
+   the right below the header, sliding rather than appearing.
+
+   The drawer deliberately does NOT dim the canvas. A scrim would make this a
+   modal interruption; the mock draws it as a panel you consult WHILE reading
+   the decision, which is the difference between a peek and an overlay. Dialog
+   still supplies the focus trap and Escape — a keyboard user gets modal
+   semantics even though the eye does not. */
+
+.rightSpine {
+  width: 56px;
+  min-width: 56px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  background: var(--ck-surface-1);
+  border-left: 1px solid var(--ck-border);
+  flex-shrink: 0;
+}
+
+/* 44x44 minimum, which is also the Phase 8 target floor — a spine is the one
+   place where a small icon button is most tempting and least defensible. */
+.spineBtn {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--ck-text-2);
+  font-size: var(--type-title);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-ease),
+              color var(--motion-fast) var(--motion-ease);
+}
+
+.spineBtn:hover {
+  background: var(--ck-surface-2);
+  color: var(--ck-text-1);
+}
+
+.spineBtn[aria-expanded="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+/* Corner-pinned, not inline: an inline badge stretches the button and that is
+   exactly how the Resources pill ended up 186px wide holding one emoji. */
+.spineBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 var(--space-0);
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: var(--type-caption);
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.contextDrawer {
+  position: fixed;
+  top: 48px;             /* clears .header, which is 48px and fixed */
+  right: 0;
+  bottom: 0;
+  width: 360px;
+  max-width: 92vw;       /* a 360px drawer on a 375px phone is the whole screen */
+  z-index: var(--z-drawer);
+  display: flex;
+  flex-direction: column;
+  background: var(--ck-surface-1);
+  border-left: 1px solid var(--ck-border);
+  box-shadow: var(--elevation-overlay);
+  animation: contextDrawerIn var(--motion-stage) var(--motion-ease) both;
+}
+
+.contextDrawerBody {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.contextDrawerClose {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--ck-text-3);
+  font-size: var(--type-title);
+  cursor: pointer;
+}
+
+.contextDrawerClose:hover {
+  background: var(--ck-surface-2);
+  color: var(--ck-text-1);
+}
+
+@keyframes contextDrawerIn {
+  from { transform: translateX(100%); }
+  to   { transform: none; }
+}
+
+/* Slide is the one thing that has to go. The drawer arriving instantly is
+   fine; the drawer arriving from off-screen while someone is reading is not. */
+@media (prefers-reduced-motion: reduce) {
+  .contextDrawer { animation: none; }
+}

@@ -123,6 +123,18 @@ const ACTION_BAR = true;
    one that touches what the primary button DOES. */
 const SINGLE_CTA = true;
 
+/* PHASE 5.1 + 5.2 — the right rail becomes a 56px spine and its content moves
+   into a 360px overlay drawer, per the mock. One line, same pattern as
+   CANVAS_FIRST and ACTION_BAR above.
+
+   FALSE until somebody has looked at it on a real screen. The rail holds
+   Charts, Metrics, Living Planet, synergy, inflation, cost of capital, the
+   stock chart, CAROIC, the mailbox, competitor intel and the stakeholder
+   panel; three separate attempts in this review to narrow this surface made
+   one or more of those unreachable, and every one was caught by a screenshot
+   rather than by a test. Flip to true, look, then decide. */
+const CONTEXT_DRAWER = true;
+
 /* The arc is ten rounds. It was written as a bare "10" in the left rail's
    R2/10 chip and nowhere else; naming it means the header and the chip cannot
    disagree, and there is one place to change if a shorter format is ever run. */
@@ -743,8 +755,20 @@ export default function ExecutiveCockpit({
      synergy, inflation, cost of capital, the stock chart, CAROIC — unreachable
      rather than merely out of the way. Recession that cannot be undone is
      removal. Session-scoped so a team that wants the wide board keeps it. */
+  const [contextOpen, setContextOpen] = useState(false);
   const [railsPinnedOpen, setRailsPinnedOpen] = useState(false);
-  const railsCollapsed = roundStage !== 'results' && !railsPinnedOpen;
+  /* PHASE 5.4 — THE RAIL STAYS WHERE THE PLAYER PUT IT.
+     This read `roundStage !== 'results' && !railsPinnedOpen`, so reaching the
+     results stage forced both rails open regardless of what the player had
+     chosen — and then closing them, and advancing a round, forced them open
+     again. A preference that a stage overrides is not a preference.
+
+     Nothing becomes unreachable by removing it: the results stage's own
+     disclosure links call setRailsPinnedOpen(true) explicitly when a panel
+     they point at lives in the rail (see the deep-dive links below), which is
+     the same expansion happening because the player asked for it rather than
+     because the stage changed. */
+  const railsCollapsed = !railsPinnedOpen;
 
   // Phase B (F-P7): flag the concentration stages on <html> so ambient
   // chrome rendered outside this component (the market ticker in page.js)
@@ -3967,7 +3991,28 @@ export default function ExecutiveCockpit({
           aria-label={railsCollapsed ? 'Open the side panels' : 'Close the side panels'}
           title={railsCollapsed ? 'Open the side panels' : 'Close the side panels'}
         >{railsCollapsed ? '‹' : '›'}</button>
-        <aside id="tour-intelligence-target" aria-label="Messages and intelligence" className={styles.rightSidebar}>
+        {/* ── PHASE 5.1 + 5.2 — THE SPINE AND THE DRAWER ──────────────────
+            The mock ("Direction A - The Desk") draws this rail as a 360px
+            overlay drawer labelled "Messages and intelligence" - the same
+            label this aside already carries - opened from an envelope in the
+            header and a "Context" button in the belt, with Escape closing it
+            and focus returning. The rail itself becomes a spine.
+
+            The content below is UNCHANGED and rendered exactly once. It is
+            captured here and mounted into whichever shell CONTEXT_DRAWER
+            selects, so the drawer is a relocation rather than a second copy:
+            no duplicated state, no panel rendered twice, and no possibility
+            of the two versions drifting.
+
+            CONTEXT_DRAWER ships FALSE. Three times in this review a rail
+            change made panels unreachable - Resources hidden in the collapsed
+            rail, then Resources at 186px wide containing one emoji, then the
+            rails collapsing with no way back - and every one was found by a
+            screenshot rather than by me. This is the same class of change on
+            the same surface, so it goes in dark and turns on after somebody
+            has looked at it. */}
+        {(() => {
+          const contextPanels = (<>
           {/* Floating Resources Pill — the panel's only launcher besides the R
               key, so it must disappear with it. page.js passes onResourcesOpen
               as null when the resources_sidebar switch is off; rendering the
@@ -4335,7 +4380,62 @@ export default function ExecutiveCockpit({
               pill, the stepper) answered the same intent. The left pill and
               the stepper remain; handleFocusReenter is unchanged. */}
 
-        </aside>
+          </>);
+
+          if (!CONTEXT_DRAWER) {
+            return (
+              <aside id="tour-intelligence-target" aria-label="Messages and intelligence" className={styles.rightSidebar}>
+                {contextPanels}
+              </aside>
+            );
+          }
+
+          return (
+            <>
+              {/* The spine. 56px, and it is NAVIGATION, not chrome — the same
+                  reason the left tab bar survived the rail collapse. */}
+              <aside className={styles.rightSpine} aria-label="Context">
+                <button
+                  type="button"
+                  className={styles.spineBtn}
+                  onClick={() => setContextOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={contextOpen}
+                  aria-label={unreadCount > 0
+                    ? `Messages and intelligence, ${unreadCount} unread`
+                    : 'Messages and intelligence'}
+                  title="Messages and intelligence (C)"
+                >
+                  <span aria-hidden="true">✉</span>
+                  {unreadCount > 0 && <span className={styles.spineBadge} aria-hidden="true">{unreadCount}</span>}
+                </button>
+              </aside>
+
+              {contextOpen && (
+                <Dialog
+                  className={styles.contextDrawer}
+                  onClose={() => setContextOpen(false)}
+                  label="Messages and intelligence"
+                  /* The drawer is a panel at the edge, not a scrim over the
+                     canvas: the decision underneath stays readable and stays
+                     clickable-adjacent, which is the whole point of a peek.
+                     Escape and the close button are the ways out. */
+                  closeOnBackdrop={false}
+                >
+                  <button
+                    type="button"
+                    className={styles.contextDrawerClose}
+                    onClick={() => setContextOpen(false)}
+                    aria-label="Close messages and intelligence"
+                  >✕</button>
+                  <div className={styles.contextDrawerBody}>
+                    {contextPanels}
+                  </div>
+                </Dialog>
+              )}
+            </>
+          );
+        })()}
 
         {/* ── Stakeholder Negotiation Room ──
              Slot: OverlayHost (interrupt). Summoned from the stakeholder
