@@ -1061,3 +1061,60 @@ describe('focus mode can be turned off from the rail', () => {
     expect(c).toMatch(/handleFocusReenter\(\)/);
   });
 });
+
+/* ── PHASE 7.3: the two silent failures that actually cost something ────────
+   The player path makes 32 fetches across 10 files and 30 of them end in a
+   silent catch. Most are defensible — an enrichment panel that does not
+   appear is a panel that does not appear. Two are not, because in both the
+   failure is INDISTINGUISHABLE from a legitimate state, so nobody can tell it
+   happened. Those are the two fixed here; the other 28 stay silent on purpose
+   rather than gaining error UI nobody needs. */
+describe('failures that cannot be distinguished from normal are not silent', () => {
+  test('a dropped pacing poll does not delete a clock the round already had', () => {
+    /* A failed poll and "this round has no time limit" both left timeLeft
+       null and both rendered nothing. So one dropped request during a timed
+       round removed the clock from every screen in the room, and the first
+       anyone knew was a round auto-committing under them. */
+    const t = read('app/components/CountdownTimer.js');
+    expect(t).toMatch(/deadlineRef/);
+    // The catch now keeps counting toward the last known instant...
+    expect(t).toMatch(/A FAILED POLL IS NOT AN ANSWER/);
+    // ...but only if there WAS one. Inventing a limit is worse than none.
+    expect(t).toMatch(/if \(!cancelled && deadlineRef\.current\)/);
+  });
+
+  test('an authoritative "not timed" still clears the deadline', () => {
+    // Otherwise a facilitator switching a cohort back to free mode leaves a
+    // ghost clock running on every player's screen.
+    const t = read('app/components/CountdownTimer.js');
+    const elseBranch = t.slice(t.indexOf('} else {'), t.indexOf('} catch {'));
+    expect(elseBranch).toMatch(/deadlineRef\.current = null/);
+  });
+
+  test('a prediction that fails to POST is retried, not dropped', () => {
+    /* The text is written to sessionStorage BEFORE the POST, so the player's
+       own echo on the waiting screen works either way — which makes the
+       failure invisible on the screen where it happens, while the thing the
+       prediction exists for (the facilitator's debrief) quietly loses it. */
+    const c = read('app/components/ExecutiveCockpit.js');
+    expect(c).toMatch(/const sendPrediction = useCallback/);
+    expect(c).toMatch(/__unsent/);
+    // Flushed on round change: the moment the network has most recently been
+    // proven to work, because a commit just succeeded.
+    expect(c).toMatch(/\}, \[roundNumber, sendPrediction\]\);/);
+  });
+
+  test('a non-2xx counts as a failure, not just a thrown request', () => {
+    // .catch() alone misses a 500, which is the likelier failure of the two.
+    const c = read('app/components/ExecutiveCockpit.js');
+    expect(c).toMatch(/\.then\(\(r\) => mark\(!r\.ok\)\)/);
+  });
+
+  test('the retry adds no error UI, deliberately', () => {
+    // Interrupting a commit to report a background POST would be worse than
+    // the loss it reports. The recovery is silent because the failure is
+    // recoverable; the timer's is visible because its failure is not.
+    const c = read('app/components/ExecutiveCockpit.js');
+    expect(c).toMatch(/Still no error UI/);
+  });
+});

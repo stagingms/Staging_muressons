@@ -22,6 +22,21 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
      Four utterances per round, at the moments a decision is still possible. */
   const [announcement, setAnnouncement] = useState('');
   const announcedRef = useRef(new Set());
+  /* PHASE 7.3 — A CLOCK YOU ALREADY HAD MUST NOT VANISH.
+     The poll's catch was silent, and a failed poll is INDISTINGUISHABLE from
+     "this round has no time limit": both leave timeLeft null and both render
+     nothing. So a dropped request during a timed round removes the clock from
+     every screen in the room, and the first anyone knows is a round
+     auto-committing under them.
+
+     The deadline is an absolute instant, not a duration, so it does not need
+     re-fetching to stay correct — the local tick can carry it. This keeps the
+     last known deadline and lets the countdown continue across failures.
+
+     It cannot INVENT a limit: if no deadline was ever received, a failure
+     still renders nothing, because "no limit" is the honest reading of no
+     data. Only a clock that already existed survives. */
+  const deadlineRef = useRef(null);
   // NEW-11: Resolved cohort session ID (may differ from player's own sessionId)
   const cohortIdRef = useRef(null);
 
@@ -76,6 +91,7 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
           if (data.mode === 'timed' && deadlineIso) {
             const deadline = new Date(deadlineIso).getTime();
             if (Number.isNaN(deadline)) { setTimeLeft(null); return; }
+            deadlineRef.current = deadline;
             const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
             setTimeLeft(remaining);
             /* interval_seconds is the round's full length — the denominator the
@@ -83,10 +99,23 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
                bar start full on every poll and never move. */
             setTotalTime(data.interval_seconds || remaining);
           } else {
+            /* An AUTHORITATIVE "no longer timed" — the server answered and said
+               so. Clear the remembered deadline too, or a facilitator switching
+               a cohort back to free mode would leave a ghost clock running. */
+            deadlineRef.current = null;
             setTimeLeft(null);
           }
         }
-      } catch { /* silent */ }
+      } catch {
+        /* A FAILED POLL IS NOT AN ANSWER. If a deadline was already known, keep
+           counting toward it; the tick below does the arithmetic locally and
+           the instant does not drift. If none was, stay silent — inventing a
+           limit is worse than showing none. */
+        if (!cancelled && deadlineRef.current) {
+          const remaining = Math.max(0, Math.floor((deadlineRef.current - Date.now()) / 1000));
+          setTimeLeft(remaining);
+        }
+      }
     };
 
     fetchTimer();

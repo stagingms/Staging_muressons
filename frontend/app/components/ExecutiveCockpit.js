@@ -755,6 +755,47 @@ export default function ExecutiveCockpit({
      synergy, inflation, cost of capital, the stock chart, CAROIC — unreachable
      rather than merely out of the way. Recession that cannot be undone is
      removal. Session-scoped so a team that wants the wide board keeps it. */
+  /* PHASE 7.3 — prediction delivery, with one retry that costs nothing.
+     The text is already in sessionStorage under `key`; all that is tracked
+     here is whether the server has acknowledged it. */
+  const sendPrediction = useCallback((key, round, text) => {
+    const API = process.env.NEXT_PUBLIC_API_URL || '';
+    const pid = (typeof localStorage !== 'undefined' && localStorage.getItem('muressons_playerId')) || '';
+    const mark = (unsent) => {
+      try {
+        if (unsent) sessionStorage.setItem(`${key}__unsent`, '1');
+        else sessionStorage.removeItem(`${key}__unsent`);
+      } catch { /* storage disabled - the POST either landed or it did not */ }
+    };
+    try {
+      fetch(`${API}/api/simulations/${sim?.sessionId}/prediction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(pid ? { 'X-Player-Id': pid } : {}) },
+        body: JSON.stringify({ round_number: round, text }),
+      })
+        .then((r) => mark(!r.ok))
+        .catch(() => mark(true));
+    } catch { mark(true); }
+  }, [sim?.sessionId]);
+
+  /* Flush anything a previous round failed to deliver. Runs on round change
+     rather than on an interval: a new round is exactly when the network has
+     most recently been proven to work, because a commit just succeeded. */
+  useEffect(() => {
+    let store;
+    try { store = sessionStorage; } catch { return; }
+    if (!store) return;
+    for (let i = 0; i < store.length; i++) {
+      const k = store.key(i);
+      if (!k || !k.endsWith('__unsent')) continue;
+      const base = k.slice(0, -'__unsent'.length);
+      const m = base.match(/^prediction_r(\d+)_/);
+      const text = store.getItem(base);
+      if (!m || !text) { try { store.removeItem(k); } catch {} continue; }
+      sendPrediction(base, Number(m[1]), text);
+    }
+  }, [roundNumber, sendPrediction]);
+
   const [contextOpen, setContextOpen] = useState(false);
   const [railsPinnedOpen, setRailsPinnedOpen] = useState(false);
   /* PHASE 5.4 — THE RAIL STAYS WHERE THE PLAYER PUT IT.
@@ -4835,15 +4876,23 @@ export default function ExecutiveCockpit({
                   if (predictionText.trim()) {
                     const key = `prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`;
                     try { sessionStorage.setItem(key, predictionText); } catch {}
-                    try {
-                      const API = process.env.NEXT_PUBLIC_API_URL || '';
-                      const pid = (typeof localStorage !== 'undefined' && localStorage.getItem('muressons_playerId')) || '';
-                      fetch(`${API}/api/simulations/${sim?.sessionId}/prediction`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', ...(pid ? { 'X-Player-Id': pid } : {}) },
-                        body: JSON.stringify({ round_number: roundNumber, text: predictionText }),
-                      }).catch(() => {});
-                    } catch {}
+                    /* PHASE 7.3 — A PREDICTION THAT NEVER ARRIVES IS LOST DATA,
+                       AND THE PLAYER CANNOT TELL.
+
+                       This POST was fire-and-forget with .catch(() => {}). The
+                       sessionStorage write above means the player's own echo on
+                       the waiting screen still works, so the failure is
+                       completely invisible ON THIS SCREEN — while the thing the
+                       prediction exists FOR, the facilitator's debrief, quietly
+                       loses it. A dropped request during the one moment of a
+                       round where a team commits to a falsifiable claim.
+
+                       So: mark it unsent on failure, and flush on the next
+                       commit. sessionStorage already holds the text, so the
+                       retry costs one key and no new state. Still no error UI —
+                       interrupting a commit to report a background POST would
+                       be worse than the loss it reports. */
+                    sendPrediction(key, roundNumber, predictionText);
                   }
                   setShowPredictionModal(false);
                   setPredictionText('');
