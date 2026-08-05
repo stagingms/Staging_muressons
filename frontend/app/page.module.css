@@ -278,7 +278,7 @@
   border: 1px solid rgba(16, 185, 129, 0.35);
   border-radius: var(--radius-md);
   color: var(--gauge-green);
-  font-size: var(--fs-sm);
+  font-size: var(--type-body);
   font-weight: 700;
   text-align: center;
   cursor: pointer;

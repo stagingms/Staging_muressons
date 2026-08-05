@@ -1567,7 +1567,7 @@ export default function ExecutiveCockpit({
                   flex: 1, padding: '7px 6px', border: 'none', cursor: 'pointer',
                   background: leftPanelTab === tab.id ? 'rgba(94, 234, 212, 0.08)' : 'transparent',
                   color: leftPanelTab === tab.id ? 'var(--ck-accent)' : 'var(--ck-text-3)',
-                  fontSize: 'var(--ck-fs-xs, 0.65rem)', fontWeight: 600, fontFamily: 'inherit',
+                  fontSize: 'var(--type-caption)', fontWeight: 600, fontFamily: 'inherit',
                   letterSpacing: '0.04em', textTransform: 'uppercase',
                   borderBottom: leftPanelTab === tab.id ? '2px solid var(--ck-accent)' : '2px solid transparent',
                   transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',

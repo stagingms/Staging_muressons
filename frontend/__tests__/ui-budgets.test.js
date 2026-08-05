@@ -506,3 +506,50 @@ describe('no dead colour fallbacks', () => {
     }
   });
 });
+
+/* ── 2.8 ONE TYPE SCALE, ONE SET OF NAMES ───────────────────────────────────
+   The tree ran two type scales for months. tokens.css called --type-caption
+   (12px) the smallest step; globals.css ran a parallel --fs-* clamp family
+   whose floor was 11.52px; and ExecutiveCockpit.module.css added a THIRD hop,
+   --ck-fs-*, aliasing the second. Phase 6.1 collapsed --fs-* to an alias of
+   --type-*; Phase 6.4 deletes it.
+
+   The alias could have stayed harmlessly. It should not have, and this is the
+   assertion that keeps it gone: a second name for a scale is a second place to
+   add a step, and that is exactly how the two floors came to disagree in the
+   first place. Nobody added 11.52px on purpose — they added it to --fs-xs,
+   which nobody was reading as "the type scale". */
+describe('the type scale has one name', () => {
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(rel, out); continue; }
+      if (/\.(js|css)$/.test(e.name)) out.push(rel);
+    }
+    return out;
+  };
+
+  test('no file defines or consumes --fs-* or --ck-fs-*', () => {
+    const hits = [];
+    for (const f of walk('app')) {
+      // Strip comments first: this file's own history is written in them, and
+      // three earlier tripwires in this suite were tripped by prose describing
+      // the defect they removed.
+      const s = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
+      for (const m of s.matchAll(/--(?:ck-)?fs-[a-z]+/g)) hits.push(`${f}  ${m[0]}`);
+    }
+    expect(hits.slice(0, 8)).toEqual([]);
+    expect(hits.length).toBe(0);
+  });
+
+  test('the scale it replaced is still there, and still has its floor', () => {
+    // A deletion test that passes because BOTH scales vanished would be a
+    // disaster reported as a success.
+    const t = read('app/styles/tokens.css');
+    for (const step of ['caption', 'body', 'title', 'display', 'lead', 'hero', 'mega']) {
+      expect(`--type-${step} defined: ${new RegExp(`--type-${step}:`).test(t)}`)
+        .toBe(`--type-${step} defined: true`);
+    }
+    expect(t).toMatch(/--type-caption:\s*0\.75rem/);   // 12px, the floor
+  });
+});

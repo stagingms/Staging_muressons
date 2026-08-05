@@ -20,14 +20,14 @@
 }
 
 .headerTitle {
-  font-size: var(--fs-lg, 1.2rem);
+  font-size: var(--type-display);
   font-weight: 900;
   color: var(--text-primary);
   letter-spacing: 0.02em;
 }
 
 .headerSubtitle {
-  font-size: var(--fs-sm, 0.78rem);
+  font-size: var(--type-body);
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -114,14 +114,14 @@
 
 /* ── Director Info ── */
 .directorName {
-  font-size: var(--fs-md, 0.9rem);
+  font-size: var(--type-title);
   font-weight: 800;
   color: var(--text-primary);
   text-align: center;
 }
 
 .directorTitle {
-  font-size: var(--fs-xs, 0.68rem);
+  font-size: var(--type-caption);
   color: var(--text-muted);
   text-align: center;
   margin-bottom: var(--space-sm, 8px);
@@ -135,14 +135,14 @@
   padding: 3px 10px;
   border-radius: 999px;
   border: 1px solid;
-  font-size: var(--fs-xs, 0.65rem);
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--space-sm, 8px);
 }
 
 .stance {
-  font-size: var(--fs-xs, 0.68rem);
+  font-size: var(--type-caption);
   font-weight: 600;
   font-style: italic;
   color: var(--text-secondary);
@@ -171,7 +171,7 @@
 }
 
 .scriptText {
-  font-size: var(--fs-xs, 0.72rem);
+  font-size: var(--type-caption);
   color: var(--text-primary);
   line-height: 1.5;
   position: relative;
@@ -180,7 +180,7 @@
 
 /* ── Recommendation ── */
 .recommendation {
-  font-size: var(--fs-xs, 0.68rem);
+  font-size: var(--type-caption);
   color: var(--text-muted);
   text-align: center;
   margin-bottom: var(--space-sm, 10px);
@@ -197,7 +197,7 @@
   border: 1px solid rgba(239, 68, 68, 0.25);
   background: rgba(239, 68, 68, 0.06);
   color: #fca5a5;
-  font-size: var(--fs-xs, 0.72rem);
+  font-size: var(--type-caption);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -246,14 +246,14 @@
 }
 
 .rejectedText {
-  font-size: var(--fs-md, 0.9rem);
+  font-size: var(--type-title);
   font-weight: 800;
   color: #fca5a5;
   text-align: center;
 }
 
 .rejectedConsequence {
-  font-size: var(--fs-xs, 0.68rem);
+  font-size: var(--type-caption);
   color: #f87171;
   font-weight: 600;
   margin-top: 4px;

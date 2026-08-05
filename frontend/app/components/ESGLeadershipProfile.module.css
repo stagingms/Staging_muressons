@@ -29,7 +29,7 @@
 }
 
 .headerTitle {
-  font-size: var(--fs-lg, 1.1rem);
+  font-size: var(--type-display);
   font-weight: 900;
   color: var(--text-primary);
 }
@@ -127,7 +127,7 @@
 }
 
 .calloutValue {
-  font-size: var(--fs-sm, 0.78rem);
+  font-size: var(--type-body);
   font-weight: 800;
   color: var(--text-primary);
 }
@@ -141,7 +141,7 @@
   border: 1px solid rgba(99, 102, 241, 0.3);
   background: rgba(99, 102, 241, 0.08);
   color: #818cf8;
-  font-size: var(--fs-sm, 0.78rem);
+  font-size: var(--type-body);
   font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;

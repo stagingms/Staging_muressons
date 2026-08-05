@@ -82,36 +82,15 @@
   --font-mono: var(--font-jetbrains-mono, 'JetBrains Mono', 'Fira Code', monospace);
 
   /* Fluid Typography Scale (Tier 3: clamp-based responsive sizing) */
-  /* ═══ PHASE 6.1 — THE --fs-* FAMILY IS NOW AN ALIAS, NOT A SCALE ═══
+  /* PHASE 6.4 — the --fs-* family is GONE.
+     6.1 turned it into an alias of --type-*; this deletes it. 106 consumers
+     were migrated first, so nothing here is a rename: every one of those sites
+     already resolved to exactly the --type-* value it now names directly.
 
-     What these were: six independent clamp() ramps, each interpolating on
-     viewport width. Two problems.
-
-     --fs-xs floored at 0.72rem = 11.52px, BELOW the 12px floor tokens.css
-     sets for anything a player reads, and it is the most-used of the six
-     (40 of the 74 references). So the smallest type in the product got
-     smaller on the smallest screens, which is backwards.
-
-     And six ramps against a four-step scale is two type systems. A clamp
-     also means no two elements share a size unless they share a token —
-     11.52 to 12.48 and 12.48 to 13.6 overlap at exactly one viewport
-     width — so vertical rhythm was a coincidence of window size.
-
-     They now resolve to the scale. Nothing is deleted: 74 call sites keep
-     working, and they move onto the scale by editing six lines rather than
-     seventy-four. Deleting the names is a later, separate change with no
-     behavioural content.
-
-     The mapping collapses --fs-sm and --fs-base onto body (their clamps
-     overlapped through most of the range) and takes --fs-lg and --fs-xl to
-     display — a visible bump on the eight sites that use them, which is the
-     one thing to look at on a real screen. ══════════════════════════════ */
-  --fs-xs:   var(--type-caption);   /* was 11.52-12.48px — floor breach */
-  --fs-sm:   var(--type-body);      /* was 12.48-13.60px */
-  --fs-base: var(--type-body);      /* was 13.60-15.20px */
-  --fs-md:   var(--type-title);     /* was 15.20-17.60px */
-  --fs-lg:   var(--type-display);   /* was 17.60-20.80px */
-  --fs-xl:   var(--type-display);   /* was 20.80-25.60px */
+     Why it could not just stay as a harmless alias: a second name for a scale
+     is a second place to add a step. --fs-xs floored at 11.52px while
+     tokens.css called 12px the smallest step, and the two disagreed for
+     months because both existed. One scale, one set of names. */
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -606,13 +585,17 @@ body.theme-transitioning::before {
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /*
-  1.2: Font-size floor is enforced by the --fs-* clamp() token scale defined in :root above.
+  1.2: Font-size floor is enforced by the --type-* scale in styles/tokens.css
+       (--type-caption at 12px is the smallest step) and by the type-floor
+       ratchet in __tests__/ui-budgets.test.js, which fails a build on any
+       literal below it. The --fs-* clamp scale this used to name was deleted
+       in Phase 6.4; its floor was 11.52px, which is why it needed replacing.
   Each token bottoms out at â‰¥ 0.72 rem (~11.5 px), so no blanket override rule is needed.
 
   The previous `font-size: max(var(--font-min), inherit)` rule was removed because
   `inherit` is a CSS-wide keyword (not a <length>), making the max() call invalid in
   Safari â‰¤ 15.4 â€” it silently resolves to `inherit`, defeating the floor entirely.
-  Components that need a specific floor should reference a --fs-* token directly.
+  Components that need a specific size should reference a --type-* token directly.
 */
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

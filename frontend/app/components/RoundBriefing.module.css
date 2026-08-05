@@ -45,7 +45,7 @@
 
 .roundBadge {
   display: inline-block;
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -74,7 +74,7 @@
 }
 
 .title {
-  font-size: var(--fs-xl);
+  font-size: var(--type-display);
   font-weight: 800;
   color: #f8fafc;   /* fixed light — dark backdrop in both themes (see .roundBadge) */
   letter-spacing: -0.02em;
@@ -82,7 +82,7 @@
 }
 
 .theme {
-  font-size: var(--fs-sm);
+  font-size: var(--type-body);
   color: #94a3b8;   /* fixed light — dark backdrop in both themes (see .roundBadge) */
   font-weight: 500;
   margin: 0;
@@ -126,7 +126,7 @@
 }
 
 .docTitle {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -150,7 +150,7 @@
 /* â”€â”€ Narrative â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .narrative {
-  font-size: var(--fs-sm);
+  font-size: var(--type-body);
   color: var(--text-secondary);
   line-height: 1.65;
   margin: 0 0 1rem;
@@ -183,7 +183,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -204,7 +204,7 @@
 .objectivesList li {
   position: relative;
   padding: var(--space-1) 0 var(--space-1) var(--space-5);
-  font-size: var(--fs-sm);
+  font-size: var(--type-body);
   color: var(--text-secondary);
   line-height: 1.45;
 }
@@ -261,7 +261,7 @@
 }
 
 .metricLabel {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   font-weight: 600;
 }
@@ -286,7 +286,7 @@
 }
 
 .warningText {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   color: var(--accent-gold);
   line-height: 1.45;
   font-weight: 500;
@@ -350,7 +350,7 @@
     padding: var(--space-md) var(--space-md);
   }
   .title {
-    font-size: var(--fs-lg);
+    font-size: var(--type-display);
   }
   .metricsRow {
     grid-template-columns: 1fr 1fr;
@@ -371,7 +371,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -380,7 +380,7 @@
 }
 
 .butterflyHint {
-  font-size: var(--fs-sm);
+  font-size: var(--type-body);
   color: var(--text-secondary);
   line-height: 1.5;
   padding: var(--space-1) 0 var(--space-1) 1rem;
@@ -410,7 +410,7 @@
   border: none;
   cursor: pointer;
   color: var(--accent-blue);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -437,7 +437,7 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--space-1) 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-body);
 }
 
 .recapLabel { color: var(--text-secondary); }
@@ -452,7 +452,7 @@
 }
 
 .voicesTitle {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -482,7 +482,7 @@
 }
 
 .voiceText {
-  font-size: var(--fs-sm);
+  font-size: var(--type-body);
   color: var(--text-secondary);
   font-style: italic;
   line-height: 1.5;
@@ -490,7 +490,7 @@
 }
 
 .voiceRole {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   color: var(--text-muted);
   font-weight: 600;
   margin-top: var(--space-0);
@@ -510,7 +510,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -519,14 +519,14 @@
 }
 
 .theoryTitle {
-  font-size: var(--fs-base);
+  font-size: var(--type-body);
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: var(--space-1);
 }
 
 .theoryDesc {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
@@ -543,7 +543,7 @@
 }
 
 .stochasticHeader {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -566,7 +566,7 @@
 }
 
 .stochasticLabel {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   color: var(--accent-gold);
   font-weight: 600;
 }
@@ -583,7 +583,7 @@
 }
 
 .valuationHeader {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -592,14 +592,14 @@
 }
 
 .valuationRange {
-  font-size: var(--fs-lg);
+  font-size: var(--type-display);
   font-weight: 800;
   color: var(--text-primary);
   margin: var(--space-1) 0;
 }
 
 .valuationNote {
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   color: var(--text-muted);
 }
 
@@ -613,7 +613,7 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption);
   color: var(--gauge-red);
   font-weight: 600;
   margin-top: 0.5rem;

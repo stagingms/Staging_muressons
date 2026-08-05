@@ -36,7 +36,7 @@
 }
 
 .title {
-  font-size: var(--fs-sm, 0.82rem);
+  font-size: var(--type-body);
   font-weight: 900;
   color: var(--text-primary);
   /* Move 4: typographic reveal rhythm. */
@@ -123,7 +123,7 @@
 }
 
 .nodeLabel {
-  font-size: var(--fs-xs, 0.72rem);
+  font-size: var(--type-caption);
   font-weight: 700;
   color: var(--text-primary);
 }
