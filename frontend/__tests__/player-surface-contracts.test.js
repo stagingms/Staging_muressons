@@ -992,8 +992,13 @@ describe('the context drawer is a relocation, not a second copy', () => {
        which is what the first attempt shipped. */
     expect(c).toMatch(/data-drawer=\{CONTEXT_DRAWER \? 'on' : 'off'\}/);
     expect(css).toMatch(/\.mainContent\[data-drawer="on"\] \.centerConsole \{/);
-    // ...but capped, because a stage question set across 1400px is unreadable.
-    expect(css).toMatch(/max-width: 92ch/);
+    /* And it FILLS that width rather than centring a column inside it. A
+       centred column with a 490px left rail still present leaves dead black on
+       both sides — two holes flanking the content, which reads as two removed
+       panels. .stageQuestion caps itself at 34ch, which is the only place a
+       long line actually hurts. */
+    expect(css).not.toMatch(/data-drawer="on"\] \.centerConsole > \*/);
+    expect(read('app/components/FocusOverlay.module.css')).toMatch(/max-width: 34ch/);
   });
 
   test('the drawer does not cover the whole screen on a narrow one', () => {

@@ -753,7 +753,12 @@
 :global([data-theme="light"]) .loanWarning {
     background: rgba(239, 68, 68, 0.05);
     border-color: rgba(239, 68, 68, 0.15);
-    color: #dc2626;
+    /* 6.3: was #dc2626, which measures 3.99:1 on the cockpit's #0a0e1a - below
+       the 4.5:1 AA floor for normal text. This is the ONE place in the player
+       tree where that value is used as text rather than as a background; the
+       other ten are gradient stops and badge fills, where the ratio that
+       matters is the one against the glyph on top of them. */
+    color: var(--danger);
 }
 
 :global([data-theme="light"]) .sortBtn {

@@ -3531,25 +3531,25 @@ export default function ExecutiveCockpit({
                           return (
                           <tr key={optId} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                             <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
-                            <td style={{ textAlign: 'center', color: imp.treasury < 0 ? 'var(--danger)' : imp.treasury > 0 ? '#16a34a' : muted }}>
+                            <td style={{ textAlign: 'center', color: imp.treasury < 0 ? 'var(--danger)' : imp.treasury > 0 ? 'var(--positive)' : muted }}>
                               {imp.treasury != null ? fmtCurrency(imp.treasury) : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: rev > 0 ? '#16a34a' : rev < 0 ? 'var(--danger)' : muted }}>
+                            <td style={{ textAlign: 'center', color: rev > 0 ? 'var(--positive)' : rev < 0 ? 'var(--danger)' : muted }}>
                               {rev != null ? (rev > 0 ? '+' : '') + fmtCurrency(rev) : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: rep > 0 ? '#16a34a' : rep < 0 ? 'var(--danger)' : muted }}>
+                            <td style={{ textAlign: 'center', color: rep > 0 ? 'var(--positive)' : rep < 0 ? 'var(--danger)' : muted }}>
                               {rep != null ? (rep > 0 ? '+' : '') + rep : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: ci < 0 ? '#16a34a' : ci > 0 ? 'var(--danger)' : muted }}>
+                            <td style={{ textAlign: 'center', color: ci < 0 ? 'var(--positive)' : ci > 0 ? 'var(--danger)' : muted }}>
                               {ci != null ? (ci > 0 ? '+' : '') + ci : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: slo > 0 ? '#16a34a' : slo < 0 ? 'var(--danger)' : muted }}>
+                            <td style={{ textAlign: 'center', color: slo > 0 ? 'var(--positive)' : slo < 0 ? 'var(--danger)' : muted }}>
                               {slo != null ? (slo > 0 ? '+' : '') + slo : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: gov < 0 ? '#16a34a' : gov > 0 ? 'var(--danger)' : muted }}>
+                            <td style={{ textAlign: 'center', color: gov < 0 ? 'var(--positive)' : gov > 0 ? 'var(--danger)' : muted }}>
                               {gov != null ? (gov > 0 ? '+' : '') + gov : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: ncd < 0 ? '#16a34a' : ncd > 0 ? 'var(--danger)' : muted }}>
+                            <td style={{ textAlign: 'center', color: ncd < 0 ? 'var(--positive)' : ncd > 0 ? 'var(--danger)' : muted }}>
                               {ncd != null ? (ncd > 0 ? '+' : '') + ncd : '—'}
                             </td>
                           </tr>

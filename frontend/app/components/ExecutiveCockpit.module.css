@@ -3493,11 +3493,23 @@
   min-width: 0;
 }
 
-.mainContent[data-drawer="on"] .centerConsole > * {
-  max-width: 92ch;
-  margin-inline: auto;
-  width: 100%;
-}
+/* NO PER-CHILD CENTRING. This rule used to cap every direct child at 92ch and
+   centre it, and that is what got reported as "the right side panel is
+   missing" — twice.
+
+   With a 490px left rail still present, a centred 92ch column leaves dead
+   black on BOTH sides: ~350px between the rail and the content, and ~360px to
+   the right of it. Two holes flanking the content read as two removed panels,
+   which is a more alarming thing to look at than a wide column.
+
+   The measure does not need protecting here anyway. .stageQuestion already
+   caps itself at 34ch ("a headline, not a paragraph"), which is the only
+   element where a long line actually hurts. The option grid, the comparison
+   table and the BU rows are all better for having the width — they were
+   designed against a 52% column and were never the reason for the cap.
+
+   So: the console fills the space the rail released, and prose caps itself
+   where prose lives. */
 
 /* THE LEFT RAIL MUST NOT PAY FOR THE RIGHT RAIL LEAVING.
    .leftSidebar is width: 24% with the default flex-shrink: 1. That was

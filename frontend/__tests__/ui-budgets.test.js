@@ -333,7 +333,7 @@ const SEMANTIC_HEX = new RegExp(
   ].join('|') + ')\\b', 'gi');
 
 const HUE_DEBT = {
-  'app/components/ExecutiveCockpit.js': 38,
+  'app/components/ExecutiveCockpit.js': 31,
   'app/components/FrontPageReveal.js': 21,
   'app/components/ArchetypeReveal.js': 15,
   'app/components/KPIDashboard.js': 11,
