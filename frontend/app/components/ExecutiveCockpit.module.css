@@ -2679,7 +2679,7 @@
 
 /* â”€â”€ Commit Button Enhancement (QW-3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .commitBtnEnhanced {
-  background: linear-gradient(135deg, #059669, var(--kpi-good)) !important;
+  background: linear-gradient(135deg, var(--positive-deep), var(--kpi-good)) !important;
   box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3),
               inset 0 1px 0 rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(16, 185, 129, 0.4) !important;

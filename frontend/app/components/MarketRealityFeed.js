@@ -97,8 +97,8 @@ export default function MarketRealityFeed({
               style={{
                 marginTop: 12, width: '100%', padding: '10px 16px',
                 background: isBlackSwan
-                  ? 'linear-gradient(135deg, var(--danger), #dc2626)'
-                  : 'linear-gradient(135deg, var(--caution), #d97706)',
+                  ? 'linear-gradient(135deg, var(--danger), var(--danger-deep))'
+                  : 'linear-gradient(135deg, var(--caution), var(--caution-deep))',
                 color: '#fff', border: 'none', borderRadius: 8,
                 fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer',
                 letterSpacing: '0.06em', textTransform: 'uppercase',

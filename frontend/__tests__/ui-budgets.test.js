@@ -333,25 +333,22 @@ const SEMANTIC_HEX = new RegExp(
   ].join('|') + ')\\b', 'gi');
 
 const HUE_DEBT = {
-  'app/components/ExecutiveCockpit.js': 31,
+  'app/components/ExecutiveCockpit.js': 28,
   'app/components/FrontPageReveal.js': 21,
   'app/components/ArchetypeReveal.js': 15,
   'app/components/KPIDashboard.js': 11,
-  'app/components/GameOverSummary.js': 9,
-  'app/components/ExecutiveCockpit.module.css': 6,
-  'app/page.js': 6,
+  'app/components/GameOverSummary.js': 6,
+  'app/components/ExecutiveCockpit.module.css': 5,
   'app/components/RoundBriefing.js': 5,
+  'app/page.js': 5,
   'app/components/DoubleMaterialityMatrix.module.css': 4,
   'app/components/InvestmentMatrix.module.css': 3,
   'app/components/DoubleMaterialityMatrix.js': 2,
-  'app/components/MarketRealityFeed.js': 2,
   'app/components/InvestmentMatrix.js': 1,
   'app/components/GameOverSummary.module.css': 1,
   'app/components/JoinCohortModal.module.css': 1,
-  'app/components/OnboardingWalkthrough.js': 1,
   'app/components/CrisisAlerts.js': 1,
   'app/components/CompetitorIntelligence.js': 1,
-  'app/components/DecisionModal.module.css': 1,
 };
 
 const rawHues = (f) => (read(f).match(SEMANTIC_HEX) || []).length;

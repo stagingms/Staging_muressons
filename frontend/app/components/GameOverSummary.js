@@ -19,9 +19,9 @@ import { deriveKeyInsights, fmtDeltaM } from '../lib/keyInsights';
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
 const PROFILES = {
-    regenerative_titan: { icon: '🌱', gradient: 'linear-gradient(135deg, var(--kpi-good), #059669)', title: 'Regenerative Titan' },
+    regenerative_titan: { icon: '🌱', gradient: 'linear-gradient(135deg, var(--kpi-good), var(--positive-deep))', title: 'Regenerative Titan' },
     derisked_safe_haven: { icon: '🛡️', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', title: 'De-risked Safe Haven' },
-    fragile_giant: { icon: '⚠️', gradient: 'linear-gradient(135deg, var(--caution), #d97706)', title: 'Fragile Giant' },
+    fragile_giant: { icon: '⚠️', gradient: 'linear-gradient(135deg, var(--caution), var(--caution-deep))', title: 'Fragile Giant' },
     stranded_relic: { icon: '💀', gradient: 'linear-gradient(135deg, var(--danger), #b91c1c)', title: 'Stranded Relic' },
 };
 
@@ -952,7 +952,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             className={styles.primaryBtn}
                             onClick={() => setShowInterview(true)}
                             style={{
-                                background: 'linear-gradient(135deg, var(--kpi-good), #059669)',
+                                background: 'linear-gradient(135deg, var(--kpi-good), var(--positive-deep))',
                             }}
                         >
                             ✅ View Interview Assessment

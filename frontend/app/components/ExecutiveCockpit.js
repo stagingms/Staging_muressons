@@ -1260,8 +1260,8 @@ export default function ExecutiveCockpit({
                   padding: '0.8rem 2.2rem', fontSize: '0.8rem', fontWeight: 700,
                   cursor: 'pointer',
                   background: activeAlert.isBlackSwan
-                    ? 'linear-gradient(135deg, var(--danger), #dc2626)'
-                    : 'linear-gradient(135deg, var(--caution), #d97706)',
+                    ? 'linear-gradient(135deg, var(--danger), var(--danger-deep))'
+                    : 'linear-gradient(135deg, var(--caution), var(--caution-deep))',
                   color: '#fff',
                   boxShadow: activeAlert.isBlackSwan
                     ? '0 4px 16px rgba(239, 68, 68, 0.4)'
@@ -3040,7 +3040,7 @@ export default function ExecutiveCockpit({
                 onClick={onOpenCSRD}
                 style={{
                   marginTop: 10, width: '100%', padding: '10px 16px',
-                  background: 'linear-gradient(135deg, var(--danger), #dc2626)', color: '#fff',
+                  background: 'linear-gradient(135deg, var(--danger), var(--danger-deep))', color: '#fff',
                   border: 'none', borderRadius: 6, fontWeight: 800, fontSize: '0.72rem',
                   cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
                   fontFamily: 'Inter, sans-serif',

@@ -1791,7 +1791,7 @@ export default function CockpitPage() {
           style={{
           border: 'none', font: 'inherit', cursor: 'pointer',
           position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          background: 'linear-gradient(135deg, var(--caution), #d97706)', color: '#fff',
+          background: 'linear-gradient(135deg, var(--caution), var(--caution-deep))', color: '#fff',
           borderRadius: 10, padding: '12px 24px', zIndex: 20000,
           fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', fontWeight: 700,
           boxShadow: '0 8px 24px rgba(245,158,11,0.35)',

@@ -60,6 +60,28 @@
     --caution-soft:    rgba(245, 158, 11, 0.12);
     --danger:          #ef4444;
     --danger-soft:     rgba(239, 68, 68, 0.12);
+    /* ── Gradient deep stops ─────────────────────────────
+       PHASE 6.3. Fifteen gradients in the player tree are written as
+       `linear-gradient(135deg, var(--danger), #dc2626)` — the token, then a
+       darker shade of the SAME hue. That second stop was read as a "600 tier"
+       of raw hex debt and it is not: a gradient needs two values, and a shade
+       of a semantic colour is not an independent semantic colour.
+
+       So it gets a name instead of a migration. Values taken verbatim from
+       what the ramps already use, so no gradient changes:
+
+         --danger-deep   pairs with --danger     (3 sites)
+         --caution-deep  pairs with --caution    (4 sites)
+         --positive-deep pairs with --kpi-good   (5 sites)
+
+       Three further gradients use a different deep stop (#b91c1c, #15803d,
+       #047857) and are LEFT ALONE. Folding them onto these would shift the
+       dark end of three ramps to make a number smaller, which is the wrong
+       trade — the point of naming these is that the ramps stay identical. */
+    --danger-deep:     #dc2626;
+    --caution-deep:    #d97706;
+    --positive-deep:   #059669;
+
     --neutral:         #94a3b8;
     --neutral-soft:    rgba(148, 163, 184, 0.12);
     --neutral-faint: #7c8899;   /* de-emphasised unit suffixes (/100, t, %) a tier
