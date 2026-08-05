@@ -56,6 +56,7 @@ import WhatIfSandbox from './WhatIfSandbox';
 import ShadowBoardAudit from './ShadowBoardAudit';
 import TCFDScenarioDashboard from './TCFDScenarioDashboard';
 import BalanceSheetModal from './BalanceSheetModal';
+import Dialog from './Dialog';
 import soundManager from '../utils/soundManager';
 import dynamic from 'next/dynamic';
 
@@ -3069,6 +3070,15 @@ export default function ExecutiveCockpit({
               matrix renders exactly as before. */}
           {isDeepDive && !canAccessAllocation && (
             <div className={`${styles.decisionArea} ${styles.deepDiveEnter}`} style={{ flex: 'none', marginTop: 8 }}>
+              {/* PHASE 8: a POINTER-ONLY warning catcher, not a control.
+                  It wraps the whole capital region and fires only when a
+                  prerequisite is unmet, to explain a click that was going to
+                  do nothing. Giving it role + tabIndex would wrap the entire
+                  region in a bogus tab stop. A keyboard user is not worse off:
+                  the same information is in the primary CTA's label, which is
+                  computed from the same gate order ("Read the briefing to
+                  begin", "Choose a strategic option", "Allocate capital to
+                  commit"), and the real controls inside are focusable. */}
               <div
                 id="tour-capital-target"
                 onClick={() => {
@@ -3203,6 +3213,8 @@ export default function ExecutiveCockpit({
             <div id="tour-strategic-target">
             {/* Click-intercept: requires Briefing read + Second Stage (R1/R2) done */}
             {!canAccessStrategy && (
+              /* PHASE 8: pointer-only warning catcher — see the note on the
+                 capital region above. Same reasoning, same gate order. */
               <div
                 onClick={() => {
                   if (!hasReadBriefing) {
@@ -3585,6 +3597,13 @@ export default function ExecutiveCockpit({
                     key={buId || `bu-${idx}`}
                     className={`${styles.buTickerItem} ${isActive ? styles.buTickerItemActive : ''} ${isDimmed ? styles.buTickerItemDimmed : ''}`}
                     onClick={() => isActive ? exitDeepDive() : enterDeepDive(buId)}
+                    /* PHASE 8: this was a div. The number keys 1-N already
+                       reach it, but only if you know they exist and only from
+                       the cockpit root — Tab could not. */
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isActive}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isActive ? exitDeepDive() : enterDeepDive(buId); } }}
                     title={`${isActive ? 'Exit' : 'Investigate'} ${(bu.name || bu.id).replace(/_/g, ' ')} · Press ${idx + 1} or Esc`}
                   >
                     <div className={styles.buTickerName}>{(bu.name || bu.id).replace(/_/g, ' ')}</div>
@@ -3887,6 +3906,25 @@ export default function ExecutiveCockpit({
                   const ctaIcon = advanceTo ? '▶' : btnIcon;
 
                   return (
+                   <>
+                    {/* PHASE 8C — THE COMMIT STATE, ANNOUNCED.
+                        ctaLabel is the one string that always names the next
+                        act, and it changes on its own: when the briefing is
+                        read, when an option is chosen, when allocation crosses
+                        zero, and when the round commits. A sighted player sees
+                        the button relabel. A screen-reader user got nothing
+                        unless they happened to be focused on the button at the
+                        instant it changed — and the commit itself, the one
+                        irreversible act in the round, was the quietest
+                        transition of the lot.
+
+                        Inside the IIFE so it reads the SAME ctaLabel the button
+                        renders; a second copy of that label chain would drift.
+                        Polite, not assertive: it must not interrupt someone
+                        reading an option. It is a status, not an alert. */}
+                    <div role="status" aria-live="polite" className="sr-only">
+                      {commitResults ? `Round ${roundNumber} committed.` : `Next: ${ctaLabel}`}
+                    </div>
                     <motion.button
                       className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
                       style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, letterSpacing: 0, textTransform: 'none', ...btnStyle, border: `1px solid ${btnStyle.borderColor}`, transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }}
@@ -3910,6 +3948,7 @@ export default function ExecutiveCockpit({
                     >
                       {ctaIcon} {ctaLabel}
                     </motion.button>
+                   </>
                   );
                 })()}
               </div>
@@ -4092,6 +4131,10 @@ export default function ExecutiveCockpit({
                       key={msg.id || `msg-${idx}`}
                       className={`${styles.feedItem} ${severityClass}`}
                       onClick={() => { onMarkRead?.(msg.id); setExpandedMessage(msg); }}
+                      /* PHASE 8: opening a message was mouse-only. */
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMarkRead?.(msg.id); setExpandedMessage(msg); } }}
                       /* A11Y-M5 (WCAG 1.4.3): was 0.6. Opacity composites the
                          text toward its surface — the F8 lesson — and at 0.6
                          the preview body landed at 3.8:1 in dark mode. "Read"
@@ -4319,8 +4362,14 @@ export default function ExecutiveCockpit({
 
         {/* ── #8: Keyboard Shortcut Cheatsheet (portaled to body) ── */}
         {showKeyboardHelp && typeof document !== 'undefined' && createPortal(
-          <div
-            onClick={() => setShowKeyboardHelp(false)}
+          /* PHASE 8. Was a scrim div with onClick and a panel div with
+             stopPropagation: a modal with no role, no trap, no focus restore,
+             and two click targets a keyboard could not reach. Dialog owns all
+             of it now, and the panel no longer needs stopPropagation because
+             Dialog's backdrop handler already tests target === currentTarget. */
+          <Dialog
+            onClose={() => setShowKeyboardHelp(false)}
+            label="Keyboard shortcuts"
             style={{
               position: 'fixed', inset: 0, zIndex: 99998,
               background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
@@ -4328,7 +4377,6 @@ export default function ExecutiveCockpit({
             }}
           >
             <div
-              onClick={e => e.stopPropagation()}
               style={{
                 background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(94,234,212,0.2)',
                 borderRadius: 16, padding: '24px 32px', minWidth: 320, maxWidth: 400,
@@ -4337,7 +4385,12 @@ export default function ExecutiveCockpit({
             >
               <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#5eead4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 ⌨ Keyboard Shortcuts
-                <span onClick={() => setShowKeyboardHelp(false)} style={{ marginLeft: 'auto', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem' }}>✕</span>
+                <button
+                  type="button"
+                  onClick={() => setShowKeyboardHelp(false)}
+                  aria-label="Close keyboard shortcuts"
+                  style={{ marginLeft: 'auto', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem', background: 'none', border: 'none', padding: 0, font: 'inherit', lineHeight: 1 }}
+                >✕</button>
               </div>
               {[
                 { keys: ['1', '2', '3'], desc: 'Select Strategic Option A / B / C' },
@@ -4359,17 +4412,18 @@ export default function ExecutiveCockpit({
                 </div>
               ))}
               <div style={{ marginTop: 12, fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                Press <kbd style={{ padding: '1px 5px', borderRadius: 3, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.15)', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>?</kbd> or click outside to close
+                Press <kbd style={{ padding: '1px 5px', borderRadius: 3, background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(148,163,184,0.15)', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>?</kbd>, Esc, or click outside to close
               </div>
             </div>
-          </div>,
+          </Dialog>,
           document.body
         )}
 
         {/* ── Full Message Modal (portaled to body) ── */}
         {expandedMessage && typeof document !== 'undefined' && createPortal(
-          <div
-            onClick={() => setExpandedMessage(null)}
+          <Dialog
+            onClose={() => setExpandedMessage(null)}
+            label={expandedMessage.title || 'Message'}
             style={{
               position: 'fixed', inset: 0, zIndex: 99999,
               background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
@@ -4378,7 +4432,6 @@ export default function ExecutiveCockpit({
             }}
           >
             <div
-              onClick={(e) => e.stopPropagation()}
               style={{
                 background: '#fff', borderRadius: '16px', maxWidth: '560px',
                 width: '100%', maxHeight: '80vh', overflow: 'auto',
@@ -4428,7 +4481,7 @@ export default function ExecutiveCockpit({
                 whiteSpace: 'pre-wrap',
               }}>{expandedMessage.body}</div>
             </div>
-          </div>,
+          </Dialog>,
           document.body
         )}
       </div>
@@ -4446,8 +4499,12 @@ export default function ExecutiveCockpit({
 
       {/* ═══ PRE-COMMIT PREDICTION MODAL (Metacognitive Friction) ═══ */}
       {showPredictionModal && (
-        <div className={styles.predictionOverlay} onClick={() => { setShowPredictionModal(false); }}>
-          <div className={styles.predictionPanel} onClick={(e) => e.stopPropagation()}>
+        <Dialog
+          className={styles.predictionOverlay}
+          onClose={() => { setShowPredictionModal(false); }}
+          label="Review your decisions before committing"
+        >
+          <div className={styles.predictionPanel}>
             {/* Only the PREDICTION block is gated, not the enclosing modal: this
                 overlay also carries the staged-decision review and the sole
                 onCommit button, so hiding the whole modal would make committing
@@ -4624,7 +4681,7 @@ export default function ExecutiveCockpit({
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* ═══ COMMIT RESULTS OVERLAY ═══ */}
@@ -4729,6 +4786,11 @@ export default function ExecutiveCockpit({
                             className={styles.resultCard}
                             style={{ borderTop: `2px solid ${cColors[cStatus] || '#38bdf8'}`, cursor: 'pointer' }}
                             onClick={() => setResultsBsModalOpen(true)}
+                            /* PHASE 8: the only route to the full balance sheet
+                               from the results stage, and it was mouse-only. */
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setResultsBsModalOpen(true); } }}
                             title="Click to view full Balance Sheet"
                           >
                             <div className={styles.resultCardIcon}>📊</div>

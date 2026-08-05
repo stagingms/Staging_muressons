@@ -13,6 +13,15 @@ import { useState, useEffect, useRef } from 'react';
 export default function CountdownTimer({ sessionId, roundNumber, variant = 'badge' }) {
   const [timeLeft, setTimeLeft] = useState(null); // seconds remaining
   const [totalTime, setTotalTime] = useState(null);
+  /* PHASE 8C — THE CLOCK HAS TO SAY SOMETHING, BUT NOT EVERY SECOND.
+     A round can end under a screen-reader user with no warning: the digits
+     were aria-hidden and the sr-only label was not live, so nothing was ever
+     announced. The naive fix — aria-live on the clock — announces a new time
+     every second and makes the whole page unusable.
+     So: announce at THRESHOLDS. Five minutes, one minute, thirty seconds, ten.
+     Four utterances per round, at the moments a decision is still possible. */
+  const [announcement, setAnnouncement] = useState('');
+  const announcedRef = useRef(new Set());
   // NEW-11: Resolved cohort session ID (may differ from player's own sessionId)
   const cohortIdRef = useRef(null);
 
@@ -97,6 +106,31 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
     return () => clearInterval(tick);
   }, [timeLeft !== null]);
 
+  /* Reset the thresholds when the round changes, so round 3 announces the
+     same way round 2 did. */
+  useEffect(() => { announcedRef.current = new Set(); setAnnouncement(''); }, [roundNumber]);
+
+  useEffect(() => {
+    if (timeLeft === null) return;
+    const THRESHOLDS = [
+      [300, 'Five minutes left in this round.'],
+      [60,  'One minute left in this round.'],
+      [30,  'Thirty seconds left.'],
+      [10,  'Ten seconds left. The round will commit automatically.'],
+    ];
+    for (const [at, text] of THRESHOLDS) {
+      /* Fire once, on the way DOWN through the threshold. The <= guard alone
+         would re-fire every tick; the Set is what makes it once. A late join
+         mid-round skips the thresholds already passed rather than announcing
+         all of them at once. */
+      if (timeLeft <= at && !announcedRef.current.has(at)) {
+        announcedRef.current.add(at);
+        setAnnouncement(text);
+        return;
+      }
+    }
+  }, [timeLeft, roundNumber]);
+
   if (timeLeft === null) return null;
 
   const mins = Math.floor(timeLeft / 60);
@@ -122,8 +156,17 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
         }}
       >
         <span aria-hidden="true">{clock} left</span>
+        {/* Not live: read on demand when a user navigates to it. */}
         <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
           {mins} minutes {secs} seconds left in this round
+        </span>
+        {/* Live, and empty except in the instant after a threshold passes. */}
+        <span
+          role="status"
+          aria-live="polite"
+          style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}
+        >
+          {announcement}
         </span>
       </span>
     );

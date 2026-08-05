@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { logoutAnchorStyle } from './logoutChrome';
-import styles from './CrisisAlerts.module.css';
+import styles from './CrisisAlerts.module.css';
+
 import { moneyM } from '../utils/format';
 
 /* ═════════════════════════════════════════════════════════════════
@@ -95,8 +96,39 @@ function evaluate(value, operator, threshold) {
  *  TTS — Web Speech API voice playback
  * ═════════════════════════════════════════════════════════════════ */
 
+/* PHASE 8 — SPEECH IS OPT-OUTABLE, AND REMEMBERS.
+
+   A crisis alert spoke aloud, at rate 0.92 and pitch 0.85, with no way to stop
+   it short of dismissing the alert. In a room of five teams on one cohort that
+   is five laptops talking over the facilitator; for a screen-reader user it is
+   a second voice competing with their own; and for anyone using the product in
+   a shared space it is simply not acceptable to be unable to turn it off.
+
+   Two switches, cheapest first:
+     - prefers-reduced-motion is NOT the right signal and is deliberately not
+       used here: someone can want motion and not want sound.
+     - a stored preference, keyed globally rather than per session, because
+       "do not talk to me" is a property of the person and their room, not of
+       one cohort.
+
+   Default stays ON. The facilitator's `delivery` config still decides whether
+   speech is offered at all; this only decides whether the player accepts it. */
+const SPEECH_PREF_KEY = 'muressons_crisis_speech';
+
+export function speechEnabled() {
+  try { return localStorage.getItem(SPEECH_PREF_KEY) !== 'off'; } catch { return true; }
+}
+
+export function setSpeechEnabled(on) {
+  try {
+    if (on) localStorage.removeItem(SPEECH_PREF_KEY);
+    else localStorage.setItem(SPEECH_PREF_KEY, 'off');
+  } catch { /* storage disabled - the session default stands */ }
+}
+
 function speak(text) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  if (!speechEnabled()) return;
   window.speechSynthesis.cancel();
   // Strip emoji and formatting for cleaner speech
   const clean = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, '').replace(/[•●▸]/g, '').trim();
@@ -225,7 +257,10 @@ export function CrisisScreen({ crisisType, cfg, globalState, onDismiss, onLogout
   // Start voice playback when screen mounts
   useEffect(() => {
     const delivery = cfg?.delivery || 'both';
-    if (delivery === 'voice' || delivery === 'both') {
+    /* speechEnabled() is checked HERE as well as inside speak(): without it the
+       component would sit in isSpeaking=true forever, polling a synthesiser
+       that was never given anything to say. */
+    if ((delivery === 'voice' || delivery === 'both') && speechEnabled()) {
       setIsSpeaking(true);
       const t = setTimeout(() => {
         speak(cfg.body);
@@ -302,11 +337,30 @@ export function CrisisScreen({ crisisType, cfg, globalState, onDismiss, onLogout
             <span>• Threshold: {isActivist ? cfg?.threshold : moneyM(cfg?.threshold)}</span>
           </div>
 
-          {/* Voice indicator */}
+          {/* Voice indicator — and the way out of it.
+              PHASE 8: the indicator existed and the control did not, so the
+              only way to stop a voice briefing was to dismiss the crisis.
+              "Stop" silences this one; "and don't speak again" stores the
+              preference, because the second time you reach for this control
+              you are not asking about this alert. */}
           {isSpeaking && (
             <div className={styles.voiceIndicator}>
               <span className={styles.voiceDot} />
               VOICE BRIEFING IN PROGRESS…
+              <button
+                type="button"
+                onClick={() => { window.speechSynthesis?.cancel(); setIsSpeaking(false); }}
+                style={{ marginLeft: 10, minHeight: 44, minWidth: 44, padding: '0 12px', background: 'none', border: '1px solid currentColor', borderRadius: 6, color: 'inherit', font: 'inherit', cursor: 'pointer' }}
+              >
+                Stop
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSpeechEnabled(false); window.speechSynthesis?.cancel(); setIsSpeaking(false); }}
+                style={{ marginLeft: 6, minHeight: 44, minWidth: 44, padding: '0 12px', background: 'none', border: '1px solid currentColor', borderRadius: 6, color: 'inherit', font: 'inherit', cursor: 'pointer' }}
+              >
+                Stop, and don&rsquo;t speak again
+              </button>
             </div>
           )}
         </div>

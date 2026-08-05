@@ -193,8 +193,10 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem',
       }}
     >
+      {/* PHASE 8: stopPropagation removed - Dialog's backdrop handler
+          already tests target === currentTarget, so this guard was a click
+          target with no purpose and no keyboard equivalent. */}
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 760, maxHeight: '88vh', overflowY: 'auto',
           background: '#f4f1ea', color: '#1a1a1a', borderRadius: 4,

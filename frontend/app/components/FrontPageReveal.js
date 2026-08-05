@@ -294,7 +294,24 @@ const MR_LABELS = {
 const MR_NON_LINE = new Set(['base', 'max_achievable_mr', 'jt_scaling_factor', 'final_mr']);
 
 const CSS = `
-.fpr-paper { background:#f4f1ea; color:#111; font-family:Georgia,'Times New Roman',serif; }
+.fpr-paper { background:#f4f1ea; color:#111; font-family:Georgia,'Times New Roman',serif;
+  /* PHASE 10: this used to arrive at full #f4f1ea in one frame — a
+     full-viewport near-white surface in a darkened room, at the end of a
+     ninety-minute session run on a dark cockpit. The paper colour is
+     deliberate and stays; what changes is that it is REACHED rather than
+     switched to. 400ms is long enough for an iris to follow and short enough
+     that nobody waits for a newspaper. */
+  animation: fpr-dawn 400ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes fpr-dawn {
+  from { background-color:#12161f; color:#12161f; }
+  to   { background-color:#f4f1ea; color:#111; }
+}
+/* Reduced motion means "do not move me", not "flash me". Shorten the ramp
+   rather than removing it: a cross-fade with no translation is not the class
+   of motion that causes trouble, and the instant version is the harsher one. */
+@media (prefers-reduced-motion: reduce) {
+  .fpr-paper { animation-duration:120ms; }
+}
 .fpr-body { column-count:4; column-gap:26px; column-rule:1px solid #d8d2c4;
             font-size:0.90rem; line-height:1.60; text-align:justify; }
 @media (max-width:1500px){ .fpr-body{ column-count:3; } }

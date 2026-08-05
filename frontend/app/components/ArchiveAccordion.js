@@ -65,10 +65,13 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
       {open && (
         <div style={{ padding: '4px 0' }}>
           {items.map((msg, idx) => (
-            <div
+            <button
+              type="button"
               key={msg.id || `archived-msg-${idx}`}
               onClick={(e) => { e.stopPropagation(); onMarkRead?.(msg.id); onExpand?.(msg); }}
               style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                background: 'none', font: 'inherit',
                 padding: '6px 10px 6px 18px',
                 fontSize: '0.65rem',
                 color: 'var(--text-secondary)',
@@ -91,7 +94,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
               <p style={{ margin: '2px 0 0', fontSize: '0.62rem', color: 'var(--text-secondary)' }}>
                 {msg.body?.substring(0, 80)}...
               </p>
-            </div>
+            </button>
           ))}
         </div>
       )}

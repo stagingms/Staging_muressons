@@ -1,4 +1,5 @@
 'use client';
+import Dialog from './Dialog';
 import { useState, useMemo } from 'react';
 
 /**
@@ -31,13 +32,21 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 12000,
-      background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'Inter, sans-serif',
-    }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{
+    /* PHASE 8: a scrim div + a stopPropagation panel div = two click targets
+       no keyboard could reach, on a modal with no role, no trap and no focus
+       restore. Dialog owns all of it; the panel's stopPropagation is redundant
+       because Dialog's backdrop handler tests target === currentTarget. */
+    <Dialog
+      onClose={onClose}
+      label="Achievements"
+      style={{
+        position: 'fixed', inset: 0, zIndex: 12000,
+        background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Inter, sans-serif',
+      }}
+    >
+      <div style={{
         background: '#fff', borderRadius: 16, width: '90%', maxWidth: 500,
         maxHeight: '80vh', overflow: 'auto',
         boxShadow: '0 25px 60px rgba(0,0,0,0.2)', padding: '1.5rem',
@@ -102,6 +111,6 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
           </div>
         )}
       </div>
-    </div>
+    </Dialog>
   );
 }

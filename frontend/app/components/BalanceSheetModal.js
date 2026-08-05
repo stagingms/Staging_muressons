@@ -110,7 +110,9 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
        dialog role, no Escape, no focus management. Dialog supplies all of it
        and keeps the existing backdrop-click-to-close behaviour. */
     <Dialog className={styles.bsModalOverlay} onClose={onClose} labelledBy="bs-modal-title">
-      <div className={styles.bsModalPanel} onClick={(e) => e.stopPropagation()}>
+      {/* PHASE 8: stopPropagation removed - Dialog already tests
+          target === currentTarget on the backdrop. */}
+        <div className={styles.bsModalPanel}>
         <div className={styles.bsModalHeader}>
           <div>
             <div id="bs-modal-title" style={{ fontSize: '0.88rem', fontWeight: 800, color: '#38bdf8' }}>

@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import styles from './PillarSelectDropdown.module.css';
+import styles from './PillarSelectDropdown.module.css';
+
 import { currencySymbol } from '../utils/format';
 
 /**
@@ -202,11 +203,18 @@ export default function PillarSelectDropdown({
               zIndex: 20040,
             }}
           >
+            {/* PHASE 8: role="option" without tabIndex or a key handler is a
+                listbox a keyboard cannot operate — the role announces a choice
+                that only a mouse can make. tabIndex={-1} keeps these out of the
+                Tab order (a listbox is entered once and traversed with arrows,
+                per WAI-ARIA), and Enter/Space select. */}
             <div
               className={`${styles.option} ${styles.optionDefault} ${!value ? styles.optionSelected : ''}`}
               onClick={() => handleSelect(null)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(null); } }}
               onMouseEnter={() => setHovered(null)}
               role="option"
+              tabIndex={-1}
               aria-selected={!value}
             >
               {placeholder}
@@ -220,9 +228,11 @@ export default function PillarSelectDropdown({
                   key={optKey}
                   className={`${styles.option} ${isSelected ? styles.optionSelected : ''}`}
                   onClick={() => handleSelect(optKey)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(optKey); } }}
                   onMouseEnter={(e) => setHovered({ key: optKey, rect: e.currentTarget.getBoundingClientRect() })}
                   onMouseLeave={() => setHovered((h) => (h?.key === optKey ? null : h))}
                   role="option"
+                  tabIndex={-1}
                   aria-selected={isSelected}
                   title={describe(optKey)}   /* native fallback for touch/no-hover */
                 >

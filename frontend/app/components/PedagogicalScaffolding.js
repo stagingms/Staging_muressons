@@ -370,14 +370,14 @@ export function RealWorldCard({ roundNumber }) {
 
     return (
         <div className={`${styles.realWorld} ${expanded ? styles.rwExpanded : ''}`}>
-            <div className={styles.rwHeader} onClick={() => setExpanded(!expanded)}>
+            <button type="button" className={styles.rwHeader} onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
                 <span className={styles.rwIcon}>{card.icon}</span>
                 <div className={styles.rwHeaderText}>
                     <h4>{card.title}</h4>
                     <span className={styles.rwCompany}>{card.company}</span>
                 </div>
                 <span className={styles.rwToggle}>{expanded ? '▲' : '▼'}</span>
-            </div>
+            </button>
             {expanded && (
                 <div className={styles.rwBody}>
                     <div className={styles.rwSection}>
@@ -523,14 +523,14 @@ export function MidGameCheckpoint({ checkpointData }) {
 
     return (
         <div className={styles.checkpoint}>
-            <div className={styles.cpHeader} onClick={() => setExpanded(!expanded)}>
+            <button type="button" className={styles.cpHeader} onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
                 <span className={styles.cpIcon}>📍</span>
                 <h4>Mid-Game Checkpoint — Round 5</h4>
                 <span className={styles.cpArchetype} style={{ color: mrColor }}>
                     Projected: {current_archetype_projection}
                 </span>
                 <span className={styles.cpToggle}>{expanded ? '▲' : '▼'}</span>
-            </div>
+            </button>
             {expanded && (
                 <div className={styles.cpBody}>
                     <div className={styles.cpMetrics}>
@@ -613,10 +613,12 @@ export function DebriefProtocol() {
             </div>
             <div className={styles.dbPhases}>
                 {phases.map(([key, phase], i) => (
-                    <div
+                    <button
+                        type="button"
                         key={key}
                         className={`${styles.dbPhase} ${activePhase === key ? styles.dbPhaseActive : ''}`}
                         onClick={() => setActivePhase(activePhase === key ? null : key)}
+                        aria-expanded={activePhase === key}
                     >
                         <div className={styles.dbPhaseHeader}>
                             <span className={styles.dbPhaseIcon}>{phase.icon}</span>
@@ -634,7 +636,7 @@ export function DebriefProtocol() {
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </button>
                 ))}
             </div>
         </div>

@@ -742,3 +742,149 @@ describe('modal accessibility is centralised', () => {
     expect(s).not.toMatch(/document\.body\.style\.overflow = 'hidden'/);
   });
 });
+
+/* ── PHASE 8: a pointer is not the only input device ──────────────────────────
+
+   25 elements in the player surface carried onClick on a div or a span with no
+   role, no tabIndex and no key handler. A mouse reached all of them; a keyboard
+   reached none. Among them: opening a message, entering a BU deep dive, the
+   only route to the full balance sheet from the results stage, and the close
+   control on the keyboard-shortcuts modal.
+
+   Seven of the 25 turned out to be three more hand-rolled modals — a scrim div
+   with onClick plus a panel div with stopPropagation. Those went to Dialog,
+   which is why this count fell as far as it did without 25 separate patches.
+
+   THE ALLOWLIST BELOW IS THE INTERESTING PART. Three sites are pointer-only by
+   design and adding role + tabIndex to them would make the surface WORSE, not
+   better. They are named individually, with the reason, so that a future
+   "fix all the click targets" pass cannot quietly convert them. */
+describe('click targets are reachable by keyboard', () => {
+  const parser = require('@babel/parser');
+
+  const POINTER_ONLY = {
+    'app/components/Dialog.js': [
+      'The primitive’s own backdrop. It already carries role and tabIndex; ' +
+      'its keyboard equivalent is Escape, implemented inside the same file.',
+    ],
+    'app/page.js': [
+      'Click-away scrim under the More menu. Giving it a tab stop would put an ' +
+      'invisible full-viewport target in front of the menu it dismisses. ' +
+      'Escape already closes the menu.',
+    ],
+    'app/components/ExecutiveCockpit.js': [
+      'Two warning catchers wrapping the capital and decision regions. They fire ' +
+      'only when a prerequisite is unmet, to explain a click that would do ' +
+      'nothing. Making them focusable would wrap each region in a bogus tab ' +
+      'stop. The same information reaches a keyboard user through the primary ' +
+      'CTA label, computed from the same gate order.',
+    ],
+  };
+  const ALLOWED_COUNT = { 'app/components/Dialog.js': 1, 'app/page.js': 1, 'app/components/ExecutiveCockpit.js': 2 };
+
+  const PLAYER = [
+    'app/components/ExecutiveCockpit.js', 'app/components/FocusOverlay.js',
+    'app/components/InvestmentMatrix.js', 'app/components/RoundBriefing.js',
+    'app/components/RoundChecklist.js', 'app/components/DecisionTile.js',
+    'app/components/GameOverSummary.js', 'app/components/FrontPageReveal.js',
+    'app/components/DoubleMaterialityMatrix.js', 'app/components/CrisisAlerts.js',
+    'app/components/JoinCohortModal.js', 'app/components/ArchetypeReveal.js',
+    'app/components/CountdownTimer.js', 'app/components/AnnualReport.js',
+    'app/components/BalanceSheetModal.js', 'app/components/OnboardingWalkthrough.js',
+    'app/components/PedagogicalScaffolding.js', 'app/components/AchievementBadges.js',
+    'app/components/ArchiveAccordion.js', 'app/components/Dialog.js',
+    'app/components/PillarSelectDropdown.js', 'app/page.js',
+  ].filter((f) => fs.existsSync(path.join(root, f)));
+
+  const BARE = ['div', 'span', 'li', 'td', 'tr', 'p', 'img', 'section'];
+
+  const unreachable = (file) => {
+    const hits = [];
+    let ast;
+    try { ast = parser.parse(read(file), { sourceType: 'module', plugins: ['jsx'] }); }
+    catch { return hits; }
+    JSON.stringify(ast, (k, v) => {
+      if (v && v.type === 'JSXOpeningElement' && v.name?.type === 'JSXIdentifier'
+          && BARE.includes(v.name.name)) {
+        const at = v.attributes.filter((a) => a.type === 'JSXAttribute').map((a) => a.name.name);
+        if (at.includes('onClick')) {
+          const ok = at.includes('role') && at.includes('tabIndex')
+            && (at.includes('onKeyDown') || at.includes('onKeyPress'));
+          if (!ok) hits.push(v.loc.start.line);
+        }
+      }
+      return v;
+    });
+    return hits;
+  };
+
+  test('no player-facing file has an unexplained pointer-only click target', () => {
+    for (const f of PLAYER) {
+      const n = unreachable(f).length;
+      const allowed = ALLOWED_COUNT[f] || 0;
+      expect(`${f}: ${n}`).toBe(`${f}: ${allowed}`);
+    }
+  });
+
+  test('every allowance is written down with its reason', () => {
+    // An allowlist with no rationale is just a muted test.
+    for (const f of Object.keys(ALLOWED_COUNT)) {
+      expect(POINTER_ONLY[f]).toBeDefined();
+      expect(POINTER_ONLY[f].join(' ').length).toBeGreaterThan(80);
+    }
+  });
+
+  test('the tree total is the number that has to fall', () => {
+    const total = PLAYER.reduce((a, f) => a + unreachable(f).length, 0);
+    const allowed = Object.values(ALLOWED_COUNT).reduce((a, b) => a + b, 0);
+    expect(`pointer-only click targets: ${total}`).toBe(`pointer-only click targets: ${allowed}`);
+  });
+});
+
+/* ── PHASE 8C: the two things that change without being touched ───────────── */
+describe('state changes are announced', () => {
+  test('the round clock announces at thresholds, never every second', () => {
+    const t = read('app/components/CountdownTimer.js');
+    // A live region on the clock itself would speak a new time every second
+    // and make the page unusable. Four utterances per round instead.
+    expect(t).toMatch(/aria-live="polite"/);
+    expect(t).toMatch(/THRESHOLDS/);
+    for (const at of ['300', '60', '30', '10']) {
+      expect(`threshold ${at}: ${new RegExp(`\\[${at},`).test(t)}`).toBe(`threshold ${at}: true`);
+    }
+    // Fired once each, not on every tick that satisfies the comparison.
+    expect(t).toMatch(/announcedRef\.current\.has\(at\)/);
+    expect(t).toMatch(/announcedRef\.current\.add\(at\)/);
+    // And reset per round, so round 3 announces the way round 2 did.
+    expect(t).toMatch(/announcedRef\.current = new Set\(\)/);
+  });
+
+  test('the commit state announces, and reads the same label the button shows', () => {
+    const c = read('app/components/ExecutiveCockpit.js');
+    expect(c).toMatch(/role="status" aria-live="polite" className="sr-only"/);
+    // Single-sourced: a second copy of the label chain would drift from the
+    // button within one commit.
+    expect(c).toMatch(/`Next: \$\{ctaLabel\}`/);
+    expect(c).toMatch(/`Round \$\{roundNumber\} committed\.`/);
+  });
+});
+
+/* ── PHASE 8: speech is refusable ─────────────────────────────────────────── */
+describe('crisis speech synthesis can be turned off', () => {
+  const c = read('app/components/CrisisAlerts.js');
+
+  test('there is a stored preference, and speak() honours it', () => {
+    expect(c).toMatch(/muressons_crisis_speech/);
+    expect(c).toMatch(/if \(!speechEnabled\(\)\) return;/);
+  });
+
+  test('the gate is also checked before the speaking state is entered', () => {
+    // Otherwise the component sits in isSpeaking=true forever, polling a
+    // synthesiser that was never given anything to say.
+    expect(c).toMatch(/&& speechEnabled\(\)\)/);
+  });
+
+  test('storage being unavailable defaults to speech ON, not to a crash', () => {
+    expect(c).toMatch(/catch \{ return true; \}/);
+  });
+});

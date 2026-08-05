@@ -78,7 +78,11 @@ function PlayerUtilityDock({ inlineItems = [], menuItems = [] }) {
 
       {open && (
         <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.DROPDOWN }} />
+          {/* PHASE 8: a click-away scrim, deliberately NOT keyboard-reachable.
+              Giving it role + tabIndex would put an invisible full-viewport tab
+              stop in front of the menu it is meant to dismiss. The keyboard
+              equivalent already exists and is better: Escape, handled above. */}
+          <div aria-hidden="true" onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.DROPDOWN }} />
           <div
             role="menu"
             style={{
@@ -1780,9 +1784,12 @@ export default function CockpitPage() {
 
       {/* ── Auto-Advance Notification ── */}
       {sim.autoAdvanceDetected && (
-        <div
+        <button
+          type="button"
+          aria-label="Dismiss auto-advance notice"
           onClick={() => sim.setAutoAdvanceDetected?.(false)}
           style={{
+          border: 'none', font: 'inherit', cursor: 'pointer',
           position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
           background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',
           borderRadius: 10, padding: '12px 24px', zIndex: 20000,
@@ -1794,7 +1801,7 @@ export default function CockpitPage() {
           <span style={{ fontSize: '1.2rem' }}>⏰</span>
           Time expired — your turn was auto-committed with default choices. Now on Round {roundNumber}.
           <span style={{ marginLeft: '0.5rem', opacity: 0.7, fontSize: '0.7rem' }}>✕</span>
-        </div>
+        </button>
       )}
 
       {/* ── Block Alert Modal ── */}

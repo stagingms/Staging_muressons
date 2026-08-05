@@ -190,7 +190,19 @@ function directChildren(marker) {
   return n;
 }
 
-const COMPONENT_MOUNTS = { 'app/components/ExecutiveCockpit.js': 57, 'app/page.js': 37 };
+/* 57 -> 58: <Dialog>. Raised deliberately, and this is the case for it.
+   The slot budget exists to stop a new always-visible PANEL arriving without
+   an occupant being displaced. Dialog is not a panel and occupies no slot: it
+   is the accessibility wrapper that three hand-rolled overlays in this file
+   (keyboard help, expanded message, pre-commit prediction) now go through
+   instead of each rolling their own scrim + stopPropagation pair. The number
+   of things a player can see is unchanged; the number of DISTINCT component
+   identifiers went up by one because three copies of the same pattern were
+   replaced by one import.
+
+   Net effect on this file: seven non-button click targets removed, three
+   modals gained a focus trap, focus restore and topmost-only Escape. */
+const COMPONENT_MOUNTS = { 'app/components/ExecutiveCockpit.js': 58, 'app/page.js': 37 };
 
 describe('slot budget', () => {
   test('no new component mounts in the player tree', () => {
