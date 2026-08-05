@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { currencySymbol, setCurrencySymbol } from '../utils/format';
+import { currencySymbol, setCurrencySymbol, setCurrencyRate } from '../utils/format';
 
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -119,6 +119,18 @@ export function CurrencyProvider({ children }) {
             sessionCurrencyLockedRef.current = true;
           }
         }
+        /* THE RATE, from the same payload as the symbol.
+           Deliberately NOT gated on the symbol being recognised: a cohort can
+           set a rate for a currency that is not in the CURRENCIES list, and
+           tying the two together would silently drop the conversion while
+           keeping the glyph — which is the exact defect the rate exists to fix,
+           reintroduced one level up.
+
+           setCurrencyRate refuses anything non-finite or <= 0, so a missing,
+           null or malformed field leaves the previous rate standing rather
+           than zeroing every figure in the product. */
+        const rate = data.currency_rate ?? data.parent_currency_rate;
+        if (rate != null) setCurrencyRate(rate);
       }
     } catch { /* silently keep current default */ }
   }, []);

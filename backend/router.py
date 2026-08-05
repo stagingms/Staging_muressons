@@ -1586,10 +1586,12 @@ async def get_session_info(session_id: str):
     # If this is a player sub-session, also pull parent cohort's settings
     parent_id = session.get("parent_cohort_id")
     parent_currency = None
+    parent_rate = None
     if parent_id:
         parent = await db.get_session_info(parent_id)
         if parent:
             parent_currency = parent.get("currency_symbol", "$")
+            parent_rate = parent.get("currency_rate")
 
     # Read ending pathway from the session's latest state
     ending_pathway = "activist_ultimatum"
@@ -1683,6 +1685,22 @@ async def get_session_info(session_id: str):
         "decision_paradigm": session.get("decision_paradigm", "legacy_abc"),
         "currency_symbol": session.get("currency_symbol") or parent_currency or "$",
         "parent_currency_symbol": parent_currency,
+        # THE CONVERSION FACTOR, alongside the glyph it belongs to.
+        #
+        # Before this, a rupee cohort read "Rs 11.0M" for an engine value of
+        # 11,000,000 dollars: the symbol was localised and the quantity was
+        # not. The frontend applies this once, at the format boundary.
+        #
+        # NOT applied server-side, and that is the important part. config.py's
+        # constants, the covenant thresholds and every tuned ratio are
+        # expressed in engine units; multiplying before the engine would
+        # silently redefine all of them. This converts PRESENTATION only.
+        #
+        # Absent reads as None rather than 1.0 so the client can tell "no rate
+        # configured" from "a rate of exactly one" - the first should leave the
+        # previous value alone, the second is a deliberate reset.
+        "currency_rate": session.get("currency_rate") or parent_rate,
+        "parent_currency_rate": parent_rate,
         "scenario_preset": session.get("scenario_preset"),
         "experience_level": session.get("experience_level"),
         "difficulty_tier": session.get("difficulty_tier", "advanced"),

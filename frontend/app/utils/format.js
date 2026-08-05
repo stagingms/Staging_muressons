@@ -33,12 +33,65 @@ const EMPTY = '—';   // U+2014 EM DASH — "not recorded", never "zero"
 
 let _symbol = '₹';        // matches CurrencyContext's DEFAULT_CURRENCY
 
+/* ── THE RATE ────────────────────────────────────────────────────────────────
+ * Owner decision: cohort figures convert, using a factor a super admin sets on
+ * the session, rather than the symbol changing while the number stays put.
+ * Before this, a rupee cohort read "₹11.0M" for an engine value of 11,000,000
+ * dollars — the glyph was localised and the quantity was not, which is a worse
+ * lie than leaving it in dollars.
+ *
+ * WHERE IT IS APPLIED. Here, once, at the boundary where a number becomes a
+ * string. Not in the engine: config.py's constants, the covenant thresholds
+ * and every tuned ratio are expressed in engine units, and multiplying before
+ * the engine would silently redefine all of them. Not in components either —
+ * a component that converts on its own reintroduces exactly the three-
+ * formatting-systems defect the currency pass existed to kill.
+ *
+ * DEFAULT 1. Until a facilitator sets a rate, every figure is unchanged. This
+ * ships inert.
+ */
+let _rate = 1;
+
 /** Called by CurrencyProvider. The only writer. */
 export function setCurrencySymbol(symbol) {
   if (typeof symbol === 'string' && symbol) _symbol = symbol;
 }
 export function currencySymbol() {
   return _symbol;
+}
+
+/** Called by CurrencyProvider. The only writer. Guards hard: a rate of 0, a
+ *  negative, a NaN or a string would silently zero or invert every money
+ *  figure in the product, and the failure would look like an engine bug. */
+export function setCurrencyRate(rate) {
+  const r = Number(rate);
+  if (Number.isFinite(r) && r > 0) _rate = r;
+}
+export function currencyRate() {
+  return _rate;
+}
+
+/**
+ * ONE SIGNIFICANT FIGURE, for authored teaching numbers only.
+ *
+ * $40/tonne at a rate of 83 is ₹3,320/tonne, which reads as false precision on
+ * a figure an author chose because it was round. It becomes ₹3,000.
+ *
+ * THIS IS FOR AUTHORED COPY AND NOTHING ELSE. Rounded numbers stop summing:
+ * three option costs of ₹3,000 do not add to a rounded ₹9,000, and a team that
+ * checks the arithmetic will find it does not tie. Treasury balances,
+ * allocations and every computed figure keep full precision through money()
+ * above. The boundary is the whole point, and it is silent when crossed, which
+ * is why a tripwire pins it.
+ */
+export function authoredMoney(value, { unit = '' } = {}) {
+  if (!isNum(value)) return EMPTY;
+  const v = Number(value) * _rate;
+  const abs = Math.abs(v);
+  if (abs === 0) return `${_symbol}0${unit}`;
+  const mag = Math.pow(10, Math.floor(Math.log10(abs)));
+  const rounded = Math.round(abs / mag) * mag;
+  return `${sign(v)}${_symbol}${rounded.toLocaleString('en-US')}${unit}`;
 }
 
 const isNum = (v) => v !== null && v !== undefined && v !== '' && !isNaN(Number(v));
@@ -54,7 +107,7 @@ const sign = (v) => (v < 0 ? MINUS : '');
  */
 export function money(value, { dp } = {}) {
   if (!isNum(value)) return EMPTY;
-  const v = Number(value);
+  const v = Number(value) * _rate;
   const abs = Math.abs(v);
   const s = sign(v);
   if (abs >= 1e9) return `${s}${_symbol}${(abs / 1e9).toFixed(dp ?? 2)}B`;
@@ -78,7 +131,7 @@ export function money(value, { dp } = {}) {
  */
 export function moneyM(value, { dp = 1 } = {}) {
   if (!isNum(value)) return EMPTY;
-  const v = Number(value);
+  const v = Number(value) * _rate;
   return `${sign(v)}${_symbol}${(Math.abs(v) / 1e6).toFixed(dp)}M`;
 }
 
@@ -89,14 +142,14 @@ export function moneyM(value, { dp = 1 } = {}) {
  */
 export function moneyMScaled(value, { dp = 1 } = {}) {
   if (!isNum(value)) return EMPTY;
-  const v = Number(value);
+  const v = Number(value) * _rate;
   return `${sign(v)}${_symbol}${Math.abs(v).toFixed(dp)}M`;
 }
 
 /** Money at full precision, grouped. For balance sheets, not for KPI belts. */
 export function moneyFull(value, { dp = 0 } = {}) {
   if (!isNum(value)) return EMPTY;
-  const v = Number(value);
+  const v = Number(value) * _rate;
   return `${sign(v)}${_symbol}${Math.abs(v).toLocaleString('en-US', {
     minimumFractionDigits: dp, maximumFractionDigits: dp,
   })}`;
