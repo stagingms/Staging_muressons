@@ -19,10 +19,10 @@ import { deriveKeyInsights, fmtDeltaM } from '../lib/keyInsights';
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
 const PROFILES = {
-    regenerative_titan: { icon: '🌱', gradient: 'linear-gradient(135deg, #10b981, #059669)', title: 'Regenerative Titan' },
+    regenerative_titan: { icon: '🌱', gradient: 'linear-gradient(135deg, var(--kpi-good), #059669)', title: 'Regenerative Titan' },
     derisked_safe_haven: { icon: '🛡️', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', title: 'De-risked Safe Haven' },
-    fragile_giant: { icon: '⚠️', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', title: 'Fragile Giant' },
-    stranded_relic: { icon: '💀', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', title: 'Stranded Relic' },
+    fragile_giant: { icon: '⚠️', gradient: 'linear-gradient(135deg, var(--caution), #d97706)', title: 'Fragile Giant' },
+    stranded_relic: { icon: '💀', gradient: 'linear-gradient(135deg, var(--danger), #b91c1c)', title: 'Stranded Relic' },
 };
 
 const FALLBACK_THEME = { icon: '🏅', gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)', title: 'Strategic Leader' };
@@ -51,7 +51,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
         title: baseTheme.title,
     };
     // First hex in the archetype gradient — used to brand the shareable card.
-    const accentHex = (theme.gradient.match(/#[0-9a-fA-F]{6}/) || ['#10b981'])[0];
+    const accentHex = (theme.gradient.match(/#[0-9a-fA-F]{6}/) || ['var(--kpi-good)'])[0];
     const activeFlags = globalState?.active_event_flags || {};
 
     const handleDownload = () => {
@@ -127,7 +127,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     <div className={styles.statCard}>
                         <span className={styles.statLabel}>Equity Value</span>
                         <span className={styles.statValue} style={{
-                            color: d.equity_value != null ? (d.equity_value > 0 ? '#10b981' : '#ef4444') : undefined
+                            color: d.equity_value != null ? (d.equity_value > 0 ? 'var(--kpi-good)' : 'var(--danger)') : undefined
                         }}>
                             {money(d.equity_value != null ? d.equity_value : d.terminal_value)}
                         </span>
@@ -136,7 +136,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                         <span className={styles.statLabel}>📈 Share Price</span>
                         <span className={styles.statValue} style={{
                             color: d.price_per_share != null
-                                ? d.price_per_share >= 50 ? '#10b981' : d.price_per_share >= 30 ? '#f59e0b' : '#ef4444'
+                                ? d.price_per_share >= 50 ? 'var(--kpi-good)' : d.price_per_share >= 30 ? 'var(--caution)' : 'var(--danger)'
                                 : undefined,
                             fontSize: '1.4rem',
                         }}>
@@ -161,7 +161,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             ).join('\n')}>
                             <span className={styles.statLabel}>🧩 Quiz Score (avg)</span>
                             <span className={styles.statValue} style={{
-                                color: d.quiz_score_log.average_best_score >= (d.quiz_score_log.pass_threshold || 70) ? '#10b981' : '#f59e0b',
+                                color: d.quiz_score_log.average_best_score >= (d.quiz_score_log.pass_threshold || 70) ? 'var(--kpi-good)' : 'var(--caution)',
                             }}>
                                 {d.quiz_score_log.average_best_score}%
                             </span>
@@ -188,7 +188,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     <span style={{ color: '#94a3b8', minWidth: 34 }}>{e.round != null ? `R${e.round}` : '—'}</span>
                                     <span style={{ flex: 1, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
                                     <span style={{ color: '#94a3b8', fontSize: '0.66rem' }}>{e.attempts} att.</span>
-                                    <span style={{ fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: e.passed ? '#4ade80' : '#fbbf24', minWidth: 42, textAlign: 'right' }}>
+                                    <span style={{ fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: e.passed ? 'var(--positive-text)' : 'var(--caution-text)', minWidth: 42, textAlign: 'right' }}>
                                         {e.best_score_percent}%
                                     </span>
                                     <span style={{ minWidth: 16 }}>{e.passed ? '✓' : '·'}</span>
@@ -289,7 +289,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             color: '#818cf8',
                         }}>
                             <span>🏆</span> {peerLeaderboard.some(t => t.isAI) ? 'AI Benchmark Comparison' : 'Final Cohort Leaderboard'}
-                            {peerLeaderboard.some(t => t.isAI) && <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.15)', color: '#fbbf24', padding: '2px 6px', borderRadius: 3, fontWeight: 700, marginLeft: 6 }}>🤖 AI</span>}
+                            {peerLeaderboard.some(t => t.isAI) && <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.15)', color: 'var(--caution-text)', padding: '2px 6px', borderRadius: 3, fontWeight: 700, marginLeft: 6 }}>🤖 AI</span>}
                         </div>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                             <thead>
@@ -324,7 +324,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                                 padding: '2px 8px', borderRadius: 4,
                                             }}>YOU</span>}
                                         </td>
-                                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace" }}>
+                                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: 'var(--positive-text)', fontFamily: "'JetBrains Mono', monospace" }}>
                                             {money(team.treasury)}
                                         </td>
                                         <td style={{ padding: '8px', textAlign: 'right', color: '#cbd5e1' }}>
@@ -335,14 +335,14 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                         </td>
                                         <td style={{
                                             padding: '8px', textAlign: 'right',
-                                            color: (team.bonus_score || 0) > 0 ? '#fbbf24' : '#475569',
+                                            color: (team.bonus_score || 0) > 0 ? 'var(--caution-text)' : '#475569',
                                             fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
                                         }}>
                                             {(team.bonus_score || 0) > 0 ? `🏅 ${(team.bonus_score || 0).toLocaleString()}` : '–'}
                                         </td>
                                         <td style={{
                                             padding: '8px', textAlign: 'center', fontSize: '0.9rem',
-                                            color: team.trend === '↑' ? '#4ade80' : team.trend === '↓' ? '#f87171' : '#94a3b8',
+                                            color: team.trend === '↑' ? 'var(--positive-text)' : team.trend === '↓' ? 'var(--danger-text)' : '#94a3b8',
                                         }}>{team.trend}</td>
                                     </tr>
                                 ))}
@@ -392,13 +392,13 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             icon: '🏆',
                             title: 'Best Decision',
                             text: `Round ${best.round}${best.name ? ` (${best.name})` : ''}: ${best.choice || 'your call'} moved the treasury ${fmtDeltaM(best.delta)} — the strongest single-round swing of the plan.`,
-                            color: '#10b981',
+                            color: 'var(--kpi-good)',
                         },
                         {
                             icon: '💸',
                             title: 'Most Costly Decision',
                             text: `Round ${worst.round}${worst.name ? ` (${worst.name})` : ''}: ${worst.choice || 'your call'} moved the treasury ${fmtDeltaM(worst.delta)} — the deepest drawdown on the ledger.`,
-                            color: '#ef4444',
+                            color: 'var(--danger)',
                         },
                         // Third insight only when reputation actually moved. No
                         // filler: the old "Road Not Taken" line asserted a
@@ -462,15 +462,15 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     let verdict, verdictColor, verdictIcon;
                     if (tippingPoint) {
                         verdict = 'Tipping Point — Irreversible Threshold Breached';
-                        verdictColor = '#ef4444';
+                        verdictColor = 'var(--danger)';
                         verdictIcon = '🌡️';
                     } else if (avgCI !== null && avgCI < 50) {
                         verdict = 'Climate Leader — Exemplary Decarbonisation';
-                        verdictColor = '#10b981';
+                        verdictColor = 'var(--kpi-good)';
                         verdictIcon = '🌱';
                     } else if (avgCI !== null && avgCI < 70) {
                         verdict = 'Managed Retreat — Avoided Tipping Point';
-                        verdictColor = '#f59e0b';
+                        verdictColor = 'var(--caution)';
                         verdictIcon = '🌿';
                     } else {
                         verdict = 'High Carbon — Significant Transition Risk';
@@ -491,7 +491,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                 fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.12em',
                                 textTransform: 'uppercase', marginBottom: '0.8rem',
                                 display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                color: '#10b981',
+                                color: 'var(--kpi-good)',
                             }}>
                                 <span>🌍</span> Advanced Climate Engine — Final Report
                             </div>
@@ -510,7 +510,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                     <span style={{ fontSize: '2rem' }}>🌱</span>
                                     <div>
-                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--kpi-good)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                             Green Transition Fund
                                         </div>
                                         <div style={{ fontSize: '0.85rem', color: '#6ee7b7', marginTop: '0.2rem' }}>
@@ -518,7 +518,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                         </div>
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#10b981' }}>
+                                <div style={{ fontSize: '1.8rem', fontWeight: 900, color: 'var(--kpi-good)' }}>
                                     {currencySymbol()}{(greenFund / 1_000_000).toFixed(2)}M
                                 </div>
                             </div>
@@ -526,8 +526,8 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             {/* Climate metrics grid */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.8rem' }}>
                                 {[
-                                    { label: '💨 Avg Carbon Intensity', value: avgCI !== null ? `${avgCI.toFixed(1)} t/BU` : '—', color: avgCI !== null && avgCI >= 70 ? '#ef4444' : '#6ee7b7' },
-                                    { label: '🌡️ Tipping Point', value: tippingPoint ? 'BREACHED ⚠️' : 'Avoided ✓', color: tippingPoint ? '#ef4444' : '#10b981' },
+                                    { label: '💨 Avg Carbon Intensity', value: avgCI !== null ? `${avgCI.toFixed(1)} t/BU` : '—', color: avgCI !== null && avgCI >= 70 ? 'var(--danger)' : '#6ee7b7' },
+                                    { label: '🌡️ Tipping Point', value: tippingPoint ? 'BREACHED ⚠️' : 'Avoided ✓', color: tippingPoint ? 'var(--danger)' : 'var(--kpi-good)' },
                                     { label: '💰 Total Carbon Fees', value: money(carbonFeesPaid), color: '#94a3b8' },
                                 ].map((m, i) => (
                                     <div key={i} style={{
@@ -579,7 +579,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     const completedTracks = SIDE_TRACKS.filter(t => flags[t.completedKey]);
                     if (completedTracks.length === 0) return null;
 
-                    const gradeColors = { 'A+': '#10b981', 'A': '#34d399', 'B': '#3b82f6', 'C': '#f59e0b', 'D': '#f97316', 'F': '#ef4444' };
+                    const gradeColors = { 'A+': 'var(--kpi-good)', 'A': '#34d399', 'B': '#3b82f6', 'C': 'var(--caution)', 'D': '#f97316', 'F': 'var(--danger)' };
 
                     return (
                         <div style={{
@@ -636,7 +636,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                             {(mrBonus || mrPenalty) && (
                                                 <div style={{
                                                     fontSize: '0.68rem', fontWeight: 700,
-                                                    color: mrBonus ? '#4ade80' : '#f87171',
+                                                    color: mrBonus ? 'var(--positive-text)' : 'var(--danger-text)',
                                                     display: 'flex', alignItems: 'center', gap: '0.3rem',
                                                 }}>
                                                     <span>{mrBonus ? '📈' : '📉'}</span>
@@ -658,7 +658,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                   const brsrGrade = flags.brsr_grade || 'C';
                   const brsrArchetype = flags.brsr_archetype || 'Compliance Pragmatist';
                   const brsrScore = flags.brsr_performance_score || 0;
-                  const gradeColors = { 'A+': '#10b981', 'A': '#22c55e', 'B': '#3b82f6', 'C': '#f59e0b', 'D': '#ef4444', 'F': '#dc2626' };
+                  const gradeColors = { 'A+': 'var(--kpi-good)', 'A': 'var(--positive)', 'B': '#3b82f6', 'C': 'var(--caution)', 'D': 'var(--danger)', 'F': '#dc2626' };
                   const gradeColor = gradeColors[brsrGrade] || '#94a3b8';
                   const principleLabels = ['P1/P7: Governance', 'P3/P5: Workforce', 'P6/P2: Environment', 'P4/P8/P9: Value Chain', 'Integrated Disclosure'];
                   const roundHistory = flags.brsr_round_history || [];
@@ -681,7 +681,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                           const rh = roundHistory[i];
                           const passed = rh && rh.choice !== 'option_c';
                           return (
-                            <div key={i} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: passed ? `${gradeColor}15` : 'rgba(239,68,68,0.1)', border: `1px solid ${passed ? gradeColor + '30' : '#ef444430'}` }}>
+                            <div key={i} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: passed ? `${gradeColor}15` : 'rgba(239,68,68,0.1)', border: `1px solid ${passed ? gradeColor + '30' : 'var(--danger)30'}` }}>
                               <div style={{ fontSize: '1rem', marginBottom: 4 }}>{passed ? '✅' : '❌'}</div>
                               <div style={{ fontSize: '0.58rem', color: '#94a3b8', lineHeight: 1.3 }}>{label}</div>
                             </div>
@@ -708,7 +708,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     const sdgMrBonus = flags.sdg_mr_bonus || 0;
                     const history = flags.sdg_score_history || [];
 
-                    const lineColor = (val, threshold) => val >= threshold ? '#10b981' : val >= threshold * 0.7 ? '#f59e0b' : '#ef4444';
+                    const lineColor = (val, threshold) => val >= threshold ? 'var(--kpi-good)' : val >= threshold * 0.7 ? 'var(--caution)' : 'var(--danger)';
 
                     return (
                         <div style={{
@@ -794,7 +794,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     <span style={{
                                         fontSize: '1.2rem', fontWeight: 900,
                                         fontFamily: "'JetBrains Mono', monospace",
-                                        color: '#10b981',
+                                        color: 'var(--kpi-good)',
                                     }}>{currencySymbol()}{(vT / 1_000_000).toFixed(2)}M</span>
                                 </div>
 
@@ -805,7 +805,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     const pps   = flags.price_per_share ?? d.price_per_share;
                                     const nd    = flags.net_debt ?? d.net_debt;
                                     if (eqVal == null || pps == null) return null;
-                                    const spColor = pps >= 50 ? '#10b981' : pps >= 30 ? '#f59e0b' : '#ef4444';
+                                    const spColor = pps >= 50 ? 'var(--kpi-good)' : pps >= 30 ? 'var(--caution)' : 'var(--danger)';
                                     return (
                                         <div style={{ marginTop: '0.5rem', padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.12)' }}>
                                             <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>
@@ -813,13 +813,13 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '4px', color: '#94a3b8' }}>
                                                 <span>Net Debt</span>
-                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#f87171' }}>
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--danger-text)' }}>
                                                     −{currencySymbol()}{((nd || 0) / 1_000_000).toFixed(1)}M
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '6px' }}>
                                                 <span>Equity Value</span>
-                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: eqVal > 0 ? '#4ade80' : '#ef4444', fontWeight: 800 }}>
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: eqVal > 0 ? 'var(--positive-text)' : 'var(--danger)', fontWeight: 800 }}>
                                                     {currencySymbol()}{(eqVal / 1_000_000).toFixed(2)}M
                                                 </span>
                                             </div>
@@ -849,7 +849,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     </div>
                                     <div style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
                                         <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '3px' }}>M_SDG Contribution</div>
-                                        <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 900, color: 'var(--kpi-good)', fontFamily: "'JetBrains Mono', monospace" }}>
                                             {vT > 0 ? delta(vT - vT / mSdg, money) : ratio(mSdg)}
                                         </div>
                                         <div style={{ fontSize: '0.6rem', color: '#475569', marginTop: '2px' }}>
@@ -869,7 +869,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                         {history.map((h, i) => {
                                             const maxScore = 105;
                                             const pct = Math.max(8, (h.score / maxScore) * 100);
-                                            const col = h.points >= 15 ? '#10b981' : h.points >= 8 ? '#f59e0b' : '#ef4444';
+                                            const col = h.points >= 15 ? 'var(--kpi-good)' : h.points >= 8 ? 'var(--caution)' : 'var(--danger)';
                                             return (
                                                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                                                     <div style={{ fontSize: '0.75rem', color: col, fontWeight: 700 }}>{h.points > 0 ? `+${h.points}` : h.points}</div>
@@ -921,7 +921,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                         {currencySymbol()}{((vT / mSdg) / 1_000_000).toFixed(2)}M
                                     </span>{' '}
                                     — the SDG track added{' '}
-                                    <span style={{ color: '#10b981', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
+                                    <span style={{ color: 'var(--kpi-good)', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
                                         {currencySymbol()}{((vT - vT / mSdg) / 1_000_000).toFixed(2)}M
                                     </span>{' '}
                                     in terminal enterprise value.
@@ -952,7 +952,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             className={styles.primaryBtn}
                             onClick={() => setShowInterview(true)}
                             style={{
-                                background: 'linear-gradient(135deg, #10b981, #059669)',
+                                background: 'linear-gradient(135deg, var(--kpi-good), #059669)',
                             }}
                         >
                             ✅ View Interview Assessment

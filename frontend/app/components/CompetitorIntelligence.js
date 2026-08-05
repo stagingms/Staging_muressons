@@ -24,10 +24,10 @@ function TrendArrow({ current, previous }) {
   const delta = current - previous;
   const pct = previous ? delta / previous : 0;
   let arrow, color;
-  if (pct > 0.05)       { arrow = '↑'; color = '#10b981'; }
+  if (pct > 0.05)       { arrow = '↑'; color = 'var(--kpi-good)'; }
   else if (pct > 0)     { arrow = '↗'; color = '#34d399'; }
-  else if (pct < -0.05) { arrow = '↓'; color = '#ef4444'; }
-  else if (pct < 0)     { arrow = '↘'; color = '#f87171'; }
+  else if (pct < -0.05) { arrow = '↓'; color = 'var(--danger)'; }
+  else if (pct < 0)     { arrow = '↘'; color = 'var(--danger-text)'; }
   else                   { arrow = '→'; color = '#94a3b8'; }
   return <span style={{ color, fontSize: '0.85rem', fontWeight: 700, marginLeft: 4 }}>{arrow}</span>;
 }

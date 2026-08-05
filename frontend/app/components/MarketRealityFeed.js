@@ -21,11 +21,11 @@ import RailIcon from './RailIcon';
  */
 
 const SEVERITY_META = {
-  alert: { iconName: 'alertTriangle', badge: 'ALERT', badgeColor: '#ef4444', badgeBg: 'rgba(239,68,68,0.1)' },
+  alert: { iconName: 'alertTriangle', badge: 'ALERT', badgeColor: 'var(--danger)', badgeBg: 'rgba(239,68,68,0.1)' },
   // INFO is the quiet default — neutral badge so colour is reserved for
   // urgency (alert = red, foreshadow = amber). De-noises the feed spine.
   info: { iconName: 'info', badge: 'INFO', badgeColor: '#94a3b8', badgeBg: 'rgba(148,163,184,0.10)' },
-  foreshadow: { iconName: 'zap', badge: 'BREAKING', badgeColor: '#f59e0b', badgeBg: 'rgba(245,158,11,0.1)' },
+  foreshadow: { iconName: 'zap', badge: 'BREAKING', badgeColor: 'var(--caution)', badgeBg: 'rgba(245,158,11,0.1)' },
 };
 
 const FILTER_CHIPS = [
@@ -70,7 +70,7 @@ export default function MarketRealityFeed({
           className={`${styles.eventPopup} ${isBlackSwan ? styles.eventPopupBlackSwan : ''}`}
           style={isBlackSwan ? {
             background: 'linear-gradient(135deg, #1a0000, #2d0000)',
-            border: '2px solid #ef4444',
+            border: '2px solid var(--danger)',
             boxShadow: '0 0 30px rgba(239, 68, 68, 0.3)',
             animation: 'none',
           } : undefined}
@@ -80,7 +80,7 @@ export default function MarketRealityFeed({
           </div>
           <div
             className={styles.eventPopupTitle}
-            style={isBlackSwan ? { color: '#ef4444', fontWeight: 800, fontSize: '1rem' } : undefined}
+            style={isBlackSwan ? { color: 'var(--danger)', fontWeight: 800, fontSize: '1rem' } : undefined}
           >
             {activeAlert.title}
           </div>
@@ -97,8 +97,8 @@ export default function MarketRealityFeed({
               style={{
                 marginTop: 12, width: '100%', padding: '10px 16px',
                 background: isBlackSwan
-                  ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                  : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  ? 'linear-gradient(135deg, var(--danger), #dc2626)'
+                  : 'linear-gradient(135deg, var(--caution), #d97706)',
                 color: '#fff', border: 'none', borderRadius: 8,
                 fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer',
                 letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -178,10 +178,10 @@ export default function MarketRealityFeed({
               cursor: isLong || trace ? 'pointer' : 'default',
               transition: 'background 0.2s ease',
               ...(item.isForeshadow ? {
-                borderLeft: '3px solid #f59e0b',
+                borderLeft: '3px solid var(--caution)',
                 background: 'rgba(245,158,11,0.04)',
               } : effectiveType === 'alert' ? {
-                borderLeft: '3px solid #ef4444',
+                borderLeft: '3px solid var(--danger)',
                 background: 'rgba(239,68,68,0.04)',
               } : {
                 // INFO: quiet neutral hairline, no tint — colour reserved for urgency.
@@ -225,7 +225,7 @@ export default function MarketRealityFeed({
                     fontSize: '0.42rem', fontWeight: 600,
                     padding: '1px 4px', borderRadius: 3,
                     background: item.isCarryOver ? 'rgba(148,163,184,0.08)' : 'rgba(34,197,94,0.08)',
-                    color: item.isCarryOver ? '#94a3b8' : '#22c55e',
+                    color: item.isCarryOver ? '#94a3b8' : 'var(--positive)',
                     letterSpacing: '0.03em',
                   }}>
                     {item.isCarryOver ? '↩ carry-over' : '• new'}

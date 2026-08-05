@@ -62,7 +62,7 @@ export default function KPIDashboard({
   }, [historyData]);
 
   // Trust gauge
-  const trustColor = reputation >= 60 ? '#22c55e' : reputation >= 40 ? '#f59e0b' : '#ef4444';
+  const trustColor = reputation >= 60 ? 'var(--positive)' : reputation >= 40 ? 'var(--caution)' : 'var(--danger)';
 
   const fmtM = (v) => moneyM(v);
 
@@ -128,7 +128,7 @@ export default function KPIDashboard({
               {ebitdaDelta != null && (
                 <span style={{
                   marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
-                  color: ebitdaDelta >= 0 ? '#22c55e' : '#ef4444',
+                  color: ebitdaDelta >= 0 ? 'var(--positive)' : 'var(--danger)',
                 }}>
                   {ebitdaDelta >= 0 ? '▲' : '▼'} {fmtM(Math.abs(ebitdaDelta))}
                 </span>
@@ -171,10 +171,10 @@ export default function KPIDashboard({
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
                 <div className={styles.kpiValue} style={{
                   color: events.caroic.grade === 'A+' || events.caroic.grade === 'A'
-                    ? '#22c55e'
+                    ? 'var(--positive)'
                     : events.caroic.grade === 'B' || events.caroic.grade === 'C'
-                      ? '#f59e0b'
-                      : '#ef4444',
+                      ? 'var(--caution)'
+                      : 'var(--danger)',
                 }}>
                   {events.caroic.caroic_pct}%
                 </div>
@@ -204,7 +204,7 @@ export default function KPIDashboard({
                 </div>
                 <div style={{ textAlign: 'center', padding: '4px 0', background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
                   <div style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Carbon Charge</div>
-                  <div style={{ color: '#fbbf24', fontWeight: 600 }}>{fmtM(events.caroic.carbon_capital_charge)}</div>
+                  <div style={{ color: 'var(--caution-text)', fontWeight: 600 }}>{fmtM(events.caroic.carbon_capital_charge)}</div>
                 </div>
                 <div style={{ textAlign: 'center', padding: '4px 0', background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
                   <div style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Adj. Capital</div>
@@ -231,7 +231,7 @@ export default function KPIDashboard({
                 return delta !== 0 ? (
                   <span style={{
                     marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
-                    color: delta <= 0 ? '#22c55e' : '#ef4444',
+                    color: delta <= 0 ? 'var(--positive)' : 'var(--danger)',
                   }}>
                     {delta <= 0 ? '▼' : '▲'} {Math.abs(delta).toLocaleString()} t/yr
                   </span>
@@ -285,7 +285,7 @@ export default function KPIDashboard({
                 return delta !== 0 ? (
                   <span style={{
                     marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
-                    color: delta <= 0 ? '#22c55e' : '#ef4444',
+                    color: delta <= 0 ? 'var(--positive)' : 'var(--danger)',
                   }}>
                     {delta <= 0 ? '▼' : '▲'} {Math.abs(delta).toFixed(2)}
                   </span>
@@ -384,7 +384,7 @@ export default function KPIDashboard({
                 </svg>
                 <span className={styles.gaugeValue} style={{ color: '#f8fafc', textShadow: '0 0 10px rgba(255,255,255,0.2)' }}>{Math.round(reputation)}</span>
               </div>
-              <span className={styles.gaugeLabel} style={{ color: reputation >= 80 ? '#4ade80' : reputation >= 60 ? '#60a5fa' : reputation >= 40 ? '#fcd34d' : '#fca5a5' }}>
+              <span className={styles.gaugeLabel} style={{ color: reputation >= 80 ? 'var(--positive-text)' : reputation >= 60 ? '#60a5fa' : reputation >= 40 ? '#fcd34d' : '#fca5a5' }}>
                 {reputation >= 80 ? 'Excellent' : reputation >= 60 ? 'Strong' : reputation >= 40 ? 'Moderate' : reputation >= 20 ? 'Low' : 'Critical'}
               </span>
             </div>

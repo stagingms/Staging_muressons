@@ -163,7 +163,7 @@ function getStochasticIndicator(roundNumber) {
       label: 'Cyclone Landfall Probability',
       level: 'HIGH',
       barPercent: 78,
-      color: '#ef4444',
+      color: 'var(--danger)',
       description: 'Meteorological models indicate a high probability of direct impact on your manufacturing corridor.',
     };
   }
@@ -172,7 +172,7 @@ function getStochasticIndicator(roundNumber) {
       label: 'Strike Probability (if Social License is low)',
       level: 'MODERATE–HIGH',
       barPercent: 55,
-      color: '#f59e0b',
+      color: 'var(--caution)',
       description: 'Labour unrest models suggest a moderate-to-high probability of industrial action if workforce morale remains low.',
     };
   }
@@ -306,7 +306,7 @@ export default function RoundBriefing({
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
             background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
             backdropFilter: 'blur(8px)',
-            border: confirmLogout ? '1px solid #f87171' : '1px solid rgba(248,113,113,0.25)',
+            border: confirmLogout ? '1px solid var(--danger-text)' : '1px solid rgba(248,113,113,0.25)',
             borderRadius: 8, color: confirmLogout ? '#fff' : '#fca5a5',
             fontSize: '0.72rem', fontWeight: 700, fontFamily: "'DM Sans', system-ui, sans-serif",
             cursor: 'pointer',
@@ -478,9 +478,9 @@ export default function RoundBriefing({
             <div style={{
               padding: '14px 16px', borderRadius: 10, marginBottom: 16,
               background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
-              borderLeft: '3px solid #10b981',
+              borderLeft: '3px solid var(--kpi-good)',
             }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--kpi-good)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
                 🌍 Climate Engine Intelligence
               </div>
               <div style={{ fontSize: '0.8rem', color: '#a7f3d0', lineHeight: 1.6 }}>
@@ -489,13 +489,13 @@ export default function RoundBriefing({
               {globalState && (
                 <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.5)', fontSize: '0.68rem', color: '#94a3b8' }}>
-                    💰 Green Fund: <strong style={{ color: '#4ade80' }}>{currencySymbol()}{((globalState.green_transition_fund || 0) / 1_000_000).toFixed(1)}M</strong>
+                    💰 Green Fund: <strong style={{ color: 'var(--positive-text)' }}>{currencySymbol()}{((globalState.green_transition_fund || 0) / 1_000_000).toFixed(1)}M</strong>
                   </div>
                   <div style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.5)', fontSize: '0.68rem', color: '#94a3b8' }}>
-                    📊 Cost of Capital: <strong style={{ color: (globalState.cost_of_capital || 0.05) > 0.06 ? '#ef4444' : '#f8fafc' }}>{((globalState.cost_of_capital || 0.05) * 100).toFixed(1)}%</strong>
+                    📊 Cost of Capital: <strong style={{ color: (globalState.cost_of_capital || 0.05) > 0.06 ? 'var(--danger)' : '#f8fafc' }}>{((globalState.cost_of_capital || 0.05) * 100).toFixed(1)}%</strong>
                   </div>
                   <div style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.5)', fontSize: '0.68rem', color: '#94a3b8' }}>
-                    🌡️ Tipping Point: <strong style={{ color: globalState.tipping_point_active ? '#ef4444' : '#10b981' }}>{globalState.tipping_point_active ? 'ACTIVE' : 'Stable'}</strong>
+                    🌡️ Tipping Point: <strong style={{ color: globalState.tipping_point_active ? 'var(--danger)' : 'var(--kpi-good)' }}>{globalState.tipping_point_active ? 'ACTIVE' : 'Stable'}</strong>
                   </div>
                 </div>
               )}

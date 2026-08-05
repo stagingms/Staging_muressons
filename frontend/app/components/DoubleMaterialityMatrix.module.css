@@ -1294,14 +1294,14 @@
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #f59e0b;
+    color: var(--caution);
     font-weight: 700;
 }
 
 .panelFeeAmount {
     font-weight: 700;
     font-size: 0.85rem;
-    color: #f59e0b;
+    color: var(--caution);
     transition: color 0.3s ease;
 }
 
@@ -1338,6 +1338,6 @@
 .commissionGroupBtn.commissioned {
     background: rgba(74, 222, 128, 0.08);
     border-color: rgba(74, 222, 128, 0.3);
-    color: #4ade80;
+    color: var(--positive-text);
     cursor: default;
 }

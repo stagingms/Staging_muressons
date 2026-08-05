@@ -306,7 +306,7 @@ export function CrisisScreen({ crisisType, cfg, globalState, onDismiss, onLogout
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
             background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
             backdropFilter: 'blur(8px)',
-            border: confirmLogout ? '1px solid #f87171' : '1px solid rgba(248,113,113,0.25)',
+            border: confirmLogout ? '1px solid var(--danger-text)' : '1px solid rgba(248,113,113,0.25)',
             borderRadius: 8, color: confirmLogout ? '#fff' : '#fca5a5',
             fontSize: '0.72rem', fontWeight: 700, fontFamily: "'DM Sans', system-ui, sans-serif",
             cursor: 'pointer',

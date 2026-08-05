@@ -1389,7 +1389,7 @@
 }
 
 /* A11Y-M3 (WCAG 1.4.3): --danger-text is the TEXT tier -- in dark it is
-   #f87171, a bright pastel meant to be read ON a dark surface, not to be one.
+   var(--danger-text), a bright pastel meant to be read ON a dark surface, not to be one.
    White on it measured 2.77:1. Same defect as F18 on the rail tab badge, in
    the second badge nobody checked; red-600 carries white at 4.83:1 in both
    themes, which is why this is a fixed value and not a token. */

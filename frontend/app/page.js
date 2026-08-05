@@ -1460,7 +1460,7 @@ export default function CockpitPage() {
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
             background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
             backdropFilter: 'blur(8px)',
-            border: confirmLogout ? '1px solid #f87171' : '1px solid rgba(248,113,113,0.25)',
+            border: confirmLogout ? '1px solid var(--danger-text)' : '1px solid rgba(248,113,113,0.25)',
             borderRadius: 8, color: confirmLogout ? '#fff' : '#fca5a5',
             fontSize: '0.72rem', fontWeight: 700, fontFamily: "'DM Sans', system-ui, sans-serif",
             cursor: 'pointer', transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
@@ -1791,7 +1791,7 @@ export default function CockpitPage() {
           style={{
           border: 'none', font: 'inherit', cursor: 'pointer',
           position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',
+          background: 'linear-gradient(135deg, var(--caution), #d97706)', color: '#fff',
           borderRadius: 10, padding: '12px 24px', zIndex: 20000,
           fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', fontWeight: 700,
           boxShadow: '0 8px 24px rgba(245,158,11,0.35)',

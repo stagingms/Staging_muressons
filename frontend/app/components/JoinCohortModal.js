@@ -181,7 +181,7 @@ export default function JoinCohortModal({ sim }) {
                             <div role="alert" style={{
                                 background: 'rgba(245,158,11,0.08)',
                                 border: '1px solid rgba(245,158,11,0.3)',
-                                color: '#fbbf24', padding: '0.6rem', borderRadius: 6,
+                                color: 'var(--caution-text)', padding: '0.6rem', borderRadius: 6,
                                 fontSize: '0.72rem', lineHeight: 1.5, marginBottom: '0.6rem',
                             }}>⚠ {STORAGE_BLOCKED_MESSAGE}</div>
                         )}

@@ -136,7 +136,7 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
   const pct = totalTime ? (timeLeft / totalTime) * 100 : 100;
-  const urgency = pct > 50 ? '#4ade80' : pct > 20 ? '#fbbf24' : '#f87171';
+  const urgency = pct > 50 ? 'var(--positive-text)' : pct > 20 ? 'var(--caution-text)' : 'var(--danger-text)';
   const clock = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
   if (variant === 'bar') {

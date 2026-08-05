@@ -1260,8 +1260,8 @@ export default function ExecutiveCockpit({
                   padding: '0.8rem 2.2rem', fontSize: '0.8rem', fontWeight: 700,
                   cursor: 'pointer',
                   background: activeAlert.isBlackSwan
-                    ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                    : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    ? 'linear-gradient(135deg, var(--danger), #dc2626)'
+                    : 'linear-gradient(135deg, var(--caution), #d97706)',
                   color: '#fff',
                   boxShadow: activeAlert.isBlackSwan
                     ? '0 4px 16px rgba(239, 68, 68, 0.4)'
@@ -1438,7 +1438,7 @@ export default function ExecutiveCockpit({
               }[decisionParadigm] || 'Active'}
             </span>
             {lastSavedAt && (
-               <span style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+               <span style={{ fontSize: '0.68rem', color: 'var(--kpi-good)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
                  ✓ {lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                </span>
             )}
@@ -1504,7 +1504,7 @@ export default function ExecutiveCockpit({
               fontSize: '0.74rem', lineHeight: 1.5, color: '#e2e8f0',
             }}
           >
-            <strong style={{ color: '#fbbf24' }}>⏱ This round was submitted for you.</strong>{' '}
+            <strong style={{ color: 'var(--caution-text)' }}>⏱ This round was submitted for you.</strong>{' '}
             {globalState.active_event_flags.auto_committed_source === 'draft'
               ? 'The round closed before you committed, so your last saved draft was submitted.'
               : 'The round closed before you committed, so defaults were submitted: Option B, $1 to each business unit.'}{' '}
@@ -1592,10 +1592,10 @@ export default function ExecutiveCockpit({
               <div className={styles.resourceLabel}>💰 Treasury</div>
               <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
               {(() => { const prev = previousGlobalState?.corporate_treasury; const d = prev != null ? treasury - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
               {shadowDeltas?.treasury !== 0 && shadowDeltas?.treasury && (
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.treasury < 0 ? '#f87171' : '#4ade80', marginTop: 2 }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.treasury < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
                   → {fmtCurrency(treasury + shadowDeltas.treasury)} ({shadowDeltas.treasury > 0 ? '+' : ''}{fmtCurrency(shadowDeltas.treasury)})
                 </div>
               )}
@@ -1608,7 +1608,7 @@ export default function ExecutiveCockpit({
               return (
                 <div className={styles.resourceCard} title={greenFundTooltip}>
                   <div className={styles.resourceLabel}>🌱 Green Fund</div>
-                  <div className={styles.resourceValue} style={{ color: '#4ade80' }}>{fmtCurrency(greenFund)}</div>
+                  <div className={styles.resourceValue} style={{ color: 'var(--positive-text)' }}>{fmtCurrency(greenFund)}</div>
                   {greenFund === 0 && decisionParadigm === 'advanced_climate' && (
                     <div style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: 2, lineHeight: 1.3 }}>Funded by carbon fee</div>
                   )}
@@ -1627,10 +1627,10 @@ export default function ExecutiveCockpit({
                   occurrences moved to the token. */}
               <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span></div>
               {(() => { const prev = previousGlobalState?.group_reputation; const d = prev != null ? reputation - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
               ) : null; })()}
               {shadowDeltas?.reputation !== 0 && shadowDeltas?.reputation && (
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.reputation < 0 ? '#f87171' : '#4ade80', marginTop: 2 }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.reputation < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
                   → {(reputation + shadowDeltas.reputation).toFixed(0)} ({shadowDeltas.reputation > 0 ? '+' : ''}{shadowDeltas.reputation})
                 </div>
               )}
@@ -1640,7 +1640,7 @@ export default function ExecutiveCockpit({
                 <div className={styles.resourceLabel}>🏭 Carbon</div>
                 <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>t</span></div>
                 {(() => { const prev = previousGlobalState?.tco2e_emissions; const d = prev != null ? tco2e - prev : 0; return d !== 0 ? (
-                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#4ade80' : '#f87171', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--positive-text)' : 'var(--danger-text)', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
                 ) : null; })()}
               </div>
             )}
@@ -1648,20 +1648,20 @@ export default function ExecutiveCockpit({
               <div className={styles.resourceLabel}>📈 EBITDA</div>
               <div className={styles.resourceValue}>{fmtCurrency(ebitda)}</div>
               {(() => { const prevBUs = previousGlobalState?.business_units || history?.[history?.length-1]?.business_units; const prevEbitda = prevBUs?.reduce((a,b) => a + (b.revenue_base||0) - (b.opex_base||0), 0); const d = prevEbitda != null ? ebitda - prevEbitda : 0; return Math.abs(d) > 0.01 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
             </div>
             {isHealthcare && (
               <>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🩺 Avg Burnout</div>
-                  <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? '#ef4444' : systemBurnout > 50 ? '#f59e0b' : '#10b981' }}>
+                  <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? 'var(--danger)' : systemBurnout > 50 ? 'var(--caution)' : 'var(--kpi-good)' }}>
                     {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🛏️ Bed Util.</div>
-                  <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? '#ef4444' : totalBedCapacity > 70 ? '#f59e0b' : '#10b981' }}>
+                  <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? 'var(--danger)' : totalBedCapacity > 70 ? 'var(--caution)' : 'var(--kpi-good)' }}>
                     {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>%</span>
                   </div>
                 </div>
@@ -1671,19 +1671,19 @@ export default function ExecutiveCockpit({
               <>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🏛️ Political Capital</div>
-                  <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? '#10b981' : politicalCapital > 30 ? '#f59e0b' : '#ef4444' }}>
+                  <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? 'var(--kpi-good)' : politicalCapital > 30 ? 'var(--caution)' : 'var(--danger)' }}>
                     {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🤝 Community Trust</div>
-                  <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? '#10b981' : communityTrust > 30 ? '#f59e0b' : '#ef4444' }}>
+                  <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? 'var(--kpi-good)' : communityTrust > 30 ? 'var(--caution)' : 'var(--danger)' }}>
                     {communityTrust.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🌡️ Emissions Int.</div>
-                  <div className={styles.resourceValue} style={{ color: globalEmissions > 100 ? '#ef4444' : globalEmissions > 60 ? '#f59e0b' : '#10b981' }}>
+                  <div className={styles.resourceValue} style={{ color: globalEmissions > 100 ? 'var(--danger)' : globalEmissions > 60 ? 'var(--caution)' : 'var(--kpi-good)' }}>
                     {globalEmissions.toFixed(0)}
                   </div>
                 </div>
@@ -1701,7 +1701,7 @@ export default function ExecutiveCockpit({
                   {activeRegulations.length}
                   <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>instr.</span>
                 </div>
-                <div style={{ fontSize: '0.68rem', color: regulatoryComplexity > 60 ? '#fbbf24' : '#6366f1', marginTop: 2, lineHeight: 1.3 }}>
+                <div style={{ fontSize: '0.68rem', color: regulatoryComplexity > 60 ? 'var(--caution-text)' : '#6366f1', marginTop: 2, lineHeight: 1.3 }}>
                   Complexity {regulatoryComplexity.toFixed(0)}/100
                 </div>
               </div>
@@ -1791,13 +1791,13 @@ export default function ExecutiveCockpit({
               <div style={{ display: 'flex', gap: 6 }}>
                 <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: '1px solid rgba(94, 234, 212, 0.1)' }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>Synergy</div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: (globalState?.synergy_multiplier || 1) < 1 ? '#f87171' : '#5eead4', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: (globalState?.synergy_multiplier || 1) < 1 ? 'var(--danger-text)' : '#5eead4', fontFamily: 'JetBrains Mono, monospace' }}>
                     {(globalState?.synergy_multiplier || 1).toFixed(2)}×
                   </div>
                 </div>
                 <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: '1px solid #334155' }}>
                   <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}>Inflation</div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: (globalState?.inflation_index || 0) > 0.03 ? '#f59e0b' : '#e2e8f0', fontFamily: 'JetBrains Mono, monospace' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: (globalState?.inflation_index || 0) > 0.03 ? 'var(--caution)' : '#e2e8f0', fontFamily: 'JetBrains Mono, monospace' }}>
                     {fmtInflation(globalState?.inflation_index)}
                   </div>
                 </div>
@@ -1938,7 +1938,7 @@ export default function ExecutiveCockpit({
                         : focusDismissed
                           ? '1px solid rgba(245, 158, 11, 0.2)'
                           : '1px solid rgba(255, 255, 255, 0.08)',
-                      color: isFocusActive ? '#fbbf24' : focusDismissed ? '#f59e0b' : '#94a3b8',
+                      color: isFocusActive ? 'var(--caution-text)' : focusDismissed ? 'var(--caution)' : '#94a3b8',
                       fontSize: '0.72rem', fontWeight: 700, fontFamily: 'inherit',
                       letterSpacing: '0.04em', textTransform: 'uppercase',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
@@ -1953,7 +1953,7 @@ export default function ExecutiveCockpit({
                     {focusDismissed && !isFocusActive && (
                       <span style={{
                         width: 6, height: 6, borderRadius: '50%',
-                        background: '#f59e0b',
+                        background: 'var(--caution)',
                         display: 'inline-block',
                         boxShadow: '0 0 6px rgba(245, 158, 11, 0.5)',
                       }} />
@@ -2096,7 +2096,7 @@ export default function ExecutiveCockpit({
               <span>{isPillarMode ? '🎛️' : '📋'}</span>
               {isPillarMode ? 'Strategic Pillars' : 'Strategic Options'}
               {projectedCost !== 0 && (
-                <span style={{ marginLeft: 'auto', color: projectedCost > 0 ? '#f87171' : '#4ade80', fontWeight: 800, fontSize: '0.72rem' }}>
+                <span style={{ marginLeft: 'auto', color: projectedCost > 0 ? 'var(--danger-text)' : 'var(--positive-text)', fontWeight: 800, fontSize: '0.72rem' }}>
                   Impact: {fmtCurrency(projectedCost)}
                 </span>
               )}
@@ -2588,7 +2588,7 @@ export default function ExecutiveCockpit({
               <div aria-hidden="true" className="stamp-ceremony" style={{
                 display: 'inline-block', marginTop: 10, padding: '4px 14px',
                 border: '2px solid rgba(74, 222, 128, 0.55)', borderRadius: 6,
-                color: '#4ade80', fontSize: '0.68rem', fontWeight: 800,
+                color: 'var(--positive-text)', fontSize: '0.68rem', fontWeight: 800,
                 letterSpacing: '0.18em', textTransform: 'uppercase',
                 fontFamily: 'var(--font-numeral, monospace)',
                 animation: 'stampIn 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) 0.15s both',
@@ -2795,16 +2795,16 @@ export default function ExecutiveCockpit({
                   <div style={{ marginBottom: 3 }}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
                 )}
                 {commitResults.events.covenant_surcharge > 0 && (
-                  <div style={{ marginBottom: 3, color: '#f87171' }}>📊 Covenant Penalty: -{fmtCurrency(commitResults.events.covenant_surcharge)} interest surcharge</div>
+                  <div style={{ marginBottom: 3, color: 'var(--danger-text)' }}>📊 Covenant Penalty: -{fmtCurrency(commitResults.events.covenant_surcharge)} interest surcharge</div>
                 )}
                 {commitResults.events.covenant_warning && (
-                  <div style={{ marginBottom: 3, color: '#fbbf24' }}>⚠️ {typeof commitResults.events.covenant_warning === 'string' ? commitResults.events.covenant_warning : 'Debt covenant under pressure'}</div>
+                  <div style={{ marginBottom: 3, color: 'var(--caution-text)' }}>⚠️ {typeof commitResults.events.covenant_warning === 'string' ? commitResults.events.covenant_warning : 'Debt covenant under pressure'}</div>
                 )}
                 {commitResults.events.esg_adjusted_wacc && commitResults.events.esg_adjusted_wacc.adjusted_wacc > 0.08 && (
-                  <div style={{ marginBottom: 3, color: '#f87171' }}>📊 ESG-WACC at {(commitResults.events.esg_adjusted_wacc.adjusted_wacc * 100).toFixed(1)}% — lender covenant thresholds tightening</div>
+                  <div style={{ marginBottom: 3, color: 'var(--danger-text)' }}>📊 ESG-WACC at {(commitResults.events.esg_adjusted_wacc.adjusted_wacc * 100).toFixed(1)}% — lender covenant thresholds tightening</div>
                 )}
                 {commitResults.events.employer_brand_opex_penalty && (
-                  <div style={{ marginBottom: 3, color: '#f87171' }}>👥 Talent Crisis: +{((commitResults.events.employer_brand_opex_penalty.multiplier || 0) * 100).toFixed(1)}% OPEX across all BUs</div>
+                  <div style={{ marginBottom: 3, color: 'var(--danger-text)' }}>👥 Talent Crisis: +{((commitResults.events.employer_brand_opex_penalty.multiplier || 0) * 100).toFixed(1)}% OPEX across all BUs</div>
                 )}
               </div>
             )}
@@ -2849,7 +2849,7 @@ export default function ExecutiveCockpit({
               <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)', marginBottom: 16 }}>
                 <div style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#818cf8', marginBottom: 8, fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>📊</span> {peerLeaderboard.some(t => t.isAI) ? 'AI Benchmark Comparison' : 'Cohort Leaderboard'}
-                  {peerLeaderboard.some(t => t.isAI) && <span style={{ fontSize: '0.5rem', background: 'rgba(245,158,11,0.15)', color: '#fbbf24', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>🤖 AI</span>}
+                  {peerLeaderboard.some(t => t.isAI) && <span style={{ fontSize: '0.5rem', background: 'rgba(245,158,11,0.15)', color: 'var(--caution-text)', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>🤖 AI</span>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {peerLeaderboard.slice(0, 5).map(team => (
@@ -2865,7 +2865,7 @@ export default function ExecutiveCockpit({
                         {team.name}
                         {team.isYou && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: 'rgba(99,102,241,0.3)', padding: '1px 6px', borderRadius: 4, fontWeight: 800, color: '#c7d2fe' }}>YOU</span>}
                       </span>
-                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--positive-text)', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
                         {fmtCurrency(team.treasury)}
                       </span>
                       <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0, width: 28, textAlign: 'right' }}>
@@ -2873,7 +2873,7 @@ export default function ExecutiveCockpit({
                       </span>
                       <span style={{
                         fontSize: '0.72rem', flexShrink: 0,
-                        color: team.trend === '↑' ? '#4ade80' : team.trend === '↓' ? '#f87171' : '#94a3b8',
+                        color: team.trend === '↑' ? 'var(--positive-text)' : team.trend === '↓' ? 'var(--danger-text)' : '#94a3b8',
                       }}>{team.trend}</span>
                     </div>
                   ))}
@@ -3023,7 +3023,7 @@ export default function ExecutiveCockpit({
               </button>
             )}
             {roundNumber === 1 && hasCompletedStakeholderMap && (
-              <div style={{ marginTop: 8, fontSize: '0.72rem', color: '#4ade80', fontWeight: 600 }}>
+              <div style={{ marginTop: 8, fontSize: '0.72rem', color: 'var(--positive-text)', fontWeight: 600 }}>
                 ✅ Stakeholder Map Complete{stakeholderAccuracy != null ? ` — ${stakeholderAccuracy.toFixed(0)}% accuracy` : ''}
               </div>
             )}
@@ -3040,7 +3040,7 @@ export default function ExecutiveCockpit({
                 onClick={onOpenCSRD}
                 style={{
                   marginTop: 10, width: '100%', padding: '10px 16px',
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff',
+                  background: 'linear-gradient(135deg, var(--danger), #dc2626)', color: '#fff',
                   border: 'none', borderRadius: 6, fontWeight: 800, fontSize: '0.72rem',
                   cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
                   fontFamily: 'Inter, sans-serif',
@@ -3051,7 +3051,7 @@ export default function ExecutiveCockpit({
               </button>
             )}
             {roundNumber === 2 && hasSubmittedMatrix && (
-              <div style={{ marginTop: 8, fontSize: '0.68rem', color: '#4ade80', fontWeight: 600, letterSpacing: '0.02em' }}>✅ CSRD Assessment Submitted</div>
+              <div style={{ marginTop: 8, fontSize: '0.68rem', color: 'var(--positive-text)', fontWeight: 600, letterSpacing: '0.02em' }}>✅ CSRD Assessment Submitted</div>
             )}
 
           </div>
@@ -3118,13 +3118,13 @@ export default function ExecutiveCockpit({
                         <td style={{ padding: '5px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: isDark ? '#cbd5e1' : '#334155' }}>
                           {fmtCurrency(bu.revenue_base || 0)}
                         </td>
-                        <td style={{ padding: '5px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: margin >= 25 ? '#10b981' : margin >= 15 ? '#f59e0b' : '#ef4444' }}>
+                        <td style={{ padding: '5px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: margin >= 25 ? 'var(--kpi-good)' : margin >= 15 ? 'var(--caution)' : 'var(--danger)' }}>
                           {margin.toFixed(1)}%
                         </td>
                         <td style={{ padding: '5px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: isDark ? '#a5b4fc' : '#6366f1' }}>
                           {bu.social_license_to_operate || 0}
                         </td>
-                        <td style={{ padding: '5px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: (bu.governance_risk || 0) > 10 ? '#f87171' : isDark ? '#94a3b8' : '#64748b' }}>
+                        <td style={{ padding: '5px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: (bu.governance_risk || 0) > 10 ? 'var(--danger-text)' : isDark ? '#94a3b8' : '#64748b' }}>
                           {bu.governance_risk || 0}%
                         </td>
                         <td style={{ padding: '5px 6px', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b' }}>
@@ -3212,7 +3212,7 @@ export default function ExecutiveCockpit({
                   {isPillarMode ? '🎛️ Strategic Pillars' : '📋 Strategic Options'}
                 </span>
                 {decisionChoice && (
-                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--positive-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     ✓ {decisionChoice.replace(/_/g, ' ')}
                   </span>
                 )}
@@ -3247,7 +3247,7 @@ export default function ExecutiveCockpit({
                         {/* V-B: honest lock state on the glance minis too */}
                         {!canAccessStrategy ? '🔒 ' : isSelected ? '✓ ' : ''}{optId.replace('option_', '').toUpperCase()}: {opt.title || opt.name || optId}
                       </span>
-                      <span className={styles.optionMiniCost} style={cost < 0 ? { color: '#ef4444' } : cost > 0 ? { color: '#4ade80' } : {}}>
+                      <span className={styles.optionMiniCost} style={cost < 0 ? { color: 'var(--danger)' } : cost > 0 ? { color: 'var(--positive-text)' } : {}}>
                         {cost !== 0 ? fmtCurrency(cost) : '—'}
                       </span>
                     </div>
@@ -3267,7 +3267,7 @@ export default function ExecutiveCockpit({
                 border: '1px solid rgba(94,234,212,0.25)', background: 'rgba(94,234,212,0.05)',
                 fontSize: '0.76rem',
               }}>
-                <span style={{ color: '#4ade80' }}>✓</span>
+                <span style={{ color: 'var(--positive-text)' }}>✓</span>
                 <span style={{ flex: 1, fontWeight: 700, color: isDark ? '#e2e8f0' : '#1e293b' }}>
                   Strategic Decision: {decisionChoice.replace('option_', '').toUpperCase()}
                   {options?.[decisionChoice]?.title ? ` — ${options[decisionChoice].title}` : ''}
@@ -3351,9 +3351,9 @@ export default function ExecutiveCockpit({
                 <span style={{
                   fontWeight: 700,
                   color: globalState.active_event_flags.shadow_board_archetype === 'Sustainability-First'
-                    ? '#10b981'
+                    ? 'var(--kpi-good)'
                     : globalState.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
-                    ? '#f59e0b'
+                    ? 'var(--caution)'
                     : '#8b5cf6',
                 }}>
                   {globalState.active_event_flags.shadow_board_archetype}
@@ -3531,25 +3531,25 @@ export default function ExecutiveCockpit({
                           return (
                           <tr key={optId} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                             <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
-                            <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#ef4444' : imp.treasury > 0 ? '#16a34a' : muted }}>
+                            <td style={{ textAlign: 'center', color: imp.treasury < 0 ? 'var(--danger)' : imp.treasury > 0 ? '#16a34a' : muted }}>
                               {imp.treasury != null ? fmtCurrency(imp.treasury) : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: rev > 0 ? '#16a34a' : rev < 0 ? '#ef4444' : muted }}>
+                            <td style={{ textAlign: 'center', color: rev > 0 ? '#16a34a' : rev < 0 ? 'var(--danger)' : muted }}>
                               {rev != null ? (rev > 0 ? '+' : '') + fmtCurrency(rev) : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: rep > 0 ? '#16a34a' : rep < 0 ? '#ef4444' : muted }}>
+                            <td style={{ textAlign: 'center', color: rep > 0 ? '#16a34a' : rep < 0 ? 'var(--danger)' : muted }}>
                               {rep != null ? (rep > 0 ? '+' : '') + rep : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: ci < 0 ? '#16a34a' : ci > 0 ? '#ef4444' : muted }}>
+                            <td style={{ textAlign: 'center', color: ci < 0 ? '#16a34a' : ci > 0 ? 'var(--danger)' : muted }}>
                               {ci != null ? (ci > 0 ? '+' : '') + ci : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: slo > 0 ? '#16a34a' : slo < 0 ? '#ef4444' : muted }}>
+                            <td style={{ textAlign: 'center', color: slo > 0 ? '#16a34a' : slo < 0 ? 'var(--danger)' : muted }}>
                               {slo != null ? (slo > 0 ? '+' : '') + slo : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: gov < 0 ? '#16a34a' : gov > 0 ? '#ef4444' : muted }}>
+                            <td style={{ textAlign: 'center', color: gov < 0 ? '#16a34a' : gov > 0 ? 'var(--danger)' : muted }}>
                               {gov != null ? (gov > 0 ? '+' : '') + gov : '—'}
                             </td>
-                            <td style={{ textAlign: 'center', color: ncd < 0 ? '#16a34a' : ncd > 0 ? '#ef4444' : muted }}>
+                            <td style={{ textAlign: 'center', color: ncd < 0 ? '#16a34a' : ncd > 0 ? 'var(--danger)' : muted }}>
                               {ncd != null ? (ncd > 0 ? '+' : '') + ncd : '—'}
                             </td>
                           </tr>
@@ -3690,7 +3690,7 @@ export default function ExecutiveCockpit({
                     <div className={styles.buTickerMetrics}>
                       <span>Rev {fmtCurrency(bu.revenue_base || 0)}</span>
                       {revDelta !== 0 && (
-                        <span style={{ color: revDelta > 0 ? '#4ade80' : '#f87171' }}>
+                        <span style={{ color: revDelta > 0 ? 'var(--positive-text)' : 'var(--danger-text)' }}>
                           {revDelta > 0 ? '▲' : '▼'}
                         </span>
                       )}
@@ -3816,7 +3816,7 @@ export default function ExecutiveCockpit({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
                     <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap' }}>Ready</span>
                     <div style={{ flex: 1, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ width: `${quality}%`, height: '100%', background: quality > 80 ? '#10b981' : quality > 40 ? '#f59e0b' : '#ef4444', transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }} />
+                      <div style={{ width: `${quality}%`, height: '100%', background: quality > 80 ? 'var(--kpi-good)' : quality > 40 ? 'var(--caution)' : 'var(--danger)', transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }} />
                     </div>
                   </div>
                 );
@@ -3841,7 +3841,7 @@ export default function ExecutiveCockpit({
                   />
                 )}
                 {stageWarning && (
-                  <span style={{ color: '#ef4444', fontSize: '0.68rem', fontWeight: 700, textAlign: 'center' }}>🔒 {stageWarning}</span>
+                  <span style={{ color: 'var(--danger)', fontSize: '0.68rem', fontWeight: 700, textAlign: 'center' }}>🔒 {stageWarning}</span>
                 )}
                 {/* UX-04: Over-allocation warning */}
                 {(Object.values(allocations || {}).reduce((s, v) => s + v, 0) > (csfPool || 0)) && (csfPool > 0) && !commitResults && (
@@ -3964,11 +3964,11 @@ export default function ExecutiveCockpit({
                   const btnStyle = commitResults
                     ? { background: '#1e293b', color: '#e2e8f0', borderColor: '#334155' }
                     : overAllocated
-                      ? { background: 'linear-gradient(135deg, #991b1b, #7f1d1d)', color: '#ffffff', borderColor: '#ef4444', boxShadow: '0 0 12px rgba(239,68,68,0.25)' }
+                      ? { background: 'linear-gradient(135deg, #991b1b, #7f1d1d)', color: '#ffffff', borderColor: 'var(--danger)', boxShadow: '0 0 12px rgba(239,68,68,0.25)' }
                       : fullyReady
-                        ? { background: 'linear-gradient(135deg, #059669, #047857)', color: '#ffffff', borderColor: '#10b981', boxShadow: '0 0 12px rgba(16,185,129,0.3)' }
+                        ? { background: 'linear-gradient(135deg, #059669, #047857)', color: '#ffffff', borderColor: 'var(--kpi-good)', boxShadow: '0 0 12px rgba(16,185,129,0.3)' }
                         : partialReady
-                          ? { background: 'linear-gradient(135deg, #92400e, #78350f)', color: '#ffffff', borderColor: '#f59e0b' }
+                          ? { background: 'linear-gradient(135deg, #92400e, #78350f)', color: '#ffffff', borderColor: 'var(--caution)' }
                           : { background: '#1e293b', color: '#e2e8f0', borderColor: '#475569' };
                   const btnIcon = commitResults ? '✅' : overAllocated ? '⚠️' : fullyReady ? '▶' : partialReady ? '⏳' : '🔒';
 
@@ -4124,7 +4124,7 @@ export default function ExecutiveCockpit({
               <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Round {roundNumber} Status
               </span>
-              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: (globalState?.team_commits_this_round || 0) >= globalState.cohort_team_count ? '#10b981' : '#6366f1' }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: (globalState?.team_commits_this_round || 0) >= globalState.cohort_team_count ? 'var(--kpi-good)' : '#6366f1' }}>
                 {globalState?.team_commits_this_round || 0}/{globalState.cohort_team_count} committed {(globalState?.team_commits_this_round || 0) >= globalState.cohort_team_count ? '✓' : '...'}
               </span>
             </div>
@@ -4164,7 +4164,7 @@ export default function ExecutiveCockpit({
                    Measured on the tinted background, not on the rail. */
                 { id: 'mailbox', vis: 'rail_mailbox', label: '📬 Mailbox', color: '#3b82f6', onDark: '#93c5fd', onLight: '#1d4ed8', badge: unreadCount > 0 ? unreadCount : null },
                 { id: 'decisions', vis: 'decision_history', label: '📜 Decisions', color: '#6366f1', onDark: '#a5b4fc', onLight: '#4338ca', badge: (!commitResults && hasDecision) ? '⏳' : null },
-                { id: 'engines', vis: 'rail_engines', label: '🌎 Engines', color: '#10b981', onDark: '#6ee7b7', onLight: '#047857', badge: (events && Object.keys(events).length > 0 && !commitResults) ? '•' : null },
+                { id: 'engines', vis: 'rail_engines', label: '🌎 Engines', color: 'var(--kpi-good)', onDark: '#6ee7b7', onLight: '#047857', badge: (events && Object.keys(events).length > 0 && !commitResults) ? '•' : null },
                 { id: 'climate', vis: 'rail_climate', label: '🌡️ Climate', color: '#38bdf8', onDark: '#7dd3fc', onLight: '#0369a1', badge: null },
               ].filter(tab => isPlayerVisible(tab.vis)).map(tab => {
                 const isActive = rightPanelTab === tab.id;
@@ -4738,7 +4738,7 @@ export default function ExecutiveCockpit({
                   <div>Pillars: <strong style={{ color: '#f1f5f9' }}>{Object.keys(pillarSelections).length} selected</strong></div>
                 )}
                 {projectedCost !== 0 && (
-                  <div>Projected Impact: <strong style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80' }}>
+                  <div>Projected Impact: <strong style={{ color: projectedCost > 0 ? 'var(--danger-text)' : 'var(--positive-text)' }}>
                     {fmtCurrency(projectedCost)}
                   </strong></div>
                 )}
@@ -4893,7 +4893,7 @@ export default function ExecutiveCockpit({
                     if (!v) return null;
                     const isGood = inverseGood ? v < 0 : v > 0;
                     return (
-                      <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: isGood ? '#4ade80' : '#ef4444' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: isGood ? 'var(--positive-text)' : 'var(--danger)' }}>
                         {v > 0 ? '▲' : '▼'} {fmtCurrency ? (inverseGood && v < 500 ? Math.abs(v) : fmtCurrency(Math.abs(v))) : Math.abs(v).toFixed(0)}
                       </span>
                     );
@@ -4923,7 +4923,7 @@ export default function ExecutiveCockpit({
                         <div className={styles.resultCardValue}>
                           {newRep.toFixed(0)}
                           {dRep !== 0 && (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dRep >= 0 ? '#4ade80' : '#ef4444' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dRep >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
                               {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
                             </span>
                           )}
@@ -4935,7 +4935,7 @@ export default function ExecutiveCockpit({
                         <div className={styles.resultCardValue}>
                           {newCarbon.toLocaleString()} t
                           {dCarbon !== 0 && (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dCarbon <= 0 ? '#4ade80' : '#ef4444' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dCarbon <= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
                               {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()} t
                             </span>
                           )}
@@ -4952,7 +4952,7 @@ export default function ExecutiveCockpit({
                         const deRatio = bs.debt_to_equity || 0;
                         const cStatus = bs.covenant_status || 'green';
                         const fmtMShort = (v) => moneyM(v || 0, { dp: 0 });
-                        const cColors = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
+                        const cColors = { green: 'var(--positive-text)', amber: 'var(--caution-text)', red: 'var(--danger)', breached: '#dc2626' };
                         const cIcons = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
                         return (
                           <div
@@ -4972,7 +4972,7 @@ export default function ExecutiveCockpit({
                               {fmtMShort(netAssets)} net
                             </div>
                             <div style={{ display: 'flex', gap: 6, marginTop: 4, fontSize: '0.68rem', justifyContent: 'center' }}>
-                              <span style={{ color: deRatio < 2.0 ? '#4ade80' : '#f59e0b', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                              <span style={{ color: deRatio < 2.0 ? 'var(--positive-text)' : 'var(--caution)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
                                 D/E: {deRatio.toFixed(2)}×
                               </span>
                               <span style={{ color: cColors[cStatus] || '#38bdf8' }}>
@@ -5175,7 +5175,7 @@ export default function ExecutiveCockpit({
                       return (
                         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.65rem' }}>
                           <span style={{ color: '#94a3b8', fontWeight: 600 }}>{label}</span>
-                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: d === 0 ? '#64748b' : positive ? '#4ade80' : '#f87171' }}>
+                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: d === 0 ? '#64748b' : positive ? 'var(--positive-text)' : 'var(--danger-text)' }}>
                             {d > 0 ? '+' : ''}{fmt(d)}
                           </span>
                         </div>
@@ -5287,7 +5287,7 @@ export default function ExecutiveCockpit({
                               padding: '1px 6px', borderRadius: 4,
                             }}>YOU</span>}
                           </td>
-                          <td style={{ padding: '6px', textAlign: 'right', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace" }}>
+                          <td style={{ padding: '6px', textAlign: 'right', fontWeight: 700, color: 'var(--positive-text)', fontFamily: "'JetBrains Mono', monospace" }}>
                             {currencySymbol()}{((team.treasury || 0) / 1_000_000).toFixed(1)}M
                           </td>
                           <td style={{ padding: '6px', textAlign: 'right', color: '#cbd5e1' }}>
@@ -5298,7 +5298,7 @@ export default function ExecutiveCockpit({
                           </td>
                           <td style={{
                             padding: '6px', textAlign: 'center', fontSize: '0.85rem',
-                            color: team.trend === '↑' ? '#4ade80' : team.trend === '↓' ? '#f87171' : '#94a3b8',
+                            color: team.trend === '↑' ? 'var(--positive-text)' : team.trend === '↓' ? 'var(--danger-text)' : '#94a3b8',
                           }}>{team.trend}</td>
                         </tr>
                       ))}
@@ -5423,7 +5423,7 @@ export default function ExecutiveCockpit({
                       background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)',
                     }}>
                       <div style={{ fontSize: '1.2rem', marginBottom: 6 }}>⚠️</div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f59e0b', marginBottom: 4 }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--caution)', marginBottom: 4 }}>
                         Complete the Activity Above First
                       </div>
                       <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>

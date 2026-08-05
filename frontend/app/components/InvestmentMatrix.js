@@ -16,12 +16,12 @@ const SvgSpecCare = () => (<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 const SvgTelehealth = () => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><polyline points="9,13 11,11 13,15 15,12"/></svg>);
 
 const BU_META = {
-    pharma: { label: 'Pharma', Icon: SvgPharma, accent: '#10b981' },
+    pharma: { label: 'Pharma', Icon: SvgPharma, accent: 'var(--kpi-good)' },
     electronics: { label: 'Electronics', Icon: SvgElectronics, accent: '#3b82f6' },
-    consumer_goods: { label: 'Consumer Goods', Icon: SvgConsumer, accent: '#f59e0b' },
+    consumer_goods: { label: 'Consumer Goods', Icon: SvgConsumer, accent: 'var(--caution)' },
     software: { label: 'Software', Icon: SvgSoftware, accent: '#8b5cf6' },
-    hospitals: { label: 'Hospitals', Icon: SvgHospital, accent: '#ef4444' },
-    clinics: { label: 'Primary Care Clinics', Icon: SvgClinic, accent: '#10b981' },
+    hospitals: { label: 'Hospitals', Icon: SvgHospital, accent: 'var(--danger)' },
+    clinics: { label: 'Primary Care Clinics', Icon: SvgClinic, accent: 'var(--kpi-good)' },
     specialised_care: { label: 'Specialised Care', Icon: SvgSpecCare, accent: '#8b5cf6' },
     telehealth: { label: 'Digital Health', Icon: SvgTelehealth, accent: '#0ea5e9' },
 };
@@ -53,7 +53,7 @@ function PoolDonut({ pctUsed }) {
     const size = 60, sw = 6, r = (size - sw) / 2, circ = 2 * Math.PI * r;
     const fill = Math.min(pctUsed, 120);
     const offset = circ * (1 - fill / 120);
-    const color = pctUsed > 100 ? '#ef4444' : pctUsed > 80 ? '#f59e0b' : '#00e5c3';
+    const color = pctUsed > 100 ? 'var(--danger)' : pctUsed > 80 ? 'var(--caution)' : '#00e5c3';
     return (
         <div className={styles.donutWrap}>
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -70,8 +70,8 @@ function PoolDonut({ pctUsed }) {
 
 /* ── BU Health Calculator ─────────────────────────────────── */
 function getSliderColor(pct, accent) {
-    if (pct > 100) return '#ef4444';
-    if (pct > 80) return '#f59e0b';
+    if (pct > 100) return 'var(--danger)';
+    if (pct > 80) return 'var(--caution)';
     if (pct > 50) return '#d97706';
     return accent;
 }
@@ -306,10 +306,10 @@ export default function InvestmentMatrix({
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '4px 0', fontSize: '0.68rem',
                     }}>
-                        <span style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ color: 'var(--positive-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
                             🌱 Green Fund Coverage
                         </span>
-                        <span style={{ color: '#4ade80', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
+                        <span style={{ color: 'var(--positive-text)', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
                             up to {sym}{((globalState?.green_transition_fund || 0) / 1_000_000).toFixed(1)}M available
                         </span>
                     </div>
@@ -485,7 +485,7 @@ export default function InvestmentMatrix({
                                                     <span style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={issue.title}>
                                                         • {issue.title}
                                                     </span>
-                                                    <span style={{ color: 'var(--accent-green, #10b981)', fontWeight: 'bold' }}>
+                                                    <span style={{ color: 'var(--accent-green, var(--kpi-good))', fontWeight: 'bold' }}>
                                                         {sym}{(displayCost / 1_000_000).toFixed(1)}M
                                                     </span>
                                                 </li>

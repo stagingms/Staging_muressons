@@ -28,7 +28,7 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
   // Don't show until at least R2
   if (roundNumber < 2) return null;
 
-  const badgeColors = { '🏆': '#10b981', '✅': '#22c55e', '⚠️': '#f59e0b', '🔴': '#ef4444' };
+  const badgeColors = { '🏆': 'var(--kpi-good)', '✅': 'var(--positive)', '⚠️': 'var(--caution)', '🔴': 'var(--danger)' };
 
   return (
     <div style={{
@@ -85,7 +85,7 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
                 {Object.entries(data.benchmarks).map(([key, bm]) => {
                   const pctl = bm.percentile;
                   const barWidth = Math.min(pctl, 100);
-                  const barColor = pctl >= 75 ? '#10b981' : pctl >= 50 ? '#22c55e' : pctl >= 25 ? '#f59e0b' : '#ef4444';
+                  const barColor = pctl >= 75 ? 'var(--kpi-good)' : pctl >= 50 ? 'var(--positive)' : pctl >= 25 ? 'var(--caution)' : 'var(--danger)';
                   return (
                     <div key={key} style={{
                       padding: '6px 8px', borderRadius: 6,

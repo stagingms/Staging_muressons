@@ -295,7 +295,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
                   padding: '3px 10px', borderRadius: 20,
                   background: 'rgba(16,185,129,0.12)',
                   border: '1px solid rgba(16,185,129,0.3)',
-                  color: '#10b981',
+                  color: 'var(--kpi-good)',
                 }}>
                   🌍 Advanced Climate Edition
                 </span>
@@ -326,7 +326,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
                 style={{
                   flex: 2, padding: '9px 0',
                   background: step.isClimate
-                    ? 'linear-gradient(135deg, #059669, #10b981)'
+                    ? 'linear-gradient(135deg, #059669, var(--kpi-good))'
                     : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700,
                   cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif',

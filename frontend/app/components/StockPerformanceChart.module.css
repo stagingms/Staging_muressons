@@ -68,7 +68,7 @@
 }
 
 .deltaUp {
-  color: #22c55e;
+  color: var(--positive);
 }
 
 .deltaDown {

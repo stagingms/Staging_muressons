@@ -39,10 +39,10 @@ function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBooste
 
     const getCategoryIcon = (category) => {
         switch (category) {
-            case 'ecological': return <span className={styles.catIcon} style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.5)' }}>E</span>;
+            case 'ecological': return <span className={styles.catIcon} style={{ background: 'rgba(16, 185, 129, 0.2)', color: 'var(--kpi-good)', border: '1px solid rgba(16, 185, 129, 0.5)' }}>E</span>;
             case 'social': return <span className={styles.catIcon} style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.5)' }}>S</span>;
-            case 'governance': return <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.5)' }}>G</span>;
-            case 'economic': return <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.5)' }}>G</span>;
+            case 'governance': return <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--caution)', border: '1px solid rgba(245, 158, 11, 0.5)' }}>G</span>;
+            case 'economic': return <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--caution)', border: '1px solid rgba(245, 158, 11, 0.5)' }}>G</span>;
             default: return null;
         }
     };
@@ -54,7 +54,7 @@ function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBooste
     const iroType = issue.iro_type || null;
 
     // ESRS spectrum tags
-    const severityColor = { high: '#ef4444', medium: '#f59e0b', low: '#10b981' };
+    const severityColor = { high: 'var(--danger)', medium: 'var(--caution)', low: 'var(--kpi-good)' };
     const horizonLabel = { short: 'ST', medium: 'MT', long: 'LT' };
     const sev = issue.severity;
     const horizon = issue.time_horizon;
@@ -62,9 +62,9 @@ function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBooste
     // ── NEW: ESRS topic badge color ──
     const esrsTopicColor = (t) => {
         if (!t) return { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' };
-        if (t.startsWith('E')) return { bg: 'rgba(16,185,129,0.15)', color: '#10b981' };
+        if (t.startsWith('E')) return { bg: 'rgba(16,185,129,0.15)', color: 'var(--kpi-good)' };
         if (t.startsWith('S')) return { bg: 'rgba(59,130,246,0.15)', color: '#60a5fa' };
-        return { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' };
+        return { bg: 'rgba(245,158,11,0.15)', color: 'var(--caution)' };
     };
     const vcLabel = { own_ops: '🏭', upstream: '⬆', downstream: '⬇' };
     const esrsTopic = issue.esrs_topic || null;
@@ -716,7 +716,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     )}
                     <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', minWidth: '140px' }}>
                         <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Placed</span>
-                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: hasEnoughPlaced ? '#4ade80' : '#f59e0b' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: hasEnoughPlaced ? 'var(--positive-text)' : 'var(--caution)' }}>
                             {placedCount} / {issues.length} issues
                         </span>
                         {/* CL-4: Visual completion bar */}
@@ -724,7 +724,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             <div style={{
                                 height: '100%', borderRadius: 2,
                                 width: `${Math.min(100, (placedCount / Math.max(1, issues.length)) * 100)}%`,
-                                background: hasEnoughPlaced ? '#4ade80' : '#f59e0b',
+                                background: hasEnoughPlaced ? 'var(--positive-text)' : 'var(--caution)',
                                 transition: 'width 0.3s ease, background 0.3s ease',
                             }} />
                         </div>
@@ -740,7 +740,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Q1 Budget</span>
                         <span style={{
                             fontWeight: 700, fontSize: '0.9rem',
-                            color: isOverBudget ? '#ef4444' : totalQ1Cost > 0 ? '#f59e0b' : '#4ade80',
+                            color: isOverBudget ? 'var(--danger)' : totalQ1Cost > 0 ? 'var(--caution)' : 'var(--positive-text)',
                             transition: 'color 0.3s ease',
                         }}>
                             {currencySymbol()}{(totalQ1Cost / 1_000_000).toFixed(1)}M / {currencySymbol()}{(netCsf / 1_000_000).toFixed(1)}M
@@ -795,7 +795,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     {/* Category Legend */}
                     <div className={styles.legend}>
                             <span className={styles.legendItem}>
-                                <span className={styles.catIcon} style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.5)', width: 18, height: 18, fontSize: '0.6rem' }}>E</span>
+                                <span className={styles.catIcon} style={{ background: 'rgba(16, 185, 129, 0.2)', color: 'var(--kpi-good)', border: '1px solid rgba(16, 185, 129, 0.5)', width: 18, height: 18, fontSize: '0.6rem' }}>E</span>
                                 Ecological
                             </span>
                             <span className={styles.legendItem}>
@@ -803,7 +803,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                 Social
                             </span>
                             <span className={styles.legendItem}>
-                                <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.5)', width: 18, height: 18, fontSize: '0.6rem' }}>G</span>
+                                <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: 'var(--caution)', border: '1px solid rgba(245, 158, 11, 0.5)', width: 18, height: 18, fontSize: '0.6rem' }}>G</span>
                                 Governance
                             </span>
                         </div>
@@ -852,7 +852,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         {/* Gap 3: Time Horizon Filter */}
                         <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.5rem', alignItems: 'center' }}>
                             <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: '0.25rem' }}>Horizon</span>
-                            {[['all', 'All', '#6366f1'], ['short', 'ST ≤1yr', '#ef4444'], ['medium', 'MT 1-5yr', '#f59e0b'], ['long', 'LT >5yr', '#10b981']].map(([val, label, color]) => (
+                            {[['all', 'All', '#6366f1'], ['short', 'ST ≤1yr', 'var(--danger)'], ['medium', 'MT 1-5yr', 'var(--caution)'], ['long', 'LT >5yr', 'var(--kpi-good)']].map(([val, label, color]) => (
                                 <button key={val} onClick={() => setHorizonFilter(val)}
                                     style={{
                                         padding: '2px 10px', borderRadius: '12px', border: `1px solid ${horizonFilter === val ? color : 'rgba(255,255,255,0.1)'}`,
@@ -957,8 +957,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                     : {
                                         investors: { label: '💰 Investors', color: '#6366f1' },
                                         workers:   { label: '👷 Own Workforce', color: '#3b82f6' },
-                                        ngos:      { label: '🌍 NGOs / Communities', color: '#10b981' },
-                                        experts:   { label: '🎓 Subject Matter Experts', color: '#f59e0b' },
+                                        ngos:      { label: '🌍 NGOs / Communities', color: 'var(--kpi-good)' },
+                                        experts:   { label: '🎓 Subject Matter Experts', color: 'var(--caution)' },
                                     }
                             ).map(([gKey, gCfg]) => (
                                 <button key={gKey} onClick={() => setActivePanelGroup(gKey)}
@@ -966,7 +966,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer',
                                         border: `1px solid ${activePanelGroup === gKey ? gCfg.color : 'rgba(255,255,255,0.1)'}`,
                                         background: activePanelGroup === gKey ? `${gCfg.color}22` : 'rgba(255,255,255,0.03)',
-                                        color: activePanelGroup === gKey ? gCfg.color : commissionedGroups.has(gKey) ? '#4ade80' : '#94a3b8',
+                                        color: activePanelGroup === gKey ? gCfg.color : commissionedGroups.has(gKey) ? 'var(--positive-text)' : '#94a3b8',
                                         fontSize: '0.72rem', fontWeight: 700,
                                         transition: 'background 0.15s, color 0.15s, border-color 0.15s',
                                         position: 'relative',
@@ -999,7 +999,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                     {/* Commission button for this group */}
                                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
                                         {isCommissioned ? (
-                                            <span style={{ padding: '0.45rem 1.2rem', borderRadius: '6px', background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)', fontWeight: 700, fontSize: '0.82rem' }}>
+                                            <span style={{ padding: '0.45rem 1.2rem', borderRadius: '6px', background: 'rgba(74,222,128,0.1)', color: 'var(--positive-text)', border: '1px solid rgba(74,222,128,0.3)', fontWeight: 700, fontSize: '0.82rem' }}>
                                                 ✓ {cfg.label} Commissioned
                                             </span>
                                         ) : (
@@ -1019,7 +1019,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         {totalPanelFee > 0 && (
                             <div style={{ padding: '0.5rem 0.75rem', background: 'rgba(245,158,11,0.06)', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.15)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{commissionedGroups.size} group{commissionedGroups.size !== 1 ? 's' : ''} commissioned</span>
-                                <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.82rem' }}>Total: −{currencySymbol()}{(totalPanelFee / 1_000_000).toFixed(2)}M from CSF</span>
+                                <span style={{ fontWeight: 700, color: 'var(--caution)', fontSize: '0.82rem' }}>Total: −{currencySymbol()}{(totalPanelFee / 1_000_000).toFixed(2)}M from CSF</span>
                             </div>
                         )}
 
@@ -1064,7 +1064,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         <button
                                             onClick={() => handleSubmit(true)}
                                             className={styles.submitBtn}
-                                            style={{ flex: 1, background: '#ef4444', borderColor: '#ef4444', color: 'white' }}
+                                            style={{ flex: 1, background: 'var(--danger)', borderColor: 'var(--danger)', color: 'white' }}
                                             data-tooltip="Warning: Overriding the CFO may negatively impact your reputation score. Have you considered the long-term ESG implications?"
                                         >
                                             Force Override
@@ -1117,26 +1117,26 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                                 <p style={{ color: '#94a3b8', fontSize: '0.72rem', margin: '0 0 0.5rem', fontStyle: 'italic' }}>ESRS 1 §1.38: Materiality threshold = ≥80% Q1 accuracy + board-level governance oversight</p>
                                                 {submitStatus.debrief.q1_correct?.length > 0 && (
                                                     <div style={{ marginBottom: '0.5rem' }}>
-                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4ade80', marginBottom: '0.25rem' }}>✅ Correctly in Q1 ({submitStatus.debrief.q1_correct.length})</div>
+                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--positive-text)', marginBottom: '0.25rem' }}>✅ Correctly in Q1 ({submitStatus.debrief.q1_correct.length})</div>
                                                         <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                                                             {submitStatus.debrief.q1_correct.map(id => (
-                                                                <span key={id} style={{ padding: '2px 7px', borderRadius: '4px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80', fontSize: '0.68rem' }}>{id.replace(/_/g, ' ')}</span>
+                                                                <span key={id} style={{ padding: '2px 7px', borderRadius: '4px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: 'var(--positive-text)', fontSize: '0.68rem' }}>{id.replace(/_/g, ' ')}</span>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 )}
                                                 {submitStatus.debrief.q1_missed?.length > 0 && (
                                                     <div style={{ marginBottom: '0.5rem' }}>
-                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fbbf24', marginBottom: '0.25rem' }}>⚠ Should have been in Q1 ({submitStatus.debrief.q1_missed.length})</div>
+                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--caution-text)', marginBottom: '0.25rem' }}>⚠ Should have been in Q1 ({submitStatus.debrief.q1_missed.length})</div>
                                                         <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                                                             {submitStatus.debrief.q1_missed.map(id => (
-                                                                <span key={id} style={{ padding: '2px 7px', borderRadius: '4px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', fontSize: '0.68rem' }}>{id.replace(/_/g, ' ')}</span>
+                                                                <span key={id} style={{ padding: '2px 7px', borderRadius: '4px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', color: 'var(--caution-text)', fontSize: '0.68rem' }}>{id.replace(/_/g, ' ')}</span>
                                                             ))}
                                                         </div>
                                                     </div>
                                                 )}
                                                 {submitStatus.debrief.clawback_applied > 0 && (
-                                                    <div style={{ padding: '0.4rem 0.6rem', background: 'rgba(239,68,68,0.08)', borderRadius: '5px', borderLeft: '2px solid #ef4444', color: '#fca5a5', fontSize: '0.72rem' }}>
+                                                    <div style={{ padding: '0.4rem 0.6rem', background: 'rgba(239,68,68,0.08)', borderRadius: '5px', borderLeft: '2px solid var(--danger)', color: '#fca5a5', fontSize: '0.72rem' }}>
                                                         ⚠ ESRS 1 §1.51: CEO-only sign-off (Option C) — {currencySymbol()}{submitStatus.debrief.clawback_applied?.toLocaleString()} clawback applied. Board committee oversight required.
                                                     </div>
                                                 )}
@@ -1144,14 +1144,14 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         </details>
 
                                         {submitStatus.debrief.q2_insight && (
-                                            <div style={{ padding: '0.6rem', background: 'rgba(16,185,129,0.08)', borderRadius: '6px', borderLeft: '3px solid #10b981', marginBottom: '0.5rem' }}>
+                                            <div style={{ padding: '0.6rem', background: 'rgba(16,185,129,0.08)', borderRadius: '6px', borderLeft: '3px solid var(--kpi-good)', marginBottom: '0.5rem' }}>
                                                 <strong style={{ color: '#34d399' }}>Q2 Impact Disclosure</strong>
                                                 <p style={{ color: '#cbd5e1', margin: '0.3rem 0 0' }}>{submitStatus.debrief.q2_insight}</p>
                                             </div>
                                         )}
                                         {submitStatus.debrief.spectrum_note && (
-                                            <div style={{ padding: '0.6rem', background: 'rgba(245,158,11,0.08)', borderRadius: '6px', borderLeft: '3px solid #f59e0b' }}>
-                                                <strong style={{ color: '#fbbf24' }}>⚠ Simulation Simplification</strong>
+                                            <div style={{ padding: '0.6rem', background: 'rgba(245,158,11,0.08)', borderRadius: '6px', borderLeft: '3px solid var(--caution)' }}>
+                                                <strong style={{ color: 'var(--caution-text)' }}>⚠ Simulation Simplification</strong>
                                                 <p style={{ color: '#cbd5e1', margin: '0.3rem 0 0' }}>{submitStatus.debrief.spectrum_note}</p>
                                             </div>
                                         )}
