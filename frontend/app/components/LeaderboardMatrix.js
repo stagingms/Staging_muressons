@@ -220,8 +220,8 @@ export default function LeaderboardMatrix({
                         style={{
                             padding: '0.3rem 0.7rem', borderRadius: 'var(--radius-chip, 6px)',
                             border: '1px solid var(--border-subtle)',
-                            background: showAllCols ? 'var(--accent-soft, rgba(99,102,241,0.12))' : 'var(--bg-body)',
-                            color: showAllCols ? 'var(--accent, #6366f1)' : 'var(--text-muted)',
+                            background: showAllCols ? 'var(--accent-soft)' : 'var(--bg-body)',
+                            color: showAllCols ? 'var(--accent)' : 'var(--text-muted)',
                             fontSize: 'var(--type-caption)', cursor: 'pointer', fontWeight: 700,
                         }}
                     >{showAllCols ? '▾ Fewer metrics' : '▸ More metrics'}</button>

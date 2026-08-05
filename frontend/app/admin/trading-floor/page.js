@@ -178,7 +178,7 @@ export default function TradingFloorPage() {
         <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
           <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
           <span style={{ fontSize: '0.8rem', color: '#8899a6', fontWeight: 700 }}>{enabled ? 'ON' : 'OFF'}</span>
-          <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good, #10b981)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
+          <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
             <span style={{ ...S.knob, transform: enabled ? 'translateX(24px)' : 'translateX(0)' }} />
           </span>
         </label>
@@ -208,7 +208,7 @@ export default function TradingFloorPage() {
               {[...teams, ...teams].map((t, i) => (
                 <span key={i} style={S.tickItem}>
                   <strong style={{ color: '#e2e8f0' }}>{t.player_name || t.cohort_name || 'Team'}</strong>
-                  <span style={{ color: 'var(--kpi-good, #10b981)', marginLeft: 8 }}>{fmtM(t.terminal_value)} ▲</span>
+                  <span style={{ color: 'var(--kpi-good)', marginLeft: 8 }}>{fmtM(t.terminal_value)} ▲</span>
                 </span>
               ))}
             </div>
@@ -222,7 +222,7 @@ export default function TradingFloorPage() {
               const isRevealed = !closed || revealedRows.has(t.session_id || i);
               const sharePrice = Number(t.price_per_share) || 0;
               const ipoDelta = sharePrice - IPO_PRICE;
-              const deltaColor = ipoDelta >= 0 ? 'var(--kpi-good, #10b981)' : '#ef4444';
+              const deltaColor = ipoDelta >= 0 ? 'var(--kpi-good)' : '#ef4444';
               const deltaArrow = ipoDelta >= 0 ? '▲' : '▼';
 
               return (
@@ -327,7 +327,7 @@ const S = {
   page: { minHeight: '100vh', background: 'radial-gradient(ellipse at top, #0f172a 0%, #05070d 100%)', color: '#f1f5f9', padding: '28px 40px', fontFamily: 'var(--font-sans, system-ui, sans-serif)' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   brand: { fontSize: '2rem', fontWeight: 900, letterSpacing: '0.06em' },
-  sub: { fontSize: '0.85rem', letterSpacing: '0.18em', color: 'var(--accent-gold, #f59e0b)', fontWeight: 700, marginTop: 4 },
+  sub: { fontSize: '0.85rem', letterSpacing: '0.18em', color: 'var(--accent-gold)', fontWeight: 700, marginTop: 4 },
   switchWrap: { display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' },
   switch: { position: 'relative', width: 52, height: 28, borderRadius: 14, transition: 'background 0.2s', display: 'inline-block' },
   knob: { position: 'absolute', top: 3, left: 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' },
@@ -337,14 +337,14 @@ const S = {
   tickItem: { marginRight: 48 },
   board: { maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 },
   row: { display: 'grid', gridTemplateColumns: '60px 1fr 3fr 130px', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 12, background: 'rgba(22,30,46,0.7)', border: '1px solid rgba(148,163,184,0.12)' },
-  winner: { border: '1px solid var(--kpi-good, #10b981)', animation: 'mur-winner-pulse 2s ease infinite', background: 'rgba(16,185,129,0.08)' },
+  winner: { border: '1px solid var(--kpi-good)', animation: 'mur-winner-pulse 2s ease infinite', background: 'rgba(16,185,129,0.08)' },
   rank: { fontSize: '1.4rem', fontWeight: 900, textAlign: 'center' },
   team: { fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   barTrack: { height: 12, borderRadius: 6, background: 'rgba(148,163,184,0.15)', overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 6, background: 'linear-gradient(90deg, var(--accent-blue, #3b82f6), var(--kpi-good, #10b981))', transition: 'width 0.8s ease' },
-  value: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 800, textAlign: 'right', color: 'var(--kpi-good, #10b981)' },
-  bellBtn: { padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, var(--accent-gold, #f59e0b), #d97706)', color: '#1a1005', boxShadow: '0 6px 24px rgba(245,158,11,0.4)' },
-  closedBanner: { display: 'inline-block', padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, background: 'rgba(16,185,129,0.12)', color: 'var(--kpi-good, #10b981)', border: '1px solid var(--kpi-good, #10b981)' },
+  barFill: { height: '100%', borderRadius: 6, background: 'linear-gradient(90deg, var(--accent-blue), var(--kpi-good))', transition: 'width 0.8s ease' },
+  value: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 800, textAlign: 'right', color: 'var(--kpi-good)' },
+  bellBtn: { padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, var(--accent-gold), #d97706)', color: '#1a1005', boxShadow: '0 6px 24px rgba(245,158,11,0.4)' },
+  closedBanner: { display: 'inline-block', padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, background: 'rgba(16,185,129,0.12)', color: 'var(--kpi-good)', border: '1px solid var(--kpi-good)' },
   bellError: { display: 'inline-block', maxWidth: 720, padding: '10px 18px', marginBottom: 12, fontSize: '0.95rem', fontWeight: 700, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.45)' },
   reopenBtn: { padding: '8px 18px', fontSize: '0.85rem', fontWeight: 700, borderRadius: 10, border: '1px solid rgba(148,163,184,0.35)', cursor: 'pointer', background: 'transparent', color: '#cbd5e1' },
   ipoDelta: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' },

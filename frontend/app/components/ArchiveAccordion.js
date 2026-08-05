@@ -28,7 +28,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
   return (
     <div style={{
       marginTop: 6,
-      borderTop: '1px solid var(--ck-border, rgba(148,163,184,0.12))',
+      borderTop: '1px solid var(--ck-border)',
     }}>
       <button
         onClick={handleToggle}
@@ -39,7 +39,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '8px 10px',
-          background: open ? 'rgba(99, 102, 241, 0.14)' : 'var(--ck-surface-2, rgba(255,255,255,0.03))',
+          background: open ? 'rgba(99, 102, 241, 0.14)' : 'var(--ck-surface-2)',
           border: open ? '1px solid rgba(99, 102, 241, 0.40)' : '1px solid transparent',
           borderRadius: 5,
           cursor: 'pointer',
@@ -55,7 +55,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
         <span>{open ? '▾' : '▸'} {roundLabel || `Round ${round}`}</span>
         <span style={{
           fontSize: 'var(--type-caption)',
-          background: open ? 'rgba(99, 102, 241, 0.22)' : 'var(--ck-surface-2, rgba(255,255,255,0.06))',
+          background: open ? 'rgba(99, 102, 241, 0.22)' : 'var(--ck-surface-2)',
           color: open ? 'var(--accent-text)' : 'var(--text-secondary)',
           padding: '2px 6px',
           borderRadius: 4,
@@ -86,7 +86,7 @@ export default function ArchiveAccordion({ round, roundLabel, items, onMarkRead,
                    affordance and keeps the body above 4.5:1. */
                 opacity: msg.read ? 0.85 : 1,
                 borderRadius: '0 4px 4px 0',
-                background: 'var(--ck-surface-2, rgba(255,255,255,0.03))',
+                background: 'var(--ck-surface-2)',
                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
               }}
             >

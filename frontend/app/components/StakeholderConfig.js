@@ -478,8 +478,8 @@ export default function StakeholderConfig() {
 
             {/* ── Excel Import / Export ─────────────────────── */}
             <div style={{
-                background: 'var(--bg-body, #151820)',
-                border: '1px solid var(--border-subtle, #2d3446)',
+                background: 'var(--bg-body)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '10px',
                 overflow: 'hidden',
             }}>
@@ -493,14 +493,14 @@ export default function StakeholderConfig() {
                         padding: '0.85rem 1.15rem',
                         background: 'transparent',
                         border: 'none',
-                        color: 'var(--text-primary, #e2e8f0)',
+                        color: 'var(--text-primary)',
                         cursor: 'pointer',
                         fontSize: '0.85rem',
                         fontWeight: 700,
                     }}
                 >
                     <span>📊 Excel Import / Export</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                         {excelOpen ? '▲ Collapse' : '▼ Expand'}
                     </span>
                 </button>
@@ -519,14 +519,14 @@ export default function StakeholderConfig() {
                                         padding: '5px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
                                         fontSize: '0.76rem', fontWeight: 700,
                                         background: bulkMode === mode ? 'rgba(59,130,246,0.85)' : 'transparent',
-                                        color: bulkMode === mode ? '#fff' : 'var(--text-muted, #64748b)',
+                                        color: bulkMode === mode ? '#fff' : 'var(--text-muted)',
                                     }}
                                 >{label}</button>
                             ))}
                         </div>
 
                         {bulkMode && (
-                            <p style={{ margin: '0 0 0.9rem', fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.6 }}>
+                            <p style={{ margin: '0 0 0.9rem', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                                 Upload one workbook covering many scopes. Either add <strong>Vertical</strong> and{' '}
                                 <strong>Region</strong> columns to a single sheet, or give each scope its own sheet
                                 (e.g. “Region - Europe”, “Vertical - Pharma”, “Canonical”). You will see exactly what
@@ -569,7 +569,7 @@ export default function StakeholderConfig() {
                             onDragLeave={handleDragLeave}
                             onClick={() => fileInputRef.current && fileInputRef.current.click()}
                             style={{
-                                border: '2px dashed ' + (dragActive ? '#3b82f6' : 'var(--border-subtle, #2d3446)'),
+                                border: '2px dashed ' + (dragActive ? '#3b82f6' : 'var(--border-subtle)'),
                                 borderRadius: '8px',
                                 padding: '1.75rem 1rem',
                                 textAlign: 'center',
@@ -590,10 +590,10 @@ export default function StakeholderConfig() {
                             ) : (
                                 <>
                                     <div style={{ fontSize: '2rem', marginBottom: '0.35rem' }}>📤</div>
-                                    <p style={{ margin: 0, color: 'var(--text-muted, #64748b)', fontSize: '0.82rem' }}>
-                                        <strong style={{ color: 'var(--text-primary, #e2e8f0)' }}>Drop .xlsx file here</strong> or click to browse
+                                    <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                                        <strong style={{ color: 'var(--text-primary)' }}>Drop .xlsx file here</strong> or click to browse
                                     </p>
-                                    <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted, #64748b)', fontSize: 'var(--type-caption)' }}>
+                                    <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>
                                         {bulkMode ? 'Max 10 MB • .xlsx • preview first, nothing is written yet' : 'Max 5 MB • .xlsx only'}
                                     </p>
                                 </>
@@ -604,13 +604,13 @@ export default function StakeholderConfig() {
                         {bulkMode && bulkPreview && (
                             <div style={{ marginTop: '1rem', border: '1px solid rgba(59,130,246,0.35)', borderRadius: 10, overflow: 'hidden' }}>
                                 <div style={{ padding: '10px 14px', background: 'rgba(59,130,246,0.10)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                                    <strong style={{ fontSize: '0.84rem', color: 'var(--text-primary, #e2e8f0)' }}>
+                                    <strong style={{ fontSize: '0.84rem', color: 'var(--text-primary)' }}>
                                         Preview — {bulkPreview.scope_count} scope(s), {bulkPreview.total_stakeholders} stakeholder row(s). Nothing written yet.
                                     </strong>
                                     <div style={{ display: 'flex', gap: 8 }}>
                                         <button
                                             onClick={() => { setBulkPreview(null); setBulkFile(null); }}
-                                            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border-subtle, #2d3446)', background: 'transparent', color: 'var(--text-muted, #64748b)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                                            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
                                         >Cancel</button>
                                         <button
                                             onClick={handleBulkApply}
@@ -622,16 +622,16 @@ export default function StakeholderConfig() {
 
                                 <div style={{ maxHeight: 260, overflowY: 'auto' }}>
                                     {bulkPreview.scopes.map(sc => (
-                                        <div key={sc.config_id} style={{ padding: '9px 14px', borderTop: '1px solid var(--border-subtle, #2d3446)', fontSize: '0.78rem' }}>
+                                        <div key={sc.config_id} style={{ padding: '9px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
                                             <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                                                <span style={{ fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>{sc.config_id}</span>
-                                                <span style={{ fontSize: 'var(--type-caption)', padding: '1px 7px', borderRadius: 999, background: 'rgba(148,163,184,0.15)', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', fontWeight: 700 }}>{sc.scope_kind}</span>
+                                                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sc.config_id}</span>
+                                                <span style={{ fontSize: 'var(--type-caption)', padding: '1px 7px', borderRadius: 999, background: 'rgba(148,163,184,0.15)', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>{sc.scope_kind}</span>
                                                 {sc.is_new_config && <span style={{ fontSize: 'var(--type-caption)', color: '#22c55e', fontWeight: 700 }}>NEW</span>}
-                                                <span style={{ marginLeft: 'auto', color: 'var(--text-muted, #64748b)' }}>
+                                                <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>
                                                     {sc.existing_overrides} → {sc.incoming_overrides} override(s)
                                                 </span>
                                             </div>
-                                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4, color: 'var(--text-muted, #64748b)' }}>
+                                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4, color: 'var(--text-muted)' }}>
                                                 {sc.new_overrides.length > 0 && <span style={{ color: '#22c55e' }}>+{sc.new_overrides.length} new</span>}
                                                 {sc.replaced_overrides.length > 0 && <span style={{ color: '#3b82f6' }}>~{sc.replaced_overrides.length} replaced</span>}
                                                 {sc.reverting_to_canonical.length > 0 && (
@@ -650,7 +650,7 @@ export default function StakeholderConfig() {
                                 </div>
 
                                 {bulkPreview.note && (
-                                    <p style={{ margin: 0, padding: '9px 14px', borderTop: '1px solid var(--border-subtle, #2d3446)', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)', lineHeight: 1.6 }}>
+                                    <p style={{ margin: 0, padding: '9px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
                                         {bulkPreview.note}
                                     </p>
                                 )}

@@ -146,7 +146,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
     if (!status) return (
         <div className={styles.error} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', padding: '1.5rem' }}>
             <div>⚠️ Backend unreachable — retrying automatically every 10s.</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #8899a6)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 Check that the API server is running (e.g. <code>http://localhost:8000/health</code>).
             </div>
             <button

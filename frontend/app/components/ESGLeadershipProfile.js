@@ -239,7 +239,7 @@ function RadarChart({ scores, size = 200 }) {
             y={p.y}
             textAnchor="middle"
             dominantBaseline="middle"
-            fill="var(--text-muted, #94a3b8)"
+            fill="var(--text-muted)"
             fontSize={8}
             fontWeight={700}
           >

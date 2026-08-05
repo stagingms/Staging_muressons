@@ -283,8 +283,8 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                 @media (prefers-reduced-motion: reduce) { [style*="tourPulse"] { animation: none !important; } }
             `}} />
             <div style={{
-                background: 'var(--bg-card, #1e293b)',
-                border: '1px solid var(--border-subtle, #334155)',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: '20px',
                 padding: '0',
                 maxWidth: '480px',
@@ -346,7 +346,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                         </div>
                         <span style={{
                             fontSize: 'var(--type-caption)', fontWeight: 700,
-                            color: 'var(--text-muted, #64748b)',
+                            color: 'var(--text-muted)',
                             fontFamily: 'var(--font-mono, monospace)',
                             letterSpacing: '0.05em',
                         }}>
@@ -357,7 +357,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                     {/* Title */}
                     <h2 style={{
                         fontSize: '1.25rem', fontWeight: 800,
-                        color: 'var(--text-primary, #f1f5f9)',
+                        color: 'var(--text-primary)',
                         margin: '0 0 0.75rem 0',
                         lineHeight: 1.3,
                     }}>
@@ -367,7 +367,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                     {/* Body */}
                     <p style={{
                         fontSize: '0.88rem',
-                        color: 'var(--text-secondary, #94a3b8)',
+                        color: 'var(--text-secondary)',
                         lineHeight: 1.7,
                         margin: 0,
                     }}>
@@ -379,7 +379,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                 <div style={{
                     padding: '1rem 2.5rem 1.5rem',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    borderTop: '1px solid var(--border-subtle, #334155)',
+                    borderTop: '1px solid var(--border-subtle)',
                 }}>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                         {step > 0 && (
@@ -387,9 +387,9 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                                 onClick={handlePrev}
                                 style={{
                                     padding: '0.5rem 1.2rem', borderRadius: '8px',
-                                    border: '1px solid var(--border-subtle, #334155)',
+                                    border: '1px solid var(--border-subtle)',
                                     background: 'transparent',
-                                    color: 'var(--text-muted, #64748b)',
+                                    color: 'var(--text-muted)',
                                     fontSize: '0.82rem', fontWeight: 600,
                                     cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                 }}
@@ -402,7 +402,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                             style={{
                                 padding: '0.5rem 1rem', borderRadius: '8px',
                                 border: 'none', background: 'transparent',
-                                color: 'var(--text-muted, #64748b)',
+                                color: 'var(--text-muted)',
                                 fontSize: '0.75rem', fontWeight: 500,
                                 cursor: 'pointer', opacity: 0.7,
                             }}

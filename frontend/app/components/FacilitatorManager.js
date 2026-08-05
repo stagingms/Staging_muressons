@@ -1131,7 +1131,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)' }}>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🌊 Shockwave detonation</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to trigger synchronized cohort-wide crisis events.</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Allow this facilitator to trigger synchronized cohort-wide crisis events.</div>
                         </div>
                         <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.shockwaveEnabled !== false ? '#ef4444' : '#8899a6' }}>{form.shockwaveEnabled !== false ? 'ON' : 'OFF'}</span>
@@ -1145,7 +1145,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.06)' }}>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🔔 Trading-Floor finale</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to open the projector market board and ring the closing bell.</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Allow this facilitator to open the projector market board and ring the closing bell.</div>
                         </div>
                         <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.tradingFloorEnabled !== false ? '#f59e0b' : '#8899a6' }}>{form.tradingFloorEnabled !== false ? 'ON' : 'OFF'}</span>
@@ -1159,7 +1159,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(201,168,76,0.3)', background: 'rgba(201,168,76,0.06)' }}>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🎙️ Situation-Room bulletin</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to fire voiced market-news bulletins from the Teleprompter (facilitator screen only).</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Allow this facilitator to fire voiced market-news bulletins from the Teleprompter (facilitator screen only).</div>
                         </div>
                         <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.situationRoomEnabled !== false ? '#c9a84c' : '#8899a6' }}>{form.situationRoomEnabled !== false ? 'ON' : 'OFF'}</span>
@@ -1177,7 +1177,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(52,211,153,0.3)', background: 'rgba(52,211,153,0.06)' }}>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🤝 Stakeholder Negotiation Rooms</div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to enable negotiation rooms on their cohorts — players may meet hostile stakeholders and buy de-escalation with binding, priced concessions. Off by default.</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Allow this facilitator to enable negotiation rooms on their cohorts — players may meet hostile stakeholders and buy de-escalation with binding, priced concessions. Off by default.</div>
                         </div>
                         <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.negotiationRoomsEnabled === true ? '#34d399' : '#8899a6' }}>{form.negotiationRoomsEnabled === true ? 'ON' : 'OFF'}</span>
@@ -1703,18 +1703,18 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.07)',
                 }}>
                     <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                        📄 {pendingExcel.name} <span style={{ fontWeight: 500, color: 'var(--text-muted, #8899a6)' }}>— Excel file staged, nothing created yet</span>
+                        📄 {pendingExcel.name} <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>— Excel file staged, nothing created yet</span>
                     </div>
 
                     {/* F-4 proper (v3/S5): real server-side preview when the backend
                         supports it; otherwise the honest blind-confirm fallback. */}
                     {excelPreview === 'loading' && (
-                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted, #8899a6)' }}>
+                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                             ⏳ Asking the server to parse the sheet (preview only — creates nothing)…
                         </p>
                     )}
                     {excelPreview === 'unsupported' && (
-                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary, #cbd5e1)' }}>
+                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
                             Excel rows are parsed on the server and facilitator accounts are <strong>created immediately on upload</strong> —
                             this backend has no preview endpoint for .xlsx. Each created account gets a one-time password, shown once in the
                             result list below. To review rows before anything is created, use the CSV path instead.
@@ -1725,7 +1725,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             <div style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: 6 }}>
                                 Server preview — {excelPreview.rows.length} account{excelPreview.rows.length === 1 ? '' : 's'} will be created
                                 {excelPreview.errors.length > 0 && <> · {excelPreview.errors.length} row{excelPreview.errors.length === 1 ? '' : 's'} will be skipped</>}
-                                <span style={{ fontWeight: 500, color: 'var(--text-muted, #8899a6)' }}> (nothing created yet)</span>
+                                <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}> (nothing created yet)</span>
                             </div>
                             <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid rgba(148,163,184,0.2)', borderRadius: 8 }}>
                                 <table className={styles.table} style={{ fontSize: '0.78rem' }}>
@@ -1748,7 +1748,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             {excelPreview.errors.map((e2, i) => (
                                 <div key={i} style={{ fontSize: '0.78rem', color: '#fca5a5', marginTop: 4 }}>✗ Row {e2.row}: {e2.error}</div>
                             ))}
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)', marginTop: 6 }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6 }}>
                                 Each created account gets a one-time password, shown once in the result list after upload.
                             </div>
                         </div>
@@ -1769,7 +1769,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 </div>
             )}
             {bulkUploading && pendingExcel === null && excelResult === null && bulkData.length === 0 && (
-                <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted, #8899a6)' }}>⏳ Uploading Excel — creating accounts…</div>
+                <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>⏳ Uploading Excel — creating accounts…</div>
             )}
 
             {/* F-4 (v3): result checklist — created ✓ (with the one-time
@@ -2244,7 +2244,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         position: 'fixed', top: '50%', left: '50%',
                         transform: 'translate(-50%,-50%)',
                         zIndex: 9999,
-                        background: 'var(--bg-card, #1e293b)',
+                        background: 'var(--bg-card)',
                         border: '1px solid rgba(239,68,68,0.35)',
                         borderRadius: 14,
                         padding: '28px 32px',
@@ -2326,7 +2326,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         position: 'fixed', top: '50%', left: '50%',
                         transform: 'translate(-50%,-50%)',
                         zIndex: 9999,
-                        background: 'var(--bg-card, #1e293b)',
+                        background: 'var(--bg-card)',
                         border: '1px solid rgba(239,68,68,0.35)',
                         borderRadius: 14,
                         padding: '28px 32px',
@@ -2436,7 +2436,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         position: 'fixed', top: '50%', left: '50%',
                         transform: 'translate(-50%,-50%)',
                         zIndex: 9999,
-                        background: 'var(--bg-card, #1e293b)',
+                        background: 'var(--bg-card)',
                         border: '1px solid rgba(245,158,11,0.35)',
                         borderRadius: 14,
                         padding: '28px 32px',

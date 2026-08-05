@@ -318,7 +318,7 @@ export default function DebriefReport({ sessionId }) {
                         <div style={{
                             display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem',
                             padding: '0.75rem', borderRadius: '10px',
-                            background: 'var(--bg-elevated, #1e293b)', border: '1px solid var(--border-subtle, #334155)',
+                            background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
                         }}>
                             {[
                                 { label: 'M_R', value: (dnaData.mr_projection?.mr || 1.0).toFixed(2),
@@ -704,7 +704,7 @@ function AnalysisSection({ analysis, trendHistory, regulatoryInstruments = [], r
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, marginBottom: '0.35rem' }}>
                         <span>🪤</span><span>The Deferred-Cost Trap</span>
                     </div>
-                    <p style={{ margin: 0, fontSize: '0.86rem', lineHeight: 1.5, color: 'var(--text-secondary, #475569)' }}>
+                    <p style={{ margin: 0, fontSize: '0.86rem', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
                         Skipping the Round&nbsp;1 Electronics audit felt free — but it set the blindspot flag
                         that <strong>doubled your Round&nbsp;4 crisis severity</strong>. Sustainability spend
                         deferred is not sustainability spend avoided; the bill arrives later, larger, and with
@@ -722,11 +722,11 @@ function AnalysisSection({ analysis, trendHistory, regulatoryInstruments = [], r
                     {METHODOLOGY_NOTES.map(([title, body]) => (
                         <div key={title} style={{
                             padding: '0.6rem 0.8rem', borderRadius: '8px',
-                            background: 'var(--bg-elevated, rgba(148,163,184,0.08))',
-                            border: '1px solid var(--border-subtle, rgba(148,163,184,0.25))',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-subtle)',
                         }}>
                             <div style={{ fontWeight: 600, fontSize: '0.82rem', marginBottom: '0.2rem' }}>{title}</div>
-                            <div style={{ fontSize: '0.8rem', lineHeight: 1.45, color: 'var(--text-secondary, #64748b)' }}>{body}</div>
+                            <div style={{ fontSize: '0.8rem', lineHeight: 1.45, color: 'var(--text-secondary)' }}>{body}</div>
                         </div>
                     ))}
                 </div>

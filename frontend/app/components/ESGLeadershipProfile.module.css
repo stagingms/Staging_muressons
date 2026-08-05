@@ -31,7 +31,7 @@
 .headerTitle {
   font-size: var(--fs-lg, 1.1rem);
   font-weight: 900;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 /* ── Radar Chart ── */
@@ -67,7 +67,7 @@
 .pillarLabel {
   font-size: var(--type-caption);
   font-weight: 800;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   text-align: center;
@@ -91,7 +91,7 @@
   font-size: 0.75rem;
   font-weight: 900;
   font-family: var(--font-mono, monospace);
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 /* ── Callouts ── */
@@ -120,7 +120,7 @@
 .calloutLabel {
   font-size: var(--type-caption);
   font-weight: 800;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 3px;
@@ -129,7 +129,7 @@
 .calloutValue {
   font-size: var(--fs-sm, 0.78rem);
   font-weight: 800;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 /* ── Download Button ── */

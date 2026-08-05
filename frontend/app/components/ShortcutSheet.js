@@ -31,17 +31,17 @@ export default function ShortcutSheet({ shortcuts = [], onClose }) {
             }}
         >
             <div style={{
-                background: 'var(--bg-card, #111827)', border: '1px solid var(--border-subtle, #334155)',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
                 borderRadius: '12px', padding: '1.5rem 1.75rem', width: '92%', maxWidth: '440px',
                 boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary, #e2e8f0)' }}>
+                    <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                         ⌨️ Keyboard shortcuts
                     </h2>
                     <button
                         onClick={onClose}
-                        style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)' }}
+                        style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-muted)' }}
                         aria-label="Close"
                     >
                         ×
@@ -50,16 +50,16 @@ export default function ShortcutSheet({ shortcuts = [], onClose }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {shortcuts.map(([keys, desc]) => (
                         <div key={keys} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', fontSize: '0.82rem' }}>
-                            <span style={{ color: 'var(--text-secondary, #cbd5e1)' }}>{desc}</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>{desc}</span>
                             <code style={{
-                                background: 'rgba(148,163,184,0.12)', border: '1px solid var(--border-subtle, #334155)',
-                                borderRadius: '5px', padding: '1px 8px', color: 'var(--text-primary, #e2e8f0)',
+                                background: 'rgba(148,163,184,0.12)', border: '1px solid var(--border-subtle)',
+                                borderRadius: '5px', padding: '1px 8px', color: 'var(--text-primary)',
                                 fontSize: '0.75rem', whiteSpace: 'nowrap',
                             }}>{keys}</code>
                         </div>
                     ))}
                 </div>
-                <div style={{ marginTop: '1rem', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)' }}>
+                <div style={{ marginTop: '1rem', fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                     Press ? or Esc to close
                 </div>
             </div>

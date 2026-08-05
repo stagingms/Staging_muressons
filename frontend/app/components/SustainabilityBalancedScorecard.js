@@ -951,8 +951,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     if (!balanceSheet) return (
                         <section style={{ padding: '3rem 2rem', textAlign: 'center' }}>
                             <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.4 }}>💰</div>
-                            <h3 style={{ color: 'var(--text-primary, #e2e8f0)', marginBottom: '0.5rem' }}>Loading Financial Statement...</h3>
-                            <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>The balance sheet data is being retrieved.</p>
+                            <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Loading Financial Statement...</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>The balance sheet data is being retrieved.</p>
                         </section>
                     );
 

@@ -230,15 +230,15 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
               {/* Compact 3-line summary */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Assets</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Assets</span>
                   <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#38bdf8' }}>{fmtM(totalAssets)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Liabilities</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Liabilities</span>
                   <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#f87171' }}>{fmtM(totalLiabilities)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: 3 }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>Net Assets</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Net Assets</span>
                   <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: netAssets >= 0 ? '#4ade80' : '#ef4444' }}>{fmtM(netAssets)}</span>
                 </div>
               </div>

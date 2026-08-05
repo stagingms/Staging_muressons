@@ -164,7 +164,7 @@ export default function TurnaroundConsole({ sessionId }) {
                         {Object.entries(state.config.options).map(([key, opt]) => (
                             <button key={key} disabled={busy}
                                 onClick={() => call('commit', { choice: key })}
-                                style={btn('var(--bg-elevated, #2a3140)')}>
+                                style={btn('var(--bg-elevated)')}>
                                 <span style={{ color: 'var(--accent)' }}>{opt.label}</span> · {opt.title}
                             </button>
                         ))}

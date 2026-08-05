@@ -78,17 +78,17 @@ export default function ConfirmModal({
             aria-label={typeof title === 'string' ? title : 'Confirm action'}
         >
             <div style={{
-                background: 'var(--bg-card, #111827)', border: '1px solid var(--border-subtle, #334155)',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
                 borderTop: `3px solid ${accent}`,
                 borderRadius: 'var(--radius-lg, 12px)', padding: '1.75rem', maxWidth: '460px', width: '92%',
                 boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
             }}>
-                <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary, #e2e8f0)' }}>
+                <h2 style={{ margin: '0 0 0.75rem', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                     {title}
                 </h2>
 
                 {message && (
-                    <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.55, marginBottom: impact ? '0.75rem' : '1.25rem' }}>
+                    <div style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.55, marginBottom: impact ? '0.75rem' : '1.25rem' }}>
                         {message}
                     </div>
                 )}
@@ -116,7 +116,7 @@ export default function ConfirmModal({
                         <label
                             id="confirm-phrase-label"
                             htmlFor="confirm-phrase-input"
-                            style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem' }}
+                            style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}
                         >
                             Type <code style={{
                                 background: 'rgba(239,68,68,0.12)', color: '#ef4444', padding: '2px 6px',
@@ -135,8 +135,8 @@ export default function ConfirmModal({
                             style={{
                                 width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.9rem',
                                 border: `1.5px solid ${unlocked ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.3)'}`,
-                                borderRadius: '6px', background: 'var(--bg-body, #0b1220)',
-                                color: 'var(--text-primary, #e2e8f0)', fontSize: '0.85rem',
+                                borderRadius: '6px', background: 'var(--bg-body)',
+                                color: 'var(--text-primary)', fontSize: '0.85rem',
                                 fontFamily: 'var(--font-mono, monospace)', outline: 'none',
                             }}
                         />
@@ -164,8 +164,8 @@ export default function ConfirmModal({
                         autoFocus={!requirePhrase}
                         onClick={() => onClose(false)}
                         style={{
-                            background: 'transparent', border: '1px solid var(--border-subtle, #475569)',
-                            color: 'var(--text-secondary, #cbd5e1)', padding: '0.5rem 1.1rem', borderRadius: '6px',
+                            background: 'transparent', border: '1px solid var(--border-subtle)',
+                            color: 'var(--text-secondary)', padding: '0.5rem 1.1rem', borderRadius: '6px',
                             fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
                         }}
                     >

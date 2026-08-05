@@ -131,11 +131,11 @@
   transition: opacity 0.3s ease;
 }
 
-.scenarioTab:hover { border-color: var(--accent, #64748b); transform: translateY(-1px); }
+.scenarioTab:hover { border-color: var(--accent); transform: translateY(-1px); }
 .scenarioTab:hover::after { opacity: 1; }
 
 .scenarioTabActive {
-  border-color: var(--accent, #38bdf8);
+  border-color: var(--accent);
   background: rgba(30, 41, 59, 0.7);
   box-shadow: 0 0 20px -4px var(--accent-bg, transparent);
 }

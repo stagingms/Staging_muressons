@@ -104,12 +104,12 @@ function MasterPasswordModal({ onClose }) {
 
     const inputStyle = {
         width: '100%', padding: '0.7rem 1rem', borderRadius: 'var(--radius-md, 6px)',
-        border: '1px solid var(--border-subtle, #cbd5e1)', background: 'var(--bg-body, #f1f5f9)',
-        color: 'var(--text-primary, #1e293b)', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+        border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
+        color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
     };
     const labelStyle = {
         display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase',
-        letterSpacing: '0.1em', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem',
+        letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '0.4rem',
     };
 
     return (
@@ -119,17 +119,17 @@ function MasterPasswordModal({ onClose }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
             <div style={{
-                background: 'var(--bg-card, #fff)', border: '1px solid rgba(239,68,68,0.35)',
+                background: 'var(--bg-card)', border: '1px solid rgba(239,68,68,0.35)',
                 borderRadius: 'var(--radius-lg, 12px)', padding: '2rem', maxWidth: '420px', width: '90%',
                 boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         🗝️ Change Master Password
                     </h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)' }}>×</button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
                 </div>
-                <p style={{ margin: '0 0 1.25rem', fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.55 }}>
+                <p style={{ margin: '0 0 1.25rem', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
                     The break-glass credential: it signs in <strong>god_mode</strong> and bypass-logs into any
                     facilitator account. Changes take effect immediately, survive restarts, and supersede
                     the <code>.env</code> value. Rotating it does <strong>not</strong> sign anyone out —
@@ -140,8 +140,8 @@ function MasterPasswordModal({ onClose }) {
                 {success ? (
                     <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
-                        <h3 style={{ color: 'var(--text-primary, #1e293b)', margin: '0 0 0.5rem' }}>Master Password Rotated</h3>
-                        <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>
+                        <h3 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>Master Password Rotated</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                             The new master password is live on every master-bypass surface. Store it securely — it is not shown again.
                             Existing signed-in dashboards are unaffected; only future master-bypass logins use the new value.
                         </p>
@@ -179,8 +179,8 @@ function MasterPasswordModal({ onClose }) {
                         </div>
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                             <button type="button" onClick={onClose} style={{
-                                background: 'transparent', border: '1px solid var(--border-subtle, #cbd5e1)',
-                                color: 'var(--text-secondary, #475569)', padding: '0.5rem 1rem', borderRadius: '6px',
+                                background: 'transparent', border: '1px solid var(--border-subtle)',
+                                color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderRadius: '6px',
                                 fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
                             }}>Cancel</button>
                             <button type="submit" disabled={loading} style={{
@@ -235,13 +235,13 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
 
     const inputStyle = {
         width: '100%', padding: '0.7rem 1rem', borderRadius: 'var(--radius-md, 6px)',
-        border: '1px solid var(--border-subtle, #cbd5e1)', background: 'var(--bg-body, #f1f5f9)',
-        color: 'var(--text-primary, #1e293b)', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+        border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
+        color: 'var(--text-primary)', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
     };
 
     const labelStyle = {
         display: 'block', fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase',
-        letterSpacing: '0.1em', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem',
+        letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '0.4rem',
     };
 
     return (
@@ -251,22 +251,22 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
             <div style={{
-                background: 'var(--bg-card, #fff)', border: '1px solid var(--border-subtle, #e2e8f0)',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-lg, 12px)', padding: '2rem', maxWidth: '400px', width: '90%',
                 boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         🔑 Change Password
                     </h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)' }}>×</button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
                 </div>
 
                 {success ? (
                     <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
-                        <h3 style={{ color: 'var(--text-primary, #1e293b)', margin: '0 0 0.5rem' }}>Password Updated</h3>
-                        <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>Your password has been changed successfully.</p>
+                        <h3 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>Password Updated</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Your password has been changed successfully.</p>
                         <button onClick={onClose} style={{
                             marginTop: '1rem', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', color: '#fff',
                             border: 'none', padding: '0.6rem 1.5rem', borderRadius: '8px', fontWeight: 600, cursor: 'pointer',
@@ -294,8 +294,8 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
                         </div>
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                             <button type="button" onClick={onClose} style={{
-                                background: 'transparent', border: '1px solid var(--border-subtle, #cbd5e1)',
-                                color: 'var(--text-secondary, #475569)', padding: '0.5rem 1rem', borderRadius: '6px',
+                                background: 'transparent', border: '1px solid var(--border-subtle)',
+                                color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderRadius: '6px',
                                 fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
                             }}>Cancel</button>
                             <button type="submit" disabled={loading} style={{
@@ -907,7 +907,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                     {/* G-1 (v3): break-glass credential rotation lives here —
                         physically apart from the routine header password button,
                         with Danger-Zone-red framing. Opens the same modal. */}
-                    <div style={{ margin: '14px 8px 4px', fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>
+                    <div style={{ margin: '14px 8px 4px', fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                         Break-Glass
                     </div>
                     <button
@@ -971,7 +971,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 style={{
                     display: 'none', position: 'fixed', bottom: '1rem', right: '1rem', zIndex: 1300,
                     width: '48px', height: '48px', borderRadius: '50%',
-                    background: 'var(--accent-gold, #f59e0b)', color: '#fff', border: 'none',
+                    background: 'var(--accent-gold)', color: '#fff', border: 'none',
                     fontSize: '1.3rem', cursor: 'pointer',
                     boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
                 }}

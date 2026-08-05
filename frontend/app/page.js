@@ -88,7 +88,7 @@ function PlayerUtilityDock({ inlineItems = [], menuItems = [] }) {
             style={{
               position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)',
               zIndex: OVERLAY_PRIORITY.DROPDOWN, minWidth: 200,
-              background: 'var(--bg-card, #0f172a)', border: '1px solid var(--border-subtle, #334155)',
+              background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-card)', boxShadow: 'var(--elevation-overlay)',
               padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
             }}

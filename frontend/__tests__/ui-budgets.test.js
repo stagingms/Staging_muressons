@@ -340,7 +340,7 @@ const HUE_DEBT = {
   'app/components/DoubleMaterialityMatrix.js': 37,
   'app/components/DoubleMaterialityMatrix.module.css': 7,
   'app/components/InvestmentMatrix.js': 12,
-  'app/components/InvestmentMatrix.module.css': 23,
+  'app/components/InvestmentMatrix.module.css': 3,
   'app/components/FrontPageReveal.js': 21,
   'app/components/GameOverSummary.js': 63,
   'app/components/GameOverSummary.module.css': 1,
@@ -436,5 +436,83 @@ describe('type floor outside the player surface', () => {
     // point at the line, not send someone hunting.
     expect(hits.slice(0, 8)).toEqual([]);
     expect(hits.length).toBe(0);
+  });
+});
+
+/* ── 2.7 NO DEAD HEX FALLBACKS ──────────────────────────────────────────────
+   `var(--success, #4ade80)` was caught by the hue lock during Phase D and is
+   the defect this section generalises. A colour fallback inside a var() is
+   invisible to a reader — it looks tokenised — and it is exactly what a
+   search-and-replace palette migration leaves behind: the token gets renamed,
+   the fallback does not, and the two drift silently until a theme change
+   reveals that half the tree is still painting from the fallback.
+
+   560 such sites existed. All of them named a token defined at :root or
+   [data-theme] scope, which means the fallback could never fire and was pure
+   decoration. They are gone.
+
+   THE TEST IS SCOPE-AWARE, and it has to be. A fallback is only dead if the
+   token resolves WHEREVER the var() is used. A component-scoped custom
+   property (--csrd-border, set on a wrapper) or an inline one (--bu-accent,
+   set per element in JSX) is a legitimate fallback: outside that scope there
+   really is nothing to resolve to. So this only fails on tokens defined
+   globally. */
+describe('no dead colour fallbacks', () => {
+  const COLOUR = /^(#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\()/;
+  const VAR = /var\(\s*(--[a-zA-Z0-9-]+)\s*,\s*([^()]*(?:\([^()]*\))?[^()]*?)\s*\)/g;
+
+  /* Tokens defined at :root / html / body / [data-theme]. Brace-depth scan
+     rather than a regex over blocks, because tokens.css and globals.css both
+     nest inside @media and a naive block regex silently misses those. */
+  const globalTokens = () => {
+    const out = new Set();
+    for (const f of ['app/styles/tokens.css', 'app/globals.css']) {
+      const s = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
+      const stack = []; const chunks = [];
+      let i = 0, selStart = 0;
+      while (i < s.length) {
+        const ch = s[i];
+        if (ch === '{') { stack.push(s.slice(selStart, i).trim().split(/[\n}]/).pop().trim()); selStart = i + 1; }
+        else if (ch === '}') { chunks.push([stack[stack.length - 1] || '', s.slice(selStart, i)]); stack.pop(); selStart = i + 1; }
+        i++;
+      }
+      for (const [sel, body] of chunks) {
+        if (!/(^|,)\s*(:root|html|body)\b/.test(sel) && !/\[data-theme/.test(sel)) continue;
+        for (const d of body.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) out.add(d[1]);
+      }
+    }
+    return out;
+  };
+
+  const walk = (dir, out = []) => {
+    for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) { if (e.name !== 'node_modules') walk(rel, out); continue; }
+      if (/\.(js|css)$/.test(e.name)) out.push(rel);
+    }
+    return out;
+  };
+
+  test('a var() whose token is globally defined carries no colour fallback', () => {
+    const G = globalTokens();
+    const dead = [];
+    for (const f of walk('app')) {
+      for (const m of read(f).matchAll(VAR)) {
+        if (!COLOUR.test(m[2].trim())) continue;
+        if (G.has(m[1])) dead.push(`${f}  var(${m[1]}, ${m[2].trim()})`);
+      }
+    }
+    expect(dead.slice(0, 8)).toEqual([]);
+    expect(dead.length).toBe(0);
+  });
+
+  test('the global-token scan actually finds tokens, so the test cannot pass vacuously', () => {
+    // If the brace scan broke, every fallback would look component-scoped and
+    // the assertion above would pass while enforcing nothing.
+    const G = globalTokens();
+    expect(G.size).toBeGreaterThan(100);
+    for (const t of ['--accent', '--danger', '--positive', '--text-muted', '--ck-border']) {
+      expect(`${t} found: ${G.has(t)}`).toBe(`${t} found: true`);
+    }
   });
 });

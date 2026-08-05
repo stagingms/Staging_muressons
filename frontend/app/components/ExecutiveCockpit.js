@@ -1367,7 +1367,7 @@ export default function ExecutiveCockpit({
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 minHeight: 32, padding: '0 12px', marginRight: 4,
-                background: railsPinnedOpen ? 'var(--accent-soft, rgba(99,102,241,0.14))' : 'transparent',
+                background: railsPinnedOpen ? 'var(--accent-soft)' : 'transparent',
                 border: '1px solid var(--ck-border)', borderRadius: 6,
                 color: railsPinnedOpen ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -1536,7 +1536,7 @@ export default function ExecutiveCockpit({
           </div>
 
           {/* ── Left Panel Tab Bar ── */}
-          <div className={styles.leftTabBar} style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', background: 'var(--ck-surface-1, #0e1222)', flexShrink: 0 }}>
+          <div className={styles.leftTabBar} style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--ck-border)', background: 'var(--ck-surface-1)', flexShrink: 0 }}>
             {/* Charts is the only left tab whose CONTENT is cohort-gated, so it is
                 the only one that can lead nowhere. Offering the tab while
                 kpi_dashboard is off gave a player a button that opened an empty
@@ -1552,10 +1552,10 @@ export default function ExecutiveCockpit({
                 style={{
                   flex: 1, padding: '7px 6px', border: 'none', cursor: 'pointer',
                   background: leftPanelTab === tab.id ? 'rgba(94, 234, 212, 0.08)' : 'transparent',
-                  color: leftPanelTab === tab.id ? 'var(--ck-accent, #5eead4)' : 'var(--ck-text-3, #64748b)',
+                  color: leftPanelTab === tab.id ? 'var(--ck-accent)' : 'var(--ck-text-3)',
                   fontSize: 'var(--ck-fs-xs, 0.65rem)', fontWeight: 600, fontFamily: 'inherit',
                   letterSpacing: '0.04em', textTransform: 'uppercase',
-                  borderBottom: leftPanelTab === tab.id ? '2px solid var(--ck-accent, #5eead4)' : '2px solid transparent',
+                  borderBottom: leftPanelTab === tab.id ? '2px solid var(--ck-accent)' : '2px solid transparent',
                   transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
                 }}
               >
@@ -1572,7 +1572,7 @@ export default function ExecutiveCockpit({
              announced. Found by the real-browser axe pass; jsdom has no
              scroll geometry, so this was invisible to the jest floor. */
           <div style={{ flex: 1, overflowY: 'auto' }} tabIndex={0} role="group" aria-label="Key performance indicators">
-          <div style={{ background: 'var(--ck-surface-0, #0b0f1a)', borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', paddingTop: 10, paddingBottom: 10 }}>
+          <div style={{ background: 'var(--ck-surface-0)', borderBottom: '1px solid var(--ck-border)', paddingTop: 10, paddingBottom: 10 }}>
           <div className={styles.resourcesPanel} aria-live="polite" aria-label="Key Performance Indicators">
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>💰 Treasury</div>
@@ -1853,7 +1853,7 @@ export default function ExecutiveCockpit({
                theme in light. */
             <div id="tour-player-guides-target" style={{
               borderTop: '1px solid rgba(0, 229, 195, 0.2)',
-              background: 'var(--ck-surface-0, #0a0e1a)',
+              background: 'var(--ck-surface-0)',
               padding: '10px 6px',
               display: 'flex',
               flexDirection: 'column',
@@ -3062,11 +3062,11 @@ export default function ExecutiveCockpit({
           {!isDeepDive && (
             <div className={styles.glanceEnter}>
               <div className={styles.deploymentSummary}>
-                <span style={{ color: 'var(--ck-text-3, #64748b)' }}>🏦 Capital Deployed</span>
-                <span style={{ color: 'var(--ck-text-1, #e2e8f0)', fontFamily: 'JetBrains Mono, monospace' }}>
+                <span style={{ color: 'var(--ck-text-3)' }}>🏦 Capital Deployed</span>
+                <span style={{ color: 'var(--ck-text-1)', fontFamily: 'JetBrains Mono, monospace' }}>
                   {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0))} / {fmtCurrency(csfPool)}
                 </span>
-                <span style={{ color: 'var(--ck-accent, #5eead4)', fontSize: '0.68rem' }}>
+                <span style={{ color: 'var(--ck-accent)', fontSize: '0.68rem' }}>
                   Click a BU below to investigate →
                 </span>
               </div>
@@ -3211,7 +3211,7 @@ export default function ExecutiveCockpit({
                     <div
                       key={optId}
                       className={styles.optionMini}
-                      style={isSelected ? { borderColor: 'var(--ck-accent, #5eead4)', background: 'rgba(94,234,212,0.06)' } : {}}
+                      style={isSelected ? { borderColor: 'var(--ck-accent)', background: 'rgba(94,234,212,0.06)' } : {}}
                       onClick={() => {
                         // Select this option and enter deep dive for full interaction
                         if (canAccessStrategy) handleLegacySelect(optId);
@@ -3883,7 +3883,7 @@ export default function ExecutiveCockpit({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <button
                           className={styles.commitBtn}
-                          style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, textTransform: 'none', background: 'var(--bg-elevated, #1e293b)', color: 'var(--text-secondary, #b0bec5)', border: '1px solid #4f46e5', cursor: 'not-allowed' }}
+                          style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, textTransform: 'none', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid #4f46e5', cursor: 'not-allowed' }}
                           disabled
                         >
                           👁 Observer — driver commits
@@ -3899,7 +3899,7 @@ export default function ExecutiveCockpit({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <button
                           className={styles.commitBtn}
-                          style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, textTransform: 'none', background: 'var(--bg-elevated, #1e293b)', color: 'var(--text-secondary, #b0bec5)', border: '1px solid #475569', cursor: 'not-allowed' }}
+                          style={{ minWidth: 232, minHeight: 48, padding: '0 24px', fontSize: '0.9375rem', fontWeight: 600, textTransform: 'none', background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid #475569', cursor: 'not-allowed' }}
                           disabled
                         >
                           🔒 Round Locked{unlockLabel ? ` — opens ${unlockLabel}` : ''}
@@ -4121,8 +4121,8 @@ export default function ExecutiveCockpit({
                  themes, which is why the mailbox tab measured the same failing
                  3.35:1 in dark as in light. --ck-surface-1 is the cockpit
                  surface token that actually switches. */
-              background: 'var(--ck-surface-1, #0e1222)',
-              borderBottom: '1px solid var(--border-subtle, #e2e8f0)',
+              background: 'var(--ck-surface-1)',
+              borderBottom: '1px solid var(--border-subtle)',
             }}>
               {/* Rail tabs are cohort-gated (2026-07-20). Each tab maps to a
                   player-visibility key so a facilitator can strip the rail back
@@ -4199,7 +4199,7 @@ export default function ExecutiveCockpit({
                 aria-expanded={railExpanded}
                 style={{
                   flex: '0 0 auto', width: 26, border: 'none', cursor: 'pointer',
-                  background: 'transparent', color: 'var(--neutral, #64748b)',
+                  background: 'transparent', color: 'var(--neutral)',
                   fontSize: '0.7rem', fontWeight: 800,
                 }}
               >
@@ -5426,7 +5426,7 @@ export default function ExecutiveCockpit({
                         style={{
                           width: '100%', resize: 'vertical', fontSize: '0.78rem', lineHeight: 1.5,
                           padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.15)',
-                          background: 'rgba(15,23,42,0.4)', color: 'var(--text-primary, #f1f5f9)',
+                          background: 'rgba(15,23,42,0.4)', color: 'var(--text-primary)',
                           fontFamily: 'inherit', outline: 'none',
                         }}
                         onFocus={(e) => e.target.style.borderColor = 'rgba(99,102,241,0.5)'}

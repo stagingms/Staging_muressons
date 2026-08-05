@@ -543,7 +543,7 @@ function TermCard({ term, clusterAccent, searchQuery }) {
           padding: '2px 8px', border: '1px solid var(--border-subtle)',
           borderRadius: '3px', whiteSpace: 'nowrap', flexShrink: 0,
         }}>{term.abbr}</span>
-        <span style={{ color: open ? clusterAccent : 'var(--text-muted,#94a3b8)', transition: 'transform 0.2s, color 0.2s', transform: open ? 'rotate(180deg)' : 'none', fontSize: '12px' }}>?</span>
+        <span style={{ color: open ? clusterAccent : 'var(--text-muted)', transition: 'transform 0.2s, color 0.2s', transform: open ? 'rotate(180deg)' : 'none', fontSize: '12px' }}>?</span>
       </div>
 
       {open && (
@@ -612,7 +612,7 @@ export default function TechnicalGlossary() {
     <div style={{ fontFamily: 'var(--font-sans, Inter, system-ui, sans-serif)', maxWidth: '1100px', margin: '0 auto', padding: '0 0 60px', color: 'var(--text-primary)' }}>
 
       {/* -- Header -- */}
-      <div style={{ marginBottom: '28px', paddingBottom: '20px', borderBottom: '1px solid var(--border-subtle,#e2e8f0)' }}>
+      <div style={{ marginBottom: '28px', paddingBottom: '20px', borderBottom: '1px solid var(--border-subtle)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
@@ -635,7 +635,7 @@ export default function TechnicalGlossary() {
 
           {/* Search */}
           <div style={{ position: 'relative', minWidth: '260px' }}>
-            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: 'var(--text-muted,#94a3b8)', pointerEvents: 'none' }}>??</span>
+            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: 'var(--text-muted)', pointerEvents: 'none' }}>??</span>
             <input
               type="search"
               placeholder="Search terms, formulas, concepts…"
@@ -643,14 +643,14 @@ export default function TechnicalGlossary() {
               onChange={e => setSearch(e.target.value)}
               style={{
                 paddingLeft: '34px', paddingRight: '12px', paddingTop: '9px', paddingBottom: '9px',
-                borderRadius: '8px', border: '1.5px solid var(--border-subtle,#e2e8f0)',
+                borderRadius: '8px', border: '1.5px solid var(--border-subtle)',
                 background: 'var(--bg-card)', color: 'var(--text-primary)',
                 fontSize: '0.82rem', outline: 'none', width: '100%', boxSizing: 'border-box',
                 fontFamily: 'var(--font-sans,system-ui)',
                 transition: 'border-color 0.2s',
               }}
               onFocus={e => e.target.style.borderColor = '#c9a84c'}
-              onBlur={e => e.target.style.borderColor = 'var(--border-subtle,#e2e8f0)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border-subtle)'}
             />
           </div>
         </div>

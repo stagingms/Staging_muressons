@@ -123,7 +123,7 @@ export default function WarMapPage() {
         <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
           <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
           <span style={{ fontSize: '0.8rem', color: '#8899a6', fontWeight: 700 }}>{enabled ? 'ON' : 'OFF'}</span>
-          <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good, #10b981)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
+          <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
             <span style={{ ...S.knob, transform: enabled ? 'translateX(24px)' : 'translateX(0)' }} />
           </span>
         </label>

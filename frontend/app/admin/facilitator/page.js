@@ -1627,7 +1627,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 8px 0',
                                 padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
-                                color: 'var(--accent-gold, #f59e0b)', fontWeight: 700,
+                                color: 'var(--accent-gold)', fontWeight: 700,
                                 border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)',
                             }}
                         >
@@ -1951,9 +1951,9 @@ function SoloModeToggle() {
                 style={{
                     display: 'flex', alignItems: 'center', gap: '0.45rem',
                     padding: '0.5rem 0.9rem', borderRadius: '8px', cursor: saving ? 'wait' : 'pointer',
-                    border: `1px solid ${on ? 'rgba(20,184,166,0.5)' : 'var(--border-subtle, #475569)'}`,
+                    border: `1px solid ${on ? 'rgba(20,184,166,0.5)' : 'var(--border-subtle)'}`,
                     background: on ? 'rgba(20,184,166,0.12)' : 'transparent',
-                    color: on ? '#2dd4bf' : 'var(--text-secondary, #94a3b8)',
+                    color: on ? '#2dd4bf' : 'var(--text-secondary)',
                     fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
                 }}
             >
@@ -2037,7 +2037,7 @@ function QuizControlPanel({ sessions = [] }) {
 
     return (
         <section style={{
-            background: 'var(--bg-card, #fff)', border: '1px solid var(--border-subtle, #e2e8f0)',
+            background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-lg, 16px)', padding: '1.5rem 2rem',
             boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
         }}>
@@ -2194,7 +2194,7 @@ function InterviewControlPanel({ sessions = [] }) {
 
     return (
         <section style={{
-            background: 'var(--bg-card, #fff)', border: '1px solid var(--border-subtle, #e2e8f0)',
+            background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-lg, 16px)', padding: '1.5rem 2rem',
             boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
         }}>
@@ -2317,9 +2317,9 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
         width: '100%',
         padding: '0.7rem 1rem',
         borderRadius: 'var(--radius-md, 6px)',
-        border: '1px solid var(--border-subtle, #cbd5e1)',
-        background: 'var(--bg-body, #f1f5f9)',
-        color: 'var(--text-primary, #1e293b)',
+        border: '1px solid var(--border-subtle)',
+        background: 'var(--bg-body)',
+        color: 'var(--text-primary)',
         fontSize: '0.9rem',
         outline: 'none',
         boxSizing: 'border-box',
@@ -2331,7 +2331,7 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
         fontWeight: 700,
         textTransform: 'uppercase',
         letterSpacing: '0.1em',
-        color: 'var(--text-muted, #64748b)',
+        color: 'var(--text-muted)',
         marginBottom: '0.4rem',
     };
 
@@ -2342,8 +2342,8 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
             display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
             <div style={{
-                background: 'var(--bg-card, #fff)',
-                border: '1px solid var(--border-subtle, #e2e8f0)',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-lg, 12px)',
                 padding: '2rem',
                 maxWidth: '400px',
@@ -2351,15 +2351,15 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
                 boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         {forced ? '🔐 Set Your Password' : '🔑 Change Password'}
                     </h2>
                     {!forced && (
-                        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)' }}>×</button>
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
                     )}
                 </div>
                 {forced && !success && (
-                    <p style={{ margin: '-0.75rem 0 1rem', fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.5 }}>
+                    <p style={{ margin: '-0.75rem 0 1rem', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                         You signed in with the default password. Choose a personal password to continue — your current password is the one you just used.
                     </p>
                 )}
@@ -2367,8 +2367,8 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
                 {success ? (
                     <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
-                        <h3 style={{ color: 'var(--text-primary, #1e293b)', margin: '0 0 0.5rem' }}>Password Updated</h3>
-                        <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>
+                        <h3 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>Password Updated</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                             Your password has been changed successfully.
                         </p>
                         <button onClick={forced ? (onSuccess || onClose) : onClose} style={{
@@ -2399,8 +2399,8 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                             {!forced && (
                                 <button type="button" onClick={onClose} style={{
-                                    background: 'transparent', border: '1px solid var(--border-subtle, #cbd5e1)',
-                                    color: 'var(--text-secondary, #475569)', padding: '0.5rem 1rem', borderRadius: '6px',
+                                    background: 'transparent', border: '1px solid var(--border-subtle)',
+                                    color: 'var(--text-secondary)', padding: '0.5rem 1rem', borderRadius: '6px',
                                     fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
                                 }}>Cancel</button>
                             )}

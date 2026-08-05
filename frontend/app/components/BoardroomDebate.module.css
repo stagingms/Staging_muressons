@@ -22,13 +22,13 @@
 .headerTitle {
   font-size: var(--fs-lg, 1.2rem);
   font-weight: 900;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
 }
 
 .headerSubtitle {
   font-size: var(--fs-sm, 0.78rem);
-  color: var(--text-muted, #8899a6);
+  color: var(--text-muted);
   margin-top: 4px;
 }
 
@@ -116,13 +116,13 @@
 .directorName {
   font-size: var(--fs-md, 0.9rem);
   font-weight: 800;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   text-align: center;
 }
 
 .directorTitle {
   font-size: var(--fs-xs, 0.68rem);
-  color: var(--text-muted, #8899a6);
+  color: var(--text-muted);
   text-align: center;
   margin-bottom: var(--space-sm, 8px);
   line-height: 1.4;
@@ -137,7 +137,7 @@
   border: 1px solid;
   font-size: var(--fs-xs, 0.65rem);
   font-weight: 700;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   margin-bottom: var(--space-sm, 8px);
 }
 
@@ -145,7 +145,7 @@
   font-size: var(--fs-xs, 0.68rem);
   font-weight: 600;
   font-style: italic;
-  color: var(--text-secondary, #b0bec5);
+  color: var(--text-secondary);
   text-align: center;
   margin-bottom: var(--space-sm, 10px);
 }
@@ -172,7 +172,7 @@
 
 .scriptText {
   font-size: var(--fs-xs, 0.72rem);
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   line-height: 1.5;
   position: relative;
   z-index: 1;
@@ -181,7 +181,7 @@
 /* ── Recommendation ── */
 .recommendation {
   font-size: var(--fs-xs, 0.68rem);
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-align: center;
   margin-bottom: var(--space-sm, 10px);
   padding: 4px 8px;

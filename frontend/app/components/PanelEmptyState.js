@@ -28,7 +28,7 @@ export default function PanelEmptyState({ reason = 'unavailable', label, compact
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         gap: 6, textAlign: 'center',
         padding: compact ? '0.75rem' : '1.5rem 1rem',
-        color: 'var(--text-muted, #8899a6)', fontSize: '0.82rem', lineHeight: 1.5,
+        color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5,
       }}
     >
       <span aria-hidden="true" style={{ fontSize: compact ? '1.1rem' : '1.5rem', opacity: 0.8 }}>{preset.icon}</span>

@@ -348,7 +348,7 @@ function LiveAgentIntel({ sessionId, sectionLabel }) {
                             background: q.startsWith('★') ? 'rgba(201,168,76,0.06)' : 'rgba(6,182,212,0.04)',
                             borderLeft: `2px solid ${q.startsWith('★') ? 'rgba(201,168,76,0.4)' : 'rgba(6,182,212,0.3)'}`,
                             fontSize: '0.75rem',
-                            color: q.startsWith('★') ? '#fde68a' : 'var(--text-secondary, #94a3b8)',
+                            color: q.startsWith('★') ? '#fde68a' : 'var(--text-secondary)',
                             fontStyle: 'italic', lineHeight: 1.5, marginBottom: '0.25rem',
                             fontWeight: q.startsWith('★') ? 600 : 400,
                         }}>
@@ -759,7 +759,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
         <div ref={rootRef} style={{
             padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem',
             fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-            background: isFullscreen ? 'var(--bg-body, #0b1020)' : undefined,
+            background: isFullscreen ? 'var(--bg-body)' : undefined,
             overflowY: isFullscreen ? 'auto' : undefined,
         }}>
             {/* ── Header ── */}
@@ -912,7 +912,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         title={`Script text at ${Math.round(sc * 100)}%`}
                         style={{
                             padding: '2px 10px', borderRadius: '6px', cursor: 'pointer', lineHeight: 1.4,
-                            border: `1px solid ${tpScale === sc ? 'rgba(201,168,76,0.5)' : 'var(--border-subtle, rgba(255,255,255,0.12))'}`,
+                            border: `1px solid ${tpScale === sc ? 'rgba(201,168,76,0.5)' : 'var(--border-subtle)'}`,
                             background: tpScale === sc ? 'rgba(201,168,76,0.15)' : 'transparent',
                             color: tpScale === sc ? '#c9a84c' : 'var(--text-muted)',
                             fontWeight: 800,
@@ -926,7 +926,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen — projector / podium'}
                     style={{
                         padding: '3px 10px', borderRadius: '6px', cursor: 'pointer', marginLeft: '0.4rem',
-                        border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
+                        border: '1px solid var(--border-subtle)',
                         background: isFullscreen ? 'rgba(201,168,76,0.15)' : 'transparent',
                         color: isFullscreen ? '#c9a84c' : 'var(--text-muted)',
                         fontWeight: 700, fontSize: 'var(--type-caption)',
@@ -1118,7 +1118,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                         padding: '0.5rem 0.7rem', borderRadius: '7px',
                                         background: 'rgba(139,92,246,0.04)',
                                         borderLeft: '2px solid rgba(139,92,246,0.3)',
-                                        fontSize: '0.82rem', color: 'var(--text-secondary, #94a3b8)',
+                                        fontSize: '0.82rem', color: 'var(--text-secondary)',
                                         fontStyle: 'italic', lineHeight: 1.5,
                                     }}>
                                         &ldquo;{prompt}&rdquo;
@@ -1199,7 +1199,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                             padding: '0.45rem 0.65rem', borderRadius: '6px',
                                             background: point.startsWith('KEY') || point.startsWith('★') ? 'rgba(251,146,60,0.06)' : 'rgba(255,255,255,0.02)',
                                             borderLeft: `2px solid ${point.startsWith('KEY') || point.startsWith('★') ? 'rgba(251,146,60,0.4)' : 'rgba(251,146,60,0.15)'}`,
-                                            fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)',
+                                            fontSize: '0.78rem', color: 'var(--text-secondary)',
                                             lineHeight: 1.5,
                                             fontWeight: point.startsWith('KEY') || point.startsWith('★') ? 600 : 400,
                                         }}>
@@ -1293,7 +1293,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                     ? '#fca5a5'
                                                     : point.startsWith('DEBRIEF') || point.startsWith('Connect')
                                                         ? '#e9d5ff'
-                                                        : 'var(--text-secondary, #cbd5e1)',
+                                                        : 'var(--text-secondary)',
                                                 lineHeight: 1.5,
                                                 fontStyle: point.startsWith('DEBRIEF') || point.startsWith('Connect')
                                                     ? 'italic' : 'normal',
@@ -1377,7 +1377,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                         <span style={{ marginLeft: 'auto', fontSize: 'var(--type-caption)', padding: '2px 6px', borderRadius: '4px', background: `${c.color}18`, color: c.color, fontFamily: 'var(--font-mono, monospace)' }}>{c.ref}</span>
                                     </summary>
                                     <div style={{ padding: '0.5rem 0.85rem 0.75rem' }}>
-                                        <div style={{ fontSize: '0.79rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.65, borderLeft: `2px solid ${c.color}55`, paddingLeft: '0.65rem' }}>{c.body}</div>
+                                        <div style={{ fontSize: '0.79rem', color: 'var(--text-secondary)', lineHeight: 1.65, borderLeft: `2px solid ${c.color}55`, paddingLeft: '0.65rem' }}>{c.body}</div>
                                     </div>
                                 </details>
                             ))}
@@ -1617,7 +1617,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                     padding: '0.4rem 0.6rem', borderRadius: '6px',
                                                     background: 'rgba(99,102,241,0.04)',
                                                     borderLeft: '2px solid rgba(99,102,241,0.25)',
-                                                    fontSize: '0.78rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.5,
+                                                    fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5,
                                                 }}>{p}</div>
                                             ))}
                                         </div>
@@ -1683,7 +1683,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                     <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', marginBottom: '0.6rem', letterSpacing: '0.1em' }}>
                                         Storyboard Outline
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.6 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                                         {activeNarrative.narrative.map((para, i) => (
                                             <p key={i} style={{ margin: 0 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(para) }} />
                                         ))}
@@ -1695,7 +1695,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                         <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, textTransform: 'uppercase', color: '#3b82f6', marginBottom: '0.5rem', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                             <span>🎯</span> Strategic Objectives
                                         </div>
-                                        <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.78rem', color: 'var(--text-secondary, #cbd5e1)', display: 'flex', flexDirection: 'column', gap: '0.25rem', lineHeight: 1.5 }}>
+                                        <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.25rem', lineHeight: 1.5 }}>
                                             {activeNarrative.objectives.map((obj, i) => (
                                                 <li key={i}>{obj}</li>
                                             ))}
@@ -1707,7 +1707,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                                             {activeNarrative.metrics.map((m, i) => (
-                                                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: 'var(--type-caption)', color: 'var(--text-secondary, #94a3b8)', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(255,255,255,0.06)' }}>
                                                     <span>{m.icon}</span> <span>{m.label}</span>
                                                 </div>
                                             ))}
@@ -1815,7 +1815,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                 background: q.startsWith('★') ? 'rgba(201,168,76,0.06)' : 'rgba(139,92,246,0.04)',
                                                 borderLeft: `2px solid ${q.startsWith('★') ? 'rgba(201,168,76,0.4)' : 'rgba(139,92,246,0.3)'}`,
                                                 fontSize: '0.78rem',
-                                                color: q.startsWith('★') ? '#fde68a' : 'var(--text-secondary, #94a3b8)',
+                                                color: q.startsWith('★') ? '#fde68a' : 'var(--text-secondary)',
                                                 fontStyle: 'italic', lineHeight: 1.5,
                                                 fontWeight: q.startsWith('★') ? 600 : 400,
                                             }}>

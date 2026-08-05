@@ -65,9 +65,9 @@
     /* Hug content instead of stretching the bordered panels to fill the whole
        (100vh) god-mode content area, which left a large framed empty region. */
     align-content: start;
-    background: var(--bg-body, #0a0e1a);
+    background: var(--bg-body);
     font-family: var(--font-sans, 'DM Sans', -apple-system, sans-serif);
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
     position: relative;
     overflow: hidden;
 }
@@ -115,7 +115,7 @@
     font-weight: 800;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--text-muted, #8899a6);
+    color: var(--text-muted);
     margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
@@ -124,7 +124,7 @@
 
 .sectionLabel::before {
     content: '//';
-    color: var(--accent-gold, #f59e0b);
+    color: var(--accent-gold);
     opacity: 0.6;
     font-size: var(--type-caption);
 }
@@ -132,17 +132,17 @@
 /* ── Master switch ───────────────────────────────────────────── */
 .masterBlock {
     padding: 1.1rem;
-    border: 1px solid var(--border-subtle, rgba(148,163,184,0.12));
+    border: 1px solid var(--border-subtle);
     border-left: 3px solid rgba(59,130,246,0.3); /* blue = standard mode */
     border-radius: var(--radius-md, 10px);
-    background: var(--bg-card, #161e2e);
+    background: var(--bg-card);
     position: relative;
     transition: border-left-color 0.3s ease;
 }
 
 /* Amber left border when advanced mode is active */
 .masterBlock:has(.masterBtnOn) {
-    border-left-color: var(--accent-gold, #f59e0b);
+    border-left-color: var(--accent-gold);
 }
 
 .masterLabel {
@@ -150,7 +150,7 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--text-muted, #8899a6);
+    color: var(--text-muted);
     margin-bottom: 0.9rem;
 }
 
@@ -168,14 +168,14 @@
     transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s, transform 0.2s;
     position: relative;
     overflow: hidden;
-    border: 1px solid var(--border-subtle, rgba(148,163,184,0.12));
+    border: 1px solid var(--border-subtle);
     background: transparent;
-    color: var(--text-secondary, #b0bec5);
+    color: var(--text-secondary);
 }
 .masterBtn:hover {
     background: rgba(59,130,246,0.06);
     border-color: rgba(59,130,246,0.3);
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
 }
 
 /* Standard mode — outlined blue */
@@ -191,14 +191,14 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--accent-blue, #3b82f6);
+    color: var(--accent-blue);
     transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, color 0.2s;
 }
 .masterBtnOff:hover {
     background: rgba(59,130,246,0.1);
     border-color: rgba(59,130,246,0.5);
     box-shadow: 0 0 12px rgba(59,130,246,0.15);
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
 }
 
 /* Advanced mode ACTIVE — amber gradient (matches god-mode action buttons) */
@@ -214,7 +214,7 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--accent-gold, #f59e0b);
+    color: var(--accent-gold);
     box-shadow: 0 0 20px rgba(245,158,11,0.15), inset 0 0 12px rgba(245,158,11,0.05);
     animation: neonPulse 2.5s ease-in-out infinite;
     transition: box-shadow 0.2s;
@@ -250,7 +250,7 @@
     border-radius: 50%;
     margin-right: 0.5rem;
     vertical-align: middle;
-    background: var(--accent-gold, #f59e0b);
+    background: var(--accent-gold);
     box-shadow: 0 0 6px rgba(245,158,11,0.8), 0 0 12px rgba(245,158,11,0.4);
     animation: blink 1.2s ease-in-out infinite;
     transition: background-color 0.3s, box-shadow 0.3s;
@@ -267,7 +267,7 @@
     text-align: center;
     padding: 4px 10px;
     border-radius: 4px;
-    color: var(--accent-blue, #3b82f6);
+    color: var(--accent-blue);
     background: rgba(59,130,246,0.08);
     border: 1px solid rgba(59,130,246,0.18);
 }
@@ -281,7 +281,7 @@
     text-align: center;
     padding: 4px 10px;
     border-radius: 4px;
-    color: var(--accent-gold, #f59e0b);
+    color: var(--accent-gold);
     background: rgba(245,158,11,0.1);
     border: 1px solid rgba(245,158,11,0.25);
     animation: blink 1.2s ease-in-out infinite;
@@ -334,13 +334,13 @@
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--text-muted, #8899a6);
+    color: var(--text-muted);
 }
 
 .sliderVal {
     font-size: 0.85rem;
     font-weight: 700;
-    color: var(--accent-gold, #f59e0b);
+    color: var(--accent-gold);
     font-family: var(--font-mono, monospace);
     min-width: 2.5rem;
     text-align: right;
@@ -348,7 +348,7 @@
 
 .sliderUnit {
     font-size: var(--type-caption);
-    color: var(--text-muted, #8899a6);
+    color: var(--text-muted);
     margin-left: 2px;
     font-family: var(--font-mono, monospace);
 }
@@ -370,7 +370,7 @@ input[type='range'].terminalSlider::-webkit-slider-thumb {
     appearance: none;
     width: 13px;
     height: 13px;
-    background: var(--accent-gold, #f59e0b);
+    background: var(--accent-gold);
     border-radius: 50%;
     box-shadow: 0 0 8px rgba(245,158,11,0.6);
     cursor: pointer;
@@ -385,7 +385,7 @@ input[type='range'].terminalSlider::-webkit-slider-thumb:hover {
 input[type='range'].terminalSlider::-moz-range-thumb {
     width: 13px;
     height: 13px;
-    background: var(--accent-gold, #f59e0b);
+    background: var(--accent-gold);
     border-radius: 50%;
     border: none;
     box-shadow: 0 0 8px rgba(245,158,11,0.6);
@@ -394,7 +394,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 
 .sliderTrackFill {
     height: 2px;
-    background: linear-gradient(90deg, var(--accent-gold, #f59e0b), rgba(245,158,11,0.2));
+    background: linear-gradient(90deg, var(--accent-gold), rgba(245,158,11,0.2));
     margin-top: -18px;
     pointer-events: none;
 }
@@ -405,7 +405,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     flex-direction: column;
     padding: 1.5rem;
     gap: 1.1rem;
-    background: var(--bg-primary, #0a0e1a);
+    background: var(--bg-primary);
     /* Soft gradient atmosphere — matches .mainContent in page.module.css */
     background-image:
         radial-gradient(ellipse at 0% 0%, rgba(59,130,246,0.025) 0%, transparent 50%),
@@ -417,7 +417,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--text-muted, #8899a6);
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -425,7 +425,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 
 .rightHeader::before {
     content: '//';
-    color: var(--accent-gold, #f59e0b);
+    color: var(--accent-gold);
     opacity: 0.5;
     font-size: var(--type-caption);
 }
@@ -439,7 +439,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     align-items: center;
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: var(--radius-md, 10px);
-    background: var(--bg-card, #161e2e);
+    background: var(--bg-card);
     overflow: hidden;
     position: relative;
 }
@@ -465,7 +465,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 /* Styled as a card panel consistent with other god-mode panels   */
 .terminal {
     border: 1px solid rgba(255, 255, 255, 0.04);
-    background: var(--bg-card, #161e2e);
+    background: var(--bg-card);
     border-radius: var(--radius-md, 10px);
     padding: 0.9rem 1.1rem;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
@@ -481,7 +481,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     content: 'ENGINE LOG >';
     font-size: var(--type-caption);
     font-weight: 800;
-    color: var(--accent-gold, #f59e0b);
+    color: var(--accent-gold);
     opacity: 0.5;
     display: block;
     margin-bottom: 0.3rem;
@@ -500,17 +500,17 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 }
 
 .terminalText {
-    color: var(--text-secondary, #b0bec5);
+    color: var(--text-secondary);
 }
 
 .terminalWarning {
-    color: var(--gauge-red, #ef4444);
+    color: var(--gauge-red);
     font-weight: 700;
     animation: blink 1.4s ease-in-out infinite;
 }
 
 .terminalHighlight {
-    color: var(--accent-gold, #f59e0b);
+    color: var(--accent-gold);
     font-weight: 700;
 }
 
@@ -519,7 +519,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     display: inline-block;
     width: 7px;
     height: 1em;
-    background: var(--accent-gold, #f59e0b);
+    background: var(--accent-gold);
     vertical-align: text-bottom;
     margin-left: 2px;
     opacity: 0.7;

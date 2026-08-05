@@ -9,8 +9,8 @@
   margin-top: var(--space-md, 16px);
   padding: var(--space-md, 16px) var(--space-lg, 20px);
   border-radius: var(--radius-md, 10px);
-  background: var(--bg-card, rgba(22, 30, 46, 0.6));
-  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.15));
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
   position: relative;
   overflow: hidden;
   /* Move 4: shared reveal language — settle entrance + spotlight halo. */
@@ -44,7 +44,7 @@
 .headerTitle {
   font-size: var(--fs-md, 0.95rem);
   font-weight: 800;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   /* Move 4: typographic reveal rhythm. */
   animation: revealHeadlineIn var(--reveal-dur-slow) var(--reveal-ease) both;
@@ -52,7 +52,7 @@
 
 .headerSubtitle {
   font-size: var(--fs-xs, 0.72rem);
-  color: var(--text-muted, #8899a6);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -116,7 +116,7 @@
 .rowRound {
   font-size: var(--fs-xs, 0.72rem);
   font-weight: 800;
-  color: var(--text-muted, #8899a6);
+  color: var(--text-muted);
   font-family: var(--font-mono, monospace);
   width: 24px;
   flex-shrink: 0;
@@ -130,7 +130,7 @@
 .rowLabel {
   font-size: var(--fs-sm, 0.78rem);
   font-weight: 600;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -203,8 +203,8 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--border-subtle, rgba(148, 163, 184, 0.25)) 20%,
-    var(--border-subtle, rgba(148, 163, 184, 0.25)) 80%,
+    var(--border-subtle) 20%,
+    var(--border-subtle) 80%,
     transparent 100%
   );
   opacity: 0;
@@ -234,7 +234,7 @@
 .totalLabel {
   font-size: var(--fs-sm, 0.85rem);
   font-weight: 800;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
 }
 
@@ -257,9 +257,9 @@
   right: 14px;
   padding: 4px 12px;
   border-radius: 6px;
-  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.2));
+  border: 1px solid var(--border-subtle);
   background: transparent;
-  color: var(--text-muted, #8899a6);
+  color: var(--text-muted);
   font-size: var(--fs-xs, 0.72rem);
   font-weight: 700;
   cursor: pointer;
@@ -268,7 +268,7 @@
 
 .skipBtn:hover {
   background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 /* ── Responsive ── */

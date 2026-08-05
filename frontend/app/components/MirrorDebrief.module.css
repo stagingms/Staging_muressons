@@ -27,12 +27,12 @@
 .title {
   font-size: var(--fs-md, 0.9rem);
   font-weight: 900;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 .subtitle {
   font-size: var(--fs-xs, 0.68rem);
-  color: var(--text-muted, #8899a6);
+  color: var(--text-muted);
   font-weight: 600;
 }
 
@@ -60,7 +60,7 @@
 
 .insightText {
   font-size: var(--fs-sm, 0.8rem);
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   line-height: 1.6;
   margin-bottom: var(--space-md, 14px);
 }
@@ -101,7 +101,7 @@
 .compLabel {
   font-size: var(--type-caption);
   font-weight: 700;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 4px;
@@ -111,7 +111,7 @@
   font-size: 1.2rem;
   font-weight: 900;
   font-family: var(--font-mono, monospace);
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 .compDelta {
@@ -123,7 +123,7 @@
 
 .compArrow {
   font-size: 1.2rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   font-weight: 300;
 }
 
@@ -142,7 +142,7 @@
 /* ── Description ── */
 .description {
   font-size: var(--fs-xs, 0.72rem);
-  color: var(--text-secondary, #b0bec5);
+  color: var(--text-secondary);
   font-style: italic;
   border-top: 1px solid rgba(148, 163, 184, 0.1);
   padding-top: var(--space-sm, 8px);

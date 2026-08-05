@@ -329,7 +329,7 @@ export default function ComplexityEventFeed({ sessionId }) {
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '0.5rem 0.75rem', borderRadius: '8px',
-                background: 'var(--bg-elevated, rgba(30,41,59,0.5))',
+                background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-subtle)',
                 flexWrap: 'wrap', gap: '0.5rem',
             }}>

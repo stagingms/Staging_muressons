@@ -208,7 +208,7 @@ export default function SystemicRiskControls() {
                 borderLeft: '3px solid #10b981',
             }}>
                 {sectionLabel('📖', 'Pedagogical Notes', '#10b981')}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                     <p style={{ margin: 0 }}>
                         <strong style={{ color: '#818cf8' }}>Difficulty Tier Ownership:</strong> Each cohort&apos;s difficulty
                         tier is locked at creation via the Experience Level preset (Classroom → Foundation,

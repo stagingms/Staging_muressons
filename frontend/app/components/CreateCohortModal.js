@@ -1058,7 +1058,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 {setupResults && (
                     <div style={{
                         position: 'absolute', inset: 0, zIndex: 10,
-                        background: 'var(--bg-card, #0f172a)', borderRadius: 'inherit',
+                        background: 'var(--bg-card)', borderRadius: 'inherit',
                         display: 'flex', flexDirection: 'column',
                         padding: '1.5rem 1.75rem', overflowY: 'auto',
                     }}>
@@ -1128,7 +1128,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     onClick={finishSetup}
                                     style={{
                                         padding: '0.55rem 1.1rem', borderRadius: '8px',
-                                        border: '1px solid var(--border-subtle, #475569)', background: 'transparent',
+                                        border: '1px solid var(--border-subtle)', background: 'transparent',
                                         color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer',
                                     }}
                                 >
@@ -1565,7 +1565,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 <div style={{
                                     display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginTop: 4,
                                     background: 'rgba(255,255,255,0.02)', borderRadius: 10, padding: 6,
-                                    border: '1px solid var(--border-subtle,#334155)',
+                                    border: '1px solid var(--border-subtle)',
                                 }}>
                                     {CURRENCIES.map(c => {
                                         const isActive = c.code === selectedCurrency;
@@ -2275,7 +2275,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             padding: '12px 14px',
                                             borderRadius: 10,
                                             border: pacingMode === mode.id
-                                                ? '2px solid var(--accent-blue, #3b82f6)'
+                                                ? '2px solid var(--accent-blue)'
                                                 : '1px solid var(--border-subtle)',
                                             background: pacingMode === mode.id
                                                 ? 'rgba(59,130,246,0.08)'

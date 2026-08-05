@@ -7,9 +7,9 @@
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    background: var(--bg-card, #1e2330);
+    background: var(--bg-card);
     border-radius: 12px;
-    border: 1px solid var(--border-subtle, #2d3446);
+    border: 1px solid var(--border-subtle);
     min-height: 300px;
 }
 
@@ -19,21 +19,21 @@
     justify-content: space-between;
     gap: 1rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-subtle, #2d3446);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .title {
     margin: 0 0 0.25rem;
     font-size: 1.15rem;
     font-weight: 800;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     letter-spacing: -0.01em;
 }
 
 .subtitle {
     margin: 0;
     font-size: 0.78rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-weight: 400;
 }
 
@@ -44,9 +44,9 @@
     align-items: flex-end;
     flex-wrap: wrap;
     padding: 1rem;
-    background: var(--bg-body, #151820);
+    background: var(--bg-body);
     border-radius: 8px;
-    border: 1px solid var(--border-subtle, #2d3446);
+    border: 1px solid var(--border-subtle);
 }
 
 /* ─── Form primitives ─── */
@@ -63,15 +63,15 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 
 .input {
     padding: 0.5rem 0.75rem;
     border-radius: 6px;
-    border: 1px solid var(--border-subtle, #2d3446);
-    background: var(--bg-body, #151820);
-    color: var(--text-primary, #e2e8f0);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-body);
+    color: var(--text-primary);
     font-size: 0.85rem;
     outline: none;
     transition: border-color 0.15s;
@@ -88,9 +88,9 @@
 .select {
     padding: 0.5rem 0.75rem;
     border-radius: 6px;
-    border: 1px solid var(--border-subtle, #2d3446);
-    background: var(--bg-body, #151820);
-    color: var(--text-primary, #e2e8f0);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-body);
+    color: var(--text-primary);
     font-size: 0.85rem;
     outline: none;
     cursor: pointer;
@@ -110,9 +110,9 @@
 .textarea {
     padding: 0.5rem 0.75rem;
     border-radius: 6px;
-    border: 1px solid var(--border-subtle, #2d3446);
-    background: var(--bg-body, #151820);
-    color: var(--text-primary, #e2e8f0);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-body);
+    color: var(--text-primary);
     font-size: 0.83rem;
     outline: none;
     resize: vertical;
@@ -171,9 +171,9 @@
 .btnGhost {
     padding: 0.4rem 0.9rem;
     border-radius: 6px;
-    border: 1px dashed var(--border-subtle, #2d3446);
+    border: 1px dashed var(--border-subtle);
     background: transparent;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
@@ -211,8 +211,8 @@
 }
 
 .card {
-    background: var(--bg-body, #151820);
-    border: 1px solid var(--border-subtle, #2d3446);
+    background: var(--bg-body);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 1.25rem;
     display: flex;
@@ -262,7 +262,7 @@
     align-items: center;
     gap: 0.4rem;
     font-size: 0.82rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     cursor: pointer;
     user-select: none;
 }
@@ -280,7 +280,7 @@
     flex-direction: column;
     gap: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid var(--border-subtle, #2d3446);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .sectionSubheader {
@@ -291,7 +291,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 
 .tacticRow {
@@ -305,11 +305,11 @@
 .placeholder {
     text-align: center;
     padding: 3rem 2rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.85rem;
     line-height: 1.6;
 }
 
 .placeholder strong {
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }

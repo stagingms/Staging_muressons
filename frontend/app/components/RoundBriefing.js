@@ -382,7 +382,7 @@ export default function RoundBriefing({
                     style={{
                       padding: '3px 12px', borderRadius: 999, border: 'none', cursor: 'pointer',
                       fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em',
-                      background: briefingMode === m ? 'var(--accent-blue, #2563eb)' : 'transparent',
+                      background: briefingMode === m ? 'var(--accent-blue)' : 'transparent',
                       color: briefingMode === m ? '#fff' : 'inherit',
                     }}
                   >{label}</button>
@@ -535,7 +535,7 @@ export default function RoundBriefing({
                 display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
                 marginTop: '0.5rem', padding: '0.25rem 0.55rem', borderRadius: '999px',
                 fontSize: '0.66rem', fontWeight: 600,
-                background: 'rgba(99,102,241,0.12)', color: 'var(--accent, #818cf8)',
+                background: 'rgba(99,102,241,0.12)', color: 'var(--accent)',
                 border: '1px solid rgba(99,102,241,0.35)',
               }} title="Outcomes are seeded per cohort, so this event rolls identically for every team. Results reflect strategy, not luck.">
                 🎲 Shared dice — every team faces the identical roll
@@ -643,10 +643,10 @@ export default function RoundBriefing({
           {roundNumber === 1 && (
             <p style={{
               margin: '0 0 10px', fontSize: '0.78rem', lineHeight: 1.55,
-              color: 'var(--text-secondary, #cbd5e1)', textAlign: 'center', maxWidth: 560,
+              color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 560,
               marginLeft: 'auto', marginRight: 'auto',
             }}>
-              <strong style={{ color: 'var(--accent, #a5b4fc)' }}>Your objective:</strong>{' '}
+              <strong style={{ color: 'var(--accent)' }}>Your objective:</strong>{' '}
               finish Year 5 with the strongest Terminal Valuation and Regenerative
               Multiple (M_R) — the score that prices your profits and your impact together.
             </p>

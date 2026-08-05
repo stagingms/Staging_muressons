@@ -78,21 +78,21 @@ export default function AdminLogin({ onSuccess, subtitle }) {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'var(--bg-body, #080c18)', padding: '2rem',
+      background: 'var(--bg-body)', padding: '2rem',
     }}>
       <div style={{
-        background: 'var(--bg-card, #0f1729)', border: '1px solid var(--border-subtle, rgba(148,163,184,0.15))',
+        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
         borderRadius: 'var(--radius-lg, 12px)', padding: '3rem', maxWidth: '420px', width: '100%',
         boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '0.06em', color: 'var(--text-primary, #f1f5f9)' }}>
+          <div style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '0.06em', color: 'var(--text-primary)' }}>
             MURESSONS
           </div>
-          <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary, #f1f5f9)', margin: '0.75rem 0 0.4rem' }}>
+          <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.75rem 0 0.4rem' }}>
             Sign in
           </h1>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted, #8899a6)', margin: 0 }}>
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>
             {subtitle || 'Enter your facilitator credentials to continue.'}
           </p>
         </div>

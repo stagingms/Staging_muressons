@@ -128,7 +128,7 @@
     letter-spacing: -0.01em;
 }
 .statValue.over {
-    color: var(--danger-text, #f87171);
+    color: var(--danger-text);
     animation: flashLow 1.2s ease-in-out infinite;
 }
 
@@ -143,14 +143,14 @@
 .poolSpentFill {
     height: 100%;
     border-radius: 100px;
-    background: linear-gradient(90deg, var(--brand, #0d9488), var(--brand-bright, #00e5c3));
+    background: linear-gradient(90deg, var(--brand), var(--brand-bright));
     transition: width 0.3s ease, background 0.3s ease;
 }
 .poolSpentWarn {
-    background: linear-gradient(90deg, var(--caution, #f59e0b), var(--caution-text, #fbbf24));
+    background: linear-gradient(90deg, var(--caution), var(--caution-text));
 }
 .poolSpentOver {
-    background: linear-gradient(90deg, var(--danger, #ef4444), var(--danger-text, #f87171));
+    background: linear-gradient(90deg, var(--danger), var(--danger-text));
 }
 
 @keyframes flashLow {
@@ -357,32 +357,32 @@
 .healthDot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .healthVerdict { line-height: 1; }
 .healthChipGood {
-    color: var(--positive-text, #4ade80);
-    background: var(--positive-soft, rgba(34,197,94,0.12));
+    color: var(--positive-text);
+    background: var(--positive-soft);
     border-color: rgba(34,197,94,0.3);
 }
-.healthChipGood .healthDot { background: var(--positive-text, #4ade80); }
+.healthChipGood .healthDot { background: var(--positive-text); }
 .healthChipWarning {
-    color: var(--caution-text, #fbbf24);
-    background: var(--caution-soft, rgba(245,158,11,0.12));
+    color: var(--caution-text);
+    background: var(--caution-soft);
     border-color: rgba(245,158,11,0.3);
 }
-.healthChipWarning .healthDot { background: var(--caution-text, #fbbf24); }
+.healthChipWarning .healthDot { background: var(--caution-text); }
 .healthChipDanger {
-    color: var(--danger-text, #f87171);
-    background: var(--danger-soft, rgba(239,68,68,0.12));
+    color: var(--danger-text);
+    background: var(--danger-soft);
     border-color: rgba(239,68,68,0.3);
 }
-.healthChipDanger .healthDot { background: var(--danger-text, #f87171); animation: healthPulse 2s ease-in-out infinite; }
+.healthChipDanger .healthDot { background: var(--danger-text); animation: healthPulse 2s ease-in-out infinite; }
 
 .metricsToggle {
     background: transparent;
-    border: 1px solid var(--border-subtle, rgba(148,163,184,0.2));
+    border: 1px solid var(--border-subtle);
     border-radius: 6px;
     padding: 2px 8px;
     font-size: 0.62rem;
     font-weight: 700;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
@@ -550,7 +550,7 @@
     height: 18px;
     border-radius: 50%;
     background: var(--slider-color, var(--accent, #00e5c3));
-    border: 2.5px solid var(--bg-primary, #0b0f1a);
+    border: 2.5px solid var(--bg-primary);
     box-shadow: 0 0 10px color-mix(in srgb, var(--slider-color, var(--accent, #00e5c3)) 40%, transparent);
     cursor: grab;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -571,7 +571,7 @@
     height: 18px;
     border-radius: 50%;
     background: var(--slider-color, var(--accent, #00e5c3));
-    border: 2.5px solid var(--bg-primary, #0b0f1a);
+    border: 2.5px solid var(--bg-primary);
     cursor: grab;
 }
 
@@ -582,7 +582,7 @@
     gap: var(--space-1) var(--space-3);
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.08));
+    border-top: 1px solid var(--border-subtle);
 }
 
 .gauge {
@@ -613,7 +613,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-secondary, #cbd5e1);
+    color: var(--text-secondary);
     cursor: default;
 }
 
@@ -630,9 +630,9 @@
 /* CA-A: use the text-tier semantic tokens — the -text variants are the
    brighter hues reserved for reading on dark surfaces (tokens.css). The old
    #059669 / dark-amber read as near-invisible on the near-black card. */
-.gaugeValueGood { color: var(--positive-text, #4ade80); }
-.gaugeValueWarning { color: var(--caution-text, #fbbf24); }
-.gaugeValueDanger { color: var(--danger-text, #f87171); }
+.gaugeValueGood { color: var(--positive-text); }
+.gaugeValueWarning { color: var(--caution-text); }
+.gaugeValueDanger { color: var(--danger-text); }
 
 .gaugeTrack {
     height: 5px;
@@ -648,15 +648,15 @@
 }
 
 .gaugeFillGood {
-    background: linear-gradient(90deg, var(--positive, #22c55e), var(--positive-text, #4ade80));
+    background: linear-gradient(90deg, var(--positive), var(--positive-text));
 }
 
 .gaugeFillWarning {
-    background: linear-gradient(90deg, var(--caution, #f59e0b), var(--caution-text, #fbbf24));
+    background: linear-gradient(90deg, var(--caution), var(--caution-text));
 }
 
 .gaugeFillDanger {
-    background: linear-gradient(90deg, var(--danger, #ef4444), var(--danger-text, #f87171));
+    background: linear-gradient(90deg, var(--danger), var(--danger-text));
 }
 
 .gaugeFillNeutral {

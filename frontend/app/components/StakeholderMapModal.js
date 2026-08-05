@@ -380,14 +380,14 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     </div>
                                     <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Accuracy</div>
                                 </div>
-                                <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
+                                <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.passed ? '#f59e0b' : '#94a3b8' }}>
                                         {result.correct_count}/{result.total_count}
                                     </div>
                                     <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Correct</div>
                                 </div>
-                                <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
+                                <div style={{ width: '1px', background: 'var(--border-subtle)' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
                                     <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.points_awarded > 0 ? '#6366f1' : '#94a3b8' }}>
                                         +{result.points_awarded}
@@ -448,7 +448,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 {result.details?.filter(d => d.alternate_quadrant).map(d => (
                                     <div key={`amb-${d.id}`} style={{ padding: '0.4rem 0.5rem', background: 'transparent', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b' }}>
                                         <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#fbbf24', marginBottom: '0.2rem' }}>⚖️ Ambiguous Classification — {d.name}</div>
-                                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.4 }}>{d.alternate_rationale}</div>
+                                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{d.alternate_rationale}</div>
                                     </div>
                                 ))}
 
@@ -494,7 +494,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                 const qStakeholders = result.details.filter(d => d.correct_quadrant === q.id);
                                                 if (qStakeholders.length === 0) return null;
                                                 return (
-                                                    <div key={q.id} style={{ background: 'var(--bg-elevated, #16213e)', borderRadius: '8px', padding: '0.35rem 0.5rem', borderLeft: `3px solid ${q.color}` }}>
+                                                    <div key={q.id} style={{ background: 'var(--bg-elevated)', borderRadius: '8px', padding: '0.35rem 0.5rem', borderLeft: `3px solid ${q.color}` }}>
                                                         <div style={{ fontWeight: 700, fontSize: 'var(--type-caption)', color: q.color, marginBottom: '0.2rem' }}>
                                                             {q.label} <span style={{ fontSize: 'var(--type-caption)', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '4px' }}>{q.power} Power · {q.interest} Interest</span>
                                                         </div>
@@ -552,7 +552,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     style={{
                                         width: '100%', minHeight: '40px', padding: '5px 7px', borderRadius: '6px',
                                         background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
-                                        color: 'var(--text-primary, #e2e8f0)', fontSize: 'var(--type-caption)', fontFamily: 'inherit',
+                                        color: 'var(--text-primary)', fontSize: 'var(--type-caption)', fontFamily: 'inherit',
                                         resize: 'vertical', outline: 'none', lineHeight: 1.4,
                                     }}
                                 />

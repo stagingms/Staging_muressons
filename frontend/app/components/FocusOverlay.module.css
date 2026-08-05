@@ -973,7 +973,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--accent, #6366f1);
+  color: var(--accent);
   margin-bottom: var(--space-3);
 }
 .stageQuestion {
@@ -1005,7 +1005,7 @@
 .constraintLine {
   margin: 16px 0 0;
   padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
-  border-left: 2px solid var(--accent, #6366f1);
+  border-left: 2px solid var(--accent);
   border-radius: 0 6px 6px 0;
   background: rgba(99, 102, 241, 0.06);
   font-size: 15px;
@@ -1061,8 +1061,8 @@
   gap: var(--space-3);
   text-align: left;
   padding: var(--space-5);
-  background: var(--ck-surface-2, rgba(255, 255, 255, 0.02));
-  border: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  background: var(--ck-surface-2);
+  border: 1px solid var(--ck-border);
   border-radius: 12px;
   cursor: pointer;
   font: inherit;
@@ -1072,7 +1072,7 @@
 }
 .opt:hover { border-color: var(--ck-border-strong, rgba(148, 163, 184, 0.28)); }
 .opt:focus-visible {
-  outline: 2px solid var(--accent, #6366f1);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -1081,9 +1081,9 @@
    your mind. A border-width change would have cost a compensating 23px
    padding — an off-scale value bought to fix a problem this avoids. */
 .opt[aria-checked='true'] {
-  border-color: var(--accent, #6366f1);
-  box-shadow: inset 0 0 0 1px var(--accent, #6366f1);
-  background: var(--accent-soft, rgba(99, 102, 241, 0.08));
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--accent-soft);
 }
 
 .optTop { display: flex; align-items: center; gap: var(--space-2); }
@@ -1094,10 +1094,10 @@
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.opt[aria-checked='true'] .optKey { color: var(--accent, #6366f1); }
+.opt[aria-checked='true'] .optKey { color: var(--accent); }
 .optCheck {
   margin-left: auto;
-  color: var(--accent, #6366f1);
+  color: var(--accent);
   font-weight: 700;
   opacity: 0;
 }
@@ -1123,7 +1123,7 @@
 .optRows {
   margin: auto 0 0;
   padding-top: var(--space-3);
-  border-top: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  border-top: 1px solid var(--ck-border);
   display: grid;
   grid-template-columns: 1fr auto;
   gap: var(--space-2) var(--space-3);
@@ -1189,7 +1189,7 @@
 .cmpTable td {
   padding: var(--space-3) var(--space-2);
   text-align: right;
-  border-bottom: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  border-bottom: 1px solid var(--ck-border);
   white-space: nowrap;
 }
 .cmpTable th {
@@ -1209,12 +1209,12 @@
    vocabulary the constraint line uses for "this one is yours". */
 .cmpTable tbody tr[data-chosen='true'] td,
 .cmpTable tbody tr[data-chosen='true'] th {
-  background: var(--accent-soft, rgba(99, 102, 241, 0.08));
+  background: var(--accent-soft);
 }
 /* th, not td: the option name is a ROW HEADER, which is what lets a screen
    reader read "Option A, Treasury, minus 2.5M" instead of a bare number. */
 .cmpTable tbody tr[data-chosen='true'] th:first-child {
-  box-shadow: inset 2px 0 0 var(--accent, #6366f1);
+  box-shadow: inset 2px 0 0 var(--accent);
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -1239,8 +1239,8 @@
   flex-wrap: wrap;
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-5);
-  background: var(--ck-surface-2, rgba(255, 255, 255, 0.02));
-  border: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  background: var(--ck-surface-2);
+  border: 1px solid var(--ck-border);
   border-radius: 12px;
 }
 .lockedLabel {
@@ -1260,7 +1260,7 @@
 .cohortBar {
   height: 4px;
   border-radius: 2px;
-  background: var(--ck-border, rgba(148, 163, 184, 0.12));
+  background: var(--ck-border);
   overflow: hidden;
 }
 .cohortBar > i {
@@ -1291,7 +1291,7 @@
   gap: var(--space-5);
   padding-bottom: var(--space-5);
   margin-bottom: var(--space-6);
-  border-bottom: 1px solid var(--ck-border, rgba(148, 163, 184, 0.12));
+  border-bottom: 1px solid var(--ck-border);
 }
 .beltTile { min-width: 0; flex: 0 0 auto; }
 .beltLabel {

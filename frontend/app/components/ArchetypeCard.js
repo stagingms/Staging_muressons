@@ -107,7 +107,7 @@ export default function ArchetypeCard({
       onClick={download}
       style={{
         marginTop: 14, padding: '10px 20px', borderRadius: 10, cursor: 'pointer',
-        border: `1px solid ${dAccent}`, background: `${dAccent}22`, color: 'var(--text-primary, #f1f5f9)',
+        border: `1px solid ${dAccent}`, background: `${dAccent}22`, color: 'var(--text-primary)',
         fontWeight: 700, fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: 8,
       }}
       title="Download a shareable PNG of your final archetype"

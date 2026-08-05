@@ -105,9 +105,9 @@ export default function MRLadderReveal({ mr = 0, flags = {}, onComplete }) {
           <span className={styles.rowLabel}>Base Multiple</span>
         </div>
         <div className={styles.rowRight}>
-          <span className={styles.rowValue} style={{ color: 'var(--text-primary, #f1f5f9)' }}>+{BASE_MR.toFixed(2)}</span>
+          <span className={styles.rowValue} style={{ color: 'var(--text-primary)' }}>+{BASE_MR.toFixed(2)}</span>
           <div className={styles.rowBar}>
-            <div className={styles.rowBarFill} style={{ width: `${(BASE_MR / 2.0) * 100}%`, background: 'var(--accent-blue, #3b82f6)' }} />
+            <div className={styles.rowBarFill} style={{ width: `${(BASE_MR / 2.0) * 100}%`, background: 'var(--accent-blue)' }} />
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ export default function MRLadderReveal({ mr = 0, flags = {}, onComplete }) {
             <div className={styles.rowRight}>
               <span
                 className={styles.rowValue}
-                style={{ color: isCaptured ? theme.color : 'var(--kpi-warn, #f59e0b)' }}
+                style={{ color: isCaptured ? theme.color : 'var(--kpi-warn)' }}
               >
                 {isCaptured ? '+' : '✗ +'}{item.mr.toFixed(2)}
               </span>

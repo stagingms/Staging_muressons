@@ -412,9 +412,9 @@
   gap: var(--space-2, 8px);
   padding: var(--space-2, 8px) var(--space-3, 12px);
   border-radius: var(--radius-card, 10px);
-  border: 1px solid var(--ck-border, #1e293b);
+  border: 1px solid var(--ck-border);
   background: transparent;
-  color: var(--ck-text-3, #94a3b8);
+  color: var(--ck-text-3);
   font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -425,7 +425,7 @@
 .railSectionHeader:hover {
   background: rgba(148, 163, 184, 0.06);
   border-color: rgba(148, 163, 184, 0.28);
-  color: var(--ck-text-2, #cbd5e1);
+  color: var(--ck-text-2);
 }
 .railSectionHeaderLabel {
   flex: 1;
@@ -3004,7 +3004,7 @@
    Only shows on keyboard navigation (not mouse clicks).
    ──────────────────────────────────────────────────────────── */
 .decisionTile:focus-visible {
-  outline: 2px solid var(--accent-blue, #3b82f6);
+  outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
 }
@@ -3034,7 +3034,7 @@
   width: 24px;               /* 14px was a poor target even when it worked */
   align-self: stretch;
   border: none;
-  background: var(--bg-elevated, #1e293b);
+  background: var(--bg-elevated);
   color: var(--text-secondary);
   font-size: var(--type-body);
   font-weight: 700;
@@ -3049,12 +3049,12 @@
 .railExpandRight { border-left: 1px solid var(--ck-border); }
 .railExpandLeft:hover,
 .railExpandRight:hover {
-  background: var(--bg-elevated, #1e293b);
+  background: var(--bg-elevated);
   color: var(--text-primary);
 }
 .railExpandLeft:focus-visible,
 .railExpandRight:focus-visible {
-  outline: 2px solid var(--accent, #6366f1);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 

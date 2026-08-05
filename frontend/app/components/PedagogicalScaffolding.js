@@ -306,7 +306,7 @@ export function RoundRecap({ recapData }) {
             {/* B3: Attributable grouping — decision vs background */}
             {hasGrouping && decisionChains.length > 0 ? (
                 <>
-                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--kpi-good, #10b981)', margin: '8px 0 4px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--kpi-good)', margin: '8px 0 4px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                         🎯 Because of your decision
                     </div>
                     <div className={styles.rrChains}>
@@ -318,7 +318,7 @@ export function RoundRecap({ recapData }) {
                                 onClick={() => setBgExpanded(!bgExpanded)}
                                 style={{
                                     background: 'none', border: 'none', cursor: 'pointer',
-                                    fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-muted, #64748b)',
+                                    fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--text-muted)',
                                     margin: '6px 0 2px', padding: 0, letterSpacing: '0.04em',
                                     textTransform: 'uppercase', fontFamily: 'inherit',
                                 }}
@@ -702,16 +702,16 @@ export function R6RevelationPanel({ onMicroDecision, onVisible }) {
                         onClick={() => setSelected(key)}
                         style={{
                             padding: '10px 14px', borderRadius: 8, textAlign: 'left',
-                            border: selected === key ? '2px solid #ef4444' : '1px solid var(--border-subtle, #334155)',
-                            background: selected === key ? 'rgba(239, 68, 68, 0.06)' : 'var(--bg-secondary, #0f172a)',
-                            color: 'var(--text-primary, #f1f5f9)', cursor: 'pointer',
+                            border: selected === key ? '2px solid #ef4444' : '1px solid var(--border-subtle)',
+                            background: selected === key ? 'rgba(239, 68, 68, 0.06)' : 'var(--bg-secondary)',
+                            color: 'var(--text-primary)', cursor: 'pointer',
                             transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                         }}
                     >
                         <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: 4 }}>
                             {dec.icon} {dec.label}
                         </div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.5 }}>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                             {dec.description}
                         </div>
                         {dec.stochastic && (
@@ -951,9 +951,9 @@ export function StakeholderTribunal({ onResponses, onVisible }) {
                             onClick={() => handleResponse(key)}
                             style={{
                                 padding: '10px 14px', borderRadius: 8, textAlign: 'left',
-                                border: responses[currentIdx] === key ? '2px solid #f59e0b' : '1px solid var(--border-subtle, #334155)',
-                                background: responses[currentIdx] === key ? 'rgba(245, 158, 11, 0.06)' : 'var(--bg-secondary, #0f172a)',
-                                color: 'var(--text-primary, #f1f5f9)', cursor: 'pointer',
+                                border: responses[currentIdx] === key ? '2px solid #f59e0b' : '1px solid var(--border-subtle)',
+                                background: responses[currentIdx] === key ? 'rgba(245, 158, 11, 0.06)' : 'var(--bg-secondary)',
+                                color: 'var(--text-primary)', cursor: 'pointer',
                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                             }}
                         >
@@ -1014,7 +1014,7 @@ export function FlagDependencyWarnings({ roundNumber, activeFlags = {} }) {
                         background: c.bg, border: `1px solid ${c.border}`,
                         fontSize: '0.82rem', color: c.text, lineHeight: 1.5,
                     }}>
-                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)', marginBottom: 2 }}>
+                        <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: 2 }}>
                             From Round {w.from_round} ({w.from_option.replace('option_', 'Option ').toUpperCase()})
                         </div>
                         {w.warning}
@@ -1099,9 +1099,9 @@ export function OrientationPanel({ onComplete, onOpenStakeholderMap, hasComplete
                             style={{
                                 display: 'flex', alignItems: 'flex-start', gap: 12,
                                 padding: '12px 14px', borderRadius: 8, textAlign: 'left',
-                                border: isDone ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--border-subtle, #334155)',
-                                background: isDone ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-secondary, #0f172a)',
-                                color: 'var(--text-primary, #f1f5f9)', cursor: 'pointer',
+                                border: isDone ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--border-subtle)',
+                                background: isDone ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-secondary)',
+                                color: 'var(--text-primary)', cursor: 'pointer',
                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', width: '100%',
                             }}
                         >
@@ -1119,7 +1119,7 @@ export function OrientationPanel({ onComplete, onOpenStakeholderMap, hasComplete
                                 }}>
                                     {task.label}
                                 </div>
-                                <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary, #94a3b8)', marginTop: 2, lineHeight: 1.4 }}>
+                                <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
                                     {task.instruction}
                                 </div>
                             </div>
@@ -1147,7 +1147,7 @@ export function OrientationPanel({ onComplete, onOpenStakeholderMap, hasComplete
                 {allDone ? '✓ Ready to Make Your First Decision →' : `Complete ${tasks.length - completedCount} remaining task${tasks.length - completedCount !== 1 ? 's' : ''}`}
             </button>
 
-            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted, #64748b)', marginTop: 8, fontStyle: 'italic', textAlign: 'center' }}>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 8, fontStyle: 'italic', textAlign: 'center' }}>
                 {config.pedagogical_purpose}
             </div>
         </div>

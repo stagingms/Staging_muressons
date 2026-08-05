@@ -244,7 +244,7 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMe
                 style={{
                   marginTop: 10, width: '100%', padding: '8px 0', borderRadius: 10, cursor: 'pointer',
                   border: '1px solid rgba(239,68,68,0.45)', background: 'rgba(239,68,68,0.12)',
-                  color: 'var(--text-primary, #f1f5f9)', fontWeight: 800, fontSize: '0.76rem', letterSpacing: '0.03em',
+                  color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.76rem', letterSpacing: '0.03em',
                 }}
                 title="Open a negotiation room with this stakeholder. Entry fee applies; concessions are binding."
               >

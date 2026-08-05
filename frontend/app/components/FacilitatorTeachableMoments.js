@@ -46,13 +46,13 @@ export default function FacilitatorTeachableMoments({ cohortId, pollMs = 20000 }
         {notes.map((n) => (
           <div key={n.flag} style={{
             padding: '8px 10px', borderRadius: 8,
-            background: 'var(--bg-elevated, rgba(15,23,42,0.4))',
+            background: 'var(--bg-elevated)',
             border: '1px solid rgba(148,163,184,0.18)',
           }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               {n.count}/{n.total} teams · {n.flag}
             </div>
-            <div style={{ fontSize: '0.78rem', lineHeight: 1.45, marginTop: 2, color: 'var(--text-secondary, #94a3b8)' }}>
+            <div style={{ fontSize: '0.78rem', lineHeight: 1.45, marginTop: 2, color: 'var(--text-secondary)' }}>
               {n.message}
             </div>
           </div>

@@ -22,7 +22,7 @@
 .headerTitle {
   font-size: var(--fs-xs, 0.7rem);
   font-weight: 800;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   flex: 1;
 }
 .compositeScore {

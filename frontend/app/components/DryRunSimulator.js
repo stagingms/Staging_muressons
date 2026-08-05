@@ -76,7 +76,7 @@ export default function DryRunSimulator({ sessionId, cohortName = '' }) {
   const gm = report ? (GRADE_META[report.difficulty_grade] || GRADE_META.balanced) : null;
 
   return (
-    <div style={{ color: 'var(--text-primary, #f1f5f9)' }}>
+    <div style={{ color: 'var(--text-primary)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
         <span style={{ fontSize: '1.6rem' }}>🛫</span>
         <div>

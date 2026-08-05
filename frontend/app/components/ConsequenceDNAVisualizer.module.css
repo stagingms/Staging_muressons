@@ -501,14 +501,14 @@
 
 .nodeTooltipKey {
   font-size: var(--type-caption);
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .nodeTooltipVal {
   font-size: var(--type-caption);
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   text-align: right;
   font-family: var(--font-mono, monospace);
 }

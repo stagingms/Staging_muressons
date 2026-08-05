@@ -225,14 +225,14 @@ export default function BulkPlayerUpload({
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem',
         },
         card: {
-            background: 'var(--bg-card, #0f172a)', border: '1px solid var(--border-subtle, #334155)',
+            background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
             borderRadius: 16, width: '100%', maxWidth: 720, maxHeight: '86vh',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
         },
-        head: { padding: '1.1rem 1.4rem', borderBottom: '1px solid var(--border-subtle, #334155)' },
+        head: { padding: '1.1rem 1.4rem', borderBottom: '1px solid var(--border-subtle)' },
         body: { padding: '1.1rem 1.4rem', overflowY: 'auto' },
         foot: {
-            padding: '0.9rem 1.4rem', borderTop: '1px solid var(--border-subtle, #334155)',
+            padding: '0.9rem 1.4rem', borderTop: '1px solid var(--border-subtle)',
             display: 'flex', gap: '0.6rem', justifyContent: 'flex-end', alignItems: 'center',
         },
         btn: (kind) => ({
@@ -245,7 +245,7 @@ export default function BulkPlayerUpload({
                 ? { background: 'rgba(34,197,94,0.9)', borderColor: 'rgba(34,197,94,1)', color: '#052e16' }
                 : { background: 'rgba(148,163,184,0.10)', borderColor: 'rgba(148,163,184,0.3)', color: '#cbd5e1' }),
         }),
-        note: { fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)', lineHeight: 1.55 },
+        note: { fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.55 },
         errBox: {
             marginTop: '0.9rem', background: 'rgba(239,68,68,0.08)',
             border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '0.8rem 0.95rem',
@@ -286,7 +286,7 @@ export default function BulkPlayerUpload({
         <div style={S.backdrop} onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
             <div style={S.card}>
                 <div style={S.head}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary, #e2e8f0)' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                         {cfg.title}
                         {mode === 'cohort' && cohortName ? ` — ${cohortName}` : ''}
                     </h3>

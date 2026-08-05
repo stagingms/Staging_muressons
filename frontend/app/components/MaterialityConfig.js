@@ -116,15 +116,15 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
 
     return (
         <div style={{
-            background: 'var(--bg-card, #fff)', border: '1px solid var(--border-subtle, #e2e8f0)',
+            background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
             borderRadius: '10px', padding: '1.25rem', marginBottom: '1.25rem',
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                 <div>
-                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                         📊 Excel Import / Export
                     </h4>
-                    <p style={{ margin: '2px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #94a3b8)' }}>
+                    <p style={{ margin: '2px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                         Scope: <strong>{scopeLabel}</strong> — Two sheets: Issues + Interdependencies
                     </p>
                 </div>
@@ -149,9 +149,9 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
                 onDrop={handleDrop}
                 onClick={() => document.getElementById('excelUploadInput')?.click()}
                 style={{
-                    border: `2px dashed ${dragOver ? '#3b82f6' : 'var(--border-subtle, #cbd5e1)'}`,
+                    border: `2px dashed ${dragOver ? '#3b82f6' : 'var(--border-subtle)'}`,
                     borderRadius: '8px',
-                    background: dragOver ? 'rgba(59,130,246,0.06)' : 'var(--bg-elevated, #f8fafc)',
+                    background: dragOver ? 'rgba(59,130,246,0.06)' : 'var(--bg-elevated)',
                     padding: '1.5rem', textAlign: 'center', cursor: 'pointer',
                     transition: 'border-color 0.2s, background 0.2s',
                 }}
@@ -170,10 +170,10 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
                 ) : (
                     <>
                         <p style={{ margin: 0, fontSize: '1.4rem' }}>📂</p>
-                        <p style={{ margin: '0.3rem 0 0', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary, #475569)' }}>
+                        <p style={{ margin: '0.3rem 0 0', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                             Drag & drop an .xlsx file here, or click to browse
                         </p>
-                        <p style={{ margin: '0.2rem 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted, #94a3b8)' }}>
+                        <p style={{ margin: '0.2rem 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                             Max 5 MB · Must contain an &ldquo;Issues&rdquo; sheet
                         </p>
                     </>
@@ -742,7 +742,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
             <div className={styles.header}>
                 <div>
                     <h2>🧩 Materiality Matrix</h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted,#94a3b8)', fontWeight: 400 }}>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 400 }}>
                         Issue dictionaries, interdependencies & consultant fee configuration
                     </p>
                 </div>
@@ -768,9 +768,9 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                     fontSize: '0.78rem', fontWeight: 600, 
                                     borderWidth: '1.5px', borderStyle: 'solid',
                                     transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
-                                    background: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'transparent',
-                                    color: selectedDict === opt.id ? '#fff' : 'var(--text-primary, #334155)',
-                                    borderColor: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'var(--border-subtle, #d1d5db)',
+                                    background: selectedDict === opt.id ? 'var(--accent-blue)' : 'transparent',
+                                    color: selectedDict === opt.id ? '#fff' : 'var(--text-primary)',
+                                    borderColor: selectedDict === opt.id ? 'var(--accent-blue)' : 'var(--border-subtle)',
                                     borderRightWidth: opt.is_custom ? '0' : '1.5px',
                                 }}
                             >
@@ -787,7 +787,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                         transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                         background: selectedDict === opt.id ? '#dc2626' : 'transparent',
                                         color: selectedDict === opt.id ? '#fff' : '#ef4444',
-                                        borderColor: selectedDict === opt.id ? '#dc2626' : 'var(--border-subtle, #d1d5db)',
+                                        borderColor: selectedDict === opt.id ? '#dc2626' : 'var(--border-subtle)',
                                     }}
                                 >✕</button>
                             )}

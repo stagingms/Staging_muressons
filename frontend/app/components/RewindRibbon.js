@@ -41,10 +41,10 @@ export default function RewindRibbon({ flags = {} }) {
   return (
     <div style={wrap}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-purple, #8b5cf6)' }}>
+        <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-purple)' }}>
           ⏪ Rewind — 5 years of consequences
         </span>
-        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--kpi-good, #10b981)', fontFamily: 'var(--font-mono, monospace)' }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--kpi-good)', fontFamily: 'var(--font-mono, monospace)' }}>
           +{(Math.round(runningMr * 100) / 100).toFixed(2)} M_R
         </span>
       </div>
@@ -55,7 +55,7 @@ export default function RewindRibbon({ flags = {} }) {
         {ordered.map((n, idx) => {
           const isLit = idx < revealed;
           const good = n.captured;
-          const color = good ? 'var(--kpi-good, #10b981)' : 'var(--kpi-warn, #f59e0b)';
+          const color = good ? 'var(--kpi-good)' : 'var(--kpi-warn)';
           return (
             <div key={n.flag} style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
               <div
@@ -63,8 +63,8 @@ export default function RewindRibbon({ flags = {} }) {
                 style={{
                   width: 22, height: 22, borderRadius: '50%', zIndex: 1,
                   background: isLit ? color : 'rgba(148,163,184,0.25)',
-                  boxShadow: isLit && good ? `0 0 12px ${'var(--kpi-good, #10b981)'}` : 'none',
-                  border: '2px solid var(--bg-card, #161e2e)',
+                  boxShadow: isLit && good ? `0 0 12px ${'var(--kpi-good)'}` : 'none',
+                  border: '2px solid var(--bg-card)',
                   opacity: isLit ? 1 : 0.4,
                   transform: isLit ? 'scale(1)' : 'scale(0.7)',
                   transition: 'all 0.4s ease',
@@ -74,9 +74,9 @@ export default function RewindRibbon({ flags = {} }) {
               >
                 {isLit ? (good ? '✓' : '✗') : ''}
               </div>
-              <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted, #8899a6)', marginTop: 4, fontWeight: 700 }}>R{n.round}</div>
+              <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 4, fontWeight: 700 }}>R{n.round}</div>
               <div style={{
-                fontSize: 'var(--type-caption)', color: isLit ? 'var(--text-secondary, #b0bec5)' : 'transparent',
+                fontSize: 'var(--type-caption)', color: isLit ? 'var(--text-secondary)' : 'transparent',
                 textAlign: 'center', lineHeight: 1.2, maxWidth: 70, transition: 'color 0.4s ease',
               }}>
                 {n.label}
@@ -91,6 +91,6 @@ export default function RewindRibbon({ flags = {} }) {
 
 const wrap = {
   marginTop: 16, padding: '16px 18px', borderRadius: 12,
-  background: 'var(--bg-card, rgba(22,30,46,0.6))',
-  border: '1px solid var(--border-subtle, rgba(148,163,184,0.15))',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border-subtle)',
 };

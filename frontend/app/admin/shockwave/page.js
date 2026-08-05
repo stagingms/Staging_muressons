@@ -244,21 +244,21 @@ export default function ShockwaveControlPage() {
 }
 
 const S = {
-  page: { maxWidth: 640, margin: '0 auto', padding: '32px 24px', color: 'var(--text-primary, #f1f5f9)', fontFamily: 'var(--font-sans, system-ui, sans-serif)' },
+  page: { maxWidth: 640, margin: '0 auto', padding: '32px 24px', color: 'var(--text-primary)', fontFamily: 'var(--font-sans, system-ui, sans-serif)' },
   brand: { fontSize: '1.8rem', fontWeight: 900 },
-  sub: { color: 'var(--text-muted, #8899a6)', marginBottom: 24 },
-  lbl: { display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted, #8899a6)', margin: '18px 0 6px', textTransform: 'uppercase', letterSpacing: '0.08em' },
-  input: { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-subtle, rgba(148,163,184,0.25))', background: 'var(--bg-card, #161e2e)', color: 'inherit', fontSize: '0.95rem' },
+  sub: { color: 'var(--text-muted)', marginBottom: 24 },
+  lbl: { display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', margin: '18px 0 6px', textTransform: 'uppercase', letterSpacing: '0.08em' },
+  input: { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-card)', color: 'inherit', fontSize: '0.95rem' },
   grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 },
-  card: { textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-card, #161e2e)', border: '1px solid var(--border-subtle, rgba(148,163,184,0.2))', color: 'inherit' },
+  card: { textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'inherit' },
   cardActive: { border: '2px solid #ef4444', background: 'rgba(239,68,68,0.08)' },
   detonate: { padding: '14px 28px', fontSize: '1.05rem', fontWeight: 800, borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', boxShadow: '0 6px 24px rgba(239,68,68,0.4)' },
   rehearse: { padding: '14px 22px', fontSize: '0.95rem', fontWeight: 700, borderRadius: 12, cursor: 'pointer', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.45)' },
   rehearsalCard: { marginTop: 20, padding: '16px 18px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(30,20,8,0.9), rgba(24,16,10,0.95))', border: '1px dashed rgba(245,158,11,0.5)' },
   rehearsalBadge: { fontSize: 'var(--type-caption)', fontWeight: 900, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '4px 8px' },
-  cancel: { padding: '14px 20px', fontSize: '0.95rem', fontWeight: 700, borderRadius: 12, border: '1px solid var(--border-subtle, rgba(148,163,184,0.3))', cursor: 'pointer', background: 'transparent', color: 'inherit' },
+  cancel: { padding: '14px 20px', fontSize: '0.95rem', fontWeight: 700, borderRadius: 12, border: '1px solid var(--border-subtle)', cursor: 'pointer', background: 'transparent', color: 'inherit' },
   error: { padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', marginBottom: 16, fontSize: '0.9rem' },
   prefillNote: { marginTop: 8, fontSize: '0.78rem', color: '#f59e0b', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 10px' },
-  chooseNote: { marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted, #8899a6)' },
+  chooseNote: { marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)' },
   ok: { padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.4)', color: '#6ee7b7', marginBottom: 16, fontSize: '0.9rem' },
 };

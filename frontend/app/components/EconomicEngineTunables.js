@@ -182,11 +182,11 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px', gap: '8px' }}>
                 <div style={{ minWidth: 0 }}>
                     {/* Human label */}
-                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary,#f1f5f9)', lineHeight: 1.2, marginBottom: '2px' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2, marginBottom: '2px' }}>
                         {label}
                     </div>
                     {/* Machine key */}
-                    <code style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', fontFamily: 'var(--font-mono,monospace)', letterSpacing: '0.04em' }}>
+                    <code style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono,monospace)', letterSpacing: '0.04em' }}>
                         {varKey}
                     </code>
                 </div>
@@ -262,7 +262,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
 
             {/* Description — always visible, never truncated */}
             {tdata && (
-                <p style={{ margin: '8px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', lineHeight: 1.55 }}>
+                <p style={{ margin: '8px 0 0', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.55 }}>
                     {tdata.def}
                 </p>
             )}
@@ -355,7 +355,7 @@ export default function EconomicEngineTunables() {
     };
 
     if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--text-muted,#64748b)', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: 'var(--text-muted)', gap: '10px' }}>
             <div style={{ width: '18px', height: '18px', borderRadius: '50%', border: '2px solid currentColor', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
             Loading engine tunables…
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -367,27 +367,27 @@ export default function EconomicEngineTunables() {
 
             {/* ── Scenario Presets (API-backed) ── */}
             <div style={{
-                background: 'var(--bg-card,#1e293b)', border: '1px solid var(--border-subtle,#334155)',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
                 borderRadius: '14px',
             }}>
                 {/* Header with create button */}
                 <div style={{
                     padding: '14px 20px',
                     background: 'linear-gradient(90deg, rgba(99,102,241,0.08), transparent)',
-                    borderBottom: '1px solid var(--border-subtle,#334155)',
+                    borderBottom: '1px solid var(--border-subtle)',
                     display: 'flex', alignItems: 'center', gap: '10px',
                     borderRadius: '13px 13px 0 0',
                 }}>
                     <span style={{ fontSize: '0.9rem' }}>⚡</span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-primary,#f1f5f9)' }}>Scenario Presets</span>
-                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', marginLeft: '4px' }}>— One-click templates & custom snapshots</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-primary)' }}>Scenario Presets</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginLeft: '4px' }}>— One-click templates & custom snapshots</span>
                     <button
                         onClick={() => setShowCreatePreset(!showCreatePreset)}
                         style={{
                             marginLeft: 'auto', padding: '4px 10px', borderRadius: '5px', fontSize: 'var(--type-caption)',
-                            fontWeight: 700, border: '1px solid var(--border-subtle,#334155)', cursor: 'pointer',
+                            fontWeight: 700, border: '1px solid var(--border-subtle)', cursor: 'pointer',
                             background: showCreatePreset ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)',
-                            color: showCreatePreset ? '#f87171' : 'var(--text-muted,#94a3b8)',
+                            color: showCreatePreset ? '#f87171' : 'var(--text-muted)',
                         }}
                     >
                         {showCreatePreset ? '✕ Cancel' : '+ Save Current'}
@@ -396,21 +396,21 @@ export default function EconomicEngineTunables() {
 
                 {/* Create custom preset drawer */}
                 {showCreatePreset && (
-                    <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle,#334155)', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <select value={newPresetIcon} onChange={e => setNewPresetIcon(e.target.value)} style={{
-                            padding: '6px', borderRadius: '6px', border: '1px solid var(--border-subtle,#334155)',
-                            background: 'rgba(255,255,255,0.04)', fontSize: '1rem', cursor: 'pointer', color: 'var(--text-primary,#f1f5f9)',
+                            padding: '6px', borderRadius: '6px', border: '1px solid var(--border-subtle)',
+                            background: 'rgba(255,255,255,0.04)', fontSize: '1rem', cursor: 'pointer', color: 'var(--text-primary)',
                         }}>
                             {['⚙️','🎯','🏢','🎓','💼','🔥','🌍','🧪','⚖️','⚔️','🌱'].map(i => <option key={i} value={i}>{i}</option>)}
                         </select>
                         <input type="text" placeholder="Preset name…" value={newPresetName} onChange={e => setNewPresetName(e.target.value)}
-                            style={{ flex: '1 1 120px', padding: '6px 10px', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid var(--border-subtle,#334155)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary,#f1f5f9)', outline: 'none' }} />
+                            style={{ flex: '1 1 120px', padding: '6px 10px', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)', outline: 'none' }} />
                         <input type="text" placeholder="Description…" value={newPresetDesc} onChange={e => setNewPresetDesc(e.target.value)}
-                            style={{ flex: '2 1 180px', padding: '6px 10px', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid var(--border-subtle,#334155)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary,#f1f5f9)', outline: 'none' }} />
+                            style={{ flex: '2 1 180px', padding: '6px 10px', borderRadius: '6px', fontSize: '0.78rem', border: '1px solid var(--border-subtle)', background: 'rgba(255,255,255,0.04)', color: 'var(--text-primary)', outline: 'none' }} />
                         <button onClick={saveCustomPreset} style={{
                             padding: '6px 14px', borderRadius: '6px', border: 'none',
                             background: newPresetName.trim() ? '#10b981' : 'rgba(255,255,255,0.06)',
-                            color: newPresetName.trim() ? '#fff' : 'var(--text-muted,#64748b)', fontWeight: 700, fontSize: '0.75rem',
+                            color: newPresetName.trim() ? '#fff' : 'var(--text-muted)', fontWeight: 700, fontSize: '0.75rem',
                             cursor: newPresetName.trim() ? 'pointer' : 'default',
                         }}>💾 Save</button>
                     </div>
@@ -419,7 +419,7 @@ export default function EconomicEngineTunables() {
                 {/* Preset grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', padding: '16px 20px' }}>
                     {presets.length === 0 && (
-                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '20px', color: 'var(--text-muted,#64748b)', fontSize: '0.78rem' }}>
+                        <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                             No presets configured. Create one using the button above.
                         </div>
                     )}
@@ -439,15 +439,15 @@ export default function EconomicEngineTunables() {
                                 onMouseOver={e => { if (!isActive && !isApplying) { e.currentTarget.style.borderColor = pc.color; e.currentTarget.style.background = pc.bg; }}}
                                 onMouseOut={e => { if (!isActive && !isApplying) { e.currentTarget.style.borderColor = pc.border; e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}}
                             >
-                                {p.is_custom && <span onClick={e => { e.stopPropagation(); deletePreset(p.id); }} style={{ position: 'absolute', top: '6px', right: '8px', fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', cursor: 'pointer' }} title="Delete">×</span>}
+                                {p.is_custom && <span onClick={e => { e.stopPropagation(); deletePreset(p.id); }} style={{ position: 'absolute', top: '6px', right: '8px', fontSize: 'var(--type-caption)', color: 'var(--text-muted)', cursor: 'pointer' }} title="Delete">×</span>}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                                     <span style={{ fontSize: '1.1rem' }}>{p.icon}</span>
-                                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isActive ? pc.color : 'var(--text-primary,#f1f5f9)' }}>
+                                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: isActive ? pc.color : 'var(--text-primary)' }}>
                                         {isApplying ? '⏳ Applying…' : p.name}
                                     </span>
                                     {p.is_custom && <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '1px 5px', borderRadius: '3px', background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>Custom</span>}
                                 </div>
-                                <p style={{ margin: 0, fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', lineHeight: 1.5 }}>{p.description}</p>
+                                <p style={{ margin: 0, fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.5 }}>{p.description}</p>
                             </button>
                         );
                     })}
@@ -456,20 +456,20 @@ export default function EconomicEngineTunables() {
 
             {/* ── Currency Selector ── */}
             <div style={{
-                background: 'var(--bg-card,#1e293b)', border: '1px solid var(--border-subtle,#334155)',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
                 borderRadius: '14px', overflow: 'hidden',
             }}>
                 {/* Header */}
                 <div style={{
                     padding: '14px 20px',
                     background: 'linear-gradient(90deg, rgba(251,191,36,0.08), transparent)',
-                    borderBottom: '1px solid var(--border-subtle,#334155)',
+                    borderBottom: '1px solid var(--border-subtle)',
                     display: 'flex', alignItems: 'center', gap: '10px',
                     borderLeft: '3px solid #fbbf24',
                 }}>
                     <span style={{ fontSize: '0.9rem' }}>💱</span>
                     <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#fbbf24' }}>Simulation Currency</span>
-                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)', marginLeft: '4px' }}>— Display currency for all monetary values</span>
+                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginLeft: '4px' }}>— Display currency for all monetary values</span>
                     {/* Active indicator */}
                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{
@@ -529,12 +529,12 @@ export default function EconomicEngineTunables() {
                                     <span style={{
                                         fontFamily: 'var(--font-mono,monospace)',
                                         fontWeight: 800, fontSize: '1rem',
-                                        color: isActive ? '#fbbf24' : 'var(--text-secondary,#94a3b8)',
+                                        color: isActive ? '#fbbf24' : 'var(--text-secondary)',
                                         transition: 'color 0.18s',
                                     }}>{c.symbol}</span>
                                     <span style={{
                                         fontSize: 'var(--type-caption)', fontWeight: 600,
-                                        color: isActive ? '#fbbf24' : 'var(--text-muted,#64748b)',
+                                        color: isActive ? '#fbbf24' : 'var(--text-muted)',
                                         letterSpacing: '0.04em', transition: 'color 0.18s',
                                     }}>{c.code}</span>
                                 </button>
@@ -543,7 +543,7 @@ export default function EconomicEngineTunables() {
                     </div>
                     <p style={{
                         margin: '10px 0 0', fontSize: 'var(--type-caption)',
-                        color: 'var(--text-muted,#64748b)', lineHeight: 1.55,
+                        color: 'var(--text-muted)', lineHeight: 1.55,
                     }}>
                         Sets the symbol displayed on all monetary KPIs, investment panels, leaderboard values, and reports across both the Executive Cockpit and Facilitator Dashboard. Takes effect immediately — no session restart required.
                     </p>
@@ -560,8 +560,8 @@ export default function EconomicEngineTunables() {
                     <div
                         key={group.label}
                         style={{
-                            background: 'var(--bg-card,#1e293b)',
-                            border: '1px solid var(--border-subtle,#334155)',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-subtle)',
                             borderRadius: '14px',
                             transition: 'box-shadow 0.2s',
                         }}
@@ -583,8 +583,8 @@ export default function EconomicEngineTunables() {
                             </span>
                             <span style={{
                                 marginLeft: 'auto', fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono,monospace)',
-                                color: 'var(--text-muted,#64748b)', padding: '1px 8px',
-                                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle,#334155)', borderRadius: '3px',
+                                color: 'var(--text-muted)', padding: '1px 8px',
+                                background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle)', borderRadius: '3px',
                             }}>
                                 {visibleKeys.length} param{visibleKeys.length !== 1 ? 's' : ''}
                             </span>
@@ -619,7 +619,7 @@ export default function EconomicEngineTunables() {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 gap: '1rem', padding: '12px 20px',
                 background: 'rgba(15,23,42,0.92)', backdropFilter: 'blur(16px)',
-                border: dirty ? '1px solid rgba(99,102,241,0.4)' : '1px solid var(--border-subtle,#334155)',
+                border: dirty ? '1px solid rgba(99,102,241,0.4)' : '1px solid var(--border-subtle)',
                 borderRadius: '12px',
                 boxShadow: dirty ? '0 4px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(99,102,241,0.1)' : '0 4px 24px rgba(0,0,0,0.2)',
                 transition: 'border-color 0.3s, box-shadow 0.3s',
@@ -646,7 +646,7 @@ export default function EconomicEngineTunables() {
                         </span>
                     )}
                     {!dirty && !saved && !error && (
-                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted,#64748b)' }}>
+                        <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                             {Object.keys(tunables).length} parameters loaded · changes auto-overwrite the live simulation engine
                         </span>
                     )}
@@ -660,7 +660,7 @@ export default function EconomicEngineTunables() {
                         background: dirty
                             ? 'linear-gradient(135deg, #6366f1, #3b82f6)'
                             : 'rgba(255,255,255,0.06)',
-                        color: dirty ? '#fff' : 'var(--text-muted,#64748b)',
+                        color: dirty ? '#fff' : 'var(--text-muted)',
                         fontWeight: 700, fontSize: '0.85rem', cursor: dirty ? 'pointer' : 'default',
                         transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                         boxShadow: dirty ? '0 4px 16px rgba(99,102,241,0.35)' : 'none',

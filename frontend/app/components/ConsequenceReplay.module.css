@@ -38,7 +38,7 @@
 .title {
   font-size: var(--fs-sm, 0.82rem);
   font-weight: 900;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   /* Move 4: typographic reveal rhythm. */
   animation: revealHeadlineIn var(--reveal-dur-slow) var(--reveal-ease) both;
 }
@@ -56,7 +56,7 @@
 }
 .skipBtn:hover {
   background: rgba(148, 163, 184, 0.1);
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 /* ── Chain Layout ── */
@@ -125,7 +125,7 @@
 .nodeLabel {
   font-size: var(--fs-xs, 0.72rem);
   font-weight: 700;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .nodeValue {
