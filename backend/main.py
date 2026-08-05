@@ -6,6 +6,14 @@ If not, falls back to an in-memory database for zero-dependency deployment.
 """
 
 import os
+import time as _boot_time
+from datetime import datetime as _boot_dt, timezone as _boot_tz
+
+# Stamped once, at import, so /api/health can report how long THIS container
+# has been up. A deploy that has gone out has an uptime measured in seconds;
+# one that is still building, or that failed to build, does not.
+_PROCESS_STARTED_AT = _boot_time.time()
+_PROCESS_STARTED_AT_ISO = _boot_dt.now(_boot_tz.utc).isoformat(timespec="seconds")
 import sys
 
 # Force UTF-8 output on Windows to avoid UnicodeEncodeError with emoji/special chars
@@ -553,4 +561,31 @@ async def health_check():
         # top-level boolean. A full volume fails pack uploads and registry
         # writes while every other health signal still reads green.
         "low_disk_space": bool(_storage.get("low_space")),
+        # WHICH BUILD IS THIS?
+        #
+        # Three separate times during the 2026-08 UI work, the question "has my
+        # deploy gone out yet?" had no answer. The symptoms of a still-building
+        # deploy and of a FAILED build are identical from the outside: the site
+        # serves the previous bundle and says nothing. That ambiguity cost more
+        # time than any bug in the work itself.
+        #
+        # Railway injects these at build time. They are read here rather than
+        # baked into the image, so a rebuild of the same commit is still
+        # distinguishable by deployment id.
+        #
+        #   commit      compare against `git rev-parse HEAD` on the deploy branch
+        #   deployment  changes on every deploy, including a redeploy of the
+        #               same commit
+        #   started_at  process start, so a container restart is visible even
+        #               when neither of the above moved
+        #
+        # Absent locally, which is why every value falls back to None rather
+        # than to a string that could be mistaken for a real one.
+        "build": {
+            "commit": os.getenv("RAILWAY_GIT_COMMIT_SHA") or None,
+            "branch": os.getenv("RAILWAY_GIT_BRANCH") or None,
+            "deployment": os.getenv("RAILWAY_DEPLOYMENT_ID") or None,
+            "started_at": _PROCESS_STARTED_AT_ISO,
+            "uptime_seconds": round(_boot_time.time() - _PROCESS_STARTED_AT),
+        },
     }
