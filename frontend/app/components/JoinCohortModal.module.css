@@ -141,7 +141,7 @@
     font-size: 0.6rem;
     letter-spacing: 0.35em;
     color: rgba(0, 229, 195, 0.5);
-    margin-top: 0.3rem;
+    margin-top: var(--space-1);
     text-transform: uppercase;
     font-weight: 500;
 }
@@ -161,7 +161,7 @@
     font-size: 1.2rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 0.3rem 0;
+    margin: 0 0 var(--space-1) 0;
 }
 
 .subtitle {
@@ -175,7 +175,7 @@
 .form {
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
+    gap: var(--space-4);
 }
 
 .field {
@@ -227,13 +227,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 0.2rem;
+    margin-top: var(--space-1);
 }
 
 .rememberLabel {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--space-2);
     font-size: 0.6rem;
     font-weight: 600;
     letter-spacing: 0.12em;
@@ -272,7 +272,7 @@
 
 /* -- Error Box --------------------------------------------- */
 .errorBox {
-    padding: 0.6rem 0.8rem;
+    padding: var(--space-2) var(--space-3);
     border-radius: 6px;
     background: rgba(239, 68, 68, 0.08);
     border: 1px solid rgba(239, 68, 68, 0.2);
@@ -281,7 +281,7 @@
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--space-2);
 }
 
 .errorIcon {
@@ -292,7 +292,7 @@
 /* -- Submit Button ----------------------------------------- */
 .submitBtn {
     width: 100%;
-    padding: 0.85rem;
+    padding: var(--space-3);
     border-radius: 8px;
     border: none;
     background: linear-gradient(135deg, #00e5c3, #0dd9b0, #00c4a7);
@@ -306,7 +306,7 @@
     box-shadow:
         0 4px 20px rgba(0, 229, 195, 0.2),
         0 0 0 1px rgba(0, 229, 195, 0.1);
-    margin-top: 0.8rem;
+    margin-top: var(--space-3);
     position: relative;
     overflow: hidden;
 }
@@ -358,7 +358,7 @@
     text-transform: uppercase;
     cursor: pointer;
     transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
-    margin-top: 0.6rem;
+    margin-top: var(--space-2);
 }
 
 .soloBtn:hover:not(:disabled) {
@@ -379,7 +379,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    margin-top: 1.2rem;
+    margin-top: var(--space-4);
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.15em;
@@ -405,7 +405,7 @@
 
 .statusSep {
     color: #334155;
-    margin: 0 0.2rem;
+    margin: 0 var(--space-1);
 }
 
 /* -- Bottom Bar -------------------------------------------- */
@@ -418,7 +418,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 var(--space-5);
     background: rgba(8, 12, 24, 0.9);
     border-top: 1px solid rgba(0, 229, 195, 0.06);
     z-index: 5001;
@@ -437,7 +437,7 @@
 .bottomRight {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: var(--space-3);
 }
 
 .bottomLabel {

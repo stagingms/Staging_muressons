@@ -265,7 +265,14 @@ describe('motion budget', () => {
 // The most-used spacing value in the cockpit stylesheet is 6px — a value on no
 // 4px or 8px scale. It is not a scale, it is a habit of typing 6px.
 
-const SCALE = new Set([0, 4, 8, 12, 16, 24, 32, 48, 64]);
+/* PHASE 6.2 adds 2 — the hairline step. tokens.css records the reasoning; the
+   short version is that 53 declarations sat below the old 4px floor doing
+   optical work beside 1px borders, and a scale with no step for that forces
+   either a visible 4px jump or the deletion of the adjustment. 2 is the
+   measured centre of that cluster. Note this set still has no 6 and no 10:
+   those were the two biggest off-scale populations (55 and 56) and they went
+   UP to 8 and 12 rather than being legitimised. */
+const SCALE = new Set([0, 2, 4, 8, 12, 16, 24, 32, 48, 64]);
 
 function offScale(file) {
   if (!file.endsWith('.css')) return 0;
@@ -282,16 +289,16 @@ function offScale(file) {
 }
 
 const SPACING_DEBT = {
-  'app/components/ExecutiveCockpit.module.css': 141,
-  'app/components/FocusOverlay.module.css': 32,
-  'app/components/RoundBriefing.module.css': 56,
-  'app/components/DoubleMaterialityMatrix.module.css': 59,
-  'app/components/InvestmentMatrix.module.css': 26,
-  'app/components/GameOverSummary.module.css': 14,
-  'app/components/JoinCohortModal.module.css': 15,
-  'app/components/StockPerformanceChart.module.css': 10,
-  'app/components/DecisionModal.module.css': 8,
-  'app/page.module.css': 11,
+  'app/components/ExecutiveCockpit.module.css': 0,
+  'app/components/FocusOverlay.module.css': 0,
+  'app/components/RoundBriefing.module.css': 0,
+  'app/components/DoubleMaterialityMatrix.module.css': 0,
+  'app/components/InvestmentMatrix.module.css': 0,
+  'app/components/GameOverSummary.module.css': 0,
+  'app/components/JoinCohortModal.module.css': 0,
+  'app/components/StockPerformanceChart.module.css': 0,
+  'app/components/DecisionModal.module.css': 0,
+  'app/page.module.css': 0,
 };
 
 describe('spacing scale', () => {

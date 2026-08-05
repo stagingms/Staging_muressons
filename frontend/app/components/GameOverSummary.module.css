@@ -38,7 +38,7 @@
     display: inline-block;
     background: rgba(16, 185, 129, 0.15);
     border: 1px solid rgba(16, 185, 129, 0.4);
-    padding: 6px 20px;
+    padding: var(--space-2) var(--space-5);
     border-radius: 20px;
     font-size: 0.65rem;
     font-weight: 700;
@@ -49,7 +49,7 @@
 
 /* -- Hero ----------------------------------------------------- */
 .hero {
-    padding: 2rem 2.5rem;
+    padding: 2rem var(--space-7);
     margin: 1rem 1.5rem 0;
     border-radius: 16px;
 }
@@ -57,14 +57,14 @@
 .heroEmoji {
     font-size: 3rem;
     display: block;
-    margin-bottom: 0.8rem;
+    margin-bottom: var(--space-3);
 }
 
 .heroTitle {
     font-size: 1.8rem;
     font-weight: 800;
     color: var(--text-inverse-always, #fff);
-    margin: 0 0 0.6rem;
+    margin: 0 0 var(--space-2);
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
@@ -79,7 +79,7 @@
 .statsGrid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1px;
+    gap: var(--space-0);
     background: var(--border-subtle);
     margin: 1.5rem 1.5rem 0;
     border-radius: 12px;
@@ -97,7 +97,7 @@
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: var(--text-muted);
-    margin-bottom: 0.3rem;
+    margin-bottom: var(--space-1);
 }
 
 .statValue {
@@ -117,7 +117,7 @@
     font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 0.6rem;
+    margin: 0 0 var(--space-2);
 }
 
 .message p {
@@ -132,12 +132,12 @@
     padding: 0 2rem 1.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: var(--space-2);
 }
 
 .primaryBtn {
     width: 100%;
-    padding: 0.8rem;
+    padding: var(--space-3);
     background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-deep, var(--accent-purple)));
     color: var(--text-inverse-always, #fff);
     border: none;
@@ -156,7 +156,7 @@
 
 .secondaryBtn {
     width: 100%;
-    padding: 0.7rem;
+    padding: var(--space-3);
     background: rgba(59, 130, 246, 0.1);
     border: 1px solid rgba(59, 130, 246, 0.3);
     border-radius: 10px;
@@ -173,7 +173,7 @@
 
 .outlineBtn {
     width: 100%;
-    padding: 0.7rem;
+    padding: var(--space-3);
     background: none;
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
@@ -191,14 +191,14 @@
 
 /* -- Footer -------------------------------------------------- */
 .footer {
-    padding: 1.2rem 2rem;
+    padding: var(--space-4) 2rem;
     border-top: 1px solid var(--border-subtle);
 }
 
 .footer p {
     font-size: 0.65rem;
     color: var(--text-muted);
-    margin: 0.15rem 0;
+    margin: var(--space-0) 0;
     letter-spacing: 0.5px;
 }
 

@@ -153,7 +153,7 @@
 .headerLogo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   font-weight: 700;
   font-size: var(--ck-fs-sm);
   letter-spacing: 0.12em;
@@ -179,7 +179,7 @@
 .headerCenter {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   font-size: var(--ck-fs-sm);
   color: var(--ck-text-2);
   font-weight: 500;
@@ -207,14 +207,14 @@
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-4);
 }
 
 .treasuryDisplay {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
+  gap: var(--space-2);
+  padding: var(--space-1) 12px;
   background: var(--ck-accent-dim);
   border: 1px solid var(--ck-accent-border);
   border-radius: var(--ck-radius);
@@ -249,8 +249,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 6px;
+  gap: var(--space-1);
+  padding: var(--space-2);
   background: var(--cockpit-sidebar-bg);
   border-right: 1px solid var(--cockpit-border-glow);
   overflow: hidden;
@@ -273,7 +273,7 @@
 
 .briefingArea {
   min-height: 0;
-  padding: 38px 18px 10px;
+  padding: var(--space-6) var(--space-4) var(--space-3);
   overflow-y: auto;
   border-bottom: 1px solid rgba(0, 229, 195, 0.06);
   background: #0c1020;
@@ -282,7 +282,7 @@
 .decisionArea {
   flex: 1;
   min-height: 0;
-  padding: 12px 18px;
+  padding: 12px var(--space-4);
   overflow-y: auto;
 }
 
@@ -304,7 +304,7 @@
   border-bottom: 1px solid rgba(0, 229, 195, 0.06);
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 var(--space-4);
   background: transparent;
 }
 
@@ -330,7 +330,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 14px;
+  padding: var(--space-2) var(--space-4);
   background: transparent;
 }
 
@@ -342,9 +342,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin: 6px 10px;
-  padding: 7px 14px;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-radius: 20px;
   border: 1px solid rgba(94, 234, 212, 0.2);
   background: linear-gradient(135deg, rgba(30, 58, 95, 0.85), rgba(15, 118, 110, 0.7));
@@ -452,13 +452,13 @@
 
 /* Reflective Prompt Card */
 .reflectivePrompt {
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-chip);
   border: 1px solid rgba(148, 163, 184, 0.12);
   background: rgba(99, 102, 241, 0.04);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   width: 100%;
 }
 
@@ -484,7 +484,7 @@
   background: var(--ck-surface-2);
   border: 1px solid var(--ck-border);
   border-radius: var(--ck-radius);
-  padding: 10px 12px 2px;
+  padding: var(--space-3) 12px 2px;
   display: flex;
   flex-direction: column;
   transition: border-color 0.2s ease;
@@ -506,7 +506,7 @@
   margin-bottom: 4px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   border-bottom: 1px solid var(--ck-border);
   padding-bottom: 4px;
 }
@@ -534,7 +534,7 @@
 .briefingHeader {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   margin-bottom: 8px;
 }
 
@@ -544,7 +544,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ck-surface-0);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-3);
   background: var(--ck-accent);
   border-radius: 4px;
 }
@@ -569,7 +569,7 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 10px 16px;
+  padding: var(--space-3) 16px;
   background: rgba(14, 20, 36, 0.5);
   border-bottom: 1px solid rgba(0, 229, 195, 0.06);
 }
@@ -577,8 +577,8 @@
 .stepNode {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: var(--space-2);
+  padding: 4px var(--space-3);
   font-size: var(--ck-fs-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -620,14 +620,14 @@
 .resourcesPanel {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: var(--space-2);
+  padding: 8px var(--space-3);
   background: rgba(14, 20, 36, 0.3);
   border-bottom: 1px solid var(--ck-border);
 }
 
 .resourceCard {
-  padding: 10px 8px 8px;
+  padding: var(--space-3) 8px 8px;
   background: var(--ck-surface-2);
   border: 1px solid var(--ck-border);
   border-radius: var(--radius-card);
@@ -680,7 +680,7 @@
 .buTickerItem {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   border-right: 1px solid rgba(148, 163, 184, 0.06);
   display: flex;
   flex-direction: column;
@@ -727,7 +727,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px var(--space-3);
   background: rgba(14, 20, 36, 0.4);
   border: 1px solid var(--ck-border);
   border-radius: var(--radius-chip);
@@ -766,14 +766,14 @@
 
 .buHealthBadges {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   margin-top: 2px;
 }
 
 .buHealthBadge {
   font-size: var(--type-caption);
   font-weight: 700;
-  padding: 1px 6px;
+  padding: var(--space-0) var(--space-2);
   border-radius: 4px;
   font-family: var(--font-mono);
   letter-spacing: 0.02em;
@@ -783,7 +783,7 @@
 .liveStatusBadge {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   font-size: var(--type-caption);
   font-weight: 700;
   color: var(--ck-text-1);
@@ -823,7 +823,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
-  padding-bottom: 6px;
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid rgba(0, 229, 195, 0.08);
 }
 
@@ -846,7 +846,7 @@
 .decisionTile {
   flex: 1 1 0;
   min-width: 160px;
-  padding: 12px 14px;
+  padding: 12px var(--space-4);
   background: var(--ck-surface-2);
   border: 1px solid var(--ck-border);
   border-left: 3px solid rgba(148, 163, 184, 0.12);
@@ -902,7 +902,7 @@
   color: var(--gauge-red);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
-  padding: 3px 8px;
+  padding: var(--space-1) 8px;
   background: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.15);
   border-radius: 4px;
@@ -918,14 +918,14 @@
 /* â”€â”€ Pillar Toggles (multi_toggles) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .pillarTiles {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-wrap: nowrap;
 }
 
 .pillarTile {
   flex: 1;
   min-width: 0;
-  padding: 10px 10px;
+  padding: var(--space-3) var(--space-3);
   background: var(--ck-surface-2);
   border: 1px solid var(--ck-border);
   border-left: 3px solid rgba(148, 163, 184, 0.12);
@@ -947,7 +947,7 @@
 
 .pillarIcon {
   font-size: var(--type-title);
-  margin-bottom: 3px;
+  margin-bottom: var(--space-1);
 }
 
 .pillarLabel {
@@ -962,7 +962,7 @@
 .pillarSelect {
   width: 100%;
   font-size: var(--type-caption);
-  padding: 5px 8px;
+  padding: var(--space-1) 8px;
   border: 1px solid rgba(0, 229, 195, 0.1);
   border-radius: var(--radius-chip);
   background: rgba(10, 14, 26, 0.6);
@@ -991,17 +991,17 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ck-text-3);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   padding-bottom: 4px;
   border-bottom: 1px solid var(--ck-border);
 }
 
 .feedItem {
-  padding: 8px 10px;
-  margin-bottom: 5px;
+  padding: 8px var(--space-3);
+  margin-bottom: var(--space-1);
   background: var(--ck-surface-2);
   border-radius: var(--ck-radius);
   border-left: 3px solid rgba(148, 163, 184, 0.1);
@@ -1050,7 +1050,7 @@
 }
 
 .eventPopupIcon { font-size: var(--type-lead); margin-bottom: 4px; }
-.eventPopupTitle { font-size: var(--type-caption); font-weight: 700; color: var(--danger-text); margin-bottom: 3px; }
+.eventPopupTitle { font-size: var(--type-caption); font-weight: 700; color: var(--danger-text); margin-bottom: var(--space-1); }
 .eventPopupBody { font-size: var(--type-caption); color: var(--gauge-red); line-height: 1.5; }
 
 /* â”€â”€ Commit Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -1061,8 +1061,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 14px;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
   background: linear-gradient(135deg, var(--ck-accent), #2dd4bf);
   color: var(--ck-surface-0);
   border: none;
@@ -1118,7 +1118,7 @@
 /* â”€â”€ Two-Button Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .twoButtonRow {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   width: 100%;
   height: 100%;
   max-height: 46px;
@@ -1133,7 +1133,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 0 10px;
+  padding: 0 var(--space-3);
   background: linear-gradient(135deg, var(--brand-bright), var(--brand-bright));
   color: #0a0e1a;
   border: none;
@@ -1165,7 +1165,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 0 10px;
+  padding: 0 var(--space-3);
   background: linear-gradient(135deg, var(--accent-blue), var(--accent));
   color: #ffffff;
   border: none;
@@ -1210,7 +1210,7 @@
   background: var(--bg-primary);
   border: 1px solid rgba(0, 229, 195, 0.15);
   border-radius: var(--radius-card);
-  padding: 2rem 2.5rem;
+  padding: 2rem var(--space-7);
   max-width: 960px;
   width: 94%;
   max-height: 92vh;
@@ -1237,28 +1237,28 @@
   font-size: var(--ck-fs-lg);
   font-weight: 700;
   color: var(--ck-text-1);
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-2);
 }
 
 .resultsSubtitle {
   font-size: var(--ck-fs-sm);
   color: var(--ck-text-2);
-  margin: 0 0 18px;
+  margin: 0 0 var(--space-4);
   line-height: 1.5;
 }
 
 .resultsGrid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .resultCard {
   background: rgba(14, 20, 36, 0.6);
   border: 1px solid rgba(0, 229, 195, 0.06);
   border-radius: var(--radius-card);
-  padding: 12px 10px;
+  padding: 12px var(--space-3);
   text-align: center;
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
@@ -1281,7 +1281,7 @@
 .resultsEvents {
   text-align: left;
   margin-bottom: 16px;
-  padding: 10px 14px;
+  padding: var(--space-3) var(--space-4);
   background: rgba(245, 185, 66, 0.06);
   border: 1px solid rgba(245, 185, 66, 0.15);
   border-radius: var(--radius-chip);
@@ -1289,7 +1289,7 @@
 
 .resultsEventsTitle {
   font-size: var(--type-caption); font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.08em; color: var(--caution); margin-bottom: 6px;
+  letter-spacing: 0.08em; color: var(--caution); margin-bottom: var(--space-2);
 }
 
 .resultsEventItem {
@@ -1355,7 +1355,7 @@
   color: var(--ck-text-2);
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-1);
 }
 
 .resourcesBadge {
@@ -1363,7 +1363,7 @@
   font-weight: 700;
   background: var(--brand-bright);
   color: #0a0e1a;
-  padding: 1px 6px;
+  padding: var(--space-0) var(--space-2);
   border-radius: 3px;
 }
 
@@ -1380,10 +1380,10 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ck-text-3);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   padding-bottom: 4px;
   border-bottom: 1px solid var(--ck-border);
 }
@@ -1398,7 +1398,7 @@
   font-weight: 700;
   background: #dc2626;
   color: #fff;
-  padding: 1px 5px;
+  padding: var(--space-0) var(--space-1);
   border-radius: 3px;
   min-width: 14px;
   text-align: center;
@@ -1438,7 +1438,7 @@
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 4px;
-  margin-left: 6px;
+  margin-left: var(--space-2);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
@@ -1461,10 +1461,10 @@
   background: rgba(14, 20, 36, 0.5);
   border: 1px solid rgba(0, 229, 195, 0.06);
   border-radius: var(--radius-chip);
-  padding: 12px 14px;
+  padding: 12px var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .breakdownLabels { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
@@ -1957,7 +1957,7 @@
   border-radius: var(--radius-chip);
   overflow: hidden;
   transition: opacity 0.35s ease;
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 
 .advancedMetricsToggle {
@@ -1965,7 +1965,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
+  padding: var(--space-2) 12px;
   background: var(--ck-surface-2);
   border: 1px solid var(--ck-border);
   border-radius: var(--radius-chip);
@@ -2040,7 +2040,7 @@
   background: var(--bg-primary);
   border: 1px solid rgba(0, 229, 195, 0.15);
   border-radius: var(--radius-card);
-  padding: 2rem 2.5rem;
+  padding: 2rem var(--space-7);
   max-width: 520px;
   width: 90%;
   max-height: 85vh;
@@ -2058,7 +2058,7 @@
   font-size: var(--ck-fs-md);
   font-weight: 700;
   color: var(--ck-text-1);
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-2);
   text-align: center;
 }
 
@@ -2106,12 +2106,12 @@
 
 .predictionActions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
   justify-content: flex-end;
 }
 
 .predictionSkip {
-  padding: 10px 20px;
+  padding: var(--space-3) var(--space-5);
   background: transparent;
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: var(--radius-chip);
@@ -2129,7 +2129,7 @@
 }
 
 .predictionSubmit {
-  padding: 10px 24px;
+  padding: var(--space-3) 24px;
   background: linear-gradient(135deg, var(--brand-bright), var(--brand-bright));
   border: none;
   border-radius: var(--radius-chip);
@@ -2178,7 +2178,7 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
-  padding: 10px 14px;
+  padding: var(--space-3) var(--space-4);
   background: var(--bg-primary);
   border: 1px solid rgba(0, 229, 195, 0.2);
   border-radius: var(--radius-chip);
@@ -2283,33 +2283,33 @@
 
 /* â•â•â• Phase 3.3 â€” CONSEQUENCE DNA â•â•â• */
 .consequenceDna { margin-top: 12px; padding: 12px 16px; background: rgba(14,20,36,0.6); border: 1px solid rgba(124,58,237,0.15); border-radius: var(--radius-card); }
-.consequenceDnaTitle { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-purple); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-.consequenceChain { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
-.consequenceNode { padding: 4px 10px; border-radius: var(--radius-chip); font-size: var(--type-caption); font-weight: 600; white-space: nowrap; }
+.consequenceDnaTitle { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-purple); margin-bottom: 8px; display: flex; align-items: center; gap: var(--space-2); }
+.consequenceChain { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.consequenceNode { padding: 4px var(--space-3); border-radius: var(--radius-chip); font-size: var(--type-caption); font-weight: 600; white-space: nowrap; }
 .consequenceNodeDecision { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.25); color: var(--info-text); }
 .consequenceNodeEffect { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.2); color: var(--accent-gold); }
 .consequenceNodeFuture { background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.2); color: var(--accent-purple); font-style: italic; }
 .consequenceArrow { color: var(--text-secondary); font-size: var(--type-body); font-weight: 700; }
 
 /* â•â•â• Phase 3.4 â€” PREDICTION vs REALITY â•â•â• */
-.predictionComparison { margin-top: 14px; padding: 12px 16px; background: rgba(14,20,36,0.5); border: 1px solid rgba(0,229,195,0.1); border-radius: var(--radius-card); }
-.predictionComparisonTitle { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--brand); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.predictionComparison { margin-top: var(--space-4); padding: 12px 16px; background: rgba(14,20,36,0.5); border: 1px solid rgba(0,229,195,0.1); border-radius: var(--radius-card); }
+.predictionComparisonTitle { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--brand); margin-bottom: 8px; display: flex; align-items: center; gap: var(--space-2); }
 .predictionColumns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.predictionColumn { padding: 8px 10px; border-radius: var(--radius-chip); font-size: var(--type-caption); line-height: 1.5; }
+.predictionColumn { padding: 8px var(--space-3); border-radius: var(--radius-chip); font-size: var(--type-caption); line-height: 1.5; }
 .predictionColumnPredicted { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.15); color: var(--info-text); }
 .predictionColumnActual { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.15); color: #6ee7b7; }
 .predictionColumnLabel { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; opacity: 0.7; }
-.calibrationScore { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: var(--radius-chip); font-size: var(--type-caption); font-weight: 700; margin-top: 6px; }
+.calibrationScore { display: inline-flex; align-items: center; gap: 4px; padding: 4px var(--space-3); border-radius: var(--radius-chip); font-size: var(--type-caption); font-weight: 700; margin-top: var(--space-2); }
 .calibrationHigh { background: rgba(16,185,129,0.12); color: var(--gauge-green); }
 .calibrationMedium { background: rgba(245,158,11,0.12); color: var(--accent-gold); }
 .calibrationLow { background: rgba(248,113,113,0.12); color: var(--gauge-red); }
 
 /* â•â•â• Phase 3.7 â€” TERMINAL VALUATION â•â•â• */
-.terminalCalc { padding: 14px 16px; background: linear-gradient(135deg, rgba(14,20,36,0.7), rgba(124,58,237,0.05)); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--radius-card); margin-top: 10px; }
-.terminalCalcTitle { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-gold); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-.terminalFormula { font-family: var(--font-mono); font-size: var(--type-body); color: var(--text-primary); text-align: center; padding: 8px; background: rgba(0,0,0,0.2); border-radius: var(--radius-chip); margin-bottom: 10px; }
-.terminalComponents { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.terminalComponent { padding: 6px 10px; border-radius: var(--radius-chip); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; }
+.terminalCalc { padding: var(--space-4) 16px; background: linear-gradient(135deg, rgba(14,20,36,0.7), rgba(124,58,237,0.05)); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--radius-card); margin-top: var(--space-3); }
+.terminalCalcTitle { font-size: var(--type-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-gold); margin-bottom: var(--space-3); display: flex; align-items: center; gap: var(--space-2); }
+.terminalFormula { font-family: var(--font-mono); font-size: var(--type-body); color: var(--text-primary); text-align: center; padding: 8px; background: rgba(0,0,0,0.2); border-radius: var(--radius-chip); margin-bottom: var(--space-3); }
+.terminalComponents { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.terminalComponent { padding: var(--space-2) var(--space-3); border-radius: var(--radius-chip); background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: space-between; }
 .terminalComponentLabel { font-size: var(--type-caption); font-weight: 600; color: var(--text-secondary); }
 .terminalComponentValue { font-size: var(--type-body); font-weight: 800; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .terminalComponentPositive { color: var(--gauge-green); }
@@ -2352,8 +2352,8 @@
 }
 
 /* â•â•â• Phase 3.2 â€” ROUND CONTEXT CARD â•â•â• */
-.roundContextCard { padding: 12px 14px; background: linear-gradient(135deg, rgba(14,20,36,0.8), rgba(6,182,212,0.04)); border-bottom: 1px solid rgba(0,229,195,0.12); }
-.roundContextBadge { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.roundContextCard { padding: 12px var(--space-4); background: linear-gradient(135deg, rgba(14,20,36,0.8), rgba(6,182,212,0.04)); border-bottom: 1px solid rgba(0,229,195,0.12); }
+.roundContextBadge { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
 /* A11Y-F21d: --brand-bright is the MINT emphasis token (#00e5c3) and it does
    not switch -- on the light round-context chip it measured 1.48:1. The
    text tier does switch, and keeps the tier badge teal in both themes. */
@@ -2376,7 +2376,7 @@
 .resourceCardShadowDown::after { color: var(--gauge-red); }
 
 /* â•â•â• Phase 2.5 â€” FREE EXPLORE GATE ESCAPE â•â•â• */
-.freeExploreHint { padding: 6px 10px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15); border-radius: var(--radius-chip); font-size: var(--type-caption); color: #a5b4fc; text-align: center; margin-top: 8px; }
+.freeExploreHint { padding: var(--space-2) var(--space-3); background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15); border-radius: var(--radius-chip); font-size: var(--type-caption); color: #a5b4fc; text-align: center; margin-top: 8px; }
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LIGHT MODE OVERRIDES â€” Decision Tiles & Interactive Elements
@@ -2474,7 +2474,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: var(--space-3) 16px;
   background: rgba(94, 234, 212, 0.04);
   border-bottom: 1px solid rgba(94, 234, 212, 0.08);
   flex-shrink: 0;
@@ -2487,7 +2487,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 4px var(--space-3);
   border-radius: var(--radius-chip);
   border: 1px solid rgba(148, 163, 184, 0.12);
   background: rgba(255, 255, 255, 0.04);
@@ -2532,7 +2532,7 @@
 
 .deepDiveKbHint kbd {
   display: inline-block;
-  padding: 1px 5px;
+  padding: var(--space-0) var(--space-1);
   border-radius: 3px;
   border: 1px solid rgba(148, 163, 184, 0.15);
   background: rgba(255, 255, 255, 0.04);
@@ -2546,7 +2546,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  padding: 8px var(--space-4);
   background: rgba(14, 20, 36, 0.4);
   border: 1px solid var(--ck-border);
   border-radius: var(--radius-chip);
@@ -2783,7 +2783,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
+  padding: 12px var(--space-4);
   border-bottom: 1px solid var(--ck-border);
   background: rgba(56, 189, 248, 0.04);
 }
@@ -2796,7 +2796,7 @@
   letter-spacing: 0.1em;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .bsModalClose {
@@ -2820,7 +2820,7 @@
 }
 
 .bsModalBody {
-  padding: 14px 18px;
+  padding: var(--space-4) var(--space-4);
 }
 
 /* â”€â”€ CL-1: Left Sidebar Progressive Disclosure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -2834,7 +2834,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 5px 8px;
+  padding: var(--space-1) 8px;
   background: rgba(255, 255, 255, 0.02);
   border: none;
   border-bottom: 1px solid var(--ck-border);
@@ -2875,7 +2875,7 @@
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .ewCard {
   border-radius: var(--ck-radius);
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.07);
   background: rgba(15,23,42,0.6);
@@ -2885,7 +2885,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 10px;
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   user-select: none;
 }
@@ -2898,7 +2898,7 @@
 }
 
 .ewBody {
-  padding: 8px 10px;
+  padding: 8px var(--space-3);
   font-size: var(--type-caption);
   color: var(--ck-text-2);
   line-height: 1.5;
@@ -2915,7 +2915,7 @@
   background: rgba(255,255,255,0.06);
   border-radius: 3px;
   overflow: hidden;
-  margin: 3px 0 6px;
+  margin: var(--space-1) 0 var(--space-2);
 }
 
 .ewBarFill {
@@ -2965,7 +2965,7 @@
   height: 5px;
   border-radius: 3px;
   background: rgba(255,255,255,0.04);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 @keyframes skeletonPulse {
@@ -3185,16 +3185,16 @@
   .mainContent[data-rails="collapsed"] .leftSidebar {
     width: 172px;
     min-width: 172px;
-    padding: 6px 4px;
+    padding: var(--space-2) 4px;
   }
   .mainContent[data-rails="collapsed"] .resourcesPanel {
     grid-template-columns: 1fr;
-    padding: 6px;
+    padding: var(--space-2);
     overflow-y: auto;
   }
   .mainContent[data-rails="collapsed"] .resourceCard {
     text-align: left;
-    padding: 7px 8px;
+    padding: var(--space-2) 8px;
   }
   /* The round is already named in the header and again in the canvas stage
      header. This is the third statement of “you are in Round 2”, and the

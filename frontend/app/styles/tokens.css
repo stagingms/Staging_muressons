@@ -11,6 +11,17 @@
  */
 :root {
     /* ── Spacing — 8px grid ─────────────────────────────── */
+    /* PHASE 6.2 — the hairline step.
+       The scale started at 4px, and the tree carried 53 declarations below it:
+       27 at 2px, 15 at 3px, 11 at 1px. Those are not sloppiness — they are the
+       optical work that sits beside a 1px border, the gap inside a chip, the
+       nudge that stops two glyphs touching. Forcing them up to 4px would have
+       been the pass making a visible change to 53 places in the name of tidying,
+       and forcing them to 0 would have deleted the adjustment entirely.
+       So the scale gains a step rather than the code losing one. 2px is the
+       measured centre of that cluster: 1 and 3 both round to it, and nothing
+       below 4px now has an excuse to be a literal. */
+    --space-0: 2px;
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
