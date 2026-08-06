@@ -997,7 +997,23 @@ describe('the context drawer is a relocation, not a second copy', () => {
        both sides — two holes flanking the content, which reads as two removed
        panels. .stageQuestion caps itself at 34ch, which is the only place a
        long line actually hurts. */
-    expect(css).not.toMatch(/data-drawer="on"\] \.centerConsole > \*/);
+    /* Pin the DEFECT, not the selector shape. The original assertion forbade
+       the SELECTOR `[data-drawer="on"] .centerConsole` followed by a universal
+       child — a shape, not a behaviour — and it started failing the moment a
+       rule using that same shape was added for the OPPOSITE purpose: removing
+       the centring rather than applying it.
+       What must never come back is a 92ch cap with auto margins on both sides,
+       so that is what is asserted.
+       (The original comment here quoted the selector verbatim, and the quote
+       contained a star followed by a slash, which closed this block comment
+       early and broke the whole suite. Hence the paraphrase.) */
+    expect(css).not.toMatch(/max-width: 92ch/);
+    const drawerRules = css.match(/\[data-drawer="on"\] \.centerConsole > \* \{[^}]*\}/g) || [];
+    for (const r of drawerRules) {
+      const bothAuto = /margin-inline:\s*auto/.test(r)
+        || (/margin-left:\s*auto/.test(r) && /margin-right:\s*auto/.test(r));
+      expect('centres on both sides: ' + bothAuto).toBe('centres on both sides: false');
+    }
     expect(read('app/components/FocusOverlay.module.css')).toMatch(/max-width: 34ch/);
   });
 
@@ -1116,5 +1132,54 @@ describe('failures that cannot be distinguished from normal are not silent', () 
     // recoverable; the timer's is visible because its failure is not.
     const c = read('app/components/ExecutiveCockpit.js');
     expect(c).toMatch(/Still no error UI/);
+  });
+});
+
+/* ── The measure cap depends on something flanking the centre ───────────────
+   `.mainContent[data-rails="collapsed"] .centerConsole > *` caps the content
+   at 1080px and centres it with auto margins. That is a MEASURE rule and it is
+   correct — at 1920px the released column reaches 1540px, which runs an
+   option-card body past 150 characters a line.
+
+   It has a hidden dependency: `margin-inline: auto` only reads as a measure if
+   something FLANKS the centre. With both rails present the slack sits behind
+   them (265px either side, bracketed by a 172px and a 208px rail). Remove the
+   right rail — exactly what CONTEXT_DRAWER does — and the same rule leaves
+   369px of nothing plus the 208px the rail occupied. 577px of void, reported
+   four times as "the right panel is missing".
+
+   The rule never broke. The thing absorbing its slack was deleted. This test
+   exists so that the next person who narrows a rail gets a failing build
+   rather than a void, because four rounds of screenshots did not produce one. */
+describe('the centre measure cannot centre itself into a void', () => {
+  const css = read('app/components/ExecutiveCockpit.module.css');
+
+  test('the collapsed cap still centres when both rails are present', () => {
+    const rule = css.match(/\.mainContent\[data-rails="collapsed"\] \.centerConsole > \* \{[^}]*\}/)[0];
+    expect(rule).toMatch(/max-width: 1080px/);
+    expect(rule).toMatch(/margin-left: auto/);
+    expect(rule).toMatch(/margin-right: auto/);
+  });
+
+  test('with a rail removed the cap stays and the CENTRING goes', () => {
+    /* The measure argument survives losing a rail; the centring does not.
+       Slack accumulates against one edge, where it reads as the page having
+       room rather than as a panel having vanished.
+
+       Measured at 2000px:
+         drawer off, collapsed   panel 1082   slack 265 / 265   right rail 208
+         drawer on,  collapsed   panel 1082   slack   0 / 737   right rail   0 */
+    const override = css.match(
+      /\.mainContent\[data-rails="collapsed"\]\[data-drawer="on"\] \.centerConsole > \* \{[^}]*\}/
+    );
+    expect(override).not.toBeNull();
+    expect(override[0]).toMatch(/margin-left: 0/);
+    expect(override[0]).not.toMatch(/margin-left: auto/);
+  });
+
+  test('the dependency is written down where the rule is, not only here', () => {
+    // A test that encodes a constraint the source does not explain leaves the
+    // next person deleting the rule and then deleting the test.
+    expect(css).toMatch(/HIDDEN DEPENDENCY/);
   });
 });

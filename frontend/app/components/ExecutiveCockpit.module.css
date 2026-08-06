@@ -3288,12 +3288,33 @@
   /* ...but the decision needs a MEASURE, not all the width there is. At
      1920px the released column reaches 1540px, which runs the option-card
      body well past 150 characters a line. Cap the content and centre it;
-     the column still absorbs the slack. */
+     the column still absorbs the slack.
+
+     THIS RULE HAS A HIDDEN DEPENDENCY, AND IT COST A DAY.
+     `margin-inline: auto` only reads as a measure if something FLANKS the
+     centre. With both rails present the slack sits behind them and looks like
+     margin: at 2000px the panel is 1082px with 265px either side, bracketed by
+     a 172px left rail and a 208px right rail. Remove the right rail — which is
+     exactly what CONTEXT_DRAWER does — and the same rule leaves 369px of
+     nothing plus the 208px the rail used to occupy. 577px of void on one side,
+     reported four times as "the right panel is missing".
+
+     The rule did not break. The thing absorbing its slack was deleted.
+
+     So the dependency is now explicit rather than implicit: with no right rail,
+     the cap stays (the measure argument is still true) and the CENTRING goes.
+     Slack accumulates on one side, against the edge, where it reads as the
+     page having room rather than as a panel having vanished. A tripwire in
+     player-surface-contracts.test.js fails if the two ever coexist again. */
   .mainContent[data-rails="collapsed"] .centerConsole > * {
     max-width: 1080px;
     margin-left: auto;
     margin-right: auto;
     width: 100%;
+  }
+  .mainContent[data-rails="collapsed"][data-drawer="on"] .centerConsole > * {
+    margin-left: 0;
+    margin-right: auto;
   }
 }
 

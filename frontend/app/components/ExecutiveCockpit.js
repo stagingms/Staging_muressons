@@ -133,7 +133,7 @@ const SINGLE_CTA = true;
    panel; three separate attempts in this review to narrow this surface made
    one or more of those unreachable, and every one was caught by a screenshot
    rather than by a test. Flip to true, look, then decide. */
-const CONTEXT_DRAWER = true;
+const CONTEXT_DRAWER = false;
 
 /* The arc is ten rounds. It was written as a bare "10" in the left rail's
    R2/10 chip and nowhere else; naming it means the header and the chip cannot

@@ -469,6 +469,10 @@ async def get_global_settings(request: Request, session_id: str | None = _Query(
         "overrun_severity": s.get("overrun_severity", 0.15),
         # Display currency
         "currency_symbol": s.get("currency_symbol", "$"),
+        # None, not 1.0: "no rate configured" and "a rate of exactly one" are
+        # different states, and the client treats them differently - the first
+        # leaves the previous value alone, the second is a deliberate reset.
+        "currency_rate": s.get("currency_rate"),
         # Ending pathways
         "default_ending_pathway": s.get("default_ending_pathway", "activist_ultimatum"),
         "ending_pathways_available": s.get("ending_pathways_available", ["activist_ultimatum"]),
@@ -566,6 +570,41 @@ class GlobalSettingsPatch(BaseModel):
     overrun_severity: float | None = None
     # Display currency
     currency_symbol: str | None = None
+    # PRESENTATION ONLY. Multiplies figures at the frontend's format boundary
+    # so a cohort sees quantities in its own currency, not just its own glyph.
+    # The engine keeps computing in engine units - config.py's constants, the
+    # covenant thresholds and every tuned ratio are expressed in them, and
+    # applying this server-side would silently redefine all of them.
+    currency_rate: float | None = None
+    @validator("currency_rate")
+    def guard_currency_rate(cls, v):
+        """A stored zero or negative rate is a landmine.
+
+        The frontend refuses one, but the frontend is not where it would be
+        stored. A rate of 0 persisted here renders every treasury, allocation
+        and option cost as 0 for that cohort, on every screen, with nothing in
+        any log - and it reads as an engine failure rather than a config one.
+        A negative inverts every figure and every sign-coloured cell with it.
+
+        None passes through: absent means "not configured", which is a real
+        state and different from 1.0.
+
+        The bounds are deliberately wide rather than tied to real exchange
+        rates. This is a teaching parameter - a facilitator may well want a
+        round 100x factor to make the arithmetic legible - and a validator that
+        second-guesses pedagogy is worse than one that only stops the values
+        that break the product.
+        """
+        if v is None:
+            return None
+        try:
+            r = float(v)
+        except (TypeError, ValueError):
+            return None
+        if not (r > 0) or r != r or r in (float("inf"), float("-inf")):
+            return None
+        return max(0.0001, min(1_000_000.0, r))
+
     # Ending pathways
     default_ending_pathway: str | None = None
     allow_pathway_switching: bool | None = None
@@ -3987,7 +4026,7 @@ async def patch_session_metadata(
         "cohort_name", "facilitator_id", "decision_paradigm", "ending_pathway",
         "start_date", "end_date", "created_by", "created_when",
         "simulation_mode", "industry_vertical", "region_id",
-        "currency_symbol", "scenario_preset", "experience_level", "difficulty_tier",
+        "currency_symbol", "currency_rate", "scenario_preset", "experience_level", "difficulty_tier",
         # Packs: the edit form has always SENT these; this filter silently
         # dropped them (no error surfaced anywhere), so pack changes made in
         # the cohort editor never saved.
