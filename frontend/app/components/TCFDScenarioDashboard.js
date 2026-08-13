@@ -13,7 +13,7 @@
  */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import styles from './TCFDScenarioDashboard.module.css';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
@@ -150,9 +150,9 @@ export default function TCFDScenarioDashboard({
   }, [summary]);
 
   const fmtM = useCallback((v) => {
-    if (Math.abs(v) >= 1_000_000) return `${currencySymbol()}${(v / 1_000_000).toFixed(1)}M`;
-    if (Math.abs(v) >= 1_000) return `${currencySymbol()}${(v / 1_000).toFixed(0)}K`;
-    return `${currencySymbol()}${v.toFixed(0)}`;
+    if (Math.abs(v) >= 1_000_000) return `${currencySymbol()}${atRate(v / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(v) >= 1_000) return `${currencySymbol()}${atRate(v / 1_000).toFixed(0)}K`;
+    return `${currencySymbol()}${atRate(v).toFixed(0)}`;
   }, []);
 
   // Loading state

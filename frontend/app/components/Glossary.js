@@ -1,5 +1,7 @@
 'use client';
 
+import { localiseAuthored } from '../utils/format';
+
 /**
  * Glossary — Centralized abbreviation definitions + `<Abbr>` component.
  *
@@ -61,7 +63,10 @@ export const GLOSSARY = {
  *  - children: optional custom display text (defaults to term)
  */
 export function Abbr({ term, children }) {
-    const definition = GLOSSARY[term];
+    /* localiseAuthored, not a literal swap: this string carries BOTH a unit and
+       an amount -- 'per $M revenue, taxed at R10 ($250/tonne)'. The '$M' has no
+       digits after it and is left alone; the $250 converts. */
+    const definition = localiseAuthored(GLOSSARY[term]);
     return (
         <abbr
             title={definition || term}

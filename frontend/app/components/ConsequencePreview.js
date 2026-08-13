@@ -5,7 +5,7 @@
  */
 import React, { useMemo } from 'react';
 import styles from './ConsequencePreview.module.css';
-import { currencySymbol, money } from '../utils/format';
+import { currencySymbol, money, atRate } from '../utils/format';
 
 const IMPACT_ICONS = {
   treasury: '💰', reputation: '⭐', social_license: '🤝', carbon_intensity: '🏭',
@@ -215,7 +215,7 @@ export default function ConsequencePreview({
                 color: (whatIfResult.delta?.tv_change || 0) >= 0 ? '#10b981' : '#ef4444'
               }}>
                 {whatIfResult.delta?.tv_change >= 0 ? '+' : ''}
-               {currencySymbol()}{((whatIfResult.delta?.tv_change || 0) / 1_000_000).toFixed(1)}M
+               {currencySymbol()}{atRate((whatIfResult.delta?.tv_change || 0) / 1_000_000).toFixed(1)}M
               </span>
             </div>
           </div>

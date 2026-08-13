@@ -1,6 +1,10 @@
 'use client';
 import { useState, useMemo, useCallback } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, moneyFull, money } from '../utils/format';
+
+/* The bond this module refinances. Three copies existed -- the headline, the
+   memo and the stat strip -- and only one of them was a number. */
+const BOND_PRINCIPAL = 1_000_000_000;
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const PRINCIPAL = 1_000_000_000;
@@ -78,7 +82,7 @@ function CostBars({ scoreRate, baseRate }) {
                 const y = padT + cH - bH;
                 return <g key={b.label}>
                     <rect x={x} y={y} width={barW} height={bH} fill={b.col} rx="3" style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
-                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="700" fill={b.col}>{currencySymbol()}{Math.round(b.v)}M</text>
+                    <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="700" fill={b.col}>{currencySymbol()}{Math.round(atRate(b.v))}M</text>
                     <text x={x + barW / 2} y={H - padB + 15} textAnchor="middle" fontSize="10" fill="#64748b">{b.label}</text>
                 </g>;
             })}
@@ -115,11 +119,11 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
             <div style={{ background: '#fff', maxWidth: 580, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#1e3a5f', color: '#fff', padding: '1rem 1.5rem' }}>
                     <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 9 — CFO Directive</div>
-                    <h2 style={{ margin: '0.3rem 0 0', fontSize: '1rem', fontWeight: 800 }}>The $1 Billion Refinancing</h2>
+                    <h2 style={{ margin: '0.3rem 0 0', fontSize: '1rem', fontWeight: 800 }}>The {money(BOND_PRINCIPAL, { dp: 0 })} Refinancing</h2>
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
                     <blockquote style={{ borderLeft: '3px solid #3b82f6', paddingLeft: '1rem', margin: '0 0 1.25rem', color: '#334155', fontSize: '0.87rem', lineHeight: 1.75, fontStyle: 'italic' }}>
-                        "Muressons has a <strong>$1,000,000,000 corporate bond maturing this period</strong>. Institutional demand — and your interest rate — will be
+                        "Muressons has a <strong>{moneyFull(BOND_PRINCIPAL)} corporate bond maturing this period</strong>. Institutional demand — and your interest rate — will be
                         dictated by your aggregate ESG Rating, which reflects every decision you have made over the last 8 semesters."
                     </blockquote>
                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', lineHeight: 1.75 }}>
@@ -141,7 +145,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>ESG Refinancing Simulator</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: 'var(--type-caption)' }}>
-                            {[['BOND PRINCIPAL', '$1.0B'], ['NEW RATE', `${(rate * 100).toFixed(2)}%`], ['10Y IMPACT', `${saved ? '-' : '+'}${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(1)}M`]].map(([k, v]) => (
+                            {[['BOND PRINCIPAL', money(BOND_PRINCIPAL, { dp: 1 })], ['NEW RATE', `${(rate * 100).toFixed(2)}%`], ['10Y IMPACT', `${saved ? '-' : '+'}${currencySymbol()}${atRate(Math.abs(Number(impact10y))).toFixed(1)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: 'var(--type-caption)' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: k === '10Y IMPACT' ? (saved ? '#16a34a' : '#dc2626') : '#0f172a' }}>{v}</div>
@@ -150,7 +154,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
                         </div>
                     </div>
                     <div style={{ fontSize: 'var(--type-caption)', color: saved ? '#16a34a' : '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>
-                        10-Year Financial Impact: You {saved ? `Saved ${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(0)}M` : `Paid ${currencySymbol()}${Math.abs(Number(impact10y)).toFixed(0)}M extra`} compared to market baseline.
+                        10-Year Financial Impact: You {saved ? `Saved ${currencySymbol()}${atRate(Math.abs(Number(impact10y))).toFixed(0)}M` : `Paid ${currencySymbol()}${atRate(Math.abs(Number(impact10y))).toFixed(0)}M extra`} compared to market baseline.
                     </div>
                 </div>
 

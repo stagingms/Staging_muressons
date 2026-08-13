@@ -4,7 +4,7 @@ import Dialog from './Dialog';
 import { calculateRoundStockPrice } from './stockValuationEngine';
 import { deriveRatingLetter, AGENCY } from './rivalIntel';
 import { roundToQuarter } from '../utils/roundToQuarter';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 /**
  * AnnualReport — W-C (W3): Year-End Integrated Annual Report.
@@ -24,7 +24,7 @@ import { currencySymbol } from '../utils/format';
  * PNG export is offline (SVG → canvas, same pattern as FrontPageReveal).
  */
 
-const M = (v) => `${currencySymbol()}${((v || 0) / 1_000_000).toFixed(1)}M`;
+const M = (v) => `${currencySymbol()}${atRate((v || 0) / 1_000_000).toFixed(1)}M`;
 const BASE_YEAR = new Date().getFullYear();
 
 // Build the report model from snapshot data only. Pure + deterministic.
@@ -118,7 +118,7 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
     }).join('');
     const kpis = [
       ['EBITDA', M(m.ebitda)], ['TREASURY', M(m.treasury)],
-      ['SHARE PRICE', `${currencySymbol()}${m.sharePrice.toFixed(2)}`], ['REPUTATION', `${m.reputation.toFixed(0)}/100`],
+      ['SHARE PRICE', `${currencySymbol()}${atRate(m.sharePrice).toFixed(2)}`], ['REPUTATION', `${m.reputation.toFixed(0)}/100`],
     ].map(([label, val], i) => {
       const x = 70 + i * 270;
       return `<rect x="${x}" y="230" width="250" height="110" fill="#faf8f3" stroke="#d9d2c4"/>
@@ -220,7 +220,7 @@ export default function AnnualReport({ open, onClose, roundNumber, commitResults
             {[
               { label: 'EBITDA', val: M(m.ebitda), delta: kpiDelta(m.ebitda, m.yaGs?.historical_ebitda, (d) => M(d)) },
               { label: 'Treasury', val: M(m.treasury), delta: kpiDelta(m.treasury, m.yaGs?.corporate_treasury, (d) => M(d)) },
-              { label: 'Share Price', val: `${currencySymbol()}${m.sharePrice.toFixed(2)}`, delta: null },
+              { label: 'Share Price', val: `${currencySymbol()}${atRate(m.sharePrice).toFixed(2)}`, delta: null },
               { label: 'Reputation', val: `${m.reputation.toFixed(0)}/100`, delta: kpiDelta(m.reputation, m.yaGs?.group_reputation, (d) => d.toFixed(1)) },
             ].map(({ label, val, delta }) => (
               <div key={label} style={{ background: '#faf8f3', border: '1px solid #d9d2c4', padding: '8px 10px', textAlign: 'center' }}>

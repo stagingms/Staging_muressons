@@ -1,6 +1,15 @@
 'use client';
 import { useState, useMemo, useCallback } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, moneyM, moneyFull } from '../utils/format';
+
+/* The scenario premise, and the slider starting points, are the same three
+   numbers. They were literals in the prose AND in useState, so a facilitator
+   retuning the module changed the sliders and left the briefing describing the
+   old deal. These are the DEFAULTS, deliberately -- moving a slider must not
+   rewrite the memo that set the problem up. */
+const DEFAULT_CAPEX = 2_000_000;
+const DEFAULT_CO_INVEST_OPEX = 12;
+const DEFAULT_GREEN_OPEX = 22;
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const YEARS = 5;
@@ -77,9 +86,9 @@ function LineChart({ s1, s2, breakEvenYr }) {
 
 export default function InsettingROICalculator({ sessionId, onComplete }) {
     const [phase, setPhase] = useState('intro');
-    const [capex, setCapex] = useState(2_000_000);
-    const [coInvestOpex, setCoInvestOpex] = useState(12);
-    const [greenOpex, setGreenOpex] = useState(22);
+    const [capex, setCapex] = useState(DEFAULT_CAPEX);
+    const [coInvestOpex, setCoInvestOpex] = useState(DEFAULT_CO_INVEST_OPEX);
+    const [greenOpex, setGreenOpex] = useState(DEFAULT_GREEN_OPEX);
     const [submitting, setSubmitting] = useState(false);
 
     const { s1, s2 } = useMemo(() => calcCumulative(capex, coInvestOpex, greenOpex), [capex, coInvestOpex, greenOpex]);
@@ -113,11 +122,11 @@ export default function InsettingROICalculator({ sessionId, onComplete }) {
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
                     <blockquote style={{ borderLeft: '3px solid #16a34a', paddingLeft: '1rem', margin: '0 0 1.25rem', color: '#334155', fontSize: '0.88rem', lineHeight: 1.75, fontStyle: 'italic' }}>
-                        "Paying a $12 premium/unit to the Green Pioneer is unsustainable. We are authorising use of the corporate balance sheet to finance capital upgrades for your legacy 'Cheap &amp; Dirty' suppliers.
+                        "Paying a {moneyFull(DEFAULT_CO_INVEST_OPEX)} premium/unit to the Green Pioneer is unsustainable. We are authorising use of the corporate balance sheet to finance capital upgrades for your legacy 'Cheap &amp; Dirty' suppliers.
                         Buy their equipment — secure their low base pricing forever."
                     </blockquote>
                     <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#14532d', lineHeight: 1.75 }}>
-                        <strong>The Deal:</strong> Invest $2M in Supplier A's factory. They drop from 4.0 → 1.5 kg CO₂e/unit and lock price at $12/unit for 5 years — vs. paying $22/unit to the Green Pioneer indefinitely.
+                        <strong>The Deal:</strong> Invest {moneyM(DEFAULT_CAPEX, { dp: 0 })} in Supplier A's factory. They drop from 4.0 → 1.5 kg CO₂e/unit and lock price at {moneyFull(DEFAULT_CO_INVEST_OPEX)}/unit for 5 years — vs. paying {moneyFull(DEFAULT_GREEN_OPEX)}/unit to the Green Pioneer indefinitely.
                         Model the breakeven to decide if the CapEx is worth it.
                     </div>
                     <button onClick={() => setPhase('calculator')} style={{ width: '100%', padding: '0.85rem', background: 'linear-gradient(135deg,#14532d,#15803d)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
@@ -136,7 +145,7 @@ export default function InsettingROICalculator({ sessionId, onComplete }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Scope 3 Insetting ROI Calculator</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: 'var(--type-caption)' }}>
-                            {[['5-YEAR ROI DELTA', `${Number(roiDelta) >= 0 ? '+' : ''}${currencySymbol()}${(Number(roiDelta) / 1e6).toFixed(1)}M`], ['PAYBACK PERIOD', paybackStr], ['UNIT MARGIN (S2)', `${currencySymbol()}${unitMarginS2}`]].map(([k, v]) => (
+                            {[['5-YEAR ROI DELTA', `${Number(roiDelta) >= 0 ? '+' : ''}${currencySymbol()}${atRate(Number(roiDelta) / 1e6).toFixed(1)}M`], ['PAYBACK PERIOD', paybackStr], ['UNIT MARGIN (S2)', `${currencySymbol()}${atRate(unitMarginS2)}`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: 'var(--type-caption)' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: Number(roiDelta) >= 0 ? '#16a34a' : '#dc2626' }}>{v}</div>
@@ -167,9 +176,9 @@ export default function InsettingROICalculator({ sessionId, onComplete }) {
                 {/* Sliders */}
                 <div style={{ padding: '0.75rem 1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem 1.25rem' }}>
                     {[
-                        { label: 'Upfront CapEx ($)', val: capex, set: setCapex, min: 500_000, max: 5_000_000, step: 100_000, fmt: v => `${currencySymbol()}${(v / 1e6).toFixed(1)}M` },
-                        { label: 'Co-Investment OpEx ($/u)', val: coInvestOpex, set: setCoInvestOpex, min: 8, max: 20, step: 0.5, fmt: v => `${currencySymbol()}${v}` },
-                        { label: 'Green Premium OpEx ($/u)', val: greenOpex, set: setGreenOpex, min: 15, max: 35, step: 0.5, fmt: v => `${currencySymbol()}${v}` },
+                        { label: 'Upfront CapEx ($)', val: capex, set: setCapex, min: 500_000, max: 5_000_000, step: 100_000, fmt: v => `${currencySymbol()}${atRate(v / 1e6).toFixed(1)}M` },
+                        { label: 'Co-Investment OpEx ($/u)', val: coInvestOpex, set: setCoInvestOpex, min: 8, max: 20, step: 0.5, fmt: v => `${currencySymbol()}${atRate(v)}` },
+                        { label: 'Green Premium OpEx ($/u)', val: greenOpex, set: setGreenOpex, min: 15, max: 35, step: 0.5, fmt: v => `${currencySymbol()}${atRate(v)}` },
                     ].map(sl => (
                         <div key={sl.label}>
                             <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 600, marginBottom: '3px', display: 'flex', justifyContent: 'space-between' }}>

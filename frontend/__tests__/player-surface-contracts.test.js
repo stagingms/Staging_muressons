@@ -295,23 +295,150 @@ describe('currency symbol has exactly one source', () => {
     expect(offenders).toEqual([]);
   });
 
-  test('authored dollar amounts in copy are frozen, not forgotten', () => {
-    // These are NOT formatter output — they are scenario copy: option cost
-    // labels, briefing text, the $40/tonne shadow price, glossary entries.
-    // The narrative is denominated in dollars by an author, and converting it
-    // would need the underlying scenario numbers converted too. That is a
-    // content decision, not a formatting one, so the count is frozen rather
-    // than driven to zero: it cannot grow without someone saying so.
-    let count = 0;
+  /* A REAL comment strip. The old one removed a line whose FIRST token was a
+     comment marker, so a continuation line inside a block comment counted as
+     code -- and six of the 116 this test used to assert were prose, including
+     three sentences written to explain amounts this pass had just converted.
+     That is the fifth time a tripwire in this suite has been tripped by its own
+     documentation. State-machine, not line-prefix. */
+  const stripComments = (src) => {
+    let out = '', i = 0, st = 0, q = null;   // 0 code 1 line 2 block 3 str 4 tmpl
+    while (i < src.length) {
+      const c = src[i], d = src[i + 1];
+      if (st === 0) {
+        if (c === '/' && d === '/') { st = 1; i += 2; continue; }
+        if (c === '/' && d === '*') { st = 2; i += 2; continue; }
+        if (c === "'" || c === '"') { st = 3; q = c; out += c; i++; continue; }
+        if (c === '`') { st = 4; out += c; i++; continue; }
+        out += c; i++; continue;
+      }
+      if (st === 1) { if (c === '\n') { st = 0; out += '\n'; } i++; continue; }
+      if (st === 2) { if (c === '*' && d === '/') { st = 0; i += 2; continue; } if (c === '\n') out += '\n'; i++; continue; }
+      if (c === '\\') { out += c + (d || ''); i += 2; continue; }
+      out += c;
+      if ((st === 3 && c === q) || (st === 4 && c === '`')) st = 0;
+      i++;
+    }
+    return out;
+  };
+
+  const dollarSites = () => {
+    const rows = [];
     for (const f of tree) {
-      fs.readFileSync(f, 'utf8').split(/\r?\n/).forEach((line) => {
-        const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, '');
-        count += (code.match(/\$(?=[\d,]|\s?[A-Z]?\d)/g) || []).length;
+      stripComments(fs.readFileSync(f, 'utf8')).split('\n').forEach((line, i) => {
+        const m = line.match(/\$(?=[\d,]|\s?[A-Z]?\d)/g);
+        if (m) rows.push({ file: path.relative(root, f).replace(/\\/g, '/'), line: i + 1, n: m.length, text: line });
       });
     }
-    // Fails in BOTH directions, like the ui-budgets ledger: converting copy to
-    // the session currency is welcome, but it must lower this number on purpose.
-    expect(count).toBe(116);
+    return rows;
+  };
+
+  test('authored dollar amounts are a known inventory, not a surprise', () => {
+    // These are NOT formatter output — they are scenario copy: option cost
+    // labels, briefing text, the shadow price, glossary entries. They stay as
+    // literals, because an author wrote them; what matters is that every one
+    // REACHES THE SCREEN through a converter. The next test pins that. This one
+    // pins the inventory, so a new amount cannot arrive unnoticed.
+    const rows = dollarSites();
+    const total = rows.reduce((a, r) => a + r.n, 0);
+    const captures = rows.filter((r) => /\.replace\(/.test(r.text)).reduce((a, r) => a + r.n, 0);
+
+    // The previous freeze was 116 and 116 was never the number of authored
+    // amounts: 7 were regex capture groups and 7 were comments. The real
+    // baseline was 109/7/102. This pass converted 34 of them.
+    expect(total).toBe(75);
+    expect(captures).toBe(7);
+    expect(total - captures).toBe(68);
+  });
+
+  test('every regex capture group counted above really is one', () => {
+    // '$1' in a .replace() replacement string is indistinguishable from one
+    // dollar by any text rule, and converting one would corrupt the markdown
+    // renderer rather than localise it. They are exempt BY LOCATION, so the
+    // location is asserted rather than assumed.
+    const captures = dollarSites().filter((r) => /\.replace\(/.test(r.text));
+    expect([...new Set(captures.map((r) => r.file))]).toEqual(['app/components/InlineReviewViewer.js']);
+    for (const r of captures) expect(r.text).toMatch(/\.replace\([\s\S]*['"`][^'"`]*\$\d/);
+  });
+
+  test('every file holding authored dollars routes them through a converter', () => {
+    // The literal stays in source; the CONVERSION happens where the string is
+    // rendered. That is deliberate — ~90 amounts sit inside prose, and wrapping
+    // each one would mean restructuring the sentences around them. So this
+    // names, per file, the route from literal to screen. A new file carrying
+    // authored money fails here until someone says how it gets converted.
+    const ROUTES = {
+      'app/components/InlineReviewViewer.js': null,                 // regex captures — exempt above
+      'app/components/ExecutiveCockpit.js':   'localiseAuthored',
+      'app/components/Glossary.js':           'localiseAuthored',
+      'app/components/PredictionComparison.js': 'localiseAuthored',
+      'app/components/RoundBriefing.js':      'localiseAuthored',
+      'app/components/SustainabilityBalancedScorecard.js': 'localiseAuthored',
+      'app/page.js':                          'localiseAuthored',
+      // Data modules: no session access of their own, localised by a consumer.
+      'app/utils/detailedDescriptions.js':    'app/components/ExecutiveCockpit.js:localiseDescs',
+    };
+    const carrying = [...new Set(dollarSites().map((r) => r.file))].sort();
+    expect(carrying).toEqual(Object.keys(ROUTES).sort());
+
+    for (const [file, route] of Object.entries(ROUTES)) {
+      if (!route) continue;
+      if (route.includes(':')) {
+        const [consumer, fn] = route.split(':');
+        expect(read(consumer)).toContain(`const ${fn} =`);
+        expect(read(consumer)).toContain(`${fn}(DETAILED_DESCRIPTIONS`);
+      } else {
+        expect(read(file)).toMatch(new RegExp(`import[^;]*\\b${route}\\b[^;]*from`));
+        // imported AND called — an unused import is how this went dark before
+        expect(read(file)).toMatch(new RegExp(`${route}\\(`));
+      }
+    }
+  });
+
+  test('no component builds money from the glyph and raw arithmetic', () => {
+    // THE HOLE THE RATE PASS LEFT, and the reason it shipped inert. The rate was
+    // added to money()/moneyM()/moneyFull() and a count of their adoption looked
+    // finished. 153 sites across 43 files never called them:
+    //
+    //     {currencySymbol()}{(team.treasury / 1_000_000).toFixed(1)}M
+    //
+    // Symbol localised, quantity not — which format.js's own header calls a
+    // worse lie than leaving it in dollars. Every currency tripwire in this
+    // suite asserted on the SYMBOL; not one asserted the rate was applied, so
+    // nothing was ever going to catch it.
+    const ALLOW = [
+      // A UNIT, not an amount. Carbon intensity is tonnes per $1M of revenue,
+      // computed by the engine against engine-unit revenue; converting the
+      // denominator without rescaling the metric would restate it, not localise
+      // it. Left alone deliberately — see the handover.
+      /KPIDashboard\.js$/,
+    ];
+    // The rate does not have to land ON the render line. Where a component
+    // rounds first — `const damage = (x / 1e6).toFixed(1)` — converting the
+    // rounded STRING would throw the precision away, so the rate is applied to
+    // the raw value at the definition instead. Both routes are legitimate; what
+    // is not legitimate is a figure that reaches the screen having met neither.
+    const CONVERTER = /\batRate\(|\bamt\(|\bmoney[A-Z]?[a-zA-Z]*\(|\bprice\(|\bfmtPrice\(/;
+    const offenders = [];
+    for (const f of tree) {
+      if (ALLOW.some((r) => r.test(f))) continue;
+      const lines = stripComments(fs.readFileSync(f, 'utf8')).split('\n');
+      lines.forEach((line, i) => {
+        const m = /currencySymbol\(\)\}(\$?\{)([^\n]{0,140})/.exec(line);
+        if (!m) return;
+        if (CONVERTER.test(m[2])) return;                       // converted here
+        const path_ = (m[2].match(/^\s*([A-Za-z_$][\w.$]*)/) || [])[1];
+        if (path_) {                                            // converted at its definition
+          const leaf = path_.split('.').pop();
+          const def = new RegExp(`(const\\s+${leaf}\\b|\\b${leaf}\\s*[:=])[^\\n]*atRate\\(`);
+          if (lines.some((l) => def.test(l))) return;
+        }
+        // converted a few lines up, in the same small helper
+        if (lines.slice(Math.max(0, i - 8), i).some((l) => /atRate\(/.test(l))) return;
+        offenders.push(`${path.relative(root, f).replace(/\\/g, '/')}:${i + 1}  ${line.trim().slice(0, 100)}`);
+      });
+    }
+    expect(offenders).toEqual([]);
   });
 
   test('format.js carries the fixed-unit formatters the components now share', () => {

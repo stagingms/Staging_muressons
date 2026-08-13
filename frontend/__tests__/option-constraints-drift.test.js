@@ -19,12 +19,19 @@ const fs = require('fs');
 const path = require('path');
 
 const repo = path.join(__dirname, '..', '..');
+/* Sources are read with CRLF NORMALISED AWAY. Twenty-eight files in this repo
+   carry Windows line endings (several with a stray CR before them), and the
+   slicing below matches on literal '\n'. When a file flipped to CRLF the
+   indexOf returned -1, the slice came back empty, and the assertion passed
+   vacuously -- or, here, threw. Both of these tripwires were dark. */
+const readSrc = (p) => fs.readFileSync(p, 'utf8').replace(/\r\n?/g, '\n');
+
 const readJson = (p) => JSON.parse(fs.readFileSync(path.join(repo, p), 'utf8'));
 
 const constraints = readJson('backend/option_constraints.json');
 const descriptions = readJson('backend/detailed_descriptions.json');
 
-const mirrorSrc = fs.readFileSync(
+const mirrorSrc = readSrc(
   path.join(__dirname, '..', 'app/utils/optionConstraints.js'), 'utf8');
 
 /* keys of paradigm → round → [area →] option, as a flat sorted list */

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { playerIdHeader } from '../hooks/useSimulation';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 /**
  * NegotiationRoom — Stakeholder Negotiation Rooms, Phase 2 player UI.
@@ -25,8 +25,8 @@ const STAGE_TINT = {
   watching: '#f59e0b', dormant: '#2dd4bf',
 };
 
-const fmtM = (v) => `${currencySymbol()}${(Math.abs(v) / 1e6).toFixed(v % 1e6 ? 2 : 1)}M`.replace('.0M', 'M');
-const fmtMoney = (v) => (Math.abs(v) >= 1e6 ? fmtM(v) : `${currencySymbol()}${(v / 1e3).toFixed(0)}K`);
+const fmtM = (v) => `${currencySymbol()}${atRate(Math.abs(v) / 1e6).toFixed(v % 1e6 ? 2 : 1)}M`.replace('.0M', 'M');
+const fmtMoney = (v) => (Math.abs(v) >= 1e6 ? fmtM(v) : `${currencySymbol()}${atRate(v / 1e3).toFixed(0)}K`);
 
 export default function NegotiationRoom({ sessionId, agentId, onClose }) {
   const [room, setRoom] = useState(null);

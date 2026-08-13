@@ -1,6 +1,9 @@
 'use client';
 import { useState, useCallback, useMemo } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, moneyFull } from '../utils/format';
+
+/* The escalated internal carbon fee this module exists to relieve. */
+const CARBON_FEE = 90;
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -150,7 +153,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                         borderLeft: '3px solid #6366f1', paddingLeft: '1rem', margin: '0 0 1.25rem',
                         color: '#334155', fontSize: '0.88rem', lineHeight: 1.75, fontStyle: 'italic',
                     }}>
-                        "To alleviate the financial pressure of the $90/tonne internal carbon fee, business units are now
+                        "To alleviate the financial pressure of the {moneyFull(CARBON_FEE)}/tonne internal carbon fee, business units are now
                         authorised to procure external carbon credits from the Voluntary Carbon Market to offset residual
                         non-compliance emissions. <strong>However</strong>: all claims will be audited against
                         the VCMI Claims Code of Practice. <em>You are responsible for the integrity of what you buy.</em>"
@@ -191,8 +194,8 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>VCM Portfolio Builder</h2>
                         <div style={{ display: 'flex', gap: '1.5rem', fontSize: 'var(--type-caption)' }}>
                             {[
-                                ['TOTAL COST', `${currencySymbol()}${(totalCost / 1000).toFixed(0)}k`],
-                                ['AVG COST/T', `${currencySymbol()}${avgCost.toFixed(2)}`],
+                                ['TOTAL COST', `${currencySymbol()}${atRate(totalCost / 1000).toFixed(0)}k`],
+                                ['AVG COST/T', `${currencySymbol()}${atRate(avgCost).toFixed(2)}`],
                                 ['INTEGRITY', `${integrityScore}/100`],
                             ].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
@@ -231,7 +234,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                         <div key={t.id} style={{ gridColumn: i === 2 ? '1' : 'auto' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', marginBottom: '3px' }}>
                                 <label style={{ color: '#475569', fontWeight: 600 }}>{t.label} (t)</label>
-                                <span style={{ fontWeight: 700, color: t.color }}>{currencySymbol()}{(vols[i] * t.cost / 1000).toFixed(0)}k</span>
+                                <span style={{ fontWeight: 700, color: t.color }}>{currencySymbol()}{atRate(vols[i] * t.cost / 1000).toFixed(0)}k</span>
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <input type="range" min={0} max={TOTAL_REQUIRED} step={500} value={vols[i]}
@@ -242,7 +245,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
                                     border: '1px solid #d1d5db', borderRadius: 5, fontSize: '0.78rem', fontWeight: 700,
                                 }}>{vols[i].toLocaleString()}</div>
                             </div>
-                            <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginTop: '2px' }}>{t.desc} — {currencySymbol()}{t.cost}/t</div>
+                            <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', marginTop: '2px' }}>{t.desc} — {currencySymbol()}{atRate(t.cost)}/t</div>
                         </div>
                     ))}
                     <div style={{ gridColumn: '2', display: 'flex', alignItems: 'flex-end' }}>

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useCallback } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const SALE_UNITS = 10_000;   // units sold per year (max market)
@@ -71,7 +71,7 @@ function AreaChart({ cashFlows }) {
                 <text key={yr} x={toX(yr - 1)} y={H - padB + 16} textAnchor="middle" fontSize="8" fill="#94a3b8">{yr}</text>
             ))}
             {/* Last value label */}
-            <text x={W - padR - 4} y={toY(lastV) - 4} textAnchor="end" fontSize="9" fontWeight="700" fill="#2563eb">Yr 15: {currencySymbol()}{Math.round(lastV)}M</text>
+            <text x={W - padR - 4} y={toY(lastV) - 4} textAnchor="end" fontSize="9" fontWeight="700" fill="#2563eb">Yr 15: {currencySymbol()}{Math.round(atRate(lastV))}M</text>
             {/* Y axis */}
             <text x={10} y={H / 2} textAnchor="middle" fontSize="8" fill="#94a3b8" transform={`rotate(-90,10,${H/2})`}>↑ Annual Cash Flow ($M)</text>
             {/* X axis label */}
@@ -114,7 +114,7 @@ export default function CircularStrategyDashboard({ sessionId, onComplete }) {
 
     const { cashFlows, fleetByYear } = useMemo(() => calcCircular({ transitionYrs, annualLease, recovery }), [transitionYrs, annualLease, recovery]);
     const valleyDuration = useMemo(() => cashFlows.filter(v => v < 0).length, [cashFlows]);
-    const maxDeficit = Math.abs(Math.min(...cashFlows, 0)).toFixed(1);
+    const maxDeficit = atRate(Math.abs(Math.min(...cashFlows, 0))).toFixed(1);
     const yr15cf = cashFlows[YEARS - 1];
     const yr15margin = yr15cf > 0 ? ((yr15cf / ((fleetByYear[YEARS - 1] * annualLease) / 1e6)) * 100).toFixed(1) : '0';
     const phaseLabel = valleyDuration === 0 ? 'Stable' : valleyDuration <= 2 ? 'Transitioning' : 'High Risk Valley';

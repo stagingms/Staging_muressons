@@ -21,7 +21,7 @@
 'use client';
 import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import styles from './ESGLeadershipProfile.module.css';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 /** The 5 ESG dimensions for the radar chart */
 const PILLARS = [
@@ -256,8 +256,8 @@ export default function ESGLeadershipProfile({ data = {}, flags = {}, sessionId,
   const containerRef = useRef(null);
 
   const mr = Number(data.regenerative_multiple) || 0;
-  const tvM = ((Number(data.terminal_value) || 0) / 1_000_000).toFixed(1);
-  const sharePrice = data.price_per_share != null ? Number(data.price_per_share).toFixed(2) : '—';
+  const tvM = (atRate(data.terminal_value || 0) / 1_000_000).toFixed(1);
+  const sharePrice = data.price_per_share != null ? atRate(data.price_per_share).toFixed(2) : '—';
   const archetype = data.profile_title || data.profile || 'Strategic Leader';
 
   // Load the facilitator-configured ESG signal weights (falls back to defaults).

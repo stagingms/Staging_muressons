@@ -11,7 +11,7 @@ import StockPerformanceChart from './StockPerformanceChart';
 import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
 import { roundToQuarter } from '../utils/roundToQuarter';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, localiseAuthored, atRate } from '../utils/format';
 
 /**
  * Merge peer-trend rounds into the player's per-round chart rows.
@@ -399,7 +399,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
         .map(([key, val]) => ({
             key,
             value: Number(val) || 0,
-            tooltip: MR_TOOLTIPS[key] || `${key.replace(/_/g, ' ')} component of the Regenerative Multiple.`,
+            tooltip: localiseAuthored(MR_TOOLTIPS[key] || `${key.replace(/_/g, ' ')} component of the Regenerative Multiple.`),
         }));
 
 
@@ -410,8 +410,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
             metrics: [
                 {
                     label: 'Adjusted EBITDA (Year 5)',
-                    value: `${currencySymbol()}${(kpis.ebitda / 1_000_000).toFixed(2)}M`,
-                    note: `After ${currencySymbol()}${(d.carbon_tax_per_ton || 250)}/ton carbon tax`,
+                    value: `${currencySymbol()}${atRate(kpis.ebitda / 1_000_000).toFixed(2)}M`,
+                    note: `After ${currencySymbol()}${atRate((d.carbon_tax_per_ton || 250))}/ton carbon tax`,
                     diagnostic: diagnoseEBITDA(kpis.ebitda),
                     health: kpis.ebitda > 10_000_000 ? 'good' : kpis.ebitda > 0 ? 'warn' : 'bad',
                 },
@@ -458,7 +458,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 {
                     label: 'Carbon Liability',
                     value: `${kpis.carbonTonnage.toFixed(0)} tonnes`,
-                    note: `Taxed at ${currencySymbol()}${d.carbon_tax_per_ton || 250}/ton = ${currencySymbol()}${((kpis.carbonTonnage * (d.carbon_tax_per_ton || 250)) / 1_000).toFixed(1)}K`,
+                    note: `Taxed at ${currencySymbol()}${atRate(d.carbon_tax_per_ton || 250)}/ton = ${currencySymbol()}${atRate((kpis.carbonTonnage * (d.carbon_tax_per_ton || 250)) / 1_000).toFixed(1)}K`,
                     diagnostic: diagnoseCarbon(kpis.carbonTonnage),
                     health: kpis.carbonTonnage < 100 ? 'good' : kpis.carbonTonnage < 250 ? 'warn' : 'bad',
                 },
@@ -495,7 +495,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
     // Download handler — generates a self-contained HTML report with all sections
     const handleDownload = () => {
-        const fmt = (v) => `${currencySymbol()}${(v / 1_000_000).toFixed(2)}M`;
+        const fmt = (v) => `${currencySymbol()}${atRate(v / 1_000_000).toFixed(2)}M`;
         const healthEmoji = (h) => h === 'good' ? '✅' : h === 'warn' ? '⚠️' : '❌';
 
         // ── Build Scorecard Section ──
@@ -873,7 +873,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                             <div className={styles.topCard}>
                                 <span className={styles.topLabel}>Terminal Value</span>
                                 <span className={styles.topValue}>
-                                    {currencySymbol()}{((d.terminal_value || 0) / 1_000_000).toFixed(2)}M
+                                    {currencySymbol()}{atRate((d.terminal_value || 0) / 1_000_000).toFixed(2)}M
                                 </span>
                             </div>
                             <div className={styles.topCard}>
@@ -956,8 +956,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         </section>
                     );
 
-                    const fmtM = (v) => `${currencySymbol()}${((v || 0) / 1_000_000).toFixed(1)}M`;
-                    const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `${currencySymbol()}${((v || 0) / 1_000).toFixed(0)}K`;
+                    const fmtM = (v) => `${currencySymbol()}${atRate((v || 0) / 1_000_000).toFixed(1)}M`;
+                    const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `${currencySymbol()}${atRate((v || 0) / 1_000).toFixed(0)}K`;
 
                     const totalAssets = balanceSheet.total_assets || 0;
                     const totalLiabilities = balanceSheet.total_liabilities || 0;
@@ -1404,7 +1404,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         ? '3 AI profiles'
                         : `${peerTrendData?.peerCount || 0} peer${(peerTrendData?.peerCount || 0) !== 1 ? 's' : ''}`;
 
-                    const fmtM = (v) => `${currencySymbol()}${((v || 0) / 1_000_000).toFixed(1)}M`;
+                    const fmtM = (v) => `${currencySymbol()}${atRate((v || 0) / 1_000_000).toFixed(1)}M`;
                     const chartTooltipStyle = { fontSize: 11, borderRadius: 8, background: 'rgba(22,33,62,0.95)', border: '1px solid #2a2a4a', color: '#e2e8f0' };
 
                     return (
@@ -1507,7 +1507,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             <ComposedChart data={chartDataMerged} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
                                                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
-                                                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => `${currencySymbol()}${(v / 1_000_000).toFixed(0)}M`} />
+                                                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => `${currencySymbol()}${atRate(v / 1_000_000).toFixed(0)}M`} />
                                                 <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => {
                                                     const isPeer = name.startsWith('peer_');
                                                     if (isPeer) {
@@ -1587,7 +1587,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
                 {/* ──────── TAB: TBL Matrix ──────── */}
                 {activeTab === 'tbl_matrix' && (() => {
-                    const fmtCurr = (v) => `${currencySymbol()}${(v / 1_000_000).toFixed(2)}M`;
+                    const fmtCurr = (v) => `${currencySymbol()}${atRate(v / 1_000_000).toFixed(2)}M`;
                     const memo = generateBoardMemo(kpis, d);
 
                     const TBL_GRID = [
@@ -1713,7 +1713,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             return (
                                                 <tr key={i} className={i % 2 === 0 ? styles.evenRow : ''}>
                                                     <td className={styles.roundNum}>R{roundNum}<br/><span style={{ fontSize: '0.7em', opacity: 0.7 }}>{qLabel}</span></td>
-                                                    <td>{currencySymbol()}{(cash / 1_000_000).toFixed(2)}</td>
+                                                    <td>{currencySymbol()}{atRate(cash / 1_000_000).toFixed(2)}</td>
                                                     <td style={{ color: rep >= 65 ? '#10b981' : rep >= 45 ? '#f59e0b' : '#ef4444' }}>
                                                         {rep.toFixed(1)}
                                                     </td>
@@ -1740,7 +1740,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
                 {/* ──────── TAB: Final Report ──────── */}
                 {activeTab === 'report' && (() => {
-                    const fmtM = (v) => `${currencySymbol()}${(v / 1_000_000).toFixed(2)}M`;
+                    const fmtM = (v) => `${currencySymbol()}${atRate(v / 1_000_000).toFixed(2)}M`;
                     const memo = generateBoardMemo(kpis, d);
                     return (
                         <section className={styles.reportSection}>
@@ -2117,7 +2117,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                 const prev = prevH ? (prevH?.treasury ?? prevH?.corporate_treasury ?? prevH?.global_state?.corporate_treasury ?? curr) : curr;
                                 delta = curr - prev;
                             }
-                            const deltaStr = delta !== 0 ? `${delta >= 0 ? '+' : ''}${currencySymbol()}${(Math.abs(delta) / 1_000_000).toFixed(1)}M` : null;
+                            const deltaStr = delta !== 0 ? `${delta >= 0 ? '+' : ''}${currencySymbol()}${atRate(Math.abs(delta) / 1_000_000).toFixed(1)}M` : null;
 
                             return (
                                 <div
@@ -2199,7 +2199,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                 </span>
                                                 {optionData.cost && (
                                                     <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>
-                                                        ({optionData.cost})
+                                                        ({localiseAuthored(optionData.cost)})
                                                     </span>
                                                 )}
                                             </div>
@@ -2220,7 +2220,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                             {idx === 0 ? '▸' : idx === optionData.impacts.length - 1 ? '◆' : '│'}
                                                         </span>
                                                         <span style={{ fontSize: 'var(--type-caption)', color: '#e2e8f0', lineHeight: 1.5 }}>
-                                                            {impact}
+                                                            {localiseAuthored(impact)}
                                                         </span>
                                                     </div>
                                                 ))}
@@ -2270,7 +2270,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                 color: totalDelta >= 0 ? '#4ade80' : '#f87171',
                                                 fontFamily: "'JetBrains Mono', monospace",
                                             }}>
-                                                {totalDelta >= 0 ? '+' : ''}{currencySymbol()}{(Math.abs(totalDelta) / 1_000_000).toFixed(1)}M
+                                                {totalDelta >= 0 ? '+' : ''}{currencySymbol()}{atRate(Math.abs(totalDelta) / 1_000_000).toFixed(1)}M
                                             </span>
                                         </div>
                                     );

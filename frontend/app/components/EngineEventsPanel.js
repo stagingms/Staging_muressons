@@ -1,5 +1,5 @@
 import React from 'react';
-import { currencySymbol, money } from '../utils/format';
+import { currencySymbol, money, atRate } from '../utils/format';
 
 /**
  * EngineEventsPanel — Expanded simulation engine event display.
@@ -165,7 +165,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
 
   // 18. Revenue Generation (Desalination payback)
   if (roundEvents?.revenue_generation_completed) {
-    const amt = (roundEvents.revenue_generation_completed / 1_000_000).toFixed(1);
+    const amt = (atRate(roundEvents.revenue_generation_completed) / 1_000_000).toFixed(1);
     events.push({ icon: '💧', color: '#10b981', text: `Infrastructure investment generated ${currencySymbol()}${amt}M revenue.`, tooltip: EVENT_TOOLTIPS.revenue_generation });
   }
 
@@ -181,13 +181,13 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
 
   // 21. Negative Treasury Interest
   if (roundEvents?.negative_treasury_interest_applied) {
-    const interest = (roundEvents.negative_treasury_interest_applied / 1_000_000).toFixed(2);
+    const interest = (atRate(roundEvents.negative_treasury_interest_applied) / 1_000_000).toFixed(2);
     events.push({ icon: '🏦', color: 'var(--danger)', text: `Debt service: ${currencySymbol()}${interest}M interest charged on negative treasury.`, tooltip: 'Negative treasury balance incurs interest at the cost of capital rate.' });
   }
 
   // 22. Climate Event
   if (roundEvents?.climate_event_struck) {
-    const damage = ((roundEvents.actual_damage || 0) / 1_000_000).toFixed(1);
+    const damage = (atRate((roundEvents.actual_damage || 0)) / 1_000_000).toFixed(1);
     events.push({ icon: '🌪️', color: 'var(--danger)', text: `Cyclone struck! Actual damage: ${currencySymbol()}${damage}M (mitigated by resilience).`, tooltip: 'Physical climate event caused infrastructure damage, reduced by your resilience factor.' });
   } else if (roundEvents?.climate_event_struck === false) {
     events.push({ icon: '🌤️', color: '#10b981', text: 'The cyclone changed course — no damage this round.', tooltip: 'The stochastic climate event did not trigger this time.' });
@@ -204,13 +204,13 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
 
   // 24. Internal Carbon Fee
   if (roundEvents?.internal_carbon_fee_deducted) {
-    const fee = (roundEvents.internal_carbon_fee_deducted / 1_000_000).toFixed(2);
+    const fee = (atRate(roundEvents.internal_carbon_fee_deducted) / 1_000_000).toFixed(2);
     events.push({ icon: '💨', color: '#10b981', text: `Internal carbon fee: ${currencySymbol()}${fee}M deducted → Green Transition Fund.`, tooltip: EVENT_TOOLTIPS.internal_carbon_fee });
   }
 
   // 25. Green Fund Used
   if (roundEvents?.green_fund_used) {
-    const amt = (roundEvents.green_fund_used / 1_000_000).toFixed(1);
+    const amt = (atRate(roundEvents.green_fund_used) / 1_000_000).toFixed(1);
     events.push({ icon: '🌱', color: '#10b981', text: `Green Fund subsidised ${currencySymbol()}${amt}M of your spending.`, tooltip: EVENT_TOOLTIPS.green_fund_used });
   }
 
@@ -271,7 +271,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   if (roundEvents?.dso_working_capital) {
     const dso = roundEvents.dso_working_capital;
     if (dso.total_deferred > 0) {
-      const deferred = (dso.total_deferred / 1_000_000).toFixed(1);
+      const deferred = (atRate(dso.total_deferred) / 1_000_000).toFixed(1);
       events.push({
         icon: '⏰', color: 'var(--accent)',
         text: `Working capital timing: ${currencySymbol()}${deferred}M revenue deferred (DSO drag across BUs).`,
@@ -318,7 +318,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // 37. EU AI Act Compliance (R6→R7+)
   if (roundEvents?.eu_ai_act_compliance) {
     const euAi = roundEvents.eu_ai_act_compliance;
-    const cost = ((euAi.cost || 0) / 1_000_000).toFixed(1);
+    const cost = (atRate((euAi.cost || 0)) / 1_000_000).toFixed(1);
     events.push({
       icon: '🤖', color: 'var(--danger)',
       text: euAi.message || `EU AI Act compliance: ${currencySymbol()}${cost}M audit and governance costs incurred for AI deployment.`,
@@ -414,7 +414,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // carries the full statement); fall back to the old key for pre-fix sessions.
   const _bsDiag = roundEvents?.balance_sheet_diagnostics || roundEvents?.balance_sheet;
   if ((_bsDiag?.goodwill_impairment?.amount || 0) > 0) {
-    const impairment = (_bsDiag.goodwill_impairment.amount / 1_000_000).toFixed(1);
+    const impairment = (atRate(_bsDiag.goodwill_impairment.amount) / 1_000_000).toFixed(1);
     const trigger = _bsDiag.goodwill_impairment.trigger || 'reputation';
     const triggerLabel = trigger === 'ebitda_margin' ? 'Low EBITDA margin' : trigger === 'survival' ? 'Survival mode' : 'Low reputation';
     events.push({
@@ -439,7 +439,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
 
   // 45. Covenant Surcharge (treasury penalty)
   if (roundEvents?.covenant_surcharge > 0) {
-    const surcharge = (roundEvents.covenant_surcharge / 1_000_000).toFixed(2);
+    const surcharge = (atRate(roundEvents.covenant_surcharge) / 1_000_000).toFixed(2);
     const rate = ((roundEvents.covenant_surcharge_rate || 0) * 100).toFixed(0);
     events.push({
       icon: '🏦', color: 'var(--danger)',
@@ -470,7 +470,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // 47. Employer Brand OPEX Penalty
   const ebPenalty = roundEvents?.employer_brand_opex_penalty || flags.employer_brand_opex_penalty;
   if (ebPenalty && typeof ebPenalty === 'object') {
-    const totalPenalty = (ebPenalty.total_penalty / 1_000_000).toFixed(1);
+    const totalPenalty = (atRate(ebPenalty.total_penalty) / 1_000_000).toFixed(1);
     const ebScore = ebPenalty.employer_brand_score?.toFixed(0) || '?';
     const multPct = ((ebPenalty.multiplier || 0) * 100).toFixed(1);
     events.push({

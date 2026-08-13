@@ -122,6 +122,112 @@ describe('the boundary between authored and computed', () => {
   });
 });
 
+describe('atRate — the rate for the sites that build money by hand', () => {
+  beforeEach(reset);
+
+  /* WHY THIS EXISTS. The rate was added to money() and its siblings, and a
+     count of their adoption looked finished. 153 sites across 43 files never
+     called them — they took the SYMBOL from format.js and did the arithmetic
+     themselves, so the glyph localised and the quantity did not. Nothing in
+     this file caught it, because every assertion here was about money(). */
+
+  test('at rate 1 it is an exact identity, so it ships inert', () => {
+    for (const v of [0, 1, 40, 2.5, 1_000_000, -3_200_000, 1e9]) {
+      expect(fmt.atRate(v)).toBe(Number(v));
+    }
+  });
+
+  test('it is linear, so wrapping before OR after a division is the same figure', () => {
+    // This is the whole safety argument for the mechanical sweep: a wrap can
+    // convert a number but it cannot move a decimal place.
+    fmt.setCurrencyRate(83);
+    expect(fmt.atRate(11_000_000) / 1e6).toBeCloseTo(fmt.atRate(11_000_000 / 1e6), 6);
+  });
+
+  test('it coerces like Number() did at the sites it replaced', () => {
+    fmt.setCurrencyRate(1);
+    expect(fmt.atRate('12.5')).toBe(12.5);
+    expect(fmt.atRate(null)).toBe(0);
+    expect(Number.isNaN(fmt.atRate(undefined))).toBe(true);
+  });
+});
+
+describe('localiseAuthored — the rate inside a sentence', () => {
+  beforeEach(reset);
+
+  /* authoredMoney() takes a NUMBER, which is right for a data field and
+     useless for the other shape authored money takes here: a dollar sign
+     inside a sentence, with no number to pass. */
+
+  test('at rate 1 the numeral is untouched and only the glyph moves', () => {
+    fmt.setCurrencySymbol('₹');
+    for (const [input, want] of [
+      ['every $1M of green CapEx reduces NCD by 0.5', 'every ₹1M of green CapEx reduces NCD by 0.5'],
+      ['$1.2M on average', '₹1.2M on average'],
+      ['a $5,000,000 Green Fund', 'a ₹5,000,000 Green Fund'],
+      ['The $1 Billion Refinancing', 'The ₹1 Billion Refinancing'],
+      ['▼ $1–5M drop', '▼ ₹1–5M drop'],
+      ['vs IPO $50.00', 'vs IPO ₹50.00'],
+    ]) expect(fmt.localiseAuthored(input)).toBe(want);
+  });
+
+  test('one significant figure applies ONLY once a rate is set', () => {
+    // At rate 1 an author's '$1.2M' must stay 1.2M. Rounding it to 1M would
+    // throw away a figure somebody chose, in exchange for nothing. Rounding is
+    // right for a number a machine just produced, and only then.
+    expect(fmt.localiseAuthored('$1.2M')).toBe('$1.2M');
+    fmt.setCurrencySymbol('₹'); fmt.setCurrencyRate(83);
+    expect(fmt.localiseAuthored('$1.2M')).toBe('₹100M');
+  });
+
+  test('a dollar sign with no digits after it is a UNIT and is left alone', () => {
+    // 'CO2 emissions per $M revenue, taxed at R10 ($250/tonne)' — one string
+    // carrying a unit and an amount. Converting '$M' would be nonsense.
+    fmt.setCurrencySymbol('₹'); fmt.setCurrencyRate(83);
+    const out = fmt.localiseAuthored('CO₂ emissions per $M revenue, taxed at R10 ($250/tonne)');
+    expect(out).toContain('per $M revenue');
+    expect(out).toContain('(₹20,000/tonne)');
+  });
+
+  test('the register the author wrote in is preserved', () => {
+    fmt.setCurrencySymbol('₹'); fmt.setCurrencyRate(83);
+    expect(fmt.localiseAuthored('$900K')).toBe('₹70M');                  // letter suffix stays a letter
+    expect(fmt.localiseAuthored('$30 million')).toBe('₹2 billion');      // a word stays a word
+    expect(fmt.localiseAuthored('$1 Billion')).toBe('₹80 Billion');      // and keeps its capital
+    expect(fmt.localiseAuthored('$5,000,000')).toBe('₹400,000,000');     // long form stays long
+  });
+
+  test('a range keeps one glyph and one suffix, as it was written', () => {
+    fmt.setCurrencySymbol('₹'); fmt.setCurrencyRate(83);
+    // Both bounds in the unit of the LARGER, or '80-400M' comes out '0.08-400M'.
+    expect(fmt.localiseAuthored('▼ $1–5M drop')).toBe('▼ ₹80–400M drop');
+  });
+
+  test('whitespace and punctuation around an amount survive', () => {
+    // A '\s*' before the optional suffix ate the following space and produced
+    // 'from ₹3,000→ ₹7,000/tonne'. Caught by reading the output, not by a type.
+    fmt.setCurrencySymbol('₹'); fmt.setCurrencyRate(83);
+    expect(fmt.localiseAuthored('escalates from $40 → $90/tonne'))
+      .toBe('escalates from ₹3,000 → ₹7,000/tonne');
+    expect(fmt.localiseAuthored('Need: Treasury > $0 · Rep > 20'))
+      .toBe('Need: Treasury > ₹0 · Rep > 20');
+  });
+
+  test('it does not touch a string with no amount in it, or a non-string', () => {
+    fmt.setCurrencyRate(83);
+    expect(fmt.localiseAuthored('Comeback complete')).toBe('Comeback complete');
+    expect(fmt.localiseAuthored(undefined)).toBe(undefined);
+    expect(fmt.localiseAuthored(null)).toBe(null);
+  });
+
+  test('IT CANNOT GUARD A REGEX REPLACEMENT STRING — that is the call site\'s job', () => {
+    // '$1' in a .replace() replacement is indistinguishable from one dollar by
+    // any text rule. Asserted so the limitation is a decision, not a surprise.
+    fmt.setCurrencySymbol('₹'); fmt.setCurrencyRate(83);
+    expect(fmt.localiseAuthored('<strong>$1</strong>')).toBe('<strong>₹80</strong>');
+  });
+});
+
 describe('the rate is applied in exactly one place', () => {
   const fs = require('fs');
   const path = require('path');

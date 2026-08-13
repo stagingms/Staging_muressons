@@ -2,6 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './ShadowBoardAudit.module.css';
 import { playerIdHeader } from '../hooks/useSimulation';
+import { moneyM } from '../utils/format';
+
+/* The headline damage figure for the R5 cyclone. */
+const CYCLONE_BASE_DAMAGE = 12_000_000;
 
 /**
  * ShadowBoardAudit — Round 5 Reflective Middleware
@@ -284,7 +288,7 @@ export default function ShadowBoardAudit({ sessionId, onComplete, globalState })
           <div className={styles.contextCard}>
             <div className={styles.contextIcon}>🌪️</div>
             <div className={styles.contextText}>
-              <h3>IMMINENT THREAT: Category 4 Cyclone — $12M Base Damage</h3>
+              <h3>IMMINENT THREAT: Category 4 Cyclone — {moneyM(CYCLONE_BASE_DAMAGE, { dp: 0 })} Base Damage</h3>
               <p>
                 A Category 4 cyclone is projected to hit your primary manufacturing corridor.
                 Three advisors from your Shadow Board have presented conflicting recommendations.

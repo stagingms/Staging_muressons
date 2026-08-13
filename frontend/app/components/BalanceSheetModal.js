@@ -2,7 +2,7 @@
 import React from 'react';
 import styles from './ExecutiveCockpit.module.css';
 import Dialog from './Dialog';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 /**
  * BalanceSheetModal — Full IFRS Statement of Financial Position
@@ -18,8 +18,8 @@ import { currencySymbol } from '../utils/format';
 export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCurrency }) {
   if (!isOpen || !balanceSheet) return null;
 
-  const fmtM = (v) => `${currencySymbol()}${((v || 0) / 1_000_000).toFixed(1)}M`;
-  const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `${currencySymbol()}${((v || 0) / 1_000).toFixed(0)}K`;
+  const fmtM = (v) => `${currencySymbol()}${atRate((v || 0) / 1_000_000).toFixed(1)}M`;
+  const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `${currencySymbol()}${atRate((v || 0) / 1_000).toFixed(0)}K`;
 
   // ── Scholarly mode detection ──────────────────────────────────────────────
   const esgBsMode    = balanceSheet.esg_bs_mode || {};

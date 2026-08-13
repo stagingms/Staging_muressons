@@ -14,14 +14,19 @@
  *   active      whether the arc is in progress
  */
 
+import { money, moneyM } from '../utils/format';
+
 const PHASES = ['crisis', 'stabilisation', 'recovery', 'exit'];
 const LABEL = { crisis: 'Crisis', stabilisation: 'Stabilise', recovery: 'Recovery', exit: 'Exit' };
-const GATE = {
-    crisis: 'Need: Treasury > $0 · Rep > 20',
-    stabilisation: 'Need: Treasury > $10M · Rep > 45',
-    recovery: 'Need: Treasury > $20M · Rep > 55',
+/* A function, not a map: these are money, and money is not known until the
+   session's currency and rate are. A module-scope string would freeze whatever
+   the defaults were at import time. */
+const GATE = (phase) => ({
+    crisis: `Need: Treasury > ${money(0)} · Rep > 20`,
+    stabilisation: `Need: Treasury > ${moneyM(10_000_000, { dp: 0 })} · Rep > 45`,
+    recovery: `Need: Treasury > ${moneyM(20_000_000, { dp: 0 })} · Rep > 55`,
     exit: 'Comeback complete',
-};
+}[phase]);
 
 export default function TurnaroundPhaseChip({ phase = 'crisis', round = 1, maxRounds = 4, active = false }) {
     // active defaults FALSE (was true): a mount that forgets the prop must
@@ -64,7 +69,7 @@ export default function TurnaroundPhaseChip({ phase = 'crisis', round = 1, maxRo
                     </span>
                 ))}
             </div>
-            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>{GATE[phase]}</div>
+            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>{GATE(phase)}</div>
         </div>
     );
 }

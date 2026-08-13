@@ -6,7 +6,7 @@ import InlinePodcastPlayer from './InlinePodcastPlayer';
 import InlineQuizEngine from './InlineQuizEngine';
 import InlineReviewViewer from './InlineReviewViewer';
 import { useAnalyticsVisibility } from '../hooks/useAnalyticsVisibility';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -46,7 +46,7 @@ function ResourceCard({ resource, isNew }) {
                     ⚡ Competitive Advantage: {resource.effect.target} {resource.effect.modifier > 0 ? '+' : ''}
                     {Math.abs(resource.effect.modifier) < 1
                         ? `${(resource.effect.modifier * 100).toFixed(0)}%`
-                        : `${currencySymbol()}${resource.effect.modifier.toLocaleString()}`}
+                        : `${currencySymbol()}${atRate(resource.effect.modifier).toLocaleString()}`}
                 </div>
             )}
         </a>

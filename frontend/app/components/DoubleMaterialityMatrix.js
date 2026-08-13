@@ -14,9 +14,20 @@ import {
 } from '@dnd-kit/core';
 import { droppableKeyboardCoordinates } from '../lib/dndDroppableKeyboardCoordinates';
 import styles from './DoubleMaterialityMatrix.module.css';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, moneyFull, atRate } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
+
+/* The figure the debrief arithmetic is stated against. It was a literal
+   '$15,000,000' in the tooltip's first line, while every other term in the same
+   sum -- panel fees, clawback, the result -- comes from the API and converts.
+   A chain whose opening term does not convert does not add up. */
+const MATERIALITY_BUDGET = 15_000_000;
+
+/* submitStatus.amount is optional. The optional chain made an absent amount
+   render as 'undefined'; atRate(undefined) is NaN, which would render as 'NaN'
+   instead. Guard once here rather than at each of the four call sites. */
+const amt = (v) => (v == null ? undefined : atRate(v).toLocaleString());
 
 /* Counter for custom factors */
 let _customFactorCounter = 0;
@@ -48,7 +59,7 @@ function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBooste
     };
 
     const costDisplay = issue.mitigation_cost_usd > 0
-        ? `${currencySymbol()}${(issue.mitigation_cost_usd / 1_000_000).toFixed(1)}M`
+        ? `${currencySymbol()}${atRate(issue.mitigation_cost_usd / 1_000_000).toFixed(1)}M`
         : null;
 
     const iroType = issue.iro_type || null;
@@ -678,8 +689,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     {totalPanelFee > 0 && (
                         <div className={styles.panelFeeBar}>
                             <span className={styles.panelFeeLabel}>Panel Fees</span>
-                            <span className={styles.panelFeeAmount}>−{currencySymbol()}{(totalPanelFee / 1_000_000).toFixed(2)}M</span>
-                            <span className={styles.netCsfAmount}>Net CSF: {currencySymbol()}{(netCsf / 1_000_000).toFixed(1)}M</span>
+                            <span className={styles.panelFeeAmount}>−{currencySymbol()}{atRate(totalPanelFee / 1_000_000).toFixed(2)}M</span>
+                            <span className={styles.netCsfAmount}>Net CSF: {currencySymbol()}{atRate(netCsf / 1_000_000).toFixed(1)}M</span>
                         </div>
                     )}
 
@@ -743,7 +754,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             color: isOverBudget ? 'var(--danger)' : totalQ1Cost > 0 ? 'var(--caution)' : 'var(--positive-text)',
                             transition: 'color 0.3s ease',
                         }}>
-                            {currencySymbol()}{(totalQ1Cost / 1_000_000).toFixed(1)}M / {currencySymbol()}{(netCsf / 1_000_000).toFixed(1)}M
+                            {currencySymbol()}{atRate(totalQ1Cost / 1_000_000).toFixed(1)}M / {currencySymbol()}{atRate(netCsf / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
                     <button
@@ -783,7 +794,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                 return (
                                     <span key={gKey} className={styles.commissionedGroupsBadge}
                                         style={{ background: `${cfg.color}18`, color: cfg.color, border: `1px solid ${cfg.color}33` }}
-                                        title={`${cfg.label} — ${cfg.esrs_ref || ''} — Fee: ${currencySymbol()}${((cfg.fee_usd || 750000) / 1_000_000).toFixed(2)}M`}
+                                        title={`${cfg.label} — ${cfg.esrs_ref || ''} — Fee: ${currencySymbol()}${atRate((cfg.fee_usd || 750000) / 1_000_000).toFixed(2)}M`}
                                     >
                                         {cfg.label} ✓
                                     </span>
@@ -992,7 +1003,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cfg.color, marginBottom: '0.25rem' }}>{cfg.esrs_ref || 'ESRS §1.47'}</div>
                                         <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.55 }}>{cfg.description || 'Engage this stakeholder group to receive per-issue quadrant recommendations.'}</div>
                                         <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>
-                                            Fee: <strong style={{ color: cfg.color }}>{currencySymbol()}{((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M</strong> (flat rate — all issues rated)
+                                            Fee: <strong style={{ color: cfg.color }}>{currencySymbol()}{atRate((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M</strong> (flat rate — all issues rated)
                                         </div>
                                     </div>
 
@@ -1007,7 +1018,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                                 className={styles.submitBtn}
                                                 onClick={() => handleCommissionGroup(activePanelGroup)}
                                             >
-                                                Commission {cfg.label} — {currencySymbol()}{((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M
+                                                Commission {cfg.label} — {currencySymbol()}{atRate((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M
                                             </button>
                                         )}
                                     </div>
@@ -1019,7 +1030,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         {totalPanelFee > 0 && (
                             <div style={{ padding: '0.5rem 0.75rem', background: 'rgba(245,158,11,0.06)', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.15)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{commissionedGroups.size} group{commissionedGroups.size !== 1 ? 's' : ''} commissioned</span>
-                                <span style={{ fontWeight: 700, color: 'var(--caution)', fontSize: '0.82rem' }}>Total: −{currencySymbol()}{(totalPanelFee / 1_000_000).toFixed(2)}M from CSF</span>
+                                <span style={{ fontWeight: 700, color: 'var(--caution)', fontSize: '0.82rem' }}>Total: −{currencySymbol()}{atRate(totalPanelFee / 1_000_000).toFixed(2)}M from CSF</span>
                             </div>
                         )}
 
@@ -1088,17 +1099,17 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                     className={styles.budgetBox}
                                     title={submitStatus.debrief ? [
                                         `Calculated as:`,
-                                        `Total Materiality Budget ($15,000,000) × ${submitStatus.debrief.full_accuracy_pct}% Accuracy`,
+                                        `Total Materiality Budget (${moneyFull(MATERIALITY_BUDGET)}) × ${submitStatus.debrief.full_accuracy_pct}% Accuracy`,
                                         submitStatus.debrief.panel_fee_paid > 0
-                                            ? `Minus Panel Survey Fees (${currencySymbol()}${(submitStatus.debrief.panel_fee_paid || 0).toLocaleString()}) — ${(submitStatus.debrief.panel_groups_commissioned || []).join(', ')}`
+                                            ? `Minus Panel Survey Fees (${currencySymbol()}${atRate(submitStatus.debrief.panel_fee_paid || 0).toLocaleString()}) — ${(submitStatus.debrief.panel_groups_commissioned || []).join(', ')}`
                                             : null,
                                         submitStatus.debrief.clawback_applied > 0
-                                            ? `Minus Governance Penalty / Clawback (${currencySymbol()}${submitStatus.debrief.clawback_applied.toLocaleString()})`
+                                            ? `Minus Governance Penalty / Clawback (${currencySymbol()}${atRate(submitStatus.debrief.clawback_applied).toLocaleString()})`
                                             : null,
-                                        `= ${currencySymbol()}${submitStatus.amount?.toLocaleString()} Final Unlocked Budget`,
-                                    ].filter(Boolean).join('\n') : `Allocated Budget: ${currencySymbol()}${submitStatus.amount?.toLocaleString()}`}
+                                        `= ${currencySymbol()}${amt(submitStatus.amount)} Final Unlocked Budget`,
+                                    ].filter(Boolean).join('\n') : `Allocated Budget: ${currencySymbol()}${amt(submitStatus.amount)}`}
                                 >
-                                    + {currencySymbol()}{submitStatus.amount?.toLocaleString()} Unlocked
+                                    + {currencySymbol()}{amt(submitStatus.amount)} Unlocked
                                 </div>
                                 {submitStatus.debrief && (
                                     <div style={{ textAlign: 'left', marginTop: '1rem', fontSize: '0.8rem' }}>
@@ -1137,7 +1148,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                                 )}
                                                 {submitStatus.debrief.clawback_applied > 0 && (
                                                     <div style={{ padding: '0.4rem 0.6rem', background: 'rgba(239,68,68,0.08)', borderRadius: '5px', borderLeft: '2px solid var(--danger)', color: '#fca5a5', fontSize: '0.72rem' }}>
-                                                        ⚠ ESRS 1 §1.51: CEO-only sign-off (Option C) — {currencySymbol()}{submitStatus.debrief.clawback_applied?.toLocaleString()} clawback applied. Board committee oversight required.
+                                                        ⚠ ESRS 1 §1.51: CEO-only sign-off (Option C) — {currencySymbol()}{amt(submitStatus.debrief.clawback_applied)} clawback applied. Board committee oversight required.
                                                     </div>
                                                 )}
                                             </div>

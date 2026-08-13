@@ -24,9 +24,16 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const APP = path.join(__dirname, '..', 'app');
 
-const registrySrc = fs.readFileSync(path.join(APP, 'config', 'playerVisibilityRegistry.js'), 'utf8');
-const modalSrc = fs.readFileSync(path.join(APP, 'components', 'CreateCohortModal.js'), 'utf8');
-const routerSrc = fs.readFileSync(path.join(ROOT, 'backend', 'admin_router.py'), 'utf8');
+/* Sources are read with CRLF NORMALISED AWAY. Twenty-eight files in this repo
+   carry Windows line endings (several with a stray CR before them), and the
+   slicing below matches on literal '\n'. When a file flipped to CRLF the
+   indexOf returned -1, the slice came back empty, and the assertion passed
+   vacuously -- or, here, threw. Both of these tripwires were dark. */
+const readSrc = (p) => fs.readFileSync(p, 'utf8').replace(/\r\n?/g, '\n');
+
+const registrySrc = readSrc(path.join(APP, 'config', 'playerVisibilityRegistry.js'), 'utf8');
+const modalSrc = readSrc(path.join(APP, 'components', 'CreateCohortModal.js'), 'utf8');
+const routerSrc = readSrc(path.join(ROOT, 'backend', 'admin_router.py'), 'utf8');
 
 const MODES = ['classroom_easy', 'workshop_standard', 'executive_hard', 'chaos_mode'];
 
@@ -195,7 +202,7 @@ describe('application at cohort creation', () => {
 
   test('global defaults stay permissive so cohorts in flight are untouched', () => {
     // The preset supplies the opinion; the global default stays the fail-open.
-    const analytics = fs.readFileSync(path.join(ROOT, 'backend', 'admin_analytics.py'), 'utf8');
+    const analytics = readSrc(path.join(ROOT, 'backend', 'admin_analytics.py'), 'utf8');
     const start = analytics.indexOf('"player": {');
     const block = analytics.slice(start, analytics.indexOf('\n    },', start));
     const offByDefault = [...block.matchAll(/^\s*"([a-z0-9_]+)":\s*False/gm)].map((m) => m[1]);
@@ -224,8 +231,8 @@ describe('application at cohort creation', () => {
  *      Benchmarking off still drew peer data in the body.
  */
 describe('graceful degradation', () => {
-  const cockpitSrc = fs.readFileSync(path.join(APP, 'components', 'ExecutiveCockpit.js'), 'utf8');
-  const analyticsSrc = fs.readFileSync(path.join(APP, 'components', 'PlayerAnalytics.js'), 'utf8');
+  const cockpitSrc = readSrc(path.join(APP, 'components', 'ExecutiveCockpit.js'), 'utf8');
+  const analyticsSrc = readSrc(path.join(APP, 'components', 'PlayerAnalytics.js'), 'utf8');
 
   test('a tab is never offered when its content is switched off', () => {
     expect(cockpitSrc).toMatch(/\{ id: 'charts', label: '📈 Charts', vis: 'kpi_dashboard' \}/);
@@ -269,7 +276,7 @@ describe('graceful degradation', () => {
   });
 
   function modalSrcDock() {
-    const page = fs.readFileSync(path.join(APP, 'page.js'), 'utf8');
+    const page = readSrc(path.join(APP, 'page.js'), 'utf8');
     return page.slice(page.indexOf('<PlayerUtilityDock'), page.indexOf('roundChecklist='));
   }
 });
@@ -355,7 +362,7 @@ describe('cohort form — experience level feedback', () => {
  * experience level must still re-profile, because that is what the change means.
  */
 describe('edit mode', () => {
-  const panelSrc = fs.readFileSync(path.join(APP, 'components', 'AnalyticsControlPanel.js'), 'utf8');
+  const panelSrc = readSrc(path.join(APP, 'components', 'AnalyticsControlPanel.js'), 'utf8');
 
   test('edit reads the cohort’s own visibility, not the global defaults', () => {
     expect(modalSrc).toMatch(/if \(isEditMode && editSession\?\.session_id\)/);

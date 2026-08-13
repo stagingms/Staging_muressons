@@ -44,7 +44,7 @@ import {
   humaniseKey,
   money,
 } from './consequenceCatalog';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 /** Node type per severity — reuses the existing four CSS treatments. */
 const SEVERITY_NODE_TYPE = {
@@ -122,7 +122,7 @@ export function buildChain(commitResults, roundNumber, globalStateProp) {
     chain.push({
       key: '__treasury__',
       label: 'Treasury Impact',
-      value: `${treasuryDelta >= 0 ? '+' : ''}${currencySymbol()}${(treasuryDelta / 1_000_000).toFixed(1)}M`,
+      value: `${treasuryDelta >= 0 ? '+' : ''}${currencySymbol()}${atRate(treasuryDelta / 1_000_000).toFixed(1)}M`,
       type: 'mechanism',
       icon: treasuryDelta >= 0 ? '💰' : '💸',
     });

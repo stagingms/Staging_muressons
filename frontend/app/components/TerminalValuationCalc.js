@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo } from 'react';
 import styles from './ExecutiveCockpit.module.css';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, price as fmtPrice } from '../utils/format';
 
 /**
  * TerminalValuationCalc — Phase 3.7 (STRAT-010 update)
@@ -190,11 +190,11 @@ export default function TerminalValuationCalc({
           📈 Est. Share Price
           <br />
           <span style={{ fontSize: 'var(--type-caption)', color: '#475569' }}>
-            vs IPO $50.00 ({calc.spChangePct > 0 ? '+' : ''}{calc.spChangePct}%)
+            vs IPO {fmtPrice(IPO_PRICE)} ({calc.spChangePct > 0 ? '+' : ''}{calc.spChangePct}%)
           </span>
         </span>
         <span style={{ fontSize: '1.5rem', fontWeight: 900, color: spColor, fontFamily: "'JetBrains Mono', monospace" }}>
-         {currencySymbol()}{calc.pricePerShare.toFixed(2)}
+         {currencySymbol()}{atRate(calc.pricePerShare).toFixed(2)}
         </span>
       </div>
     </div>

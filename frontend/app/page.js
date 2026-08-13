@@ -143,7 +143,7 @@ import PlayerAnalytics from './components/PlayerAnalytics';
 import ShockwaveOverlay from './components/ShockwaveOverlay';
 import soundManager from './utils/soundManager';
 import { VERTICAL_SLOT_MAP, resolveVerticalMeta } from './lib/verticalCatalog';
-import { money } from './utils/format';
+import { money, localiseAuthored } from './utils/format';
 
 // ── Advanced Climate Engine modules (lazy-loaded) ─────────────
 const GreenFundBidding = dynamic(() => import('./components/GreenFundBidding'), { ssr: false });
@@ -368,14 +368,19 @@ export default function CockpitPage() {
   // ── Single-BU briefing: prepend BU-specific context to podcast transcripts ──
   const BU_LABELS = { pharma: 'Pharma Division', software: 'Software Division', consumer_goods: 'Consumer Goods Division', electronics: 'Electronics Division' };
   const activeBriefing = useMemo(() => {
-    if (!assignedBu) return PODCAST_TRANSCRIPTS;
-    const label = BU_LABELS[assignedBu] || resolveVerticalMeta(assignedBu).label + ' Division';
+    /* The transcripts quote money -- carbon credit prices, compliance costs, the
+       Brown Penalty. This is the ONE place every line passes through, so the
+       session's currency is applied here rather than at each of the six
+       sentences that happen to contain a figure. */
+    const localise = (lines) => lines.map((l) => ({ ...l, text: localiseAuthored(l.text) }));
+    const label = assignedBu
+      ? (BU_LABELS[assignedBu] || resolveVerticalMeta(assignedBu).label + ' Division')
+      : null;
     const modified = {};
     for (const [round, lines] of Object.entries(PODCAST_TRANSCRIPTS)) {
-      modified[round] = [
-        { speaker: 'Facilitator', text: `This briefing focuses on your ${label}. All metrics, investment decisions, and crisis impacts apply exclusively to your division.` },
-        ...lines,
-      ];
+      modified[round] = label
+        ? [{ speaker: 'Facilitator', text: `This briefing focuses on your ${label}. All metrics, investment decisions, and crisis impacts apply exclusively to your division.` }, ...localise(lines)]
+        : localise(lines);
     }
     return modified;
   }, [assignedBu]);

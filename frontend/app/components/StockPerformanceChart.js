@@ -8,7 +8,7 @@ import {
 import { buildFullStockData, IPO_PRICE } from './stockValuationEngine';
 import { roundToQuarter, roundRangeLabel } from '../utils/roundToQuarter';
 import styles from './StockPerformanceChart.module.css';
-import { price as fmtCurrencyPrice, currencySymbol } from '../utils/format';
+import { price as fmtCurrencyPrice, currencySymbol, atRate } from '../utils/format';
 
 /**
  * StockPerformanceChart — Premium stock terminal card.
@@ -131,7 +131,7 @@ export default function StockPerformanceChart({
   // Format price for axis
   /* Axis ticks stay whole-number — the tick is a scale, not a reading —
      but the glyph comes from the session currency like everything else. */
-  const fmtPrice = useCallback((v) => `${currencySymbol()}${Number(v).toFixed(0)}`, []);
+  const fmtPrice = useCallback((v) => `${currencySymbol()}${atRate(Number(v)).toFixed(0)}`, []);
 
   // X-axis tick formatter: show round labels
   const fmtXAxis = useCallback((val) => {
@@ -222,7 +222,7 @@ export default function StockPerformanceChart({
               stroke="rgba(148, 163, 184, 0.3)"
               strokeDasharray="4 4"
               label={{
-                value: `IPO ${currencySymbol()}${IPO_PRICE}`,
+                value: `IPO ${currencySymbol()}${atRate(IPO_PRICE)}`,
                 position: 'right',
                 fontSize: 8,
                 fill: '#64748b',

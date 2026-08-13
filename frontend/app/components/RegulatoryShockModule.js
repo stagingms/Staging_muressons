@@ -1,6 +1,12 @@
 'use client';
 import { useState, useCallback } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, moneyFull } from '../utils/format';
+
+/* The escalation this module is about. It was prose in one place, the slider
+   default in another and a bare 90 in the cost projection -- three copies of
+   two numbers that have to move together. */
+const FEE_BEFORE = 40;
+const FEE_AFTER = 90;
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -28,8 +34,8 @@ function calcMargin(div, fee) {
 function fmt(n) {
     const abs = Math.abs(n);
     const sign = n < 0 ? '-' : '';
-    if (abs >= 1_000_000) return `${sign}${currencySymbol()}${(abs / 1_000_000).toFixed(2)}M`;
-    return `${sign}${currencySymbol()}${(abs / 1_000).toFixed(0)}k`;
+    if (abs >= 1_000_000) return `${sign}${currencySymbol()}${atRate(abs / 1_000_000).toFixed(2)}M`;
+    return `${sign}${currencySymbol()}${atRate(abs / 1_000).toFixed(0)}k`;
 }
 
 // ── SVG Bar Chart ──────────────────────────────────────────────
@@ -92,7 +98,7 @@ function BarChart({ fee }) {
 // ── Main Component ─────────────────────────────────────────────
 export default function RegulatoryShockModule({ sessionId, businessUnits, onComplete }) {
     const [phase, setPhase] = useState('news');      // 'news' | 'stress' | 'dilemma' | 'done'
-    const [fee, setFee] = useState(40);
+    const [fee, setFee] = useState(FEE_BEFORE);
     const [buChoices, setBuChoices] = useState({});  // bu_id → 'eat' | 'pass' | 'abate'
     const [submitting, setSubmitting] = useState(false);
     const [result, setResult] = useState(null);      // server response summary
@@ -158,7 +164,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                             <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Carbon Fee</div>
-                                    <div style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>{currencySymbol()}{result.effective_fee}/t</div>
+                                    <div style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>{currencySymbol()}{atRate(result.effective_fee)}/t</div>
                                 </div>
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ fontSize: 'var(--type-caption)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Treasury Impact</div>
@@ -243,7 +249,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                             ⚠ Immediate Financial Impact
                         </div>
                         <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#7f1d1d', fontSize: '0.82rem', lineHeight: 1.9 }}>
-                            <li>Internal carbon fee <strong>forcibly escalates from $40 → $90/tonne</strong></li>
+                            <li>Internal carbon fee <strong>forcibly escalates from {moneyFull(FEE_BEFORE)} → {moneyFull(FEE_AFTER)}/tonne</strong></li>
                             <li>Fee is no longer pooled in the Green Fund — it exits the ecosystem as a <strong>direct tax</strong></li>
                             <li>Business units that decarbonized in Round 3 maintain margins</li>
                             <li>Legacy units face <strong>stranded asset risk</strong> — operating profit wiped out</li>
@@ -282,7 +288,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Carbon Shock P&L Tester</h2>
                         <div style={{ display: 'flex', gap: '1.5rem', fontSize: 'var(--type-caption)' }}>
                             {[
-                                ['PRICE', `${currencySymbol()}${fee}/t`],
+                                ['PRICE', `${currencySymbol()}${atRate(fee)}/t`],
                                 ['DIV A MARGIN', `${mA}%`],
                                 ['DIV B MARGIN', `${mB}%`],
                             ].map(([k, v]) => (
@@ -387,7 +393,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                                     <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>{buName}</div>
                                     <div style={{ fontSize: '0.75rem', color: isGreen ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
                                         {emissionsVal.toLocaleString()}t residual •{' '}
-                                        Cost:{currencySymbol()}{((emissionsVal * 90) / 1_000_000).toFixed(2)}M/round
+                                        Cost:{currencySymbol()}{atRate((emissionsVal * FEE_AFTER) / 1_000_000).toFixed(2)}M/round
                                     </div>
                                 </div>
                                 {isGreen ? (

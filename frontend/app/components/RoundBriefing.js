@@ -9,7 +9,7 @@ import { HEALTHCARE_BRIEFINGS } from '@/app/briefings/data/healthcare';
 import { SDG_BRIEFINGS }        from '@/app/briefings/data/sdg';
 import { deriveSimContext, resolveBriefing } from '@/app/briefings/resolver';
 import { stripPedagogy } from '@/app/briefings/stripPedagogy';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, localiseAuthored } from '../utils/format';
 
 
 /**
@@ -258,7 +258,7 @@ export default function RoundBriefing({
   const theory = isClimate ? (CLIMATE_THEORY_CARDS[roundNumber] || THEORY_CARDS[roundNumber]) : THEORY_CARDS[roundNumber];
   const voices = STAKEHOLDER_VOICES[roundNumber] || [];
   const stochastic = getStochasticIndicator(roundNumber);
-  const climateSupplement = isClimate ? CLIMATE_BRIEFING_SUPPLEMENTS[roundNumber] : null;
+  const climateSupplement = isClimate ? localiseAuthored(CLIMATE_BRIEFING_SUPPLEMENTS[roundNumber]) : null;
 
   // ── CSRD / Industry Vertical context from globalState ──────────────────────
   const flags = globalState?.active_event_flags || {};
@@ -285,8 +285,8 @@ export default function RoundBriefing({
     // If EBITDA is available, use it; otherwise fall back to treasury-based
     const baseEbitda = ebitda > 0 ? ebitda : Math.max(treasury * 0.08, 2_000_000);
     const terminalValue = baseEbitda * exitMultiple * mrProxy;
-    const low = Math.round(Math.max(terminalValue * 0.75, 0) / 1_000_000);
-    const high = Math.round(Math.max(terminalValue * 1.30, 0) / 1_000_000);
+    const low = Math.round(atRate(Math.max(terminalValue * 0.75, 0)) / 1_000_000);
+    const high = Math.round(atRate(Math.max(terminalValue * 1.30, 0)) / 1_000_000);
     valuationEstimate = { low, high };
   }
 
@@ -351,9 +351,9 @@ export default function RoundBriefing({
                 color: materialityAligned ? '#6ee7b7' : '#fcd34d',
                 letterSpacing: '0.06em', textTransform: 'uppercase',
               }} title={
-                materialityAligned
+                localiseAuthored(materialityAligned
                   ? 'R2 materiality aligned: +0.10 M_R at R10 · −$500K Green Bond (R3 Option B)'
-                  : 'R2 materiality gaps: +$1M Green Bond risk premium (R3 Option B)'
+                  : 'R2 materiality gaps: +$1M Green Bond risk premium (R3 Option B)')
               }>
                 {materialityAligned ? '✅ CSRD Aligned +0.10 M_R' : '⚠️ CSRD Gap — R3 Penalty'}
               </div>
@@ -432,7 +432,7 @@ export default function RoundBriefing({
                   {prevRoundData.events?.climate_event_struck === true && (
                     <div className={styles.recapRow}>
                       <span className={styles.recapLabel}>🌪️ Climate Event</span>
-                      <span className={styles.recapValueNegative}>Cyclone struck — {currencySymbol()}{((prevRoundData.events.actual_damage || 0) / 1_000_000).toFixed(1)}M damage</span>
+                      <span className={styles.recapValueNegative}>Cyclone struck — {currencySymbol()}{atRate((prevRoundData.events.actual_damage || 0) / 1_000_000).toFixed(1)}M damage</span>
                     </div>
                   )}
                 </div>
@@ -489,7 +489,7 @@ export default function RoundBriefing({
               {globalState && (
                 <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.5)', fontSize: '0.68rem', color: '#94a3b8' }}>
-                    💰 Green Fund: <strong style={{ color: 'var(--positive-text)' }}>{currencySymbol()}{((globalState.green_transition_fund || 0) / 1_000_000).toFixed(1)}M</strong>
+                    💰 Green Fund: <strong style={{ color: 'var(--positive-text)' }}>{currencySymbol()}{atRate((globalState.green_transition_fund || 0) / 1_000_000).toFixed(1)}M</strong>
                   </div>
                   <div style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.5)', fontSize: '0.68rem', color: '#94a3b8' }}>
                     📊 Cost of Capital: <strong style={{ color: (globalState.cost_of_capital || 0.05) > 0.06 ? 'var(--danger)' : '#f8fafc' }}>{((globalState.cost_of_capital || 0.05) * 100).toFixed(1)}%</strong>
@@ -594,7 +594,7 @@ export default function RoundBriefing({
                     <span>📚</span> Academic Framework
                   </div>
                   <div className={styles.theoryTitle}>{theory.title}</div>
-                  <p className={styles.theoryDesc}>{theory.desc}</p>
+                  <p className={styles.theoryDesc}>{localiseAuthored(theory.desc)}</p>
                 </div>
               )}
 

@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import styles from './PlayerAnalytics.module.css';
 import { playerIdHeader } from '../hooks/useSimulation';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -108,8 +108,8 @@ function PeerBenchmarking({ data }) {
     const metrics = [
         {
             label: 'Treasury', percentile: data.treasury_percentile,
-            value: `${currencySymbol()}${(data.player?.treasury / 1_000_000).toFixed(1)}M`,
-            avg: `${currencySymbol()}${(data.cohort_avg?.treasury / 1_000_000).toFixed(1)}M`,
+            value: `${currencySymbol()}${atRate(data.player?.treasury / 1_000_000).toFixed(1)}M`,
+            avg: `${currencySymbol()}${atRate(data.cohort_avg?.treasury / 1_000_000).toFixed(1)}M`,
             color: '#3b82f6'
         },
         {
@@ -195,7 +195,7 @@ function DecisionImpact({ data }) {
 function DeltaBadge({ label, value, isCurrency = false, precision = 1 }) {
     const positive = value > 0;
     const formatted = isCurrency
-        ? `${positive ? '+' : ''}${currencySymbol()}${(Math.abs(value) / 1_000_000).toFixed(precision)}M`
+        ? `${positive ? '+' : ''}${currencySymbol()}${atRate(Math.abs(value) / 1_000_000).toFixed(precision)}M`
         : `${positive ? '+' : ''}${value?.toFixed(precision)}`;
 
     return (
@@ -246,7 +246,7 @@ function WhatIfSimulator({ data }) {
                         <div className={styles.whatIfDeltas}>
                             <div className={`${styles.whatIfDelta} ${d.projected_treasury_diff > 0 ? styles.deltaPos : styles.deltaNeg}`}>
                                 <span>💰 Treasury</span>
-                                <strong>{d.projected_treasury_diff > 0 ? '+' : ''}{currencySymbol()}{(d.projected_treasury_diff / 1_000_000).toFixed(1)}M</strong>
+                                <strong>{d.projected_treasury_diff > 0 ? '+' : ''}{currencySymbol()}{atRate(d.projected_treasury_diff / 1_000_000).toFixed(1)}M</strong>
                             </div>
                             <div className={`${styles.whatIfDelta} ${d.projected_reputation_diff > 0 ? styles.deltaPos : styles.deltaNeg}`}>
                                 <span>⭐ Reputation</span>

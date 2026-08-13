@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useCallback } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, moneyM } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const WAR_CHEST = 5_000_000;
@@ -107,7 +107,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
                     <blockquote style={{ borderLeft: '3px solid #3b82f6', paddingLeft: '1rem', margin: '0 0 1.25rem', color: '#334155', fontSize: '0.87rem', lineHeight: 1.75, fontStyle: 'italic' }}>
-                        "The 'Global Clean Competition Act' is moving through the legislature. The Board has authorised a <strong>$5M Non-Market War Chest</strong>.
+                        "The 'Global Clean Competition Act' is moving through the legislature. The Board has authorised a <strong>{moneyM(WAR_CHEST, { dp: 0 })} Non-Market War Chest</strong>.
                         Do we fight the regulation to save our remaining dirty assets — or do we <strong>weaponize the government to destroy our competitors?</strong>"
                     </blockquote>
                     <button onClick={() => setPhase('allocator')} style={{ width: '100%', padding: '0.85rem', background: 'linear-gradient(135deg,#1e3a5f,#2563eb)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
@@ -125,7 +125,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                         <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Executive Policy Allocator</h2>
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: 'var(--type-caption)' }}>
-                            {[['LEGISLATIVE PROBABILITY', `${prob}%`], ['PROJECTED OUTCOME', outcome], ['REMAINING BUDGET', `${currencySymbol()}${(remaining / 1e6).toFixed(2)}M`]].map(([k, v]) => (
+                            {[['LEGISLATIVE PROBABILITY', `${prob}%`], ['PROJECTED OUTCOME', outcome], ['REMAINING BUDGET', `${currencySymbol()}${atRate(remaining / 1e6).toFixed(2)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
                                     <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: 'var(--type-caption)' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: '#0f172a', fontSize: k === 'PROJECTED OUTCOME' ? '0.75rem' : 'inherit' }}>{v}</div>
@@ -134,7 +134,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                         </div>
                     </div>
                     <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: '0.2rem' }}>
-                        By lobbying <em>{stanceObj.label.toLowerCase()}</em> with {currencySymbol()}{spend.toLocaleString()}, you have a {prob}% chance of shifting the regulatory landscape.
+                        By lobbying <em>{stanceObj.label.toLowerCase()}</em> with {currencySymbol()}{atRate(spend).toLocaleString()}, you have a {prob}% chance of shifting the regulatory landscape.
                     </div>
                 </div>
 
@@ -147,7 +147,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                 <div style={{ padding: '0.6rem 1rem', background: '#fff', margin: '0.5rem' }}>
                     <MarketShareChart muressons={marketShare} competitor={100 - marketShare} />
                     <div style={{ textAlign: 'center', fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                        Est. Net Profit:{currencySymbol()}{netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        Est. Net Profit:{currencySymbol()}{atRate(netProfit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                 </div>
 
@@ -162,7 +162,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                     </div>
                     <div>
                         <div style={{ fontSize: 'var(--type-caption)', color: '#475569', fontWeight: 600, marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                            <span>War Chest Spend ($)</span><span style={{ fontWeight: 700 }}>{currencySymbol()}{spend.toLocaleString()}</span>
+                            <span>War Chest Spend ($)</span><span style={{ fontWeight: 700 }}>{currencySymbol()}{atRate(spend).toLocaleString()}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             <input type="range" min={0} max={WAR_CHEST} step={12500} value={spend}

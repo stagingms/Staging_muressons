@@ -1,19 +1,31 @@
 'use client';
 import { useState, useMemo, useCallback } from 'react';
-import { currencySymbol } from '../utils/format';
+import { moneyM, moneyFull } from '../utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const GREEN_FUND = 5_000_000;
+/* The internal carbon price, ONCE. It appeared as the literal 40 in the
+   reference line, as '$40/t' beside it and as '$40' in a lesson, so a change
+   moved the line without moving either label. */
+const SHADOW_PRICE = 40;
+
+/* A lesson may quote the project's own MAC and the shadow price. It CANNOT
+   hold them as literals: this panel now converts, and '$30/t' in prose beside
+   a computed 'R2,490/t' in the row above is the same figure disagreeing with
+   itself on one screen. Placeholders resolve at render, where the rate is
+   known -- module scope is evaluated at import, before a session has one. */
+const lessonText = (p) =>
+  p.lesson
+    .replace('{mac}', `${moneyFull(p.mac)}/t`)
+    .replace('{shadow}', `${moneyFull(SHADOW_PRICE)}/t`);
 const PROJECTS = [
     {
         id: 'led',
         name: 'Warehouse LED & HVAC Retrofit',
         icon: '💡',
         cost: 1_200_000,
-        costLabel: '$1.2M',
         emissionsSaved: 8_000,
         mac: -150,
-        macLabel: '−$150/t',
         verdict: 'REJECTED',
         verdictColor: '#dc2626',
         lesson: 'This project pays for itself — negative MAC means it\'s financially profitable without a subsidy. Business units must self-fund this via standard CapEx. The Green Fund is only for crossing the "green premium" hurdle.',
@@ -24,13 +36,11 @@ const PROJECTS = [
         name: 'Manufacturing Waste-to-Heat Recovery',
         icon: '♻️',
         cost: 900_000,
-        costLabel: '$900K',
         emissionsSaved: 30_000,
         mac: 30,
-        macLabel: '$30/t',
         verdict: 'PRIME BID',
         verdictColor: '#16a34a',
-        lesson: 'Best Carbon ROI in the portfolio. At $30/t, it\'s below the $40 shadow price — fund buys maximum emissions reduction for minimum cost, building a moat before the fee escalates in Round 4.',
+        lesson: 'Best Carbon ROI in the portfolio. At {mac}, it\'s below the {shadow} shadow price — fund buys maximum emissions reduction for minimum cost, building a moat before the fee escalates in Round 4.',
         tier: 'sweet',
     },
     {
@@ -38,10 +48,8 @@ const PROJECTS = [
         name: 'R&D — Bio-based Resins (Packaging)',
         icon: '🧬',
         cost: 3_200_000,
-        costLabel: '$3.2M',
         emissionsSaved: 21_000,
         mac: 152,
-        macLabel: '$152/t',
         verdict: 'LONG PLAY',
         verdictColor: '#d97706',
         lesson: 'High cost, low immediate return. Eats most of the Green Fund for minor near-term relief. But unlocks a new low-emission product line critical for Round 8–10 supply chain survival.',
@@ -84,13 +92,13 @@ function MACCurve({ funded, budgetLine }) {
                 const y = toY(v);
                 return <g key={v}>
                     <line x1={padL} y1={y} x2={W - padR} y2={y} stroke={v === 0 ? '#334155' : '#f1f5f9'} strokeWidth={v === 0 ? 1.5 : 1} />
-                    <text x={padL - 5} y={y + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{currencySymbol()}{v}</text>
+                    <text x={padL - 5} y={y + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{moneyFull(v)}</text>
                 </g>;
             })}
             {/* Carbon fee reference line */}
-            <line x1={padL} y1={toY(40)} x2={W - padR} y2={toY(40)}
+            <line x1={padL} y1={toY(SHADOW_PRICE)} x2={W - padR} y2={toY(SHADOW_PRICE)}
                 stroke="#6366f1" strokeWidth="1.5" strokeDasharray="6 3" />
-            <text x={W - padR - 4} y={toY(40) - 4} textAnchor="end" fontSize="9" fill="#6366f1">Shadow Price $40/t</text>
+            <text x={W - padR - 4} y={toY(SHADOW_PRICE) - 4} textAnchor="end" fontSize="9" fill="#6366f1">Shadow Price {moneyFull(SHADOW_PRICE)}/t</text>
             {/* Bars */}
             {bars.map(b => {
                 const x1 = toX(b.x), x2 = toX(b.x + b.w);
@@ -104,7 +112,7 @@ function MACCurve({ funded, budgetLine }) {
                         fill={isFunded ? col : `${col}55`}
                         stroke={isFunded ? col : '#e2e8f0'} strokeWidth="1" rx="2"
                         style={{ transition: 'fill 0.25s' }} />
-                    <text x={(x1 + x2) / 2} y={padT + cH + 14} textAnchor="middle" fontSize="9" fill={col}>{b.macLabel}</text>
+                    <text x={(x1 + x2) / 2} y={padT + cH + 14} textAnchor="middle" fontSize="9" fill={col}>{moneyFull(b.mac)}/t</text>
                     <text x={(x1 + x2) / 2} y={bY - (b.mac >= 0 ? 4 : -12)} textAnchor="middle" fontSize="9" fontWeight="700" fill={col}>{b.emissionsSaved.toLocaleString()}t</text>
                 </g>;
             })}
@@ -181,9 +189,9 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                     </div>
                     <blockquote style={{ margin: '0 0 1.25rem', padding: '1rem 1.25rem', background: '#f8fafc', borderLeft: '4px solid #6366f1', fontSize: '0.9rem', lineHeight: 1.85, color: '#1e293b', borderRadius: '0 8px 8px 0' }}>
                         <p style={{ margin: '0 0 0.75rem' }}>
-                            <strong>The grace period is over.</strong> As of this period, our <strong>$40/tonne shadow price is now a levied fee</strong>.
+                            <strong>The grace period is over.</strong> As of this period, our <strong>{moneyFull(SHADOW_PRICE)}/tonne shadow price is now a levied fee</strong>.
                             We have deducted this fee from the retained earnings of every business unit and pooled it into a central{' '}
-                            <strong style={{ color: '#16a34a' }}>$5,000,000 Green Fund</strong>.
+                            <strong style={{ color: '#16a34a' }}>{moneyFull(GREEN_FUND)} Green Fund</strong>.
                         </p>
                         <p style={{ margin: 0 }}>
                             This capital is now available for decarbonization projects. <strong>You must bid for it.</strong>{' '}
@@ -210,11 +218,11 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                 <div style={{ background: '#0f172a', color: '#fff', padding: '0.9rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <div style={{ fontSize: 'var(--type-caption)', letterSpacing: '0.12em', opacity: 0.5, textTransform: 'uppercase' }}>Green Fund Bidding Room</div>
-                        <h2 style={{ margin: '0.2rem 0 0', fontSize: '0.95rem', fontWeight: 800 }}>Select Projects to Fund — Budget: $5M</h2>
+                        <h2 style={{ margin: '0.2rem 0 0', fontSize: '0.95rem', fontWeight: 800 }}>Select Projects to Fund — Budget: {moneyM(GREEN_FUND, { dp: 0 })}</h2>
                     </div>
                     <div style={{ textAlign: 'right', fontSize: '0.8rem' }}>
                         <div style={{ color: '#94a3b8', fontSize: 'var(--type-caption)' }}>REMAINING</div>
-                        <div style={{ fontWeight: 800, color: remaining < 0 ? '#ef4444' : '#34d399' }}>{currencySymbol()}{(remaining / 1e6).toFixed(2)}M</div>
+                        <div style={{ fontWeight: 800, color: remaining < 0 ? '#ef4444' : '#34d399' }}>{moneyM(remaining, { dp: 2 })}</div>
                     </div>
                 </div>
 
@@ -232,7 +240,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                                         <span style={{ fontSize: '1.2rem' }}>{p.icon}</span>
                                         <div>
                                             <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>{p.name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.costLabel} upfront · {p.emissionsSaved.toLocaleString()}t saved · MAC: <strong style={{ color: p.mac < 0 ? '#dc2626' : p.mac < 50 ? '#16a34a' : '#d97706' }}>{p.macLabel}</strong></div>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{moneyM(p.cost, { dp: p.cost % 1e6 ? 1 : 0 })} upfront · {p.emissionsSaved.toLocaleString()}t saved · MAC: <strong style={{ color: p.mac < 0 ? '#dc2626' : p.mac < 50 ? '#16a34a' : '#d97706' }}>{moneyFull(p.mac)}/t</strong></div>
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
@@ -242,12 +250,12 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                                 </div>
                                 {(isRejected || p.mac < 0) && (
                                     <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '0.4rem 0.6rem', fontSize: 'var(--type-caption)', color: '#b91c1c', marginTop: '0.35rem' }}>
-                                        ⛔ <strong>Green Fund Rejection:</strong> {p.lesson}
+                                        ⛔ <strong>Green Fund Rejection:</strong> {lessonText(p)}
                                     </div>
                                 )}
                                 {isFunded && (
                                     <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '0.4rem 0.6rem', fontSize: 'var(--type-caption)', color: '#166534', marginTop: '0.35rem' }}>
-                                        ✅ <strong>Strategic rationale:</strong> {p.lesson}
+                                        ✅ <strong>Strategic rationale:</strong> {lessonText(p)}
                                     </div>
                                 )}
                             </div>
@@ -257,7 +265,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                     {/* Fund summary */}
                     <div style={{ background: '#1e293b', color: '#fff', borderRadius: 8, padding: '0.85rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.8rem' }}>
-                            Total abatement: <strong>{totalSaved.toLocaleString()}t</strong> · Spent: <strong>{currencySymbol()}{(totalCost / 1e6).toFixed(2)}M</strong> of $5M
+                            Total abatement: <strong>{totalSaved.toLocaleString()}t</strong> · Spent: <strong>{moneyM(totalCost, { dp: 2 })}</strong> of {moneyM(GREEN_FUND, { dp: 0 })}
                         </div>
                         <button onClick={() => setPhase('curve')} disabled={funded.length === 0}
                             style={{ padding: '0.5rem 1rem', background: funded.length ? '#6366f1' : '#475569', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: '0.78rem', cursor: funded.length ? 'pointer' : 'not-allowed' }}>
@@ -284,7 +292,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                     <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '0.5rem' }}>
                         {funded.map(id => {
                             const p = PROJECTS.find(pr => pr.id === id);
-                            return <span key={id} style={{ color: '#16a34a', fontWeight: 700 }}>✅ {p.name.split(' ')[0]}: {p.macLabel}</span>;
+                            return <span key={id} style={{ color: '#16a34a', fontWeight: 700 }}>✅ {p.name.split(' ')[0]}: {moneyFull(p.mac)}/t</span>;
                         })}
                     </div>
                     <div style={{ color: '#64748b', fontSize: 'var(--type-caption)' }}>

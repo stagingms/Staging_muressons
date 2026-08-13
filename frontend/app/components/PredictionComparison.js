@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate, localiseAuthored } from '../utils/format';
 
 /**
  * PredictionComparison — calibration chip (PLAN_Calibration_Analytics Phase 3).
@@ -19,6 +19,9 @@ import { currencySymbol } from '../utils/format';
  *   - roundNumber: the round whose results are on screen
  */
 
+/* localiseAuthored rather than moneyM() at each bound: the author wrote the
+   range with ONE glyph and a shared suffix ('$1-5M', not '$1M-$5M'), and that
+   compact form is what fits the column. The transform preserves it. */
 const BAND_LABEL = {
   down_big: '▼▼ >$5M drop', down: '▼ $1–5M drop', flat: '≈ flat',
   up: '▲ $1–5M gain', up_big: '▲▲ >$5M gain',
@@ -34,8 +37,8 @@ export default function PredictionComparison({ predictions, roundNumber }) {
     if (pred.treasury_band) {
       rows.push({
         kpi: '💰 Treasury',
-        predicted: BAND_LABEL[pred.treasury_band] || pred.treasury_band,
-        actual: `${BAND_LABEL[s.actual_treasury_band] || s.actual_treasury_band} (${s.treasury_delta >= 0 ? '+' : ''}${currencySymbol()}${(s.treasury_delta / 1e6).toFixed(1)}M)`,
+        predicted: localiseAuthored(BAND_LABEL[pred.treasury_band] || pred.treasury_band),
+        actual: `${localiseAuthored(BAND_LABEL[s.actual_treasury_band] || s.actual_treasury_band)} (${s.treasury_delta >= 0 ? '+' : ''}${currencySymbol()}${atRate(s.treasury_delta / 1e6).toFixed(1)}M)`,
         hit: s.treasury_hit,
       });
     }

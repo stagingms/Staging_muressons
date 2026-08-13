@@ -72,6 +72,41 @@ export function currencyRate() {
 }
 
 /**
+ * atRate — the rate, for the 150-odd sites that build money BY HAND.
+ *
+ * WHAT WENT WRONG
+ *   The rate was added to money(), moneyM(), moneyFull() and the rest, and a
+ *   count of their adoption looked finished. It was not. Forty-three files
+ *   never call them; they take the SYMBOL from here and do the arithmetic
+ *   themselves:
+ *
+ *     {currencySymbol()}{(team.treasury / 1_000_000).toFixed(1)}M
+ *     const fmtM = (v) => `${currencySymbol()}${((v || 0) / 1e6).toFixed(1)}M`;
+ *
+ *   That localises the glyph and not the quantity, which is the precise defect
+ *   the currency pass existed to remove and which the comment above calls a
+ *   worse lie than leaving it in dollars. Nothing caught it because every
+ *   currency tripwire in the suite asserts on the SYMBOL; not one asserts the
+ *   rate is applied.
+ *
+ * WHY THIS AND NOT A MIGRATION
+ *   Those 150 sites each carry a precision decision -- 1dp here, 2dp there,
+ *   'k' lowercase in one module and 'K' in another. Folding them into money()
+ *   would change what ~150 figures look like, with no screenshot, in a session
+ *   that has already shipped four regressions found only by screenshot. So the
+ *   quantity is fixed now and the appearance is not: multiplication is linear,
+ *   so wrapping the numeric operand converts the figure and cannot move a
+ *   decimal place. At rate 1 this is Number(v) -- an exact identity.
+ *
+ * IT IS A BRIDGE. Every call site here is still a private formatter that will
+ * disagree with money() the day someone changes the ladder. Converging them is
+ * follow-up work that needs eyes on the screens, not another sweep.
+ */
+export function atRate(value) {
+  return Number(value) * _rate;
+}
+
+/**
  * ONE SIGNIFICANT FIGURE, for authored teaching numbers only.
  *
  * $40/tonne at a rate of 83 is ₹3,320/tonne, which reads as false precision on
@@ -92,6 +127,97 @@ export function authoredMoney(value, { unit = '' } = {}) {
   const mag = Math.pow(10, Math.floor(Math.log10(abs)));
   const rounded = Math.round(abs / mag) * mag;
   return `${sign(v)}${_symbol}${rounded.toLocaleString('en-US')}${unit}`;
+}
+
+/**
+ * localiseAuthored — the SESSION SYMBOL AND RATE, applied to authored prose.
+ *
+ * THE PROBLEM THIS SOLVES
+ *   authoredMoney() above takes a NUMBER. It is the right tool for a single
+ *   value in a data field. It is useless for the other shape authored money
+ *   takes in this product, which is a dollar sign sitting inside a sentence:
+ *
+ *     'every $1M of green CapEx reduces NCD by 0.5 per BU'
+ *     'Internal carbon fee forcibly escalates from $40 -> $90/tonne'
+ *     'Tier 3 avoidance credits cost $4 per tonne'
+ *
+ *   There is no number to pass. Converting these one call site at a time would
+ *   mean restructuring ~90 sentences into fragments and interpolations, which
+ *   is a large diff across scenario copy that no test can check the meaning of.
+ *   So this takes the whole string and rewrites the amounts inside it, and is
+ *   applied at the RENDER POINT — one edit per screen, not one per amount.
+ *
+ * IDENTITY AT RATE 1, DELIBERATELY
+ *   When no rate is set, the numeral is passed through CHARACTER FOR CHARACTER
+ *   and only the glyph changes. This matters: one significant figure would turn
+ *   an author's '$1.2M' into '1M' and an author's '$50.00' into '50', throwing
+ *   away detail that was chosen, in exchange for nothing. Rounding is right
+ *   only for a number a machine just produced. So rounding is conditional on a
+ *   rate actually having been applied, and this ships as a pure glyph swap.
+ *
+ * WHAT IT DOES NOT TOUCH
+ *   A dollar sign not followed by digits. That is the guard for '$M revenue' in
+ *   the glossary, where '$M' is a UNIT and converting it would be nonsense.
+ *   It CANNOT guard a regex replacement string -- '$1' in a .replace() call
+ *   looks identical to one dollar. That guard is the call site's job: this is
+ *   for display copy, never for a replacement pattern.
+ *
+ * REGISTER IS PRESERVED
+ *   '$900K' stays a letter suffix, '$30 million' stays a word, and
+ *   '$5,000,000' stays long-form grouped. An author who wrote a figure out in
+ *   full meant the weight of it, and 'R400M' does not carry that.
+ */
+const _AMOUNT =
+  /\$\s?(\d[\d,]*(?:\.\d+)?)(?:\s*([\u2013\u2014])\s*(\d[\d,]*(?:\.\d+)?))?(?:\s?(billion|million|thousand|bn|[KMB]))?(?![A-Za-z0-9])/gi;
+
+const _MULT = { k: 1e3, thousand: 1e3, m: 1e6, million: 1e6, b: 1e9, bn: 1e9, billion: 1e9 };
+
+/* One significant figure, on the magnitude only. */
+const _oneSigFig = (n) => {
+  if (!n) return 0;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.abs(n))));
+  return Math.round(n / mag) * mag;
+};
+
+/* Re-render a converted magnitude in the register the author used. `word` is
+   the suffix they wrote, so its capitalisation carries ('$1 Billion'). */
+const _unitFor = (abs, suffix) => {
+  if (!suffix) return [1, ''];
+  const isWord = suffix.length > 2 || /^bn$/i.test(suffix);
+  const upper = /^[A-Z]/.test(suffix);
+  const cap = (w) => (upper ? w[0].toUpperCase() + w.slice(1) : w);
+  const tiers = isWord
+    ? [[1e9, ' ' + cap('billion')], [1e6, ' ' + cap('million')], [1e3, ' ' + cap('thousand')]]
+    : [[1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+  for (const t of tiers) if (abs >= t[0]) return t;
+  /* Converted below the smallest suffix the author used: drop the suffix
+     rather than print '0.4M'. A rate can move a figure between registers. */
+  return [1, ''];
+};
+
+const _mantissa = (abs, divisor) =>
+  divisor === 1 ? abs.toLocaleString('en-US') : String(Number((abs / divisor).toFixed(2)));
+
+export function localiseAuthored(text) {
+  if (typeof text !== 'string' || text.indexOf('$') === -1) return text;
+  const flat = _rate === 1;
+  return text.replace(_AMOUNT, (whole, lo, dash, hi, suffix) => {
+    /* Glyph swap only, numeral untouched. See IDENTITY AT RATE 1 above. */
+    if (flat) return _symbol + whole.slice(1);
+    const mult = suffix ? _MULT[suffix.toLowerCase()] : 1;
+    const conv = (t) => _oneSigFig(parseFloat(String(t).replace(/,/g, '')) * mult * _rate);
+    const a = conv(lo);
+    if (dash && hi) {
+      /* A range carries ONE glyph and ONE suffix, as the author wrote it:
+         '$1-5M', not '$1M-$5M'. Both bounds are therefore shown in the same
+         unit, chosen from the larger, or '80-400M' would come out '0.08-400M'. */
+      const b = conv(hi);
+      const [div, label] = _unitFor(Math.max(a, b), suffix);
+      return `${_symbol}${_mantissa(a, div)}${dash}${_mantissa(b, div)}${label}`;
+    }
+    const [div, label] = _unitFor(a, suffix);
+    return `${_symbol}${_mantissa(a, div)}${label}`;
+  });
 }
 
 const isNum = (v) => v !== null && v !== undefined && v !== '' && !isNaN(Number(v));
@@ -207,6 +333,7 @@ export function direction(value, higherIsBetter = true) {
 export const GLYPH = { MINUS, EMPTY };
 
 export default {
-  setCurrencySymbol, currencySymbol,
+  setCurrencySymbol, currencySymbol, setCurrencyRate, currencyRate,
   money, moneyM, moneyMScaled, moneyFull, price, ratio, percent, score, delta, direction, GLYPH,
+  authoredMoney, localiseAuthored,
 };

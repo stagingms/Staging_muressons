@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Dialog from './Dialog';
 import { deriveKeyInsights, fmtDeltaM, roundLedger } from '../lib/keyInsights';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 /**
  * FrontPageReveal (Feature 5) — the Year-5 terminal edition of THE MURESSONS
@@ -90,7 +90,7 @@ function deriveLedger(d = {}) {
   else if (has('truth_premium'))     achievement = `Radical transparency earned a "truth premium" with the market.`;
   else if (jt === true || has('just_transition_bonus') || has('community_champion_bonus'))
                                      achievement = `Delivered a credible just transition, keeping workforce and community onside.`;
-  else if (price != null && price >= 50) achievement = `Shareholders rewarded with a ${currencySymbol()}${Number(price).toFixed(2)} share price on a well-capitalised balance sheet.`;
+  else if (price != null && price >= 50) achievement = `Shareholders rewarded with a ${currencySymbol()}${atRate(price).toFixed(2)} share price on a well-capitalised balance sheet.`;
   else if (Number.isFinite(rep) && rep >= 65) achievement = `Group reputation closed strong at ${rep.toFixed(0)}/100.`;
   else if (mr >= 1.2)                achievement = `Held a de-risked balance sheet with limited residual climate exposure.`;
 
@@ -112,8 +112,11 @@ function deriveLedger(d = {}) {
    Pure SVG-string builders so the same figure renders in the on-screen page
    (dangerouslySetInnerHTML) AND in the downloadable PNG (nested <svg x y>). */
 
+/* The rate lands HERE, on the raw value, not on the three formatted branches
+   below. Multiplication is linear, so one wrap converts all of them and cannot
+   move a decimal place. */
 const fmtM = (v) => {
-  const m = v / 1_000_000;
+  const m = atRate(v) / 1_000_000;
   const a = Math.abs(m);
   return `${m < 0 ? '−' : ''}${currencySymbol()}${a >= 100 ? a.toFixed(0) : a.toFixed(1)}M`;
 };
@@ -428,7 +431,7 @@ export default function FrontPageReveal({
       tv: money(data.terminal_value),
       netDebtMoney: money(data.net_debt),
       tvM: ((Number(data.terminal_value) || 0) / 1_000_000).toFixed(1),
-      price: data.price_per_share != null ? Number(data.price_per_share).toFixed(2) : '—',
+      price: data.price_per_share != null ? atRate(data.price_per_share).toFixed(2) : '—',
       eqM: data.equity_value != null ? (Number(data.equity_value) / 1_000_000).toFixed(1) : '—',
       netDebtM: data.net_debt != null ? (Number(data.net_debt) / 1_000_000).toFixed(1) : '—',
       rep: Number.isFinite(Number(data.group_reputation)) ? Number(data.group_reputation).toFixed(0) : '—',

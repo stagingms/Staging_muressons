@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useCallback } from 'react';
-import { currencySymbol } from '../utils/format';
+import { currencySymbol, atRate } from '../utils/format';
 
 /**
  * WhatIfSandbox — Player-facing "mock up decisions" mode.
@@ -22,9 +22,9 @@ import { currencySymbol } from '../utils/format';
 
 const fmt$ = (v) => {
   const abs = Math.abs(v || 0);
-  if (abs >= 1e6) return `${currencySymbol()}${((v || 0) / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${currencySymbol()}${((v || 0) / 1e3).toFixed(0)}K`;
-  return `${currencySymbol()}${(v || 0).toFixed(0)}`;
+  if (abs >= 1e6) return `${currencySymbol()}${atRate((v || 0) / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${currencySymbol()}${atRate((v || 0) / 1e3).toFixed(0)}K`;
+  return `${currencySymbol()}${atRate(v || 0).toFixed(0)}`;
 };
 
 export default function WhatIfSandbox({

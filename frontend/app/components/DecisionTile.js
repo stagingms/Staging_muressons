@@ -2,6 +2,7 @@
 import React from 'react';
 import styles from './ExecutiveCockpit.module.css';
 import PillarSelectDropdown from './PillarSelectDropdown';
+import { money } from '../utils/format';
 
 /**
  * DecisionTile — Shared decision tile component used by both
@@ -202,7 +203,7 @@ export default function DecisionTile({
       ) : (
         /* Zero-cost deferred risk warning */
         <div style={{ marginTop: compact ? 4 : 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--caution-text)' }}>⚠️ $0 CapEx</span>
+          <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--caution-text)' }}>⚠️ {money(0)} CapEx</span>
           <span style={{ fontSize: 'var(--type-caption)', color: 'var(--caution-text)' }}>— deferred risk</span>
         </div>
       )}

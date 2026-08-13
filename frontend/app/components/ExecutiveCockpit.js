@@ -14,6 +14,17 @@ import MarketRealityFeed from './MarketRealityFeed';
 import InvestmentMatrix from './InvestmentMatrix';
 import CountdownTimer from './CountdownTimer';
 import { DETAILED_DESCRIPTIONS } from '../utils/detailedDescriptions';
+
+/* The authored option descriptions quote capital sums -- a $30M desalination
+   plant, a $20M community fund. Localised at the two points they enter the
+   component tree, because the JSON they live in has no access to a session. */
+const localiseDescs = (o) => {
+  if (!o) return o;
+  if (typeof o === 'string') return localiseAuthored(o);
+  const out = {};
+  for (const k of Object.keys(o)) out[k] = localiseDescs(o[k]);
+  return out;
+};
 import { optionConstraint, constraintSegments } from '../utils/optionConstraints';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
@@ -87,7 +98,7 @@ import MarketIntel from './MarketIntelCards';
 import AnnualReport from './AnnualReport';
 import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
-import { currencySymbol, moneyM, price } from '../utils/format';
+import { currencySymbol, moneyM, price, atRate, money, localiseAuthored } from '../utils/format';
 import { lookupConsequence, isIgnoredKey } from './consequenceCatalog';
 
 // Phase D (player redesign): CANVAS-FIRST SHELL SWITCH — the one-line
@@ -1548,7 +1559,7 @@ export default function ExecutiveCockpit({
             <strong style={{ color: 'var(--caution-text)' }}>⏱ This round was submitted for you.</strong>{' '}
             {globalState.active_event_flags.auto_committed_source === 'draft'
               ? 'The round closed before you committed, so your last saved draft was submitted.'
-              : 'The round closed before you committed, so defaults were submitted: Option B, $1 to each business unit.'}{' '}
+              : `The round closed before you committed, so defaults were submitted: Option B, ${money(1)} to each business unit.`}{' '}
             Your results reflect that submission. It is flagged in your history and to the facilitator.
           </div>
         )}
@@ -2157,7 +2168,7 @@ export default function ExecutiveCockpit({
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
                         detailedDescs={isPlayerVisible('detailed_option_descriptions')
-                          ? (DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {})
+                          ? localiseDescs(DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {})
                           : {}}
                       />
                     </div>
@@ -3471,7 +3482,7 @@ export default function ExecutiveCockpit({
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
                         detailedDescs={isPlayerVisible('detailed_option_descriptions')
-                          ? (DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {})
+                          ? localiseDescs(DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {})
                           : {}}
                       />
                     </div>
@@ -3497,7 +3508,7 @@ export default function ExecutiveCockpit({
                       onHover={(id) => { setHoveredOpt(id); setHoveredOption(id); }}
                       onLeave={() => { setHoveredOpt(null); setHoveredOption(null); }}
                       detailedDesc={isPlayerVisible('detailed_option_descriptions')
-                        ? DETAILED_DESCRIPTIONS.narrative?.[roundNumber]?.[optId]
+                        ? localiseDescs(DETAILED_DESCRIPTIONS.narrative?.[roundNumber]?.[optId])
                         : undefined}
                       fmtCurrency={fmtCurrency}
                       treasury={treasury}
@@ -4737,7 +4748,7 @@ export default function ExecutiveCockpit({
             </div>
             <textarea
               className={styles.predictionTextarea}
-              placeholder="e.g., Treasury will drop by ~$3M due to ESG compliance costs, but reputation should rise..."
+              placeholder={localiseAuthored("e.g., Treasury will drop by ~$3M due to ESG compliance costs, but reputation should rise...")}
               value={predictionText}
               onChange={(e) => setPredictionText(e.target.value)}
               rows={3}
@@ -5129,7 +5140,7 @@ export default function ExecutiveCockpit({
                       }} className={styles.resultCardLabel}>
                         <span>📈 Stock Price</span>
                         <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                          {currencySymbol()}{latestPrice.toFixed(2)}
+                          {currencySymbol()}{atRate(latestPrice).toFixed(2)}
                         </span>
                       </div>
                       <ResponsiveContainer width="100%" height={72}>
@@ -5337,7 +5348,7 @@ export default function ExecutiveCockpit({
                             }}>YOU</span>}
                           </td>
                           <td style={{ padding: '6px', textAlign: 'right', fontWeight: 700, color: 'var(--positive-text)', fontFamily: "'JetBrains Mono', monospace" }}>
-                            {currencySymbol()}{((team.treasury || 0) / 1_000_000).toFixed(1)}M
+                            {currencySymbol()}{atRate((team.treasury || 0) / 1_000_000).toFixed(1)}M
                           </td>
                           <td style={{ padding: '6px', textAlign: 'right', color: '#cbd5e1' }}>
                             {team.reputation?.toFixed(0) ?? '—'}
