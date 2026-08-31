@@ -142,11 +142,20 @@ ROUND_CONFIGS = {
                 "flags_set": [],
                 "ac_bonus": {"ncd_forgiveness_multiplier": 1.25, "note": "CSRD climate materiality alignment"},
                 "impacts": {
-                    "treasury": -2_500_000,
+                    "treasury": -2_500_000,   # the documented compliance cost — keep
                     "reputation": +5,
                     "governance_risk_delta": -5,
                     "carbon_intensity_delta": -3,
-                    "revenue_delta": -2_500_000,
+                    # F-7: WAS -2_500_000 — but revenue_delta is applied PER
+                    # business unit by _apply_common_impacts and revenue_base
+                    # persists, so the group-sized figure cost -$12.5M of
+                    # permanent group revenue (-29% for the smallest unit) on
+                    # top of the treasury charge: ~$15M for an option every
+                    # document prices at $2.5M. Compliance spend is a cash
+                    # cost, not a revenue reduction. If a revenue effect is
+                    # ever wanted, it must be per-unit-scaled (e.g. -500_000
+                    # ≈ -$2.5M group) and a deliberate design decision.
+                    "revenue_delta": 0,
                     "social_license_delta": +5,
                     "natural_capital_debt_delta": -3,
                 },
@@ -741,6 +750,9 @@ ROUND_CONFIGS = {
                     "treasury": +25_000_000,
                     "synergy_wipe": True,
                     "carbon_intensity_delta": +2,
+                    # §5.3: -2M PER UNIT = -$10M group (13.2%) — plausibly intentional for a
+                    # divestment; awaiting design-owner confirmation. Allow-listed in
+                    # tests/test_r2_materiality_audit.py (per-unit sanity sweep).
                     "revenue_delta": -2_000_000,
                     "reputation": -10,
                     "social_license_delta": -12,
