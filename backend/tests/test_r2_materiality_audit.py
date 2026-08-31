@@ -504,6 +504,38 @@ def test_documented_cost_matches_applied_cost():
     )
 
 
+# ── 11b. The doc's R2 mechanics tables are generated, not hand-maintained ──
+
+def test_simulation_context_r2_tables_match_generator():
+    """SIMULATION_CONTEXT.md's Round 2 tables are spliced from
+    scripts/generate_r2_mechanics_table.py, which builds them from
+    round_configs and this file's TIER_EXPECTATIONS. If this fails, run:
+        python3 scripts/generate_r2_mechanics_table.py --write"""
+    import importlib.util
+    root = os.path.dirname(_BACKEND_DIR)
+    gen_path = os.path.join(root, "scripts", "generate_r2_mechanics_table.py")
+    spec = importlib.util.spec_from_file_location("_gen_r2", gen_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    block = mod.build_block()
+    with open(os.path.join(root, "SIMULATION_CONTEXT.md"), encoding="utf-8") as f:
+        doc = f.read()
+    assert block in doc, (
+        "SIMULATION_CONTEXT.md Round 2 block is stale — regenerate with "
+        "scripts/generate_r2_mechanics_table.py --write"
+    )
+
+
+def test_config_declares_the_real_accuracy_numbers():
+    """F-4 guard: the special_rules keys must describe what the engine does."""
+    from round_configs import get_round_config
+    rules = (get_round_config(2) or {}).get("special_rules", {})
+    assert rules.get("accuracy_threshold_pct") == 80
+    assert rules.get("accuracy_bonus_points") == 1000
+    assert "accuracy_bonus_amount" not in rules        # the phantom $2M
+    assert "materiality_accuracy_treasury_bonus" not in rules
+
+
 # ── 12. M_R ceilings unchanged ──────────────────────────────────────────────
 
 def test_mr_ceilings_unchanged():

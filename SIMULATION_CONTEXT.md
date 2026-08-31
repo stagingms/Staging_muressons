@@ -134,16 +134,40 @@ Each round has:
 **Crisis**: CFO requires all investment proposals to align with the High Financial Impact / High ESG Impact quadrant per the Double Materiality framework (ESRS 1).
 
 **Special Mechanics**:
-- **CFO Materiality Gate**: Materiality accuracy ≥ 90% unlocks a $2M treasury bonus.
+- **Materiality Matrix (mid-round panel)**: players classify the issue library on the 2×2 double-materiality matrix. Impact materiality and financial materiality are assessed separately; one classifier (`round2_csrd.correct_quadrant_v2`, string labels unless a dictionary carries all four dual-axis scores) drives scoring, the CFO gate and capital release.
+- **Capital Release → Restricted Fund**: $15M × Q1 recall is released into a ring-fenced fund (`materiality_restricted_fund`) — NOT a treasury debit. The fund pays ESG CapEx ahead of the loan/interest machinery (like the Advanced Climate green fund); capital for missed issues is never released. Q2 disclosure placements unlock up to a further $1M into the same fund.
+- **Accuracy Bonus**: full-quadrant accuracy ≥ 80% earns +1,000 leaderboard points (`bonus_score`). There is **no** $2M treasury bonus and **no** 90% threshold — earlier versions of this document described a mechanic that never existed (audit finding F-4).
+- **CFO Precision Gate**: a non-Q1 issue placed in Q1 is rejected (HTTP 400); forcing the override costs −10 group reputation.
 - **CSRD/ESRS Climate Bonus**: Option A with Advanced Climate mode unlocks NCD forgiveness (+25%).
+- **Governance reconciliation (post-tick)**: the matrix is scored mid-round, but the A/B/C choice arrives at commit — `round_logic._post_r2_materiality` is the single arbiter that combines the two, writes exactly one tier flag, applies the Option C clawback (40% of the released fund, shortfall charged to treasury) and finalises the assurance debrief.
 
-| Option | Title | Treasury | Reputation | Key Effect |
+<!-- BEGIN GENERATED: R2-MECHANICS (scripts/generate_r2_mechanics_table.py — do not edit by hand) -->
+
+**Options** (economics from `round_configs.py`; `revenue_delta` is per business unit):
+
+| Option | Title | Treasury | Revenue Δ/BU | Reputation | Governance posture |
+|---|---|---|---|---|---|
+| A | Full Materiality Alignment | −$2.5M | $0 | +5 | Board-committee oversight — eligible for `materiality_aligned` |
+| B | Strategic Exceptions | $0 | $0 | +2 | Strategic exceptions — eligible for `materiality_partial` |
+| C | CEO-Only Sign-Off (No Board Committee Oversight) | $0 | +$400K | -5 | ESRS 1 §1.51 breach — always `materiality_ignored`; 40% fund clawback |
+
+**Governance premium — tiered** (accuracy is full-quadrant matrix accuracy; exactly one flag is written, by `round_logic._post_r2_materiality`):
+
+| Matrix accuracy | Option | Flag | M_R at R10 | R3 Green Bond effect |
 |---|---|---|---|---|
-| A | Full Materiality Alignment | −$2.5M | +5 | Sets `materiality_aligned`; +0.10 M_R at R10 |
-| B | Strategic Exceptions | $0 | +2 | Partial compliance; sets `materiality_exceptions` |
-| C | CEO-Only Sign-Off | $0 | −5 | ESRS 1 §1.51 violation; 40% budget clawback; Gov Risk +10 |
+| < 80% | A | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| = 80% | A | `materiality_aligned` | +0.10 | −$500K Green Bond discount |
+| > 80% | A | `materiality_aligned` | +0.10 | −$500K Green Bond discount |
+| < 80% | B | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| = 80% | B | `materiality_partial` | +0.05 | −$250K Green Bond discount |
+| > 80% | B | `materiality_partial` | +0.05 | −$250K Green Bond discount |
+| < 80% | C | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| = 80% | C | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| > 80% | C | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
 
-**Regulatory Context**: Option C represents a real ESRS 1 violation — the management body must oversee the materiality process. Institutional investors apply a risk premium.
+<!-- END GENERATED: R2-MECHANICS -->
+
+**Regulatory Context**: Option C represents a real ESRS 1 violation — the management body must oversee the materiality process. Institutional investors apply a risk premium. The tiering teaches that analysis and governance are separate obligations: doing the materiality work well (≥80%) does not excuse approving it badly (Option C voids the premium; Option B halves it).
 
 ---
 
@@ -631,12 +655,13 @@ Price Per Share = Equity Value / 100,000,000 shares
 
 ### Regenerative Multiple (M_R)
 
-M_R is the ESG quality / risk modifier. It ranges from 0.0 to ~2.03.
+M_R is the ESG quality / risk modifier. The maximum achievable value is ~1.93 without Just Transition scaling and ~2.02 with it.
 
 | M_R Component | Trigger | Value |
 |---|---|---|
 | Base | Always | +1.00 |
-| Materiality Governance | `materiality_aligned` flag | +0.10 |
+| Materiality Governance | `materiality_aligned` flag (≥80% accuracy AND Option A) | +0.10 |
+| Materiality Governance — partial | `materiality_partial` flag (≥80% accuracy AND Option B; mutually exclusive with the full premium) | +0.05 |
 | Synergy Strategic Premium | `synergy_unlock` AND synergy ≥ 0.80 | +0.15 |
 | Resilience Champion | No `insurance_only` AND no `electronics_water_priority` | +0.20 |
 | Truth Premium | `ethical_ai_overhaul` | +0.15 |
@@ -764,7 +789,11 @@ Flags are boolean state markers set by decisions that carry cross-round conseque
 |---|---|---|---|---|
 | R1 | `deep_audit_completed` | R4 | Halves crisis severity (40 vs 80) | governance |
 | R1 | `electronics_blindspot` | R4 | Doubles crisis severity to 80 | risk |
+| R2 | `materiality_aligned` | R3 | Green Bond −$500K discount (option B) | governance |
 | R2 | `materiality_aligned` | R10 | +0.10 M_R Governance bonus | governance |
+| R2 | `materiality_partial` | R3 | Green Bond −$250K half-discount (option B) | governance |
+| R2 | `materiality_partial` | R10 | +0.05 M_R Governance bonus (partial) | governance |
+| R2 | `materiality_ignored` | R3 | Green Bond +$1M risk premium (option B) | risk |
 | R2 | `blockchain_traceability` | R8 | Prevents supply chain scandal | supply_chain |
 | R3 | `early_decarboniser` | R7 | +0.10 synergy multiplier bonus | climate |
 | R3 | `greenwash_risk` | R5 | Triggers greenwash if inv < 15% | risk |
@@ -937,7 +966,7 @@ Each vertical has its own "blindspot" equivalent set in Round 1 if players choos
 Understanding what constitutes a "high M_R" path:
 
 1. **R1**: Choose Deep Forensic Audit (B) → avoids R4 severity doubling.
-2. **R2**: Choose Full Materiality Alignment (A) → +0.10 M_R + ESRS compliance.
+2. **R2**: Score ≥80% on the materiality matrix AND choose Full Materiality Alignment (A) → `materiality_aligned` +0.10 M_R + ESRS compliance. (Accuracy alone earns nothing under Option C; Option B caps you at +0.05.)
 3. **R3**: Choose Green Bond (B) or Rapid Switch (A) → set `early_decarboniser` for R7 synergy bonus.
 4. **R4**: Full Transparency (A) → prevents ongoing SLO erosion.
 5. **R5**: Nature-Based Solutions (B) → sets resilience, avoids insurance_only penalty, reduces NCD.

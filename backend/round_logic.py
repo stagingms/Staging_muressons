@@ -2916,7 +2916,9 @@ def _post_r2_materiality(
         accuracy_pct = float(_panel("materiality_full_accuracy", 0.0) or 0.0)
     except (TypeError, ValueError):
         accuracy_pct = 0.0
-    acc_ok = submitted and accuracy_pct >= 80.0
+    _rules = (get_round_config(2) or {}).get("special_rules", {})
+    _threshold = float(_rules.get("accuracy_threshold_pct", 80))
+    acc_ok = submitted and accuracy_pct >= _threshold
 
     # 1) ── Tier flag (§4.1) — accuracy and governance are separate obligations
     if choice == "option_c":

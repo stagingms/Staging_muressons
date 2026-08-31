@@ -81,9 +81,10 @@ HEALTHCARE_ROUND_CONFIGS = {
             ],
         },
         "special_rules": {
-            "materiality_accuracy_treasury_bonus": True,
-            "accuracy_threshold": 90,
-            "accuracy_bonus_amount": 2_000_000,
+            # F-4: see round_configs.py — the old 90%/$2M keys described a
+            # mechanic that never existed. Real numbers, read by the engine.
+            "accuracy_threshold_pct": 80,
+            "accuracy_bonus_points": 1000,
         },
         "options": {
             "option_a": {

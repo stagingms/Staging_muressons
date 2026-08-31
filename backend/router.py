@@ -4049,9 +4049,14 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
             }
 
     full_accuracy = (correct_placed / total_placed) if total_placed > 0 else 0.0
+    # F-4: threshold and bonus come from round config special_rules — the one
+    # place the classroom numbers are declared (80% → +1000 leaderboard points;
+    # the previously documented 90%/$2M treasury bonus never existed).
+    _r2_rules = (get_round_config(2) or {}).get("special_rules", {})
+    _acc_threshold = float(_r2_rules.get("accuracy_threshold_pct", 80)) / 100.0
     accuracy_bonus = 0
-    if full_accuracy >= 0.80:
-        accuracy_bonus = 1000
+    if full_accuracy >= _acc_threshold:
+        accuracy_bonus = int(_r2_rules.get("accuracy_bonus_points", 1000))
         global_state["bonus_score"] = global_state.get("bonus_score", 0) + accuracy_bonus
 
     global_state["materiality_full_accuracy"] = round(full_accuracy * 100, 1)

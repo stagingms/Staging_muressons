@@ -122,9 +122,14 @@ ROUND_CONFIGS = {
             ],
         },
         "special_rules": {
-            "materiality_accuracy_treasury_bonus": True,
-            "accuracy_threshold": 90,
-            "accuracy_bonus_amount": 2_000_000,
+            # F-4: the keys that used to sit here (accuracy_threshold: 90 and a
+            # $2M accuracy_bonus_amount treasury bonus) described a mechanic
+            # that never existed anywhere in the code — they were the source of
+            # the documentation drift. These are the REAL numbers, and the
+            # engine reads them (router accuracy bonus; _post_r2_materiality
+            # tier threshold).
+            "accuracy_threshold_pct": 80,
+            "accuracy_bonus_points": 1000,
         },
         "options": {
             "option_a": {
@@ -139,7 +144,9 @@ ROUND_CONFIGS = {
                 # F-2: no tier flag here. materiality_aligned / materiality_partial /
                 # materiality_ignored are written ONLY by round_logic._post_r2_materiality,
                 # which combines this choice with the matrix accuracy at post-tick.
-                "flags_set": [],
+                # full_materiality_alignment is a choice marker with no consumer —
+                # it records WHAT was chosen, never whether the premium was earned.
+                "flags_set": ["full_materiality_alignment"],
                 "ac_bonus": {"ncd_forgiveness_multiplier": 1.25, "note": "CSRD climate materiality alignment"},
                 "impacts": {
                     "treasury": -2_500_000,   # the documented compliance cost — keep
@@ -179,7 +186,8 @@ ROUND_CONFIGS = {
                     "investment rationale under ESRS 2 GOV-1."
                 ),
                 # F-2: tier flag owned by round_logic._post_r2_materiality (see option_a).
-                "flags_set": [],
+                # ceo_only_signoff is a choice marker with no consumer.
+                "flags_set": ["ceo_only_signoff"],
                 # budget_clawback_pct is read by round_logic._post_r2_materiality
                 # to retroactively reduce the materiality fund released this round.
                 "budget_clawback_pct": 0.40,
