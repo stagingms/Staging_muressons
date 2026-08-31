@@ -110,6 +110,9 @@ CSRD_ISSUES = {
         ),
         "blindspot_description": "Packaging waste stream composition — product lifecycle data missing.",
         "correct_quadrant": 1,
+        # F-5: borderline — the financial axis hinges on the EPR levy's
+        # enforcement timing; arguable Q1 vs Q2.
+        "is_ambiguous": True,
         "severity": "medium", "likelihood": "high", "time_horizon": "short",
         "disclosure_required": True, "electronics_sensitive": False,
         "esrs_reference": "ESRS E5 (Resource Use & Circular Economy) / EU EPR",
@@ -145,6 +148,9 @@ CSRD_ISSUES = {
         ),
         "blindspot_description": "Community investment data — insufficient documentation.",
         "correct_quadrant": 2,
+        # F-5: borderline — real community impact but financially immaterial;
+        # arguable Q2 vs Q4.
+        "is_ambiguous": True,
         "severity": "medium", "likelihood": "high", "time_horizon": "medium",
         "disclosure_required": True, "electronics_sensitive": False,
         "esrs_reference": "ESRS S3 (Affected Communities)",
@@ -179,6 +185,10 @@ CSRD_ISSUES = {
         ),
         "blindspot_description": "Tier-4 wage data — supply chain audit did not reach this depth.",
         "correct_quadrant": 2,
+        # F-5: genuinely borderline — high societal severity, low/indirect
+        # financial impact; arguable Q1 vs Q2. Earns half credit when placed
+        # in an adjacent quadrant (assurance signal: ambiguous_handled).
+        "is_ambiguous": True,
         "severity": "high", "likelihood": "high", "time_horizon": "short",
         "disclosure_required": True, "electronics_sensitive": True,
         "esrs_reference": "ESRS S2 (Workers in Value Chain) — wage adequacy",
