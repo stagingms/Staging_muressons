@@ -424,6 +424,17 @@ ROUND_2_DEFAULT_CONFIG = {
 }
 
 # ── Q2 Disclosure Budget: Issues requiring disclosure investment ───────────────
+# ── ESRS Assurance Readiness labels ──────────────────────────────────────────
+# Shared by router.submit_materiality_matrix (provisional, at panel submit) and
+# round_logic._post_r2_materiality (final, once the governance choice is known).
+ASSURANCE_LABELS = {
+    0: ("\u274c Not Assurance-Ready", "No board oversight, poor Q1 recall, and no Q2 disclosure. External assurance would be refused."),
+    1: ("\u26a0\ufe0f Limited Readiness", "Partial compliance. Significant gaps remain before limited assurance is achievable."),
+    2: ("\U0001f4cb Limited Assurance Pathway", "Meets minimum threshold for limited assurance under ISAE 3000. Requires improvement in governance and disclosure."),
+    3: ("\u2705 Reasonable Assurance Candidate", "Strong recall and governance. Suitable for reasonable assurance with minor remediation of Q2 disclosure gaps."),
+    4: ("\U0001f3c6 Exemplary ESRS Compliance", "Full board oversight, \u226580% Q1 recall, Q2 disclosure, and ambiguous issues handled correctly. Best-practice materiality process."),
+}
+
 Q2_DISCLOSURE_ISSUES = {
     iid: issue
     for iid, issue in CSRD_ISSUES.items()

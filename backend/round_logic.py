@@ -2842,8 +2842,136 @@ def _revert_r5_hard_engineering_pulse(
             "infrastructure complete, operational CI normalised (I7 time-bounded pulse)."
         )
 
+
+# ── R2: Double Materiality reconciliation ────────────────────────────────────────────
+def _post_r2_materiality(
+    gs: dict, bus: list[dict], decs: list[dict],
+    events: dict, extra: dict, prev_flags: dict,
+):
+    """
+    F-1 structural fix. The Double Materiality matrix is a MID-round panel:
+    router.submit_materiality_matrix scores it and persists the result the
+    moment the player submits. The A/B/C governance choice only exists at
+    end-of-round commit, through the ordinary decision path. This handler is
+    the single point in the round where BOTH inputs exist, so it is the single
+    arbiter for:
+
+      1. the materiality tier flag — exactly ONE of materiality_aligned (+0.10
+         M_R), materiality_partial (+0.05), materiality_ignored (0). No other
+         code path may write these three flags (see test_r2_flag_tiering).
+      2. the Option C clawback — 40% of the RELEASED materiality fund. It
+         reduces the restricted fund first and charges any remainder to
+         treasury, so it always reduces the team's position (F-3 fixed the
+         previous inversion, where the clawback handed cash back).
+      3. the governance_board assurance signal and the student-facing
+         r2_esrs_debrief, both provisional at panel-submit time.
+
+    Matrix results are read from the persisted panel state: both database
+    backends pack extra global_state keys into active_event_flags, so they
+    arrive here through prev_flags (or through gs when already unpacked).
+    """
+    def _panel(key, default=None):
+        if key in events:
+            return events[key]
+        if key in gs:
+            return gs[key]
+        return prev_flags.get(key, default)
+
+    choice = _get_primary_choice(decs)
+    gs["r2_governance_choice"] = choice
+
+    submitted = bool(_panel("csrd_completed", False))
+    try:
+        accuracy_pct = float(_panel("materiality_full_accuracy", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        accuracy_pct = 0.0
+    acc_ok = submitted and accuracy_pct >= 80.0
+
+    # 1) ── Tier flag (§4.1) — accuracy and governance are separate obligations
+    if choice == "option_c":
+        tier = "materiality_ignored"    # governance breach voids any premium
+    elif acc_ok and choice == "option_a":
+        tier = "materiality_aligned"    # analysis right AND approved right
+    elif acc_ok and choice == "option_b":
+        tier = "materiality_partial"    # analysis right, governance partial
+    else:
+        tier = "materiality_ignored"    # accuracy < 80%
+    flags = gs.setdefault("active_event_flags", {})
+    for f in ("materiality_aligned", "materiality_partial", "materiality_ignored"):
+        # Explicit False, never pop: commit-time flag merging is
+        # current ∪ new ∪ events, so only an overwrite retires a stale value.
+        flags[f] = (f == tier)
+    gs["materiality_status"] = {
+        "materiality_aligned": "aligned",
+        "materiality_partial": "partial",
+        "materiality_ignored": "ignored",
+    }[tier]
+    extra["r2_materiality_tier"] = tier
+    extra["r2_materiality_tier_message"] = {
+        "materiality_aligned": (
+            "\U0001f4ca CSRD Governance Premium secured: \u226580% matrix accuracy under full "
+            "board-committee oversight (Option A). materiality_aligned \u2192 +0.10 M_R at terminal valuation."
+        ),
+        "materiality_partial": (
+            "\U0001f4ca Partial governance credit: \u226580% matrix accuracy, but Strategic Exceptions "
+            "(Option B) weakened the governance posture. materiality_partial \u2192 +0.05 M_R at terminal valuation."
+        ),
+        "materiality_ignored": (
+            "\u26a0\ufe0f No governance premium: "
+            + ("Option C breaches ESRS 1 \u00a71.51 board oversight \u2014 accurate analysis cannot excuse "
+               "approving it badly." if choice == "option_c"
+               else "matrix accuracy below the 80% threshold.")
+        ),
+    }[tier]
+
+    # 2) ── Option C clawback — always reduces the team's position ─────────
+    if choice == "option_c":
+        cfg_opts = _fetch_options_for_industry(2, bus)
+        pct = float(cfg_opts.get("option_c", {}).get("budget_clawback_pct", 0.40))
+        released = float(_panel("materiality_fund_released", 0.0) or 0.0)
+        clawback = round(released * pct, 2)
+        if clawback > 0:
+            fund = float(_panel("materiality_restricted_fund", 0.0) or 0.0)
+            taken = min(clawback, fund)
+            gs["materiality_restricted_fund"] = round(fund - taken, 2)
+            shortfall = round(clawback - taken, 2)
+            if shortfall > 0:
+                gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0.0) - shortfall, 2)
+            gs["r2_budget_clawback"] = clawback
+            extra["r2_budget_clawback"] = clawback
+            extra["r2_budget_clawback_message"] = (
+                f"\u26a0\ufe0f CFO Governance Review: Option C (CEO-only sign-off) triggered a "
+                f"${clawback:,.0f} ({int(pct * 100)}%) clawback on your released materiality fund"
+                + (f", ${shortfall:,.0f} of it charged directly to treasury" if shortfall > 0 else "")
+                + ". Governance posture must be consistent with capital allocation rationale."
+            )
+
+    # 3) ── Assurance signal + debrief reconciliation ────────────────────
+    debrief = _panel("r2_esrs_debrief", None)
+    if isinstance(debrief, dict):
+        from round2_csrd import ASSURANCE_LABELS
+        debrief = dict(debrief)  # never mutate the idempotency snapshot in place
+        signals = dict(debrief.get("assurance_signals") or {})
+        signals["governance_board"] = (choice != "option_c")  # ESRS 1 §1.51
+        stars = sum(1 for v in signals.values() if v)
+        label, detail = ASSURANCE_LABELS.get(stars, ASSURANCE_LABELS[0])
+        debrief.update({
+            "assurance_signals": signals,
+            "assurance_stars":   stars,
+            "assurance_label":   label,
+            "assurance_detail":  detail,
+            "governance_choice": choice,
+            "materiality_tier":  tier,
+            "tier_message":      extra["r2_materiality_tier_message"],
+        })
+        if "r2_budget_clawback" in extra:
+            debrief["clawback_applied"] = extra["r2_budget_clawback"]
+        gs["r2_esrs_debrief"] = debrief
+
+
 _POST_TICK_MAP = {
     1: _post_r1_foundations,
+    2: _post_r2_materiality,
     3: _post_r3_scope3,
     4: _post_r4_contagion,   # Fix #2: R4 now has a registered post-tick handler
     5: _ie._post_r5_climate,       # ARCH-001: Extracted to impact_engine.py

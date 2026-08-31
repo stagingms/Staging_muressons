@@ -42,7 +42,7 @@ from models import (
     MaterialitySubmissionResponse,
     SaveDecisionsRequest,
 )
-from round2_csrd import CSRD_ISSUES, ROUND_2_DEFAULT_CONFIG
+from round2_csrd import CSRD_ISSUES, ROUND_2_DEFAULT_CONFIG, ASSURANCE_LABELS
 
 router = APIRouter(prefix="/api/simulations", tags=["Simulations"])
 
@@ -4152,13 +4152,7 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         ),
     }
     assurance_stars = sum(_assurance_signals.values())  # 0-4
-    assurance_labels = {
-        0: ("❌ Not Assurance-Ready", "No board oversight, poor Q1 recall, and no Q2 disclosure. External assurance would be refused."),
-        1: ("⚠️ Limited Readiness", "Partial compliance. Significant gaps remain before limited assurance is achievable."),
-        2: ("📋 Limited Assurance Pathway", "Meets minimum threshold for limited assurance under ISAE 3000. Requires improvement in governance and disclosure."),
-        3: ("✅ Reasonable Assurance Candidate", "Strong recall and governance. Suitable for reasonable assurance with minor remediation of Q2 disclosure gaps."),
-        4: ("🏆 Exemplary ESRS Compliance", "Full board oversight, ≥80% Q1 recall, Q2 disclosure, and ambiguous issues handled correctly. Best-practice materiality process."),
-    }
+    assurance_labels = ASSURANCE_LABELS  # shared with round_logic._post_r2_materiality
     assurance_label, assurance_detail = assurance_labels[assurance_stars]
 
     global_state["r2_esrs_debrief"] = {
