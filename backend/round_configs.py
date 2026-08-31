@@ -136,7 +136,10 @@ ROUND_CONFIGS = {
                     "In Advanced Climate mode: unlocks CSRD/ESRS climate materiality bonus "
                     "(NCD forgiveness +25%). Compliance cost is real."
                 ),
-                "flags_set": ["materiality_aligned"],
+                # F-2: no tier flag here. materiality_aligned / materiality_partial /
+                # materiality_ignored are written ONLY by round_logic._post_r2_materiality,
+                # which combines this choice with the matrix accuracy at post-tick.
+                "flags_set": [],
                 "ac_bonus": {"ncd_forgiveness_multiplier": 1.25, "note": "CSRD climate materiality alignment"},
                 "impacts": {
                     "treasury": -2_500_000,
@@ -166,9 +169,10 @@ ROUND_CONFIGS = {
                     "40% of your materiality budget will be clawed back. Governance posture must match "
                     "investment rationale under ESRS 2 GOV-1."
                 ),
-                "flags_set": ["materiality_ignored"],
-                # budget_clawback_pct is read by submit_materiality_matrix in router.py
-                # to retroactively reduce the materiality capital released this round.
+                # F-2: tier flag owned by round_logic._post_r2_materiality (see option_a).
+                "flags_set": [],
+                # budget_clawback_pct is read by round_logic._post_r2_materiality
+                # to retroactively reduce the materiality fund released this round.
                 "budget_clawback_pct": 0.40,
                 "impacts": {"treasury": 0, "reputation": -5, "governance_risk_delta": +10, "carbon_intensity_delta": +3, "revenue_delta": +400_000, "social_license_delta": -5, "natural_capital_debt_delta": +3},
             },

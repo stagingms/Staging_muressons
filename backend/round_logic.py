@@ -555,6 +555,12 @@ def post_tick(
         elif ending_pathway == "regulatory_shutdown":
             extra_events["compliance_risk_index"] = calc_compliance_risk_index(bu_states, global_state)
 
+    # ── F-2 guard: no flag may exist in dual form (boolean key + list entry) ──
+    _dual = _find_dual_form_flags(global_state.get("active_event_flags", {}) or {})
+    if _dual:
+        print(f"[round_logic] WARNING dual-form flags detected at R{round_number} post_tick: {sorted(_dual)}")
+        extra_events["dual_form_flags_detected"] = sorted(_dual)
+
     return extra_events
 
 
@@ -2998,6 +3004,25 @@ def _get_primary_choice(decisions: list[dict]) -> str:
         if choice.startswith("option_"):
             return choice
     return "option_b"  # default middle-ground
+
+
+def _find_dual_form_flags(flags_dict: dict) -> set[str]:
+    """
+    F-2 guard. A flag that appears BOTH as a boolean key and inside an
+    rN_flags-style list is unretirable: _collect_all_flags unions the two
+    sources with no precedence, so a config flags_set silently outranks any
+    later boolean removal (this is exactly how Option A at 40% accuracy kept
+    the governance premium). Returns the offending flag names; empty = healthy.
+    """
+    bool_keys = {
+        k for k, v in flags_dict.items()
+        if isinstance(k, str) and isinstance(v, bool) and v
+    }
+    list_flags: set[str] = set()
+    for k, v in flags_dict.items():
+        if isinstance(k, str) and "flag" in k.lower() and isinstance(v, list):
+            list_flags.update(str(x) for x in v)
+    return bool_keys & list_flags
 
 
 def _collect_all_flags(flags_dict: dict) -> set[str]:

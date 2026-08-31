@@ -208,7 +208,9 @@ PILLAR_OPTIONS = {
                         "description": "Establish a dedicated materiality oversight committee.",
                         "cost": -2_000_000,
                         "impacts": {"governance_risk_delta": -8, "reputation": +5},
-                        "flags_set": ["materiality_aligned"],
+                        # F-2: pillar-specific marker. The round tier flag
+                        # (materiality_aligned) is owned by _post_r2_materiality.
+                        "flags_set": ["materiality_board_established"],
                     },
                     "compliance_minimum": {
                         "title": "Minimum Compliance",
@@ -222,7 +224,8 @@ PILLAR_OPTIONS = {
                         "description": "Business as usual. No materiality integration.",
                         "cost": 0,
                         "impacts": {"governance_risk_delta": +10, "reputation": -5},
-                        "flags_set": ["materiality_ignored"],
+                        # F-2: pillar-specific marker (tier flag owned by _post_r2_materiality).
+                        "flags_set": ["materiality_framework_ignored"],
                     },
                 },
             },
@@ -1649,8 +1652,10 @@ def translate_pillars_to_legacy_choice(
             "option_c": {"electronics_blindspot"},
         },
         2: {
-            "option_a": {"materiality_aligned"},
-            "option_c": {"materiality_ignored"},
+            # Reverse map ONLY (proxy-choice inference) — never a write path.
+            # Legacy flag names retained so replays of old saves still resolve.
+            "option_a": {"materiality_board_established", "materiality_aligned"},
+            "option_c": {"materiality_framework_ignored", "materiality_ignored"},
         },
         3: {
             "option_a": {"supply_chain_disruption_risk"},

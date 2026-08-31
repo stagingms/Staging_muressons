@@ -4116,22 +4116,12 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     # Unlock the module gate
     global_state["csrd_completed"] = True
 
-    # ── Set materiality_aligned / materiality_ignored flags ────────────────────
-    # These are read by:
-    #   - _post_r10_grand_finale  → +0.10 M_R bonus for materiality_aligned
-    #   - _post_r3_scope3         → Green Bond pricing (-$500K / +$1M)
-    # Aligned = ≥80% Q1 accuracy AND did not choose Option C governance posture
-    r2_gov = global_state.get("r2_governance_choice", "")
-    is_aligned = (full_accuracy >= 0.80) and (r2_gov != "option_c")
-    flags = global_state.setdefault("active_event_flags", {})
-    if is_aligned:
-        flags["materiality_aligned"] = True
-        flags.pop("materiality_ignored", None)
-        global_state["materiality_status"] = "aligned"
-    else:
-        flags["materiality_ignored"] = True
-        flags.pop("materiality_aligned", None)
-        global_state["materiality_status"] = "ignored"
+    # ── Materiality tier flags — NOT set here (F-2) ───────────────────────────
+    # materiality_aligned / materiality_partial / materiality_ignored are owned
+    # exclusively by round_logic._post_r2_materiality, which runs at end-of-round
+    # commit when the A/B/C governance choice exists. Writing any of them at
+    # panel-submit time re-creates the two-writer defect where either path alone
+    # granted the +0.10 M_R premium.
 
     # ── ESRS Debrief Card ─────────────────────────────────────────────────────
     # Post-submission regulatory literacy card explaining the scoring rationale.
@@ -4144,7 +4134,9 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     # just which issues they identified.
     _assurance_signals = {
         "q1_recall":         len(q1_correct_ids) >= (len(q1_target_issue_ids) * 0.8),  # ≥80% Q1 recall
-        "governance_board":  r2_gov != "option_c",                                      # ESRS 1 §1.51 board oversight
+        # Provisional: the A/B/C governance choice does not exist until end-of-round
+        # commit — _post_r2_materiality finalises this signal (and the star count).
+        "governance_board":  True,
         "q2_disclosed":      q2_disclosure_correct > 0,                                 # Impact material issues disclosed
         "ambiguous_handled": any(                                                         # Ambiguous issues placed thoughtfully
             v.get("is_ambiguous") and v.get("credit", 0) >= 0.5
