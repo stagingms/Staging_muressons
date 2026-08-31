@@ -75,6 +75,13 @@ tests (award==projection at SLO 72: 0.88 ramped, was 0.80 cliff; pathway stack c
 from 2.58; Corporate Hardball stack floored at 0; enforcement fires R7 and recurs);
 golden trace unchanged (its team sits outside every ramp band); typical trajectories
 unchanged (max-path M_R 1.68→1.68, min-path 0.80→0.75); full suite 2177 passed with
-only the 11 pre-existing failures. Remaining open: DEEP-4 (seeded stochastics),
-DEEP-5/9 (flag triage), DEEP-6 (green_claim key), DEEP-7 (strike docs), DEEP-8
-(ledger ratchet).
+only the 11 pre-existing failures. DEEP-4 is RESOLVED (branch `fix/seeded-stochastics`):
+impact_engine's four rolls moved onto rng_util's named per-cohort streams
+(unseeded contexts keep the module RNG bit-for-bit); the golden trace's bare-draw
+counter dropped 3 → 0 and became a zero-tripwire per its own instructions
+(remediation #15); reproducibility is pinned by test_seeded_stochastics.py. Note:
+the audit's session_id suggestion was wrong — the house convention deliberately
+seeds per cohort so teammates meet the same events. Remaining open: DEEP-5/9
+(flag triage), DEEP-6 (green_claim key), DEEP-7 (strike docs), DEEP-8 (ledger
+ratchet — one entropy source outside the money path still blocks its strict
+xfail).
