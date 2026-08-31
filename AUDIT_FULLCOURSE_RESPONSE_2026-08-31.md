@@ -70,3 +70,46 @@ Two honest nuances the audit's severity framing needs: (a) with a competent cape
 - `SIMULATION_CONTEXT.md` updated (repairs changelog; B-2 earn-condition; C-6 inert note).
 - The pre-existing uncommitted WIP on `fix/r2-materiality-audit` (DEPLOYMENT_CHECKLIST.md, backend/main.py, test_disk_space_health.py) was preserved through a stash round-trip; its content is intact but its staged-vs-unstaged split collapsed to unstaged — re-stage before committing it.
 - A stale `.git/index.lock` was removed (with permission) to unblock git on this machine.
+
+---
+
+## 9. Follow-up branch: `fix/pillar-impact-ownership` (same day)
+
+Resolves §5.3 of this report (the pillar-mode leak), on its own branch off
+`fix/full-course-impact-audit`, with its own acceptance tests committed red first.
+
+**Measured pre-fix:** every translated legacy option's `reputation`, `revenue_delta`,
+`carbon_intensity_delta` and `governance_risk_delta` stacked on top of the router's
+pillar aggregates in ALL ten rounds (full leak map in the red-test commit message);
+no never-apply gap exists on the pillar surface — every key the pillar options
+declare is router-aggregated or handler-read.
+
+**Design rulings (this session):** R1–R9, the router is the single applier of option
+impacts in pillar mode — the legacy translation is flags/bookkeeping only. R10 is the
+exception: the pillar selections map to an A/B/C ending whose FULL impact set is the
+single source (its SLO/NCD now land in pillar mode for the first time), and the
+router skips applying R10 pillar aggregates on top.
+
+**Changes:** `_apply_common_impacts` bypasses entirely in pillar mode for R1–R9;
+the R10 handler's SLO/NCD pillar guards are lifted; the router's aggregate
+application is extracted to `_apply_pillar_aggregate_impacts` (unit-testable) and
+gated off for R10. Edge fix: `pillar_cost_applied` is set even for an all-zero-cost
+pillar selection — previously such a commit lost its paradigm marker and the whole
+tick ran as legacy by accident.
+
+**Before/after (same pillar policy, same seed, 10 rounds):** closing treasury
++$53.6M → −$137.5M; terminal value +$65.7M → −$214.1M; M_R 1.58 both. The leak was
+financing pillar cohorts by roughly $190M of terminal value under this policy.
+Ship strictly at a cohort boundary, and treat the numbers as a REBALANCING INPUT:
+
+**Design gap exposed (needs the design owner):** pillar options declare no revenue
+impacts anywhere — post-fix, pillar mode has NO decision-driven revenue lever; the
+leaked legacy `revenue_delta` was accidentally load-bearing for pillar-cohort
+revenue growth. Either pillar options should gain deliberate revenue impacts (added
+to the router aggregation list), or pillar-mode balance should be retuned around
+costs/CI/SLO only. Until that ruling, pillar cohorts on this branch will find the
+course markedly harder than the last thirty cohorts did.
+
+**Verification:** 31/31 pillar-ownership acceptance tests green; invariants + R2
+suites green (99 passed); full suite 2167 passed with only the same 11 pre-existing
+base failures; M_R ceilings untouched (legacy path unchanged; ceilings test green).

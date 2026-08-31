@@ -1179,3 +1179,15 @@ repair of the same date). **Do not apply to a mid-course cohort — cohort-bound
   `test_mr_ceilings_unchanged`. The financial golden trace was rebaselined in the same
   branch. Invariants live in `backend/tests/test_engine_invariants.py` (7 test
   families; the AST-resolved impact-key coverage check is the acceptance criterion).
+
+### Addendum — pillar-mode impact ownership (2026-08-31, branch `fix/pillar-impact-ownership`)
+
+In pillar (multi_toggles) mode, the router is the single applier of option impacts
+for R1–R9 (aggregates × effectiveness); the legacy A/B/C translation is bookkeeping
+only and its config impacts no longer stack on top (they silently did, every round,
+until this fix). Round 10 is the exception: the pillar selections map to an A/B/C
+ending whose full impact set — including, newly, its SLO and NCD — is the single
+impact source, and R10 pillar aggregates are not applied. `pillar_cost_applied` is
+always set on pillar commits, even at zero cost. Open design item: pillar options
+declare no revenue impacts, so pillar mode currently has no decision-driven revenue
+lever — the pre-fix leak was masking this. Cohort-boundary shipping only.
