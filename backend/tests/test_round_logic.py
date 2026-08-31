@@ -265,7 +265,10 @@ class TestPostTick:
         extra = post_tick(6, gs, bus, decs, {}, {})
         sw = next(b for b in bus if b["bu_id"] == "software")
         assert sw["revenue_base"] == 8_500_000 + 10_000_000
-        assert gs["group_reputation"] == 30  # 60 - 20 (base) - 10 (contagion spike)
+        # 60 - 20 (base) = 40, then the C-3 social-media velocity amplifier
+        # (R6 multiplier 1.3x, rep < 60): -(60-40)*0.1*0.3 = -0.6 -> 39.4,
+        # then -10 (contagion spike, generic applier) -> 29.4.
+        assert gs["group_reputation"] == 29.4
         assert extra.get("contagion_spike_triggered") is True
 
     def test_r6_option_b_social_license_boost(self):
