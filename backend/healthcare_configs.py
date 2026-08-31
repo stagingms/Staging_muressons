@@ -34,7 +34,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "bed_capacity_increase": +5.0,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Strict Compliance Audit",
                 "description": "Halt expansion to overhaul sterilisation and waste protocols. Lowers risk but delays revenue.",
@@ -111,7 +111,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "revenue_delta": +500_000,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Balanced Regional Clinics",
                 "description": "Build decentralized satellite clinics. Moderate costs, good community impact.",
@@ -160,7 +160,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "elective_surgery_cancel": True,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "full", 
                 "label": "C",
                 "title": "Local Sterile Manufacturing",
                 "description": "Fund an expensive local initiative to sterilize and reuse equipment. High capex, immense long-term resilience.",
@@ -197,7 +197,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "contagion_spike": True,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Algorithmic Recall & Settlement",
                 "description": "Pull the system offline for overhaul and settle with affected families. Very costly upfront. ⚠️ NOTE: This settlement does NOT earn the Truth Premium (+0.15 M_R) at terminal valuation — that requires the full Transparent AI Overhaul in Round 6.",
@@ -207,7 +207,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "reputation": -2,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Human-in-the-Loop Downgrade",
                 "description": "Revert to human clinician overrides on all AI flags. Skyrockets staff burnout and OPEX.",
@@ -272,7 +272,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "natural_capital_debt_delta": +3,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Hardened Grid Continuity",
                 "description": "Invest deeply in microgrids and storm-grade infrastructure. Maximum physical protection.",
@@ -313,7 +313,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "governance_risk_delta": +15,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Transparent AI Overhaul",
                 "description": "Publicly disclose the flaw, halt the system, and collaborate with ethical AI boards. Expensive but builds immense trust.",
@@ -371,7 +371,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "opex_penalty_targets": ["hospitals", "specialised_care"],
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "full", 
                 "label": "C",
                 "title": "Circular Instrument Hubs",
                 "description": "Fund 'circular hubs' that autoclave and remanufacture instruments at scale. (Unlocks synergy multiplier)",
@@ -418,7 +418,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "social_license_delta": -12,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "full", 
                 "label": "C",
                 "title": "Closed-Loop Retrofit",
                 "description": "Expedite retrofitting hospitals with closed-loop greywater reclamation. Massive upfront cost.",
@@ -455,7 +455,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "burnout_spike_amount": 10,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Halt Automation",
                 "description": "Scrap the robotics deployment to appease the union. A colossal waste of prior R&D capital. Earns +0.12 M_R (Just Transition bonus).",
@@ -473,7 +473,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "revenue_delta": -625_000,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Clinician Retraining Hub",
                 "description": "Fund a massive retraining program elevating nurses into tech-triage and oversight roles. Earns +0.18 M_R (Community Champion bonus).",
@@ -521,7 +521,7 @@ HEALTHCARE_ROUND_CONFIGS = {
                     "spinoff_weakest_bu": True,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Universal Care Mandate",
                 "description": "Codify patient outcome standards above margins into the corporate charter. Explicitly preserves synergy multiplier and boosts social license. No immediate cash, but maximum multiple protection at terminal valuation.",
