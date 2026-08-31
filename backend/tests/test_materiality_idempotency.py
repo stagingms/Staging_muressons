@@ -9,11 +9,13 @@ another 500: a deterministic loop. And the marker lived in a top-level state key
 the memory backend drops, so the guard didn't even fire there (double-deduction).
 
 Pins:
-  1. First submit succeeds (200) and deducts the allocated budget once.
+  1. First submit succeeds (200); the released amount lands ONCE in the
+     ring-fenced materiality fund (F-3 semantics: a restricted balance, not a
+     treasury debit — treasury is untouched by the allocation itself).
   2. An IDENTICAL re-submit returns 200 with a schema-valid body (allocated_budget
      + corporate_treasury present) — never a 500.
-  3. The re-submit does NOT deduct again (treasury unchanged) and replays the
-     same allocated_budget + debrief.
+  3. The re-submit changes NOTHING: treasury unchanged, fund not re-created or
+     doubled, same allocated_budget + debrief replayed.
   4. A force-override re-submit after success is also a clean idempotent replay.
 """
 
@@ -56,6 +58,13 @@ def _treasury(sid):
     return dbm._global_states[sid][-1]["corporate_treasury"]
 
 
+def _fund(sid):
+    gs = dbm._global_states[sid][-1]
+    if "materiality_restricted_fund" in gs:
+        return gs["materiality_restricted_fund"]
+    return (gs.get("active_event_flags") or {}).get("materiality_restricted_fund", 0)
+
+
 def test_duplicate_submit_replays_cleanly_no_500():
     sid = _solo()
     before = _treasury(sid)
@@ -65,7 +74,9 @@ def test_duplicate_submit_replays_cleanly_no_500():
     body1 = r1.json()
     assert "allocated_budget" in body1 and "corporate_treasury" in body1
     after_first = _treasury(sid)
-    assert after_first == before - body1["allocated_budget"]   # deducted once
+    assert after_first == before                       # F-3: release is a fund, not a debit
+    fund_first = _fund(sid)
+    assert fund_first >= body1["allocated_budget"]     # released into the ring-fenced fund
 
     # Identical re-submit — the exact loop trigger. Must be 200, never 500.
     r2 = _submit(sid)
@@ -73,7 +84,8 @@ def test_duplicate_submit_replays_cleanly_no_500():
     body2 = r2.json()
     assert body2["allocated_budget"] == body1["allocated_budget"]  # replayed
     assert body2["corporate_treasury"] is not None
-    assert _treasury(sid) == after_first                        # NOT deducted again
+    assert _treasury(sid) == after_first               # treasury untouched by replay
+    assert _fund(sid) == fund_first                    # fund NOT re-created or doubled
 
 
 def test_force_override_resubmit_is_idempotent():

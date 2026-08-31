@@ -3972,24 +3972,12 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
 
     allocated_budget = int(total_budget * m_acc)
 
-    # ── Option C Budget Clawback ───────────────────────────────────────────────
-    # If player chose Option C (Ignore Materiality Framework), the A/B/C governance
-    # decision retroactively reduces the materiality capital unlocked.
-    # This couples governance posture to materiality outcome.
-    from round_configs import get_round_options
-    r2_opts = get_round_options(2)
-    r2_choice = global_state.get("r2_governance_choice", None)
+    # ── Option C clawback: NOT applied here (F-1/F-3) ────────────────────────
+    # The A/B/C governance choice arrives at end-of-round commit, after this
+    # handler has already run, so a submit-time clawback could never fire — and
+    # under the old debit semantics it would have REFUNDED the offending team.
+    # round_logic._post_r2_materiality applies it against the released fund.
     clawback_applied = 0
-    if r2_choice == "option_c":
-        clawback_pct = r2_opts.get("option_c", {}).get("budget_clawback_pct", 0.40)
-        clawback_applied = int(allocated_budget * clawback_pct)
-        allocated_budget -= clawback_applied
-        global_state["r2_budget_clawback"] = clawback_applied
-        global_state["r2_budget_clawback_message"] = (
-            f"⚠️ CFO Governance Review: Option C (Ignore Framework) triggered a "
-            f"${clawback_applied:,} ({int(clawback_pct*100)}%) clawback on your materiality budget. "
-            f"Governance posture must be consistent with capital allocation rationale."
-        )
 
     # ── Full-Quadrant Accuracy — one classifier (F-6) ─────────────────────────
     # Scoring uses round2_csrd.correct_quadrant_v2: dual-axis numeric scoring
@@ -4075,19 +4063,37 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     # This teaches: impact materiality requires disclosure investment, not capex.
     disclosure_allocated = 0
     if q2_disclosure_correct > 0:
-        # Pro-rata: each correct Q2 issue unlocks a portion of disclosure budget
+        # Pro-rata: each correct Q2 issue unlocks a portion of disclosure budget.
+        # Denominator = disclosure-carrying Q2 issues in the ACTIVE dictionary
+        # (the old fixed CSRD_ISSUES denominator made full unlock impossible on
+        # any other dictionary); CSRD count kept as a safety fallback.
         from round2_csrd import Q2_DISCLOSURE_ISSUES
-        max_q2 = max(len(Q2_DISCLOSURE_ISSUES), 1)
-        disclosure_allocated = int(disclosure_budget * (q2_disclosure_correct / max_q2))
+        active_q2_disclosure = sum(
+            1 for i in all_issues
+            if i.get("disclosure_required") and _correct_quadrant_v2(i) == "q2"
+        )
+        max_q2 = max(active_q2_disclosure or len(Q2_DISCLOSURE_ISSUES), 1)
+        disclosure_allocated = int(disclosure_budget * min(1.0, q2_disclosure_correct / max_q2))
         global_state["q2_disclosure_budget_unlocked"] = disclosure_allocated
         global_state["q2_disclosure_message"] = (
             f"📋 ESRS Disclosure Budget: {q2_disclosure_correct} Q2 impact-material issues correctly "
-            f"identified. ${disclosure_allocated:,} disclosure investment budget unlocked for "
-            f"data collection, assurance, and stakeholder engagement (ESRS S1/S2/E1-E5)."
+            f"identified. ${disclosure_allocated:,} disclosure investment budget credited to your "
+            f"ring-fenced materiality fund for data collection, assurance, and stakeholder "
+            f"engagement (ESRS S1/S2/E1-E5)."
         )
 
-    # Deduct allocation from treasury
-    global_state["corporate_treasury"] -= allocated_budget
+    # ── F-3: Capital release → ring-fenced materiality fund (§5.1 option a) ──
+    # The old behaviour debited treasury by the released amount and nothing
+    # ever consumed it: higher accuracy was strictly more expensive and bought
+    # nothing the model reads. The release is now real — the amount becomes a
+    # restricted balance, spendable only as ESG CapEx on the issues identified
+    # (engine.process_tick draws it down before the loan/interest machinery,
+    # mirroring the Advanced Climate green fund). Capital for MISSED issues is
+    # never released: it is simply unavailable, not returned to treasury —
+    # missing an issue means you cannot fund its mitigation.
+    fund_balance = float(allocated_budget + disclosure_allocated)
+    global_state["materiality_restricted_fund"] = fund_balance
+    global_state["materiality_fund_released"] = float(allocated_budget)
     global_state["materiality_budget_allocated"] = list(q1_submission)
 
     # Store BU context if applicable
@@ -4156,6 +4162,9 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         ),
         "full_accuracy_pct":      round(full_accuracy * 100, 1),
         "q2_disclosure_allocated": disclosure_allocated,
+        "materiality_fund_released": allocated_budget,
+        "materiality_fund_balance":  fund_balance,
+        # Finalised by _post_r2_materiality once the governance choice exists.
         "clawback_applied":        clawback_applied,
         # New: per-issue score transparency
         "issue_score_breakdown":   issue_score_breakdown,
@@ -4190,12 +4199,14 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     await db.update_latest_global_state(session_id, global_state, bu_states)
 
     msg_parts = [f"Materiality Matrix accepted. Accuracy: {round(full_accuracy*100)}%."]
+    msg_parts.append(
+        f"${allocated_budget:,} released into your ring-fenced materiality fund "
+        f"(spendable as ESG CapEx on the issues you identified)."
+    )
     if accuracy_bonus:
         msg_parts.append("+1000 bonus points!")
-    if clawback_applied:
-        msg_parts.append(f"Option C clawback: −${clawback_applied:,}.")
     if disclosure_allocated:
-        msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,}.")
+        msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,} credited to the fund.")
 
     return MaterialitySubmissionResponse(
         success=True,

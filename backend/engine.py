@@ -2622,6 +2622,26 @@ def _run_financial_layer(ctx: TickContext) -> None:
         ctx.events["green_fund_used"] = green_fund_used
     ctx.new_green_fund_balance = round(green_fund_balance - green_fund_used, 2)
 
+    # ── F-3: Materiality restricted fund — CapEx offset (any paradigm) ───────
+    # Round 2 releases total_materiality_budget × Q1 recall into a ring-fenced
+    # fund (router.submit_materiality_matrix). The fund is spendable only as
+    # ESG CapEx on the issues the team identified: it offsets requested CapEx
+    # ahead of the overrun/loan/interest machinery, exactly like the Advanced
+    # Climate green fund above. Unspent balance carries forward, restricted —
+    # it is never returned to treasury. _post_r2_materiality claws 40% of the
+    # released amount back from this balance when Option C is chosen.
+    mat_fund_balance = float(current_global.get("materiality_restricted_fund", 0.0) or 0.0)
+    if mat_fund_balance > 0 and total_capex_requested > 0:
+        mat_fund_used = round(min(total_capex_requested, mat_fund_balance), 2)
+        total_capex_requested = round(total_capex_requested - mat_fund_used, 2)
+        ctx.events["materiality_fund_used"] = mat_fund_used
+        ctx.events["materiality_restricted_fund"] = round(mat_fund_balance - mat_fund_used, 2)
+        ctx.events["materiality_fund_message"] = (
+            f"🏦 Materiality Fund: ${mat_fund_used:,.0f} of this round's ESG CapEx was "
+            f"drawn from your ring-fenced materiality fund "
+            f"(${ctx.events['materiality_restricted_fund']:,.0f} remaining)."
+        )
+
     # ── FEATURE 3: Execution Overrun Risk ───────────────────────
     try:
         from admin_shared import _god_mode_settings
