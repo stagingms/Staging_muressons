@@ -3061,6 +3061,12 @@ def _collect_all_flags(flags_dict: dict) -> set[str]:
     for key, val in flags_dict.items():
         if not isinstance(key, str):
             continue  # Skip non-string keys (e.g. SDG integer indices)
+        if key.startswith("_"):
+            # Private state bags (e.g. _materiality_idempotency, whose nested
+            # debrief carries booleans like governance_board/q1_recall) are
+            # storage, not flags — recursing into them polluted the flag
+            # namespace with names no writer ever intended as flags.
+            continue
         if "flag" in key.lower():
             if isinstance(val, list):
                 result.update(str(v) for v in val)

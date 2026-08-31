@@ -363,6 +363,17 @@ def test_no_flag_exists_in_dual_form_after_r2(choice):
     assert "dual_form_flags_detected" not in flags
 
 
+def test_idempotency_record_never_leaks_flags():
+    """Beyond the audit list: _collect_all_flags recursed into nested dicts,
+    so the _materiality_idempotency replay bundle (whose debrief snapshot
+    holds booleans like governance_board / q1_recall) leaked those names into
+    the flag namespace. Underscore-prefixed state bags are storage, not flags."""
+    bag = {"_materiality_idempotency": {"materiality_submitted_r2": {"debrief": {
+        "assurance_signals": {"q1_recall": True, "governance_board": True,
+                              "q2_disclosed": True, "ambiguous_handled": True}}}}}
+    assert _collect_all_flags(bag) == set()
+
+
 # ── 7 & 8. One classifier / quadrant coverage (F-6) ─────────────────────────
 
 def test_one_classifier_for_every_shipped_dictionary():
