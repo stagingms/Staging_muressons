@@ -248,7 +248,8 @@ DEFAULT_CONFIG = {
          "hover_description": "Tier-3 forced labour & child labour; CSDDD civil liability + boycott risk",
          "category": "social", "financial_impact": "medium", "societal_impact": "high",
          "mitigation_cost_usd": 900000, "esrs_topic": "S2", "value_chain_scope": "upstream",
-         "time_horizon": "medium", "severity_score": 4, "likelihood_score": 3, "is_ambiguous": False},
+         "time_horizon": "medium", "severity_score": 4, "likelihood_score": 3, "is_ambiguous": False,
+         "disclosure_required": True},
         {"id": "plastic_waste_impact", "title": "Plastic Waste Impact",
          "hover_description": "15% EPR levy imminent; ocean microplastics and PPWR non-compliance",
          "category": "ecological", "financial_impact": "high", "societal_impact": "high",
@@ -258,7 +259,8 @@ DEFAULT_CONFIG = {
          "hover_description": "Deforestation and palm-oil dependency; EUDR non-compliance = market access ban. AMBIGUOUS: financial impact depends on EUDR enforcement timeline.",
          "category": "ecological", "financial_impact": "medium", "societal_impact": "high",
          "mitigation_cost_usd": 500000, "esrs_topic": "E4", "value_chain_scope": "upstream",
-         "time_horizon": "long", "severity_score": 3, "likelihood_score": 3, "is_ambiguous": True}
+         "time_horizon": "long", "severity_score": 3, "likelihood_score": 3, "is_ambiguous": True,
+         "disclosure_required": True}
     ],
     "interdependencies": [
         {"source": "supply_chain_labor_risk", "target": "biodiversity_financial_risk",

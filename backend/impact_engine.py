@@ -89,9 +89,15 @@ def _post_r5_climate(
         extra["cyclone_probability_escalated"] = True
         extra["cyclone_escalation_reason"] = "Climate warning: +5% probability"
 
+    # B-4 (2026-08-31 audit): the roll now actually reads the special_rules
+    # switch that has always documented it. Default True preserves behaviour.
+    stochastic_enabled = bool(special.get("stochastic_event", True))
     roll = round(random.random(), 4)
     extra["stochastic_roll"] = roll
     extra["stochastic_threshold"] = threshold
+    if not stochastic_enabled:
+        roll = 1.0  # switch off: the cyclone can never strike
+        extra["stochastic_event_disabled"] = True
 
     active_resilience_factor = events.get("active_resilience_factor", 0.0)
     effective_resilience = active_resilience_factor
@@ -156,6 +162,9 @@ def _post_r5_climate(
                 "description": "Hard Engineering Impact Adjustments"
             })
             extra["ncd_project_started"] = True
+            # Guard: R5 defers NCD as a pending project — the generic
+            # applier must not ALSO apply it immediately.
+            extra["natural_capital_debt_applied_r5"] = ncd_delta
 
     # ── ITEM 15: Nature-Based Solution Uncertainty ────────────
     # Option B (mangrove restoration) has stochastic success rate
@@ -229,14 +238,19 @@ def _post_r9_just_transition(
             else:
                 gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
 
-        rep_delta = impacts.get("reputation_delta", 0)
+        rep_delta = impacts.get("reputation", impacts.get("reputation_delta", 0))
         if rep_delta != 0:
             gs["group_reputation"] = max(0, min(100, round(gs["group_reputation"] + rep_delta, 2)))
+            # Guard for the generic applier — and the read the ITEM 20
+            # retraining clawback has always depended on (it was a dead read
+            # before this line existed: the clawback could never fire).
+            extra["reputation_applied_r9"] = rep_delta
 
         sl_delta = impacts.get("social_license_delta", 0)
         if sl_delta != 0:
             for bu in bus:
                 bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
+            extra["social_license_applied_r9"] = sl_delta  # guard: generic applier must skip R9
 
         gov_delta = impacts.get("governance_risk_delta", 0)
         if gov_delta != 0:
@@ -256,13 +270,18 @@ def _post_r9_just_transition(
     if has_strike_risk:
         avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 50
         strike_threshold = 50
+        # B-4 (2026-08-31 audit): both R9 switches are now actually read.
+        # Defaults True preserve shipped behaviour when the keys are absent.
+        _r9_rules = (get_round_config(9) or {}).get("special_rules", {})
+        _friction_on = bool(_r9_rules.get("regulatory_friction_enabled", True))
+        _strike_on = bool(_r9_rules.get("low_social_license_strike_trigger", True))
 
         # Calculate Regulatory Friction = 1 / SLO_m (avg social license)
         regulatory_friction = round(1.0 / max(1.0, avg_sl), 4)
         extra["regulatory_friction"] = regulatory_friction
 
         # Fix #6: Wire regulatory_friction as a concrete OPEX surcharge.
-        if avg_sl < strike_threshold and regulatory_friction > 0.02:
+        if _friction_on and avg_sl < strike_threshold and regulatory_friction > 0.02:
             friction_penalty_rate = regulatory_friction * 0.08
             for bu in bus:
                 friction_penalty = round(bu["opex_base"] * friction_penalty_rate, 2)
@@ -274,7 +293,7 @@ def _post_r9_just_transition(
                 f"OPEX surcharge of {friction_penalty_rate * 100:.1f}% applied across all BUs."
             )
 
-        if avg_sl < strike_threshold:
+        if _strike_on and avg_sl < strike_threshold:
             cfg = get_round_config(9)
             sp_rules = cfg.get("special_rules", {}) if cfg else {}
             strike_prob = sp_rules.get("strike_probability_override", 0.50)
@@ -333,6 +352,12 @@ def _post_r9_just_transition(
         success_rate = min(1.0, 0.7 + 0.003 * avg_sl)
         retrain_roll = random.random()
         retrain_succeeded = retrain_roll < success_rate
+        # B-3 fix (2026-08-31 full-course audit): persist the outcome flag —
+        # the facilitator dashboard (admin_router) reads retraining_succeeded
+        # exactly as it reads nbs_succeeded, but only the NBS half of the
+        # stochastic-outcome pair was ever written.
+        gs.setdefault("active_event_flags", {})["retraining_succeeded"] = retrain_succeeded
+        gs["active_event_flags"]["retraining_roll"] = round(retrain_roll, 4)
         extra["retraining_assessment"] = {
             "success_rate": round(success_rate * 100, 1),
             "roll": round(retrain_roll, 4),

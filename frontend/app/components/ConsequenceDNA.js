@@ -59,6 +59,11 @@ const FLAG_CHAINS = {
     effect: { label: 'Governance credibility +', type: 'effect' },
     future: { label: '+0.10 M_R at R10', type: 'future' },
   },
+  materiality_partial: {
+    source: { round: 2, label: 'R2: Accurate matrix, partial governance (Option B)', type: 'decision' },
+    effect: { label: 'Governance credibility + (partial)', type: 'effect' },
+    future: { label: '+0.05 M_R at R10', type: 'future' },
+  },
   // ── Shadow Board Audit (R5) — Value Judgment Cascades ──
   shareholder_alienated: {
     source: { round: 5, label: 'R5: Rejected Shareholder Logic', type: 'decision' },

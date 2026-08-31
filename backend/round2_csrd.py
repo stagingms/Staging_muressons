@@ -110,6 +110,9 @@ CSRD_ISSUES = {
         ),
         "blindspot_description": "Packaging waste stream composition — product lifecycle data missing.",
         "correct_quadrant": 1,
+        # F-5: borderline — the financial axis hinges on the EPR levy's
+        # enforcement timing; arguable Q1 vs Q2.
+        "is_ambiguous": True,
         "severity": "medium", "likelihood": "high", "time_horizon": "short",
         "disclosure_required": True, "electronics_sensitive": False,
         "esrs_reference": "ESRS E5 (Resource Use & Circular Economy) / EU EPR",
@@ -145,6 +148,9 @@ CSRD_ISSUES = {
         ),
         "blindspot_description": "Community investment data — insufficient documentation.",
         "correct_quadrant": 2,
+        # F-5: borderline — real community impact but financially immaterial;
+        # arguable Q2 vs Q4.
+        "is_ambiguous": True,
         "severity": "medium", "likelihood": "high", "time_horizon": "medium",
         "disclosure_required": True, "electronics_sensitive": False,
         "esrs_reference": "ESRS S3 (Affected Communities)",
@@ -179,6 +185,10 @@ CSRD_ISSUES = {
         ),
         "blindspot_description": "Tier-4 wage data — supply chain audit did not reach this depth.",
         "correct_quadrant": 2,
+        # F-5: genuinely borderline — high societal severity, low/indirect
+        # financial impact; arguable Q1 vs Q2. Earns half credit when placed
+        # in an adjacent quadrant (assurance signal: ambiguous_handled).
+        "is_ambiguous": True,
         "severity": "high", "likelihood": "high", "time_horizon": "short",
         "disclosure_required": True, "electronics_sensitive": True,
         "esrs_reference": "ESRS S2 (Workers in Value Chain) — wage adequacy",
@@ -424,6 +434,17 @@ ROUND_2_DEFAULT_CONFIG = {
 }
 
 # ── Q2 Disclosure Budget: Issues requiring disclosure investment ───────────────
+# ── ESRS Assurance Readiness labels ──────────────────────────────────────────
+# Shared by router.submit_materiality_matrix (provisional, at panel submit) and
+# round_logic._post_r2_materiality (final, once the governance choice is known).
+ASSURANCE_LABELS = {
+    0: ("\u274c Not Assurance-Ready", "No board oversight, poor Q1 recall, and no Q2 disclosure. External assurance would be refused."),
+    1: ("\u26a0\ufe0f Limited Readiness", "Partial compliance. Significant gaps remain before limited assurance is achievable."),
+    2: ("\U0001f4cb Limited Assurance Pathway", "Meets minimum threshold for limited assurance under ISAE 3000. Requires improvement in governance and disclosure."),
+    3: ("\u2705 Reasonable Assurance Candidate", "Strong recall and governance. Suitable for reasonable assurance with minor remediation of Q2 disclosure gaps."),
+    4: ("\U0001f3c6 Exemplary ESRS Compliance", "Full board oversight, \u226580% Q1 recall, Q2 disclosure, and ambiguous issues handled correctly. Best-practice materiality process."),
+}
+
 Q2_DISCLOSURE_ISSUES = {
     iid: issue
     for iid, issue in CSRD_ISSUES.items()
@@ -461,6 +482,59 @@ _FINANCIAL_ISSUE_IDS: set[str] = {
 }
 
 
+# ── Axis classification (F-6) ─────────────────────────────────────────────────
+# ESRS 1 treats impact materiality and financial materiality as SEPARATE
+# assessments: impact materiality is severity (scale, scope, irremediability)
+# × likelihood of the impact; financial materiality is magnitude × likelihood
+# of the financial effect. A single severity × likelihood product cannot
+# express both: applying one product to each axis forces every issue onto the
+# Q1/Q4 diagonal and makes Q2 and Q3 unreachable (that defect shipped —
+# 3 of 8 DEFAULT_CONFIG issues were mis-scored, Q2/Q3 placements were marked
+# wrong, and the Q2 disclosure budget could never unlock).
+#
+# Numeric scoring is therefore used ONLY when all four axis-specific fields
+# are present. Otherwise the string labels govern — and the string labels are
+# already the authority for q1_target_issue_ids, so this makes the round use
+# ONE rule instead of two. No shipped dictionary carries the four dual-axis
+# fields today, so every dictionary falls back to the string labels, while
+# proper dual-axis scoring stays available for future configs.
+ESRS_MAT_THRESHOLD = 12  # out of 25 (5x5)
+_DUAL_AXIS_FIELDS = (
+    "impact_severity_score", "impact_likelihood_score",
+    "financial_magnitude_score", "financial_likelihood_score",
+)
+
+
+def _has_dual_axis_scores(issue: dict) -> bool:
+    return all(issue.get(f) is not None for f in _DUAL_AXIS_FIELDS)
+
+
+def mat_axis_is_high(issue: dict, axis: str) -> bool:
+    """True if the given axis clears the ESRS significance threshold."""
+    if _has_dual_axis_scores(issue):
+        if axis == "fin":
+            product = issue["financial_magnitude_score"] * issue["financial_likelihood_score"]
+        else:
+            product = issue["impact_severity_score"] * issue["impact_likelihood_score"]
+        return product >= ESRS_MAT_THRESHOLD
+    # Legacy single-pair severity_score/likelihood_score is NOT sufficient to
+    # separate the axes and is deliberately ignored here.
+    return issue.get("financial_impact" if axis == "fin" else "societal_impact") == "high"
+
+
+def correct_quadrant_v2(issue: dict) -> str:
+    """The round's ONE quadrant classifier (see mat_axis_is_high)."""
+    h_fin = mat_axis_is_high(issue, "fin")
+    h_imp = mat_axis_is_high(issue, "soc")
+    if h_fin and h_imp:
+        return "q1"
+    if not h_fin and h_imp:
+        return "q2"
+    if h_fin and not h_imp:
+        return "q3"
+    return "q4"
+
+
 def compute_panel_recommendations(issues: list[dict]) -> dict[str, dict[str, str]]:
     """
     Compute per-group quadrant recommendations for every issue.
@@ -482,8 +556,12 @@ def compute_panel_recommendations(issues: list[dict]) -> dict[str, dict[str, str
 
     for issue in issues:
         iid = issue.get("id", "")
-        cq_num = issue.get("correct_quadrant", 4)
-        cq = f"q{cq_num}"
+        cq_num = issue.get("correct_quadrant")
+        # Dictionaries without an explicit correct_quadrant (e.g. the 8-issue
+        # materiality_db.DEFAULT_CONFIG) used to default EVERY issue to q4,
+        # silently degrading all panel recommendations — experts included.
+        # Fall back to the round's single classifier instead.
+        cq = f"q{cq_num}" if cq_num is not None else correct_quadrant_v2(issue)
         issue_recs: dict[str, str] = {}
 
         for group, bias in _PANEL_GROUP_BIASES.items():

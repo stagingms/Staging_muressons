@@ -19,6 +19,7 @@ const FLAG_DEPENDENCY_GRAPH = [
   { source_round: 1, flag: 'deep_audit_completed', target_round: 4, effect: 'Halves crisis severity', category: 'governance', label: 'Deep Audit' },
   { source_round: 1, flag: 'electronics_blindspot', target_round: 4, effect: 'Doubles crisis severity', category: 'risk', label: 'Blind Spot' },
   { source_round: 2, flag: 'materiality_aligned', target_round: 10, effect: '+0.10 M_R bonus', category: 'governance', label: 'Materiality' },
+  { source_round: 2, flag: 'materiality_partial', target_round: 10, effect: '+0.05 M_R bonus (partial)', category: 'governance', label: 'Materiality (partial)' },
   { source_round: 2, flag: 'blockchain_traceability', target_round: 8, effect: 'Prevents supply scandal', category: 'supply_chain', label: 'Blockchain' },
   { source_round: 3, flag: 'early_decarboniser', target_round: 7, effect: '+0.10 synergy bonus', category: 'climate', label: 'Decarboniser' },
   { source_round: 3, flag: 'greenwash_risk', target_round: 5, effect: 'Triggers greenwash penalty', category: 'risk', label: 'Greenwash' },

@@ -42,7 +42,10 @@ from models import (
     MaterialitySubmissionResponse,
     SaveDecisionsRequest,
 )
-from round2_csrd import CSRD_ISSUES, ROUND_2_DEFAULT_CONFIG
+from round2_csrd import (
+    CSRD_ISSUES, ROUND_2_DEFAULT_CONFIG, ASSURANCE_LABELS,
+    ESRS_MAT_THRESHOLD, correct_quadrant_v2,
+)
 
 router = APIRouter(prefix="/api/simulations", tags=["Simulations"])
 
@@ -2454,7 +2457,11 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         # Apply treasury cost from pillar selections (NOT modified by effectiveness — cost is always owed)
         if agg_cost != 0:
             new_global["corporate_treasury"] = round(new_global["corporate_treasury"] + agg_cost, 2)
-            events["pillar_cost_applied"] = agg_cost
+        # ALWAYS set the marker in pillar mode, even at zero cost — it is the
+        # paradigm signal every post_tick handler (and _apply_common_impacts)
+        # branches on. Before 2026-08-31 an all-free pillar selection left it
+        # unset and the whole tick ran in legacy mode by accident.
+        events["pillar_cost_applied"] = agg_cost
 
         # ── Workforce Readiness → Pillar Effectiveness ──
         # Low readiness reduces the magnitude of strategic impacts (not costs)
@@ -2462,62 +2469,15 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         if effectiveness != 1.0:
             events["pillar_effectiveness_modifier_applied"] = effectiveness
 
-        # Apply reputation delta (scaled by effectiveness)
-        rep_delta = round(agg_impacts.get("reputation", 0) * effectiveness, 2)
-        if rep_delta != 0:
-            new_global["group_reputation"] = max(0, min(100, round(new_global["group_reputation"] + rep_delta, 2)))
-
-        # Calculate BU revenue weights for proportional delta application
-        total_revenue = sum(bu.get("revenue_base", 0) for bu in new_bus)
-        num_bus = len(new_bus)
-
-        def _get_weight(bu_data: dict) -> float:
-            if total_revenue <= 0 or num_bus == 0:
-                return 1.0 / max(1, num_bus)
-            return bu_data.get("revenue_base", 0) / total_revenue
-
-        # Apply NCD delta proportionally across BUs (scaled by effectiveness)
-        ncd_delta = round(agg_impacts.get("natural_capital_debt_delta", 0) * effectiveness, 2)
-        if ncd_delta != 0:
-            for bu in new_bus:
-                proportional_ncd = ncd_delta * _get_weight(bu) * num_bus
-                bu["natural_capital_debt"] = max(0, round(bu.get("natural_capital_debt", 0) + proportional_ncd, 2))
-
-        # Apply carbon intensity delta proportionally across BUs (scaled by effectiveness)
-        ci_delta = round(agg_impacts.get("carbon_intensity_delta", 0) * effectiveness, 2)
-        if ci_delta != 0:
-            for bu in new_bus:
-                proportional_ci = ci_delta * _get_weight(bu) * num_bus
-                bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + proportional_ci, 2))
-
-        # Apply social license delta proportionally across BUs (scaled by effectiveness)
-        sl_delta = round(agg_impacts.get("social_license_delta", 0) * effectiveness, 2)
-        if sl_delta != 0:
-            for bu in new_bus:
-                proportional_sl = sl_delta * _get_weight(bu) * num_bus
-                bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + proportional_sl, 2)))
-
-        # Apply governance risk delta proportionally across BUs (scaled by effectiveness)
-        gov_delta = round(agg_impacts.get("governance_risk_delta", 0) * effectiveness, 2)
-        if gov_delta != 0:
-            for bu in new_bus:
-                proportional_gov = gov_delta * _get_weight(bu) * num_bus
-                bu["governance_risk_score"] = max(0, min(100, round(bu.get("governance_risk_score", 0) + proportional_gov, 2)))
-
-        # Apply water dependency delta proportionally across BUs (scaled by effectiveness)
-        wd_delta = round(agg_impacts.get("water_dependency_delta", 0) * effectiveness, 2)
-        if wd_delta != 0:
-            for bu in new_bus:
-                proportional_wd = wd_delta * _get_weight(bu) * num_bus
-                bu["water_dependency"] = max(0, round(bu.get("water_dependency", 0) + proportional_wd, 2))
-
-        # Apply burnout delta across all BUs (from HR pillar visible impacts)
-        burnout_delta = agg_impacts.get("burnout_delta", 0)
-        if burnout_delta != 0:
-            for bu in new_bus:
-                current_bo = bu.get("staff_burnout_index", 0.0)
-                bu["staff_burnout_index"] = max(0.0, min(100.0, round(current_bo + burnout_delta, 2)))
-            events["pillar_burnout_delta_applied"] = burnout_delta
+        # Pillar-impact ownership (2026-08-31 design ruling): R1-R9 the
+        # router applies the aggregates here — the single impact source in
+        # pillar mode. R10 is the exception: the pillar selections map to an
+        # A/B/C ending whose full impact set applies in post_tick, so the
+        # aggregates are NOT applied on top.
+        if current_round != 10:
+            _apply_pillar_aggregate_impacts(new_global, new_bus, events, agg_impacts, effectiveness)
+        else:
+            events["pillar_aggregates_skipped_r10"] = True
 
         # Store pillar metadata in events
         events["decision_paradigm"] = "multi_toggles"
@@ -3895,11 +3855,16 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
             stakeholder_boosts.update(issue_ids)
     global_state["stakeholder_boosted_issues"] = list(stakeholder_boosts)
 
-    # Pre-compute the target Q1 (High Fin + High Impact)
-    q1_target_issue_ids = set()
-    for issue in all_issues:
-        if issue["financial_impact"] == "high" and issue["societal_impact"] == "high":
-            q1_target_issue_ids.add(issue["id"])
+    # Pre-compute the target Q1 (High Fin + High Impact) through the round's
+    # single classifier (F-6 follow-up). For every shipped dictionary this is
+    # the same string-label rule as before — correct_quadrant_v2 falls back to
+    # financial_impact/societal_impact — but capital release and full-quadrant
+    # accuracy can no longer drift apart, and issues missing a label no longer
+    # raise KeyError.
+    q1_target_issue_ids = {
+        issue["id"] for issue in all_issues
+        if correct_quadrant_v2(issue) == "q1"
+    }
 
     total_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["total_materiality_budget"]
     disclosure_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["disclosure_investment_budget"]
@@ -3964,57 +3929,18 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
 
     allocated_budget = int(total_budget * m_acc)
 
-    # ── Option C Budget Clawback ───────────────────────────────────────────────
-    # If player chose Option C (Ignore Materiality Framework), the A/B/C governance
-    # decision retroactively reduces the materiality capital unlocked.
-    # This couples governance posture to materiality outcome.
-    from round_configs import get_round_options
-    r2_opts = get_round_options(2)
-    r2_choice = global_state.get("r2_governance_choice", None)
+    # ── Option C clawback: NOT applied here (F-1/F-3) ────────────────────────
+    # The A/B/C governance choice arrives at end-of-round commit, after this
+    # handler has already run, so a submit-time clawback could never fire — and
+    # under the old debit semantics it would have REFUNDED the offending team.
+    # round_logic._post_r2_materiality applies it against the released fund.
     clawback_applied = 0
-    if r2_choice == "option_c":
-        clawback_pct = r2_opts.get("option_c", {}).get("budget_clawback_pct", 0.40)
-        clawback_applied = int(allocated_budget * clawback_pct)
-        allocated_budget -= clawback_applied
-        global_state["r2_budget_clawback"] = clawback_applied
-        global_state["r2_budget_clawback_message"] = (
-            f"⚠️ CFO Governance Review: Option C (Ignore Framework) triggered a "
-            f"${clawback_applied:,} ({int(clawback_pct*100)}%) clawback on your materiality budget. "
-            f"Governance posture must be consistent with capital allocation rationale."
-        )
 
-    # ── Full-Quadrant Accuracy Bonus — ESRS 1 §1.30-1.38 ──────────────────────
-    # Upgrade: dual-axis severity×likelihood scoring.
-    # For issues with numeric fields: threshold ≥ ESRS_MAT_THRESHOLD (default 12/25)
-    # determines whether each axis is "high" (material) — no more binary string labels.
-    # Falls back to legacy string-label matching for issues without numeric fields.
-    ESRS_MAT_THRESHOLD = 12  # out of 25 (5×5). Mirrors real ESRS significance threshold.
-
-    def _mat_axis_is_high(issue, axis: str) -> bool:
-        """
-        Returns True if the given axis (financial or societal) is 'high' (material).
-        Priority: numeric severity/likelihood product → legacy string label fallback.
-        """
-        sev = issue.get("severity_score")
-        like = issue.get("likelihood_score")
-        if sev is not None and like is not None:
-            product = sev * like
-            # For financial axis we use the product as proxy for enterprise risk
-            # For societal axis we use the same product (both axes use same severity/likelihood)
-            # This reflects ESRS 1 §1.30: both impact and financial materiality use the same
-            # underlying severity/likelihood assessment of the underlying matter.
-            return product >= ESRS_MAT_THRESHOLD
-        # Fallback: legacy string label
-        return issue.get(f"{'financial' if axis == 'fin' else 'societal'}_impact") == "high"
-
-    def _correct_quadrant_v2(issue: dict) -> str:
-        """ESRS-aligned quadrant classification using severity×likelihood axes."""
-        h_fin = _mat_axis_is_high(issue, "fin")
-        h_imp = _mat_axis_is_high(issue, "soc")
-        if h_fin and h_imp:     return "q1"
-        if not h_fin and h_imp: return "q2"
-        if h_fin and not h_imp: return "q3"
-        return "q4"
+    # ── Full-Quadrant Accuracy — one classifier (F-6) ─────────────────────────
+    # Scoring uses round2_csrd.correct_quadrant_v2: dual-axis numeric scoring
+    # only when all four axis-specific fields are present, otherwise the same
+    # string labels that build q1_target_issue_ids. One rule, not two.
+    _correct_quadrant_v2 = correct_quadrant_v2
 
     # Adjacent-quadrant map for ambiguous partial credit
     _ADJACENT_Q = {
@@ -4080,9 +4006,14 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
             }
 
     full_accuracy = (correct_placed / total_placed) if total_placed > 0 else 0.0
+    # F-4: threshold and bonus come from round config special_rules — the one
+    # place the classroom numbers are declared (80% → +1000 leaderboard points;
+    # the previously documented 90%/$2M treasury bonus never existed).
+    _r2_rules = (get_round_config(2) or {}).get("special_rules", {})
+    _acc_threshold = float(_r2_rules.get("accuracy_threshold_pct", 80)) / 100.0
     accuracy_bonus = 0
-    if full_accuracy >= 0.80:
-        accuracy_bonus = 1000
+    if full_accuracy >= _acc_threshold:
+        accuracy_bonus = int(_r2_rules.get("accuracy_bonus_points", 1000))
         global_state["bonus_score"] = global_state.get("bonus_score", 0) + accuracy_bonus
 
     global_state["materiality_full_accuracy"] = round(full_accuracy * 100, 1)
@@ -4094,19 +4025,37 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     # This teaches: impact materiality requires disclosure investment, not capex.
     disclosure_allocated = 0
     if q2_disclosure_correct > 0:
-        # Pro-rata: each correct Q2 issue unlocks a portion of disclosure budget
+        # Pro-rata: each correct Q2 issue unlocks a portion of disclosure budget.
+        # Denominator = disclosure-carrying Q2 issues in the ACTIVE dictionary
+        # (the old fixed CSRD_ISSUES denominator made full unlock impossible on
+        # any other dictionary); CSRD count kept as a safety fallback.
         from round2_csrd import Q2_DISCLOSURE_ISSUES
-        max_q2 = max(len(Q2_DISCLOSURE_ISSUES), 1)
-        disclosure_allocated = int(disclosure_budget * (q2_disclosure_correct / max_q2))
+        active_q2_disclosure = sum(
+            1 for i in all_issues
+            if i.get("disclosure_required") and _correct_quadrant_v2(i) == "q2"
+        )
+        max_q2 = max(active_q2_disclosure or len(Q2_DISCLOSURE_ISSUES), 1)
+        disclosure_allocated = int(disclosure_budget * min(1.0, q2_disclosure_correct / max_q2))
         global_state["q2_disclosure_budget_unlocked"] = disclosure_allocated
         global_state["q2_disclosure_message"] = (
             f"📋 ESRS Disclosure Budget: {q2_disclosure_correct} Q2 impact-material issues correctly "
-            f"identified. ${disclosure_allocated:,} disclosure investment budget unlocked for "
-            f"data collection, assurance, and stakeholder engagement (ESRS S1/S2/E1-E5)."
+            f"identified. ${disclosure_allocated:,} disclosure investment budget credited to your "
+            f"ring-fenced materiality fund for data collection, assurance, and stakeholder "
+            f"engagement (ESRS S1/S2/E1-E5)."
         )
 
-    # Deduct allocation from treasury
-    global_state["corporate_treasury"] -= allocated_budget
+    # ── F-3: Capital release → ring-fenced materiality fund (§5.1 option a) ──
+    # The old behaviour debited treasury by the released amount and nothing
+    # ever consumed it: higher accuracy was strictly more expensive and bought
+    # nothing the model reads. The release is now real — the amount becomes a
+    # restricted balance, spendable only as ESG CapEx on the issues identified
+    # (engine.process_tick draws it down before the loan/interest machinery,
+    # mirroring the Advanced Climate green fund). Capital for MISSED issues is
+    # never released: it is simply unavailable, not returned to treasury —
+    # missing an issue means you cannot fund its mitigation.
+    fund_balance = float(allocated_budget + disclosure_allocated)
+    global_state["materiality_restricted_fund"] = fund_balance
+    global_state["materiality_fund_released"] = float(allocated_budget)
     global_state["materiality_budget_allocated"] = list(q1_submission)
 
     # Store BU context if applicable
@@ -4116,22 +4065,12 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     # Unlock the module gate
     global_state["csrd_completed"] = True
 
-    # ── Set materiality_aligned / materiality_ignored flags ────────────────────
-    # These are read by:
-    #   - _post_r10_grand_finale  → +0.10 M_R bonus for materiality_aligned
-    #   - _post_r3_scope3         → Green Bond pricing (-$500K / +$1M)
-    # Aligned = ≥80% Q1 accuracy AND did not choose Option C governance posture
-    r2_gov = global_state.get("r2_governance_choice", "")
-    is_aligned = (full_accuracy >= 0.80) and (r2_gov != "option_c")
-    flags = global_state.setdefault("active_event_flags", {})
-    if is_aligned:
-        flags["materiality_aligned"] = True
-        flags.pop("materiality_ignored", None)
-        global_state["materiality_status"] = "aligned"
-    else:
-        flags["materiality_ignored"] = True
-        flags.pop("materiality_aligned", None)
-        global_state["materiality_status"] = "ignored"
+    # ── Materiality tier flags — NOT set here (F-2) ───────────────────────────
+    # materiality_aligned / materiality_partial / materiality_ignored are owned
+    # exclusively by round_logic._post_r2_materiality, which runs at end-of-round
+    # commit when the A/B/C governance choice exists. Writing any of them at
+    # panel-submit time re-creates the two-writer defect where either path alone
+    # granted the +0.10 M_R premium.
 
     # ── ESRS Debrief Card ─────────────────────────────────────────────────────
     # Post-submission regulatory literacy card explaining the scoring rationale.
@@ -4144,7 +4083,9 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     # just which issues they identified.
     _assurance_signals = {
         "q1_recall":         len(q1_correct_ids) >= (len(q1_target_issue_ids) * 0.8),  # ≥80% Q1 recall
-        "governance_board":  r2_gov != "option_c",                                      # ESRS 1 §1.51 board oversight
+        # Provisional: the A/B/C governance choice does not exist until end-of-round
+        # commit — _post_r2_materiality finalises this signal (and the star count).
+        "governance_board":  True,
         "q2_disclosed":      q2_disclosure_correct > 0,                                 # Impact material issues disclosed
         "ambiguous_handled": any(                                                         # Ambiguous issues placed thoughtfully
             v.get("is_ambiguous") and v.get("credit", 0) >= 0.5
@@ -4152,13 +4093,7 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         ),
     }
     assurance_stars = sum(_assurance_signals.values())  # 0-4
-    assurance_labels = {
-        0: ("❌ Not Assurance-Ready", "No board oversight, poor Q1 recall, and no Q2 disclosure. External assurance would be refused."),
-        1: ("⚠️ Limited Readiness", "Partial compliance. Significant gaps remain before limited assurance is achievable."),
-        2: ("📋 Limited Assurance Pathway", "Meets minimum threshold for limited assurance under ISAE 3000. Requires improvement in governance and disclosure."),
-        3: ("✅ Reasonable Assurance Candidate", "Strong recall and governance. Suitable for reasonable assurance with minor remediation of Q2 disclosure gaps."),
-        4: ("🏆 Exemplary ESRS Compliance", "Full board oversight, ≥80% Q1 recall, Q2 disclosure, and ambiguous issues handled correctly. Best-practice materiality process."),
-    }
+    assurance_labels = ASSURANCE_LABELS  # shared with round_logic._post_r2_materiality
     assurance_label, assurance_detail = assurance_labels[assurance_stars]
 
     global_state["r2_esrs_debrief"] = {
@@ -4166,7 +4101,9 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         "q1_correct":     q1_correct_ids,
         "q1_missed":      q1_missed_ids,
         "scoring_rationale": (
-            f"Scoring engine: severity × likelihood ≥ {12}/25 on BOTH axes = Q1 (doubly material). "
+            "Scoring engine: impact materiality and financial materiality are assessed "
+            "SEPARATELY (ESRS 1). High on both axes = Q1 (doubly material); high impact "
+            f"only = Q2; high financial only = Q3. "
             f"Your Q1 recall: {len(q1_correct_ids)}/{len(q1_target_issue_ids)} issues correctly prioritised "
             f"({round(full_accuracy * 100, 1)}% weighted accuracy including partial credit for ambiguous placements)."
         ),
@@ -4187,6 +4124,9 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         ),
         "full_accuracy_pct":      round(full_accuracy * 100, 1),
         "q2_disclosure_allocated": disclosure_allocated,
+        "materiality_fund_released": allocated_budget,
+        "materiality_fund_balance":  fund_balance,
+        # Finalised by _post_r2_materiality once the governance choice exists.
         "clawback_applied":        clawback_applied,
         # New: per-issue score transparency
         "issue_score_breakdown":   issue_score_breakdown,
@@ -4221,12 +4161,14 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     await db.update_latest_global_state(session_id, global_state, bu_states)
 
     msg_parts = [f"Materiality Matrix accepted. Accuracy: {round(full_accuracy*100)}%."]
+    msg_parts.append(
+        f"${allocated_budget:,} released into your ring-fenced materiality fund "
+        f"(spendable as ESG CapEx on the issues you identified)."
+    )
     if accuracy_bonus:
         msg_parts.append("+1000 bonus points!")
-    if clawback_applied:
-        msg_parts.append(f"Option C clawback: −${clawback_applied:,}.")
     if disclosure_allocated:
-        msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,}.")
+        msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,} credited to the fund.")
 
     return MaterialitySubmissionResponse(
         success=True,
@@ -7158,3 +7100,77 @@ async def get_front_page(session_id: str):
     except Exception as e:
         _log.warning(f"[WOW-5E] LLM front-page error, using deterministic fallback: {e}")
         return fallback
+
+
+def _apply_pillar_aggregate_impacts(
+    new_global: dict, new_bus: list, events: dict,
+    agg_impacts: dict, effectiveness: float,
+) -> None:
+    """Apply the aggregated pillar impacts (R1-R9 pillar-mode single source).
+
+    Moved verbatim out of commit_turn (2026-08-31, fix/pillar-impact-
+    ownership) so the application — and the R10 skip at the call site — is
+    directly unit-testable. Reputation lands on the group; the per-BU deltas
+    are distributed proportionally to revenue weight; all strategic impacts
+    scale by workforce effectiveness (costs never do).
+    """
+    rep_delta = round(agg_impacts.get("reputation", 0) * effectiveness, 2)
+    if rep_delta != 0:
+        new_global["group_reputation"] = max(0, min(100, round(new_global["group_reputation"] + rep_delta, 2)))
+
+    total_revenue = sum(bu.get("revenue_base", 0) for bu in new_bus)
+    num_bus = len(new_bus)
+
+    def _get_weight(bu_data: dict) -> float:
+        if total_revenue <= 0 or num_bus == 0:
+            return 1.0 / max(1, num_bus)
+        return bu_data.get("revenue_base", 0) / total_revenue
+
+    ncd_delta = round(agg_impacts.get("natural_capital_debt_delta", 0) * effectiveness, 2)
+    if ncd_delta != 0:
+        for bu in new_bus:
+            proportional_ncd = ncd_delta * _get_weight(bu) * num_bus
+            bu["natural_capital_debt"] = max(0, round(bu.get("natural_capital_debt", 0) + proportional_ncd, 2))
+
+    ci_delta = round(agg_impacts.get("carbon_intensity_delta", 0) * effectiveness, 2)
+    if ci_delta != 0:
+        for bu in new_bus:
+            proportional_ci = ci_delta * _get_weight(bu) * num_bus
+            bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + proportional_ci, 2))
+
+    sl_delta = round(agg_impacts.get("social_license_delta", 0) * effectiveness, 2)
+    if sl_delta != 0:
+        for bu in new_bus:
+            proportional_sl = sl_delta * _get_weight(bu) * num_bus
+            bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + proportional_sl, 2)))
+
+    gov_delta = round(agg_impacts.get("governance_risk_delta", 0) * effectiveness, 2)
+    if gov_delta != 0:
+        for bu in new_bus:
+            proportional_gov = gov_delta * _get_weight(bu) * num_bus
+            bu["governance_risk_score"] = max(0, min(100, round(bu.get("governance_risk_score", 0) + proportional_gov, 2)))
+
+    wd_delta = round(agg_impacts.get("water_dependency_delta", 0) * effectiveness, 2)
+    if wd_delta != 0:
+        for bu in new_bus:
+            proportional_wd = wd_delta * _get_weight(bu) * num_bus
+            bu["water_dependency"] = max(0, round(bu.get("water_dependency", 0) + proportional_wd, 2))
+
+    burnout_delta = agg_impacts.get("burnout_delta", 0)
+    if burnout_delta != 0:
+        for bu in new_bus:
+            current_bo = bu.get("staff_burnout_index", 0.0)
+            bu["staff_burnout_index"] = max(0.0, min(100.0, round(current_bo + burnout_delta, 2)))
+        events["pillar_burnout_delta_applied"] = burnout_delta
+
+    # Revenue delta (SPEC_Pillar_Revenue_Impacts v2, 2026-08-31): flat per BU
+    # like the legacy convention, scaled by effectiveness, floored at 0.
+    # Applied LAST so the revenue-weighted deltas above keep the round's
+    # incoming revenue distribution as their basis. This is the deliberate
+    # replacement for the revenue the pre-fix leak was accidentally
+    # providing pillar cohorts.
+    rev_delta = round(agg_impacts.get("revenue_delta", 0) * effectiveness, 2)
+    if rev_delta != 0:
+        for bu in new_bus:
+            bu["revenue_base"] = max(0, round(bu.get("revenue_base", 0) + rev_delta, 2))
+        events["pillar_revenue_delta_applied"] = rev_delta

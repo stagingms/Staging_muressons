@@ -134,16 +134,40 @@ Each round has:
 **Crisis**: CFO requires all investment proposals to align with the High Financial Impact / High ESG Impact quadrant per the Double Materiality framework (ESRS 1).
 
 **Special Mechanics**:
-- **CFO Materiality Gate**: Materiality accuracy ≥ 90% unlocks a $2M treasury bonus.
+- **Materiality Matrix (mid-round panel)**: players classify the issue library on the 2×2 double-materiality matrix. Impact materiality and financial materiality are assessed separately; one classifier (`round2_csrd.correct_quadrant_v2`, string labels unless a dictionary carries all four dual-axis scores) drives scoring, the CFO gate and capital release.
+- **Capital Release → Restricted Fund**: $15M × Q1 recall is released into a ring-fenced fund (`materiality_restricted_fund`) — NOT a treasury debit. The fund pays ESG CapEx ahead of the loan/interest machinery (like the Advanced Climate green fund); capital for missed issues is never released. Q2 disclosure placements unlock up to a further $1M into the same fund.
+- **Accuracy Bonus**: full-quadrant accuracy ≥ 80% earns +1,000 leaderboard points (`bonus_score`). There is **no** $2M treasury bonus and **no** 90% threshold — earlier versions of this document described a mechanic that never existed (audit finding F-4).
+- **CFO Precision Gate**: a non-Q1 issue placed in Q1 is rejected (HTTP 400); forcing the override costs −10 group reputation.
 - **CSRD/ESRS Climate Bonus**: Option A with Advanced Climate mode unlocks NCD forgiveness (+25%).
+- **Governance reconciliation (post-tick)**: the matrix is scored mid-round, but the A/B/C choice arrives at commit — `round_logic._post_r2_materiality` is the single arbiter that combines the two, writes exactly one tier flag, applies the Option C clawback (40% of the released fund, shortfall charged to treasury) and finalises the assurance debrief.
 
-| Option | Title | Treasury | Reputation | Key Effect |
+<!-- BEGIN GENERATED: R2-MECHANICS (scripts/generate_r2_mechanics_table.py — do not edit by hand) -->
+
+**Options** (economics from `round_configs.py`; `revenue_delta` is per business unit):
+
+| Option | Title | Treasury | Revenue Δ/BU | Reputation | Governance posture |
+|---|---|---|---|---|---|
+| A | Full Materiality Alignment | −$2.5M | $0 | +5 | Board-committee oversight — eligible for `materiality_aligned` |
+| B | Strategic Exceptions | $0 | $0 | +2 | Strategic exceptions — eligible for `materiality_partial` |
+| C | CEO-Only Sign-Off (No Board Committee Oversight) | $0 | +$400K | -5 | ESRS 1 §1.51 breach — always `materiality_ignored`; 40% fund clawback |
+
+**Governance premium — tiered** (accuracy is full-quadrant matrix accuracy; exactly one flag is written, by `round_logic._post_r2_materiality`):
+
+| Matrix accuracy | Option | Flag | M_R at R10 | R3 Green Bond effect |
 |---|---|---|---|---|
-| A | Full Materiality Alignment | −$2.5M | +5 | Sets `materiality_aligned`; +0.10 M_R at R10 |
-| B | Strategic Exceptions | $0 | +2 | Partial compliance; sets `materiality_exceptions` |
-| C | CEO-Only Sign-Off | $0 | −5 | ESRS 1 §1.51 violation; 40% budget clawback; Gov Risk +10 |
+| < 80% | A | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| = 80% | A | `materiality_aligned` | +0.10 | −$500K Green Bond discount |
+| > 80% | A | `materiality_aligned` | +0.10 | −$500K Green Bond discount |
+| < 80% | B | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| = 80% | B | `materiality_partial` | +0.05 | −$250K Green Bond discount |
+| > 80% | B | `materiality_partial` | +0.05 | −$250K Green Bond discount |
+| < 80% | C | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| = 80% | C | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
+| > 80% | C | `materiality_ignored` | 0 | +$1M Green Bond risk premium |
 
-**Regulatory Context**: Option C represents a real ESRS 1 violation — the management body must oversee the materiality process. Institutional investors apply a risk premium.
+<!-- END GENERATED: R2-MECHANICS -->
+
+**Regulatory Context**: Option C represents a real ESRS 1 violation — the management body must oversee the materiality process. Institutional investors apply a risk premium. The tiering teaches that analysis and governance are separate obligations: doing the materiality work well (≥80%) does not excuse approving it badly (Option C voids the premium; Option B halves it).
 
 ---
 
@@ -270,7 +294,7 @@ Each round has:
 |---|---|---|---|
 | A | Resist & Integrate | −$5M | Requires Synergy Score > 80; synergy bonus + terminal valuation calculated |
 | B | Spin-off | +$10M | Spins off weakest BU; partial value unlock |
-| C | Divest | +$25M | `synergy_wipe`; divests all; short-term cash max, long-run value destroyed |
+| C | Divest | +$25M | `synergy_wipe`; SLO −12; NCD +8; short-term cash max, long-run value destroyed. The `divest_all` impact key is declared but deliberately inert pending a design ruling (C-6, 2026-08-31) |
 
 **Terminal Valuation** runs after R10 options are applied (see §8).
 
@@ -457,7 +481,7 @@ The simulation has **5 ending pathways** that replace the default "Activist Ulti
 
 **Pathway M_R Bonuses/Penalties**:
 - +0.30 Regulatory Exemplar (ethical_score > 7 AND no scandal flags)
-- +0.20 Supply Chain Transparency (scope_3_transparency OR full_remediation)
+- +0.20 Supply Chain Transparency (scope_3_transparency OR full_remediation). `scope_3_transparency` is earned in R3 when Scope 3 data completeness reaches ≥80% (Option A, Direct Supplier Audit) — wired 2026-08-31 (B-2).
 - +0.15 Proactive Compliance (ethical_score > 6 AND avg SLO > 60)
 - −0.45 Regulatory Failure (ethical_score < 4)
 - −0.25 Shadow Board (governance_fragility flag)
@@ -631,12 +655,13 @@ Price Per Share = Equity Value / 100,000,000 shares
 
 ### Regenerative Multiple (M_R)
 
-M_R is the ESG quality / risk modifier. It ranges from 0.0 to ~2.03.
+M_R is the ESG quality / risk modifier. The maximum achievable value is ~1.93 without Just Transition scaling and ~2.02 with it.
 
 | M_R Component | Trigger | Value |
 |---|---|---|
 | Base | Always | +1.00 |
-| Materiality Governance | `materiality_aligned` flag | +0.10 |
+| Materiality Governance | `materiality_aligned` flag (≥80% accuracy AND Option A) | +0.10 |
+| Materiality Governance — partial | `materiality_partial` flag (≥80% accuracy AND Option B; mutually exclusive with the full premium) | +0.05 |
 | Synergy Strategic Premium | `synergy_unlock` AND synergy ≥ 0.80 | +0.15 |
 | Resilience Champion | No `insurance_only` AND no `electronics_water_priority` | +0.20 |
 | Truth Premium | `ethical_ai_overhaul` | +0.15 |
@@ -764,7 +789,11 @@ Flags are boolean state markers set by decisions that carry cross-round conseque
 |---|---|---|---|---|
 | R1 | `deep_audit_completed` | R4 | Halves crisis severity (40 vs 80) | governance |
 | R1 | `electronics_blindspot` | R4 | Doubles crisis severity to 80 | risk |
+| R2 | `materiality_aligned` | R3 | Green Bond −$500K discount (option B) | governance |
 | R2 | `materiality_aligned` | R10 | +0.10 M_R Governance bonus | governance |
+| R2 | `materiality_partial` | R3 | Green Bond −$250K half-discount (option B) | governance |
+| R2 | `materiality_partial` | R10 | +0.05 M_R Governance bonus (partial) | governance |
+| R2 | `materiality_ignored` | R3 | Green Bond +$1M risk premium (option B) | risk |
 | R2 | `blockchain_traceability` | R8 | Prevents supply chain scandal | supply_chain |
 | R3 | `early_decarboniser` | R7 | +0.10 synergy multiplier bonus | climate |
 | R3 | `greenwash_risk` | R5 | Triggers greenwash if inv < 15% | risk |
@@ -937,7 +966,7 @@ Each vertical has its own "blindspot" equivalent set in Round 1 if players choos
 Understanding what constitutes a "high M_R" path:
 
 1. **R1**: Choose Deep Forensic Audit (B) → avoids R4 severity doubling.
-2. **R2**: Choose Full Materiality Alignment (A) → +0.10 M_R + ESRS compliance.
+2. **R2**: Score ≥80% on the materiality matrix AND choose Full Materiality Alignment (A) → `materiality_aligned` +0.10 M_R + ESRS compliance. (Accuracy alone earns nothing under Option C; Option B caps you at +0.05.)
 3. **R3**: Choose Green Bond (B) or Rapid Switch (A) → set `early_decarboniser` for R7 synergy bonus.
 4. **R4**: Full Transparency (A) → prevents ongoing SLO erosion.
 5. **R5**: Nature-Based Solutions (B) → sets resilience, avoids insurance_only penalty, reduces NCD.
@@ -1111,3 +1140,54 @@ A full static dependency trace was performed from `backend/main.py`. **139 files
 
 *Last updated: 2026-07-08 | Maintained by the Muressons simulation engineering team.*
 *Reference files: `round_configs.py`, `pillar_configs.py`, `ending_pathways.py`, `terminal_valuation.py`, `black_swan_registry.py`, `bu_profiles.py`, `side_tracks/`, `DEPENDENCY_MAP.md`*
+
+---
+
+## Engine repairs — full-course impact audit (2026-08-31, branch `fix/full-course-impact-audit`)
+
+Behavioural changes shipped after the whole-course audit (companion to the Round 2
+repair of the same date). **Do not apply to a mid-course cohort — cohort-boundary only.**
+
+- **C-1** `social_license_delta` is applied in ALL ten rounds. It moved into
+  `_apply_common_impacts` (guarded per round, legacy mode only); R1/R2/R3/R7/R10 had
+  silently discarded it (a ±23-point swing on the lever behind the −0.40 Instability
+  Discount). R10 applies its own delta in-handler, before the M_R instability check
+  reads the closing SLO average.
+- **C-5** Round 2 now charges its chosen option's `treasury` (Option A: −$2.5M via the
+  green-fund-aware applier, before the Option C clawback). Option A no longer strictly
+  dominates Option B — the tiered premium trade-off is real again.
+- **C-2** `natural_capital_debt_delta` likewise applies generically (R5/R8 deferrals
+  preserved; R10 in-handler before the DMAV solvency gate).
+- **C-3** The social-media velocity amplifier escalates for real: 1.1× in R4 up to
+  1.7× in R10, applied every round from R4 on while group reputation < 60 (design
+  ruling: persistent escalation).
+- **C-4** One spelling per impact concept: `reputation` and `social_license_delta` are
+  canonical; `reputation_delta` and `social_license` were migrated out of the configs
+  and are honoured as read-aliases for ONE release only.
+- **B-1** `just_transition_passed` (6 social-ESG points) = R9 `managed_transition` OR
+  `community_fund`. The old test read two never-written flags and then the ROUND 10
+  choice; it now agrees with the +0.12 M_R just-transition bonus.
+- **B-2 / B-3** `scope_3_transparency` (R3 ≥80% Scope 3 completeness) and
+  `retraining_succeeded` (R9 ITEM 20 outcome) are now written; both reads were dead.
+  The R9 retraining clawback's `reputation_applied_r9` read is also live for the first
+  time — failed retraining actually claws back 30% of the R9 reputation gain.
+- **B-4** `electronics_blindspot_doubles_crisis`, `stochastic_event`,
+  `low_social_license_strike_trigger` and `regulatory_friction_enabled` are read by the
+  code that implements them (default True) — real facilitator switches now.
+- **C-6** `divest_all` stays declared but inert, pending a design ruling.
+- **Ceilings unchanged**: M_R max 1.93 / 2.02 (with JT scaling), pinned by
+  `test_mr_ceilings_unchanged`. The financial golden trace was rebaselined in the same
+  branch. Invariants live in `backend/tests/test_engine_invariants.py` (7 test
+  families; the AST-resolved impact-key coverage check is the acceptance criterion).
+
+### Addendum — pillar-mode impact ownership (2026-08-31, branch `fix/pillar-impact-ownership`)
+
+In pillar (multi_toggles) mode, the router is the single applier of option impacts
+for R1–R9 (aggregates × effectiveness); the legacy A/B/C translation is bookkeeping
+only and its config impacts no longer stack on top (they silently did, every round,
+until this fix). Round 10 is the exception: the pillar selections map to an A/B/C
+ending whose full impact set — including, newly, its SLO and NCD — is the single
+impact source, and R10 pillar aggregates are not applied. `pillar_cost_applied` is
+always set on pillar commits, even at zero cost. Open design item: pillar options
+declare no revenue impacts, so pillar mode currently has no decision-driven revenue
+lever — the pre-fix leak was masking this. Cohort-boundary shipping only.

@@ -202,7 +202,10 @@ def _pre_r4_contagion(
     special = cfg.get("special_rules", {}) if cfg else {}
     base = special.get("base_crisis_severity", 40)
 
-    if "electronics_blindspot" in all_flags:
+    if "electronics_blindspot" in all_flags and special.get(
+            "electronics_blindspot_doubles_crisis", True):
+        # B-4 (2026-08-31 audit): the doubling now actually reads the
+        # special_rules switch that has always documented it.
         result["crisis_severity"] = base * 2  # doubled
         result["pre_events"]["electronics_blindspot_triggered"] = True
         result["pre_events"]["crisis_severity_doubled"] = True
@@ -492,8 +495,12 @@ def post_tick(
     # I7: Reverse R5 hard engineering CI pulse after 2 rounds (construction phase ends R7)
     _revert_r5_hard_engineering_pulse(global_state, bu_states, extra_events, round_number)
 
+    # ITEM 14 / C-3: social-media velocity amplifier, escalating from R4 on.
+    _apply_social_media_velocity(round_number, global_state, extra_events)
+
     # Apply generic impacts (carbon_intensity_delta, revenue_delta) for ALL rounds
-    _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events)
+    _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events,
+                          events=events)
 
     # I9: Apply mid-game carbon cost (legacy_abc / un_sdg — not advanced_climate)
     # Skip R10: terminal valuation already applies a lump-sum carbon tax on exit EBITDA.
@@ -554,6 +561,12 @@ def post_tick(
             extra_events["takeover_vulnerability_index"] = calc_takeover_vulnerability(bu_states, global_state)
         elif ending_pathway == "regulatory_shutdown":
             extra_events["compliance_risk_index"] = calc_compliance_risk_index(bu_states, global_state)
+
+    # ── F-2 guard: no flag may exist in dual form (boolean key + list entry) ──
+    _dual = _find_dual_form_flags(global_state.get("active_event_flags", {}) or {})
+    if _dual:
+        print(f"[round_logic] WARNING dual-form flags detected at R{round_number} post_tick: {sorted(_dual)}")
+        extra_events["dual_form_flags_detected"] = sorted(_dual)
 
     return extra_events
 
@@ -1177,12 +1190,30 @@ def _apply_common_impacts(
     decisions: list[dict],
     extra: dict,
     decision_paradigm: str | None = None,
+    events: dict | None = None,
 ):
     """
     Generic applicator for carbon_intensity_delta and revenue_delta.
     Runs for EVERY round after the round-specific handler.
     Skips if the round-specific handler already applied these (R3 carbon).
+
+    Pillar-mode ownership (2026-08-31 design ruling, fix/pillar-impact-
+    ownership): in pillar mode the ROUTER is the single applier of option
+    impacts — it applies the pillar aggregates (scaled by effectiveness)
+    before post_tick runs, and the legacy A/B/C translation exists for flags
+    and round bookkeeping only. This function therefore does NOTHING in
+    pillar mode; before this guard it silently stacked the translated
+    option's reputation / revenue_delta / carbon_intensity_delta /
+    governance_risk_delta on top of the router aggregates, every round.
+    ROUND 10 IS THE EXCEPTION: the finale maps the pillar selections to an
+    A/B/C ending whose FULL impact set is the single source (the router
+    skips R10 aggregates), so R10 runs through here in both paradigms.
     """
+    pillar_mode = bool(events) and events.get("pillar_cost_applied") is not None
+    if pillar_mode and round_number != 10:
+        extra["common_impacts_pillar_bypass"] = True
+        return
+
     choice = _get_primary_choice(decisions)
     cfg_opts = _fetch_options_for_industry(round_number, bus, decision_paradigm=decision_paradigm)
     opt = cfg_opts.get(choice, {})
@@ -1217,16 +1248,44 @@ def _apply_common_impacts(
             )
         extra[f"governance_risk_applied_r{round_number}"] = gov_delta
 
-    # Reputation delta — applied to group reputation
-    rep_delta = impacts.get("reputation", 0)
+    # Reputation delta — applied to group reputation.
+    # C-4: "reputation" is the canonical option-impact spelling; the
+    # "reputation_delta" alias is honoured for ONE release for any saved
+    # side-track/custom config, then the alias read goes away.
+    rep_delta = impacts.get("reputation", impacts.get("reputation_delta", 0))
     if rep_delta != 0 and f"reputation_applied_r{round_number}" not in extra:
         gs["group_reputation"] = max(
             0.0, min(100.0, round(gs.get("group_reputation", 50.0) + rep_delta, 2))
         )
         extra[f"reputation_applied_r{round_number}"] = rep_delta
 
-    # NCD application is handled individually in each round's post handler
-    # because some rounds (like R5 and R8) queue it as a pending capex project instead of applying immediately.
+    # Social licence delta — applied to all BUs (mirrors governance_risk_delta).
+    # C-1 fix (2026-08-31 full-course audit): R1, R2, R3, R7 and R10 promised
+    # social_license_delta in config and never applied it — the main lever on
+    # the −0.40 Instability Discount was dead in five of ten rounds. Handlers
+    # that apply it themselves (R6, R8, R9 — and R10, which must apply it
+    # BEFORE its M_R instability check reads the closing average) set the
+    # guard key below so nothing is applied twice.
+    # C-4: "social_license_delta" is canonical; the R4-era "social_license"
+    # alias is honoured for ONE release, then the alias read goes away.
+    sl_delta = impacts.get("social_license_delta", impacts.get("social_license", 0))
+    if sl_delta != 0 and f"social_license_applied_r{round_number}" not in extra:
+        for bu in bus:
+            bu["social_license_score"] = max(
+                0.0, min(100.0, round(bu.get("social_license_score", 50.0) + sl_delta, 2))
+            )
+        extra[f"social_license_applied_r{round_number}"] = sl_delta
+
+    # Natural capital debt delta — applied to all BUs (C-2, same audit as
+    # C-1 above). R2, R4 and R10 configured it with no applier anywhere.
+    # Rounds that queue it as a pending capex project (R5, R8) or apply it
+    # directly themselves (R3, R7 — and R10, in-handler so it lands before
+    # the DMAV solvency gate reads closing NCD) set the guard key.
+    ncd_delta = impacts.get("natural_capital_debt_delta", 0)
+    if ncd_delta != 0 and f"natural_capital_debt_applied_r{round_number}" not in extra:
+        for bu in bus:
+            bu["natural_capital_debt"] = max(0.0, round(bu.get("natural_capital_debt", 0.0) + ncd_delta, 2))
+        extra[f"natural_capital_debt_applied_r{round_number}"] = ncd_delta
 
     # â”€â”€ Healthcare Specific Impacts â”€â”€
     if impacts.get("bed_capacity_increase"):
@@ -1626,13 +1685,16 @@ def _post_r4_contagion(
             extra["r4_reputation_applied"] = rep
             extra["reputation_applied_r4"] = rep
 
-        sl = impacts.get("social_license", 0)
+        sl = impacts.get("social_license_delta", impacts.get("social_license", 0))
         if sl:
             for bu in bus:
                 bu["social_license_score"] = max(
                     0.0, min(100.0, round(bu.get("social_license_score", 50.0) + sl, 2))
                 )
             extra["r4_social_license_applied"] = sl
+            # Guard for _apply_common_impacts once C-4 migrates this option
+            # key from social_license to social_license_delta.
+            extra["social_license_applied_r4"] = sl
 
         gov = impacts.get("governance_risk_delta", 0)
         if gov:
@@ -1647,10 +1709,20 @@ def _post_r4_contagion(
 
     extra["r4_choice"] = choice
 
-    # ── ITEM 14: Social Media Velocity Amplifier (R4+) ────────
-    # Digital amplification accelerates contagion in later rounds
-    round_num = gs.get("round_number", 4) if "round_number" in gs else 4
-    velocity_multiplier = round(1.0 + 0.1 * (round_num - 3), 2)
+
+
+# ── ITEM 14: Social Media Velocity Amplifier (R4+) ──────────────────────────
+def _apply_social_media_velocity(round_number: int, gs: dict, extra: dict) -> None:
+    """Digital amplification accelerates reputational contagion in later
+    rounds. C-3 fix (2026-08-31 full-course audit, design ruling: persistent
+    escalation): this used to live inside _post_r4_contagion, where
+    round_number was always 4 and the escalation formula could never move off
+    1.10×. It now runs from post_tick for every round from R4 on, so the
+    multiplier actually escalates: R4 1.1× → R7 1.4× → R10 1.7×. Only
+    amplifies while group reputation is below 60."""
+    if round_number < 4:
+        return
+    velocity_multiplier = round(1.0 + 0.1 * (round_number - 3), 2)
     current_rep = gs.get("group_reputation", 50)
     if current_rep < 60:  # Only amplifies negative reputation
         rep_penalty = round((60 - current_rep) * 0.1 * (velocity_multiplier - 1.0), 2)
@@ -1664,7 +1736,6 @@ def _post_r4_contagion(
                     f"than baseline. Reputation hit amplified by {rep_penalty:.1f} points."
                 ),
             }
-
 
 
 # ── R3: Scope 3 mutations ────────────────────────────────────────────────────
@@ -1697,6 +1768,17 @@ def _post_r3_scope3(
                         "📊 R2 Materiality Alignment Bonus: Institutional investors rewarded "
                         "your CSRD governance posture with a $500K Green Bond discount."
                     )
+                elif "materiality_partial" in r2_flags:
+                    # §5.2 decision: symmetric half-discount for the partial tier
+                    # (accurate matrix under Option B) — deliberate, not fall-through.
+                    discount = 250_000
+                    treasury_cost = max(0, treasury_cost - discount)
+                    extra["green_bond_r2_partial_discount"] = discount
+                    extra["green_bond_r2_partial_message"] = (
+                        "📊 R2 Partial Alignment: Investors acknowledged your accurate "
+                        "materiality analysis with a $250K Green Bond discount — half the "
+                        "full-alignment rate, reflecting the weaker governance posture."
+                    )
                 elif "materiality_ignored" in r2_flags:
                     premium = 1_000_000
                     treasury_cost += premium
@@ -1711,6 +1793,7 @@ def _post_r3_scope3(
         if ncd_delta != 0:
             for bu in bus:
                 bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+            extra["natural_capital_debt_applied_r3"] = ncd_delta  # guard: generic applier must skip R3
 
         ci_delta = impacts.get("carbon_intensity_delta", 0)
         if ci_delta != 0:
@@ -1754,6 +1837,13 @@ def _post_r3_scope3(
         scope3_completeness = 60  # Green bond with partial audit
     gs["scope3_data_completeness"] = scope3_completeness
     extra["scope3_data_completeness"] = scope3_completeness
+    # B-2 fix (2026-08-31 full-course audit, design ruling): ≥80% supply-chain
+    # visibility (Option A's direct supplier audit) IS Scope 3 transparency —
+    # it earns the flag the ending_pathways "Supply Chain Transparency" +0.20
+    # M_R bonus reads but which nothing ever wrote.
+    if scope3_completeness >= 80:
+        gs.setdefault("active_event_flags", {})["scope_3_transparency"] = True
+        extra["scope_3_transparency_earned"] = True
     if scope3_completeness < 60:
         extra["scope3_data_challenge"] = {
             "completeness": scope3_completeness,
@@ -1793,9 +1883,10 @@ def _post_r6_ai_bias(
                     break
             extra["software_revenue_boosted"] = rev_delta
 
-        rep_delta = impacts.get("reputation_delta", 0)
+        rep_delta = impacts.get("reputation", impacts.get("reputation_delta", 0))
         if rep_delta != 0:
             gs["group_reputation"] = max(0, min(100, round(gs["group_reputation"] + rep_delta, 2)))
+            extra["reputation_applied_r6"] = rep_delta  # guard: generic applier must skip R6
 
         if impacts.get("contagion_spike"):
             extra["contagion_spike_triggered"] = True
@@ -1808,6 +1899,7 @@ def _post_r6_ai_bias(
             for bu in bus:
                 bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
             extra["social_license_boosted"] = sl_delta
+            extra["social_license_applied_r6"] = sl_delta  # guard: generic applier must skip R6
 
         gov_delta = impacts.get("governance_risk_delta", 0)
         if gov_delta != 0:
@@ -1880,6 +1972,7 @@ def _post_r7_circularity(
         if ncd_delta != 0:
             for bu in bus:
                 bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+            extra["natural_capital_debt_applied_r7"] = ncd_delta  # guard: generic applier must skip R7
 
         if "reputation" in impacts:
             gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
@@ -2015,6 +2108,9 @@ def _post_r8_blue_stress(
             "description": "Water Infrastructure Mega-Project"
         })
         extra["water_project_started"] = True
+        # Guard: R8 defers NCD as a pending project — the generic applier
+        # must not ALSO apply it immediately.
+        extra["natural_capital_debt_applied_r8"] = ncd_delta
 
     # Water dependency reduction
     wd_delta = impacts.get("water_dependency_delta", 0)
@@ -2042,6 +2138,7 @@ def _post_r8_blue_stress(
     if sl_delta != 0:
         for bu in bus:
             bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
+        extra["social_license_applied_r8"] = sl_delta  # guard: generic applier must skip R8
 
     extra["r8_choice"] = choice
 
@@ -2140,6 +2237,31 @@ def _post_r10_grand_finale(
             impacts = opt.get("impacts", {})
         else:
             extra["synergy_gate_passed"] = True
+
+    # C-1 fix (2026-08-31 full-course audit): R10's social_license_delta must
+    # be applied HERE — after the synergy gate settles the effective choice,
+    # and before the M_R Instability Discount below reads the closing SLO
+    # average. The generic applier in _apply_common_impacts runs AFTER this
+    # handler, which would be too late for the terminal round; the guard key
+    # keeps it from applying the delta a second time. Applies in BOTH
+    # paradigms (pillar ruling 2026-08-31: the mapped ending's full impact
+    # set is the single R10 source; the router skips R10 aggregates).
+    _sl_delta_r10 = impacts.get("social_license_delta", 0)
+    if _sl_delta_r10 != 0:
+        for bu in bus:
+            bu["social_license_score"] = max(
+                0.0, min(100.0, round(bu.get("social_license_score", 50.0) + _sl_delta_r10, 2))
+            )
+        extra["social_license_applied_r10"] = _sl_delta_r10
+
+    # C-2 fix: R10's natural_capital_debt_delta (Divest: +8) likewise lands
+    # in-handler, before the Double-Materiality Adjusted Value solvency gate
+    # and green cost-of-debt read closing NCD later in this function.
+    _ncd_delta_r10 = impacts.get("natural_capital_debt_delta", 0)
+    if _ncd_delta_r10 != 0:
+        for bu in bus:
+            bu["natural_capital_debt"] = max(0.0, round(bu.get("natural_capital_debt", 0.0) + _ncd_delta_r10, 2))
+        extra["natural_capital_debt_applied_r10"] = _ncd_delta_r10
 
     # Option B: Spin-off weakest BU
     if impacts.get("spinoff_weakest_bu"):
@@ -2353,6 +2475,20 @@ def _post_r10_grand_finale(
             "📊 CSRD Governance Premium: Your Round 2 full materiality alignment earned "
             "+0.10 M_R. Institutional investors reward companies that embed ESG governance "
             "rigorously from the outset (ESRS 1 — General Requirements)."
+        )
+    elif "materiality_partial" in all_flags:
+        # §4.1 tier: ≥80% matrix accuracy under Option B (Strategic Exceptions).
+        # The analysis was right; the governance posture was only partial —
+        # half the premium. Mutually exclusive with materiality_aligned by
+        # construction (_post_r2_materiality is the single writer), so the
+        # maximum achievable M_R is unchanged.
+        mr += 0.05
+        extra["mr_materiality_partial_bonus"] = True
+        extra["mr_materiality_governance_message"] = (
+            "📊 Partial CSRD Governance Credit: Your Round 2 materiality analysis cleared "
+            "the 80% accuracy bar, but Strategic Exceptions (Option B) weakened board "
+            "oversight — +0.05 M_R instead of the full +0.10. Analysis and governance "
+            "are separate obligations (ESRS 1 §1.51)."
         )
 
     # +0.15: R7 Synergy achieved (waste_to_energy / synergy_unlock)
@@ -2751,11 +2887,19 @@ def _post_r10_grand_finale(
     extra["green_cost_of_debt_pct"] = round(
         sum(b.get("natural_capital_debt", 0) for b in bus) * 0.05, 2
     )
-    # Just Transition pass/fail
+    # Just Transition pass/fail.
+    # B-1 fix (2026-08-31 full-course audit, design ruling: align with the R9
+    # M_R view). The old expression read two flags no code path ever wrote
+    # (just_transition_fund, worker_retraining — remnants of an unfinished
+    # pillar-driven design) and then keyed off the ROUND 10 choice, passing
+    # Resist & Integrate and Divest while failing Spin-off — while the M_R
+    # bonus 300 lines above rewards R9 managed_transition. One definition
+    # now: a just transition is R9 Managed Transition (option_b flag) or the
+    # R9 Community Investment Fund (option_c flag), in either paradigm; R9
+    # Immediate Closure fails it.
     extra["just_transition_passed"] = (
-        "just_transition_fund" in all_flags
-        or "worker_retraining" in all_flags
-        or choice in ("option_a", "option_c")
+        "managed_transition" in all_flags
+        or "community_fund" in all_flags
     )
 
     # Persist into global state flags for frontend/API access
@@ -2842,8 +2986,159 @@ def _revert_r5_hard_engineering_pulse(
             "infrastructure complete, operational CI normalised (I7 time-bounded pulse)."
         )
 
+
+# ── R2: Double Materiality reconciliation ────────────────────────────────────────────
+def _post_r2_materiality(
+    gs: dict, bus: list[dict], decs: list[dict],
+    events: dict, extra: dict, prev_flags: dict,
+):
+    """
+    F-1 structural fix. The Double Materiality matrix is a MID-round panel:
+    router.submit_materiality_matrix scores it and persists the result the
+    moment the player submits. The A/B/C governance choice only exists at
+    end-of-round commit, through the ordinary decision path. This handler is
+    the single point in the round where BOTH inputs exist, so it is the single
+    arbiter for:
+
+      1. the materiality tier flag — exactly ONE of materiality_aligned (+0.10
+         M_R), materiality_partial (+0.05), materiality_ignored (0). No other
+         code path may write these three flags (see test_r2_flag_tiering).
+      2. the Option C clawback — 40% of the RELEASED materiality fund. It
+         reduces the restricted fund first and charges any remainder to
+         treasury, so it always reduces the team's position (F-3 fixed the
+         previous inversion, where the clawback handed cash back).
+      3. the governance_board assurance signal and the student-facing
+         r2_esrs_debrief, both provisional at panel-submit time.
+
+    Matrix results are read from the persisted panel state: both database
+    backends pack extra global_state keys into active_event_flags, so they
+    arrive here through prev_flags (or through gs when already unpacked).
+    """
+    def _panel(key, default=None):
+        if key in events:
+            return events[key]
+        if key in gs:
+            return gs[key]
+        return prev_flags.get(key, default)
+
+    choice = _get_primary_choice(decs)
+    gs["r2_governance_choice"] = choice
+
+    # 0) ── Option treasury (C-5, 2026-08-31 full-course audit) ────────────
+    # Every other round charges its chosen option's impacts["treasury"]; R2
+    # never did — before the F-1 repair it had no post-tick handler at all,
+    # and the repair wired tier/clawback/assurance without noticing option
+    # treasury still had no applier. Option A's -$2.5M compliance cost is the
+    # price the tiered governance premium (+0.10 vs +0.05) was designed
+    # around; without it Option A strictly dominated Option B. Charged BEFORE
+    # the Option C clawback so the clawback's treasury shortfall lands on the
+    # post-charge balance. Legacy mode only — pillar costs are applied by the
+    # router.
+    if events.get("pillar_cost_applied") is None:
+        _r2_opts = _fetch_options_for_industry(2, bus)
+        _r2_treasury = ((_r2_opts.get(choice) or {}).get("impacts") or {}).get("treasury", 0)
+        if _r2_treasury:
+            _apply_treasury_with_green_fund(
+                gs,
+                abs(_r2_treasury) if _r2_treasury < 0 else -_r2_treasury,
+                extra,
+            )
+            extra["option_treasury_applied_r2"] = _r2_treasury
+
+    submitted = bool(_panel("csrd_completed", False))
+    try:
+        accuracy_pct = float(_panel("materiality_full_accuracy", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        accuracy_pct = 0.0
+    _rules = (get_round_config(2) or {}).get("special_rules", {})
+    _threshold = float(_rules.get("accuracy_threshold_pct", 80))
+    acc_ok = submitted and accuracy_pct >= _threshold
+
+    # 1) ── Tier flag (§4.1) — accuracy and governance are separate obligations
+    if choice == "option_c":
+        tier = "materiality_ignored"    # governance breach voids any premium
+    elif acc_ok and choice == "option_a":
+        tier = "materiality_aligned"    # analysis right AND approved right
+    elif acc_ok and choice == "option_b":
+        tier = "materiality_partial"    # analysis right, governance partial
+    else:
+        tier = "materiality_ignored"    # accuracy < 80%
+    flags = gs.setdefault("active_event_flags", {})
+    for f in ("materiality_aligned", "materiality_partial", "materiality_ignored"):
+        # Explicit False, never pop: commit-time flag merging is
+        # current ∪ new ∪ events, so only an overwrite retires a stale value.
+        flags[f] = (f == tier)
+    gs["materiality_status"] = {
+        "materiality_aligned": "aligned",
+        "materiality_partial": "partial",
+        "materiality_ignored": "ignored",
+    }[tier]
+    extra["r2_materiality_tier"] = tier
+    extra["r2_materiality_tier_message"] = {
+        "materiality_aligned": (
+            "\U0001f4ca CSRD Governance Premium secured: \u226580% matrix accuracy under full "
+            "board-committee oversight (Option A). materiality_aligned \u2192 +0.10 M_R at terminal valuation."
+        ),
+        "materiality_partial": (
+            "\U0001f4ca Partial governance credit: \u226580% matrix accuracy, but Strategic Exceptions "
+            "(Option B) weakened the governance posture. materiality_partial \u2192 +0.05 M_R at terminal valuation."
+        ),
+        "materiality_ignored": (
+            "\u26a0\ufe0f No governance premium: "
+            + ("Option C breaches ESRS 1 \u00a71.51 board oversight \u2014 accurate analysis cannot excuse "
+               "approving it badly." if choice == "option_c"
+               else "matrix accuracy below the 80% threshold.")
+        ),
+    }[tier]
+
+    # 2) ── Option C clawback — always reduces the team's position ─────────
+    if choice == "option_c":
+        cfg_opts = _fetch_options_for_industry(2, bus)
+        pct = float(cfg_opts.get("option_c", {}).get("budget_clawback_pct", 0.40))
+        released = float(_panel("materiality_fund_released", 0.0) or 0.0)
+        clawback = round(released * pct, 2)
+        if clawback > 0:
+            fund = float(_panel("materiality_restricted_fund", 0.0) or 0.0)
+            taken = min(clawback, fund)
+            gs["materiality_restricted_fund"] = round(fund - taken, 2)
+            shortfall = round(clawback - taken, 2)
+            if shortfall > 0:
+                gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0.0) - shortfall, 2)
+            gs["r2_budget_clawback"] = clawback
+            extra["r2_budget_clawback"] = clawback
+            extra["r2_budget_clawback_message"] = (
+                f"\u26a0\ufe0f CFO Governance Review: Option C (CEO-only sign-off) triggered a "
+                f"${clawback:,.0f} ({int(pct * 100)}%) clawback on your released materiality fund"
+                + (f", ${shortfall:,.0f} of it charged directly to treasury" if shortfall > 0 else "")
+                + ". Governance posture must be consistent with capital allocation rationale."
+            )
+
+    # 3) ── Assurance signal + debrief reconciliation ────────────────────
+    debrief = _panel("r2_esrs_debrief", None)
+    if isinstance(debrief, dict):
+        from round2_csrd import ASSURANCE_LABELS
+        debrief = dict(debrief)  # never mutate the idempotency snapshot in place
+        signals = dict(debrief.get("assurance_signals") or {})
+        signals["governance_board"] = (choice != "option_c")  # ESRS 1 §1.51
+        stars = sum(1 for v in signals.values() if v)
+        label, detail = ASSURANCE_LABELS.get(stars, ASSURANCE_LABELS[0])
+        debrief.update({
+            "assurance_signals": signals,
+            "assurance_stars":   stars,
+            "assurance_label":   label,
+            "assurance_detail":  detail,
+            "governance_choice": choice,
+            "materiality_tier":  tier,
+            "tier_message":      extra["r2_materiality_tier_message"],
+        })
+        if "r2_budget_clawback" in extra:
+            debrief["clawback_applied"] = extra["r2_budget_clawback"]
+        gs["r2_esrs_debrief"] = debrief
+
+
 _POST_TICK_MAP = {
     1: _post_r1_foundations,
+    2: _post_r2_materiality,
     3: _post_r3_scope3,
     4: _post_r4_contagion,   # Fix #2: R4 now has a registered post-tick handler
     5: _ie._post_r5_climate,       # ARCH-001: Extracted to impact_engine.py
@@ -2872,6 +3167,25 @@ def _get_primary_choice(decisions: list[dict]) -> str:
     return "option_b"  # default middle-ground
 
 
+def _find_dual_form_flags(flags_dict: dict) -> set[str]:
+    """
+    F-2 guard. A flag that appears BOTH as a boolean key and inside an
+    rN_flags-style list is unretirable: _collect_all_flags unions the two
+    sources with no precedence, so a config flags_set silently outranks any
+    later boolean removal (this is exactly how Option A at 40% accuracy kept
+    the governance premium). Returns the offending flag names; empty = healthy.
+    """
+    bool_keys = {
+        k for k, v in flags_dict.items()
+        if isinstance(k, str) and isinstance(v, bool) and v
+    }
+    list_flags: set[str] = set()
+    for k, v in flags_dict.items():
+        if isinstance(k, str) and "flag" in k.lower() and isinstance(v, list):
+            list_flags.update(str(x) for x in v)
+    return bool_keys & list_flags
+
+
 def _collect_all_flags(flags_dict: dict) -> set[str]:
     """
     FIX AUDIT-008: Collect boolean keys and specific flag lists (e.g., rX_flags),
@@ -2881,6 +3195,12 @@ def _collect_all_flags(flags_dict: dict) -> set[str]:
     for key, val in flags_dict.items():
         if not isinstance(key, str):
             continue  # Skip non-string keys (e.g. SDG integer indices)
+        if key.startswith("_"):
+            # Private state bags (e.g. _materiality_idempotency, whose nested
+            # debrief carries booleans like governance_board/q1_recall) are
+            # storage, not flags — recursing into them polluted the flag
+            # namespace with names no writer ever intended as flags.
+            continue
         if "flag" in key.lower():
             if isinstance(val, list):
                 result.update(str(v) for v in val)

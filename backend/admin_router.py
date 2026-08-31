@@ -237,6 +237,7 @@ from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 # ARCH-002: Import all shared state from admin_shared.py
 # Re-export for backward compatibility — external modules that do
 # `from admin_router import _god_mode_settings` continue to work.
+from round2_csrd import correct_quadrant_v2 as _cq_v2  # F-6: single classifier
 from admin_shared import (
     _god_mode_settings,
     # GOD-012: Per-cohort settings layer
@@ -1576,7 +1577,8 @@ async def get_simulation_reference():
             "synergy_gate_threshold": 80,
             "mr_components": [
                 {"name": "Base", "value": 1.0, "source": "Default"},
-                {"name": "CSRD Governance Premium", "value": 0.10, "source": "R2A materiality_aligned (≥80% Q1 accuracy + not Option C)"},
+                {"name": "CSRD Governance Premium", "value": 0.10, "source": "R2 materiality_aligned (≥80% matrix accuracy AND Option A)"},
+                {"name": "CSRD Governance Premium — partial", "value": 0.05, "source": "R2 materiality_partial (≥80% matrix accuracy AND Option B; mutually exclusive with the full premium)"},
                 {"name": "Resilience Bonus", "value": 0.20, "source": "No insurance_only/electronics_priority flags"},
                 {"name": "Synergy Bonus", "value": 0.30, "source": "R7C synergy_unlock"},
                 {"name": "Truth Premium", "value": 0.15, "source": "R6B ethical_ai_overhaul"},
@@ -1598,8 +1600,10 @@ async def get_simulation_reference():
         "flag_dependencies": [
             {"source": "R1 A/C", "flag": "electronics_blindspot", "target": "R2", "effect": "Degrades metadata for electronics_sensitive issues in DMM"},
             {"source": "R1 A/C", "flag": "electronics_blindspot", "target": "R4", "effect": "Doubles crisis severity to 80"},
-            {"source": "R2 A (≥80%)", "flag": "materiality_aligned", "target": "R3", "effect": "Green Bond -$500K discount (option_b)"},
-            {"source": "R2 A (≥80%)", "flag": "materiality_aligned", "target": "R10", "effect": "+0.10 CSRD Governance Premium M_R"},
+            {"source": "R2 A + ≥80%", "flag": "materiality_aligned", "target": "R3", "effect": "Green Bond -$500K discount (option_b)"},
+            {"source": "R2 A + ≥80%", "flag": "materiality_aligned", "target": "R10", "effect": "+0.10 CSRD Governance Premium M_R"},
+            {"source": "R2 B + ≥80%", "flag": "materiality_partial", "target": "R3", "effect": "Green Bond -$250K half-discount (option_b)"},
+            {"source": "R2 B + ≥80%", "flag": "materiality_partial", "target": "R10", "effect": "+0.05 partial CSRD Governance Premium M_R"},
             {"source": "R2 C / <80%", "flag": "materiality_ignored", "target": "R3", "effect": "Green Bond +$1M risk premium (option_b)"},
             {"source": "R3 A", "flag": "early_decarboniser", "target": "R7", "effect": "+0.10 synergy bonus"},
             {"source": "R5 C", "flag": "insurance_only", "target": "R10", "effect": "Blocks +0.20 resilience M_R"},
@@ -12189,7 +12193,7 @@ async def list_industry_verticals():
             continue
         cfg = mat_db.get_bu_config(bu["id"])
         issues = cfg.get("issues", [])
-        q1_issues = [i for i in issues if i.get("financial_impact") == "high" and i.get("societal_impact") == "high"]
+        q1_issues = [i for i in issues if _cq_v2(i) == "q1"]  # F-6: single classifier
         verticals.append({
             "id": bu["id"],
             "label": bu["label"],
@@ -12261,7 +12265,7 @@ async def apply_industry_vertical(vertical_id: str, session_id: str, request: Re
             await db.update_latest_global_state(child["session_id"], cgs, child_state["bu_states"])
 
     issues = cfg.get("issues", [])
-    q1_issues = [i for i in issues if i.get("financial_impact") == "high" and i.get("societal_impact") == "high"]
+    q1_issues = [i for i in issues if _cq_v2(i) == "q1"]  # F-6: single classifier
 
     _audit("industry_vertical_applied", details={
         "session_id": session_id,

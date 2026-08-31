@@ -122,9 +122,14 @@ ROUND_CONFIGS = {
             ],
         },
         "special_rules": {
-            "materiality_accuracy_treasury_bonus": True,
-            "accuracy_threshold": 90,
-            "accuracy_bonus_amount": 2_000_000,
+            # F-4: the keys that used to sit here (accuracy_threshold: 90 and a
+            # $2M accuracy_bonus_amount treasury bonus) described a mechanic
+            # that never existed anywhere in the code — they were the source of
+            # the documentation drift. These are the REAL numbers, and the
+            # engine reads them (router accuracy bonus; _post_r2_materiality
+            # tier threshold).
+            "accuracy_threshold_pct": 80,
+            "accuracy_bonus_points": 1000,
         },
         "options": {
             "option_a": {
@@ -136,14 +141,28 @@ ROUND_CONFIGS = {
                     "In Advanced Climate mode: unlocks CSRD/ESRS climate materiality bonus "
                     "(NCD forgiveness +25%). Compliance cost is real."
                 ),
-                "flags_set": ["materiality_aligned"],
+                # F-2: no tier flag here. materiality_aligned / materiality_partial /
+                # materiality_ignored are written ONLY by round_logic._post_r2_materiality,
+                # which combines this choice with the matrix accuracy at post-tick.
+                # full_materiality_alignment is a choice marker with no consumer —
+                # it records WHAT was chosen, never whether the premium was earned.
+                "flags_set": ["full_materiality_alignment"],
                 "ac_bonus": {"ncd_forgiveness_multiplier": 1.25, "note": "CSRD climate materiality alignment"},
                 "impacts": {
-                    "treasury": -2_500_000,
+                    "treasury": -2_500_000,   # the documented compliance cost — keep
                     "reputation": +5,
                     "governance_risk_delta": -5,
                     "carbon_intensity_delta": -3,
-                    "revenue_delta": -2_500_000,
+                    # F-7: WAS -2_500_000 — but revenue_delta is applied PER
+                    # business unit by _apply_common_impacts and revenue_base
+                    # persists, so the group-sized figure cost -$12.5M of
+                    # permanent group revenue (-29% for the smallest unit) on
+                    # top of the treasury charge: ~$15M for an option every
+                    # document prices at $2.5M. Compliance spend is a cash
+                    # cost, not a revenue reduction. If a revenue effect is
+                    # ever wanted, it must be per-unit-scaled (e.g. -500_000
+                    # ≈ -$2.5M group) and a deliberate design decision.
+                    "revenue_delta": 0,
                     "social_license_delta": +5,
                     "natural_capital_debt_delta": -3,
                 },
@@ -166,9 +185,11 @@ ROUND_CONFIGS = {
                     "40% of your materiality budget will be clawed back. Governance posture must match "
                     "investment rationale under ESRS 2 GOV-1."
                 ),
-                "flags_set": ["materiality_ignored"],
-                # budget_clawback_pct is read by submit_materiality_matrix in router.py
-                # to retroactively reduce the materiality capital released this round.
+                # F-2: tier flag owned by round_logic._post_r2_materiality (see option_a).
+                # ceo_only_signoff is a choice marker with no consumer.
+                "flags_set": ["ceo_only_signoff"],
+                # budget_clawback_pct is read by round_logic._post_r2_materiality
+                # to retroactively reduce the materiality fund released this round.
                 "budget_clawback_pct": 0.40,
                 "impacts": {"treasury": 0, "reputation": -5, "governance_risk_delta": +10, "carbon_intensity_delta": +3, "revenue_delta": +400_000, "social_license_delta": -5, "natural_capital_debt_delta": +3},
             },
@@ -272,21 +293,21 @@ ROUND_CONFIGS = {
                 "title": "Full Transparency & Remediation",
                 "description": "Public disclosure, factory audits, worker compensation.",
                 "flags_set": ["remediation_active"],
-                "impacts": {"treasury": -6_000_000, "reputation": +10, "social_license": +8, "carbon_intensity_delta": -4, "revenue_delta": -500_000, "governance_risk_delta": -5, "natural_capital_debt_delta": 0},
+                "impacts": {"treasury": -6_000_000, "reputation": +10, "social_license_delta": +8, "carbon_intensity_delta": -4, "revenue_delta": -500_000, "governance_risk_delta": -5, "natural_capital_debt_delta": 0},
             },
             "option_b": {
                 "label": "B",
                 "title": "Damage Control PR",
                 "description": "Hire crisis PR firm. Contains narrative but doesn't fix root cause.",
                 "flags_set": ["pr_containment"],
-                "impacts": {"treasury": -2_000_000, "reputation": +2, "social_license": -3, "carbon_intensity_delta": -1, "revenue_delta": 0, "governance_risk_delta": +3, "natural_capital_debt_delta": 0},
+                "impacts": {"treasury": -2_000_000, "reputation": +2, "social_license_delta": -3, "carbon_intensity_delta": -1, "revenue_delta": 0, "governance_risk_delta": +3, "natural_capital_debt_delta": 0},
             },
             "option_c": {
                 "label": "C",
                 "title": "Deny & Deflect",
                 "description": "Issue a denial. Cheapest option but highest contagion risk.",
                 "flags_set": ["deny_and_deflect"],
-                "impacts": {"treasury": 0, "reputation": -15, "social_license": -10, "carbon_intensity_delta": +4, "revenue_delta": -1_000_000, "governance_risk_delta": +8, "natural_capital_debt_delta": +5},
+                "impacts": {"treasury": 0, "reputation": -15, "social_license_delta": -10, "carbon_intensity_delta": +4, "revenue_delta": -1_000_000, "governance_risk_delta": +8, "natural_capital_debt_delta": +5},
             },
         },
     },
@@ -401,7 +422,7 @@ ROUND_CONFIGS = {
                 "flags_set": ["ai_monetised"],
                 "impacts": {
                     "software_revenue_delta": +10_000_000,
-                    "reputation_delta": -20,
+                    "reputation": -20,
                     "contagion_spike": True,
                     "carbon_intensity_delta": +2,
                     "social_license_delta": -15,
@@ -420,7 +441,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": -8_000_000,
                     "social_license_delta": +15,
-                    "reputation_delta": +5,
+                    "reputation": +5,
                     "carbon_intensity_delta": -4,
                     "revenue_delta": +800_000,
                     "governance_risk_delta": -5,
@@ -434,7 +455,7 @@ ROUND_CONFIGS = {
                 "flags_set": ["quiet_patch"],
                 "impacts": {
                     "treasury": -1_000_000,
-                    "reputation_delta": -5,
+                    "reputation": -5,
                     "governance_risk_delta": +10,
                     "carbon_intensity_delta": 0,
                     "revenue_delta": -200_000,
@@ -619,7 +640,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": +5_000_000,
                     "social_license_delta": -20,
-                    "reputation_delta": -15,
+                    "reputation": -15,
                     "strike_risk": True,
                     "carbon_intensity_delta": +3,
                     "revenue_delta": -1_200_000,
@@ -634,7 +655,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": -12_000_000,
                     "social_license_delta": +10,
-                    "reputation_delta": +8,
+                    "reputation": +8,
                     "carbon_intensity_delta": -4,
                     "revenue_delta": +600_000,
                 },
@@ -651,7 +672,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": -20_000_000,
                     "social_license_delta": +18,
-                    "reputation_delta": +12,
+                    "reputation": +12,
                     "governance_risk_delta": -5,
                     "carbon_intensity_delta": -3,
                     "revenue_delta": +400_000,
@@ -733,10 +754,19 @@ ROUND_CONFIGS = {
                 ),
                 "flags_set": ["divest"],
                 "impacts": {
+                    # C-6 (2026-08-31 audit): divest_all has NO consumer — by
+                    # design ruling it stays declared but inert until its
+                    # mechanics are specified (allow-listed in
+                    # tests/test_engine_invariants.py). The Divest ending is
+                    # carried by synergy_wipe, treasury, revenue_delta, the
+                    # -12 social_license_delta and the +8 NCD below.
                     "divest_all": True,
                     "treasury": +25_000_000,
                     "synergy_wipe": True,
                     "carbon_intensity_delta": +2,
+                    # §5.3: -2M PER UNIT = -$10M group (13.2%) — plausibly intentional for a
+                    # divestment; awaiting design-owner confirmation. Allow-listed in
+                    # tests/test_r2_materiality_audit.py (per-unit sanity sweep).
                     "revenue_delta": -2_000_000,
                     "reputation": -10,
                     "social_license_delta": -12,
