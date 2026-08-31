@@ -28,7 +28,14 @@ HANDLER_ROUND = {
 
 # Keys an option may declare that are deliberately NOT consumed by any
 # handler.  Every entry needs a reason; an empty dict is the healthy state.
-ALLOWLISTED_UNAPPLIED: dict[str, str] = {}
+ALLOWLISTED_UNAPPLIED: dict[str, str] = {
+    # C-6, design ruling 2026-08-31: divest_all stays in config but inert —
+    # its intended mechanics were never specified and must not be inferred
+    # from the name. Its live siblings (synergy_wipe, the -12 SLO, the +8
+    # NCD, treasury, revenue_delta) carry the Divest ending. Remove this
+    # entry the moment a design lands and a consumer is written.
+    "divest_all": "pending design ruling — deliberately unconsumed",
+}
 
 
 def _handler_sources() -> dict[str, str]:

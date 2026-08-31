@@ -492,6 +492,9 @@ def post_tick(
     # I7: Reverse R5 hard engineering CI pulse after 2 rounds (construction phase ends R7)
     _revert_r5_hard_engineering_pulse(global_state, bu_states, extra_events, round_number)
 
+    # ITEM 14 / C-3: social-media velocity amplifier, escalating from R4 on.
+    _apply_social_media_velocity(round_number, global_state, extra_events)
+
     # Apply generic impacts (carbon_intensity_delta, revenue_delta) for ALL rounds
     _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events,
                           events=events)
@@ -1687,10 +1690,20 @@ def _post_r4_contagion(
 
     extra["r4_choice"] = choice
 
-    # ── ITEM 14: Social Media Velocity Amplifier (R4+) ────────
-    # Digital amplification accelerates contagion in later rounds
-    round_num = gs.get("round_number", 4) if "round_number" in gs else 4
-    velocity_multiplier = round(1.0 + 0.1 * (round_num - 3), 2)
+
+
+# ── ITEM 14: Social Media Velocity Amplifier (R4+) ──────────────────────────
+def _apply_social_media_velocity(round_number: int, gs: dict, extra: dict) -> None:
+    """Digital amplification accelerates reputational contagion in later
+    rounds. C-3 fix (2026-08-31 full-course audit, design ruling: persistent
+    escalation): this used to live inside _post_r4_contagion, where
+    round_number was always 4 and the escalation formula could never move off
+    1.10×. It now runs from post_tick for every round from R4 on, so the
+    multiplier actually escalates: R4 1.1× → R7 1.4× → R10 1.7×. Only
+    amplifies while group reputation is below 60."""
+    if round_number < 4:
+        return
+    velocity_multiplier = round(1.0 + 0.1 * (round_number - 3), 2)
     current_rep = gs.get("group_reputation", 50)
     if current_rep < 60:  # Only amplifies negative reputation
         rep_penalty = round((60 - current_rep) * 0.1 * (velocity_multiplier - 1.0), 2)
@@ -1704,7 +1717,6 @@ def _post_r4_contagion(
                     f"than baseline. Reputation hit amplified by {rep_penalty:.1f} points."
                 ),
             }
-
 
 
 # ── R3: Scope 3 mutations ────────────────────────────────────────────────────
@@ -1806,6 +1818,13 @@ def _post_r3_scope3(
         scope3_completeness = 60  # Green bond with partial audit
     gs["scope3_data_completeness"] = scope3_completeness
     extra["scope3_data_completeness"] = scope3_completeness
+    # B-2 fix (2026-08-31 full-course audit, design ruling): ≥80% supply-chain
+    # visibility (Option A's direct supplier audit) IS Scope 3 transparency —
+    # it earns the flag the ending_pathways "Supply Chain Transparency" +0.20
+    # M_R bonus reads but which nothing ever wrote.
+    if scope3_completeness >= 80:
+        gs.setdefault("active_event_flags", {})["scope_3_transparency"] = True
+        extra["scope_3_transparency_earned"] = True
     if scope3_completeness < 60:
         extra["scope3_data_challenge"] = {
             "completeness": scope3_completeness,
@@ -2848,11 +2867,19 @@ def _post_r10_grand_finale(
     extra["green_cost_of_debt_pct"] = round(
         sum(b.get("natural_capital_debt", 0) for b in bus) * 0.05, 2
     )
-    # Just Transition pass/fail
+    # Just Transition pass/fail.
+    # B-1 fix (2026-08-31 full-course audit, design ruling: align with the R9
+    # M_R view). The old expression read two flags no code path ever wrote
+    # (just_transition_fund, worker_retraining — remnants of an unfinished
+    # pillar-driven design) and then keyed off the ROUND 10 choice, passing
+    # Resist & Integrate and Divest while failing Spin-off — while the M_R
+    # bonus 300 lines above rewards R9 managed_transition. One definition
+    # now: a just transition is R9 Managed Transition (option_b flag) or the
+    # R9 Community Investment Fund (option_c flag), in either paradigm; R9
+    # Immediate Closure fails it.
     extra["just_transition_passed"] = (
-        "just_transition_fund" in all_flags
-        or "worker_retraining" in all_flags
-        or choice in ("option_a", "option_c")
+        "managed_transition" in all_flags
+        or "community_fund" in all_flags
     )
 
     # Persist into global state flags for frontend/API access

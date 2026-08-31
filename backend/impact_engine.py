@@ -337,6 +337,12 @@ def _post_r9_just_transition(
         success_rate = min(1.0, 0.7 + 0.003 * avg_sl)
         retrain_roll = random.random()
         retrain_succeeded = retrain_roll < success_rate
+        # B-3 fix (2026-08-31 full-course audit): persist the outcome flag —
+        # the facilitator dashboard (admin_router) reads retraining_succeeded
+        # exactly as it reads nbs_succeeded, but only the NBS half of the
+        # stochastic-outcome pair was ever written.
+        gs.setdefault("active_event_flags", {})["retraining_succeeded"] = retrain_succeeded
+        gs["active_event_flags"]["retraining_roll"] = round(retrain_roll, 4)
         extra["retraining_assessment"] = {
             "success_rate": round(success_rate * 100, 1),
             "roll": round(retrain_roll, 4),

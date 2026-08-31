@@ -754,6 +754,12 @@ ROUND_CONFIGS = {
                 ),
                 "flags_set": ["divest"],
                 "impacts": {
+                    # C-6 (2026-08-31 audit): divest_all has NO consumer — by
+                    # design ruling it stays declared but inert until its
+                    # mechanics are specified (allow-listed in
+                    # tests/test_engine_invariants.py). The Divest ending is
+                    # carried by synergy_wipe, treasury, revenue_delta, the
+                    # -12 social_license_delta and the +8 NCD below.
                     "divest_all": True,
                     "treasury": +25_000_000,
                     "synergy_wipe": True,
