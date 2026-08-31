@@ -134,12 +134,77 @@ def test_router_helper_applies_aggregates_with_effectiveness_scaling():
             "governance_risk_score": 20.0, "natural_capital_debt": 10.0,
             "water_dependency": 30.0, "staff_burnout_index": 10.0}]
     events = {}
-    agg = {"reputation": 6, "social_license_delta": 4, "burnout_delta": -2}
+    agg = {"reputation": 6, "social_license_delta": 4, "burnout_delta": -2,
+           "revenue_delta": 300_000}
     _apply_pillar_aggregate_impacts(gs, bus, events, agg, effectiveness=0.5)
     assert gs["group_reputation"] == pytest.approx(53.0)      # 6 × 0.5
+    # Revenue: flat per BU (NOT revenue-weighted), effectiveness-scaled
+    assert bus[0]["revenue_base"] == pytest.approx(30_150_000.0)
+    assert bus[1]["revenue_base"] == pytest.approx(10_150_000.0)
+    assert events["pillar_revenue_delta_applied"] == pytest.approx(150_000.0)
     # SLO: delta 4 × 0.5 = 2, revenue-weighted × num_bus: a gets 2×0.75×2=3, b 2×0.25×2=1
     assert bus[0]["social_license_score"] == pytest.approx(53.0)
     assert bus[1]["social_license_score"] == pytest.approx(51.0)
     # burnout is NOT effectiveness-scaled (visible HR impact), flat per BU
     assert bus[0]["staff_burnout_index"] == pytest.approx(8.0)
     assert events["pillar_burnout_delta_applied"] == -2
+
+
+# ═════════════════════════════════════════════════════════════════
+#  Pillar revenue design invariants (SPEC_Pillar_Revenue_Impacts v2)
+# ═════════════════════════════════════════════════════════════════
+
+def _pillar_revenue_surface():
+    from pillar_configs import PILLAR_OPTIONS
+    out = {}
+    for r, cfg in PILLAR_OPTIONS.items():
+        for area, acfg in (cfg.get("areas") or {}).items():
+            for opt, ocfg in (acfg.get("options") or {}).items():
+                rv = (ocfg.get("impacts") or {}).get("revenue_delta", 0)
+                if rv:
+                    out[(r, area, opt)] = rv
+    return out
+
+
+def test_r10_pillar_options_carry_no_revenue():
+    """Design ruling: R10 pillar aggregates are skipped — the mapped ending
+    owns R10 revenue. A revenue_delta on an R10 pillar option would be dead
+    config (the exact defect class this whole audit exists to prevent)."""
+    r10 = {k: v for k, v in _pillar_revenue_surface().items() if k[0] == 10}
+    assert not r10, f"R10 pillar options must not declare revenue_delta: {r10}"
+
+
+def test_pillar_revenue_values_stay_in_the_calibrated_band():
+    """SPEC v2 realism band: every per-option value within ±$400K (±3.3% of a
+    $12M BU), matching the evidence ceilings (severe-scandal / AI-monetisation
+    class). A value outside the band means someone changed calibration without
+    re-running the realism review."""
+    for key, rv in _pillar_revenue_surface().items():
+        assert -400_000 <= rv <= 400_000, f"{key}: {rv:+,} outside SPEC v2 band"
+    # The two deliberate extremes exist and sit exactly at the band edges.
+    surf = _pillar_revenue_surface()
+    assert surf[(6, "operations", "monetise")] == 400_000
+    assert surf[(4, "operations", "deny")] == -400_000
+    assert surf[(9, "operations", "immediate_closure")] == -400_000
+
+
+def test_pillar_revenue_is_aggregated_and_applied_once():
+    """End-to-end through aggregation + the router applier: chosen options'
+    revenue_delta sums, scales by effectiveness, lands flat on every BU."""
+    from pillar_configs import aggregate_pillar_decisions
+    from router import _apply_pillar_aggregate_impacts
+    # NOTE: waste_to_energy + full_circular is a designed mutual-exclusivity
+    # conflict in R7 (the aggregator reverses one side's impacts) — this test
+    # uses heat_recovery deliberately to stay on the clean path.
+    picks = {"operations": "full_circular", "energy": "heat_recovery"}
+    agg = aggregate_pillar_decisions(7, picks)
+    assert agg["impacts"]["revenue_delta"] == 400_000  # 350K + 50K
+    gs = {"group_reputation": 50.0}
+    bus = [{"bu_id": "a", "revenue_base": 12_000_000.0, "opex_base": 1.0,
+            "carbon_intensity": 50.0, "social_license_score": 50.0,
+            "governance_risk_score": 20.0, "natural_capital_debt": 10.0,
+            "water_dependency": 30.0, "staff_burnout_index": 10.0}]
+    events = {}
+    _apply_pillar_aggregate_impacts(gs, bus, events, agg["impacts"], effectiveness=1.0)
+    assert bus[0]["revenue_base"] == pytest.approx(12_400_000.0)
+    assert events["pillar_revenue_delta_applied"] == pytest.approx(400_000.0)

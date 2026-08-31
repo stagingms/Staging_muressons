@@ -7162,3 +7162,15 @@ def _apply_pillar_aggregate_impacts(
             current_bo = bu.get("staff_burnout_index", 0.0)
             bu["staff_burnout_index"] = max(0.0, min(100.0, round(current_bo + burnout_delta, 2)))
         events["pillar_burnout_delta_applied"] = burnout_delta
+
+    # Revenue delta (SPEC_Pillar_Revenue_Impacts v2, 2026-08-31): flat per BU
+    # like the legacy convention, scaled by effectiveness, floored at 0.
+    # Applied LAST so the revenue-weighted deltas above keep the round's
+    # incoming revenue distribution as their basis. This is the deliberate
+    # replacement for the revenue the pre-fix leak was accidentally
+    # providing pillar cohorts.
+    rev_delta = round(agg_impacts.get("revenue_delta", 0) * effectiveness, 2)
+    if rev_delta != 0:
+        for bu in new_bus:
+            bu["revenue_base"] = max(0, round(bu.get("revenue_base", 0) + rev_delta, 2))
+        events["pillar_revenue_delta_applied"] = rev_delta

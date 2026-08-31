@@ -113,3 +113,16 @@ course markedly harder than the last thirty cohorts did.
 **Verification:** 31/31 pillar-ownership acceptance tests green; invariants + R2
 suites green (99 passed); full suite 2167 passed with only the same 11 pre-existing
 base failures; M_R ceilings untouched (legacy path unchanged; ceilings test green).
+
+### §9 addendum — revenue lever implemented (same day)
+
+The design gap is closed: SPEC_Pillar_Revenue_Impacts v2 (evidence-rated values)
+is wired in — 68 `revenue_delta` values in pillar_configs.py (R1–R9; R10 none, by
+ruling), an effectiveness-scaled flat-per-BU revenue block applied last in
+`router._apply_pillar_aggregate_impacts`, and four new invariants (R10 carries no
+revenue config; all values inside the ±$400K realism band with the three deliberate
+extremes pinned; aggregation→application lands exactly once; helper scaling).
+Validation, same policy/seed: closing treasury +$13.8M and terminal value +$61.1M —
+within 7% of the leaky engine's +$65.7M terminal value, restoring comparable cohort
+difficulty through designed levers. Full suite: 2169 passed; failures confined to
+the same four pre-existing files. Cohort-boundary shipping unchanged.

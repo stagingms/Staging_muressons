@@ -1,5 +1,5 @@
 # SPEC — Revenue Impacts for Pillar Options (v2, realism-reviewed)
-**Date:** 2026-08-31 · **Branch:** `fix/pillar-impact-ownership` · **Status:** PROPOSAL v2 — every value re-rated against real-world evidence
+**Date:** 2026-08-31 · **Branch:** `fix/pillar-impact-ownership` · **Status:** v2 IMPLEMENTED — wired into pillar_configs.py + router; validation trajectory in §7
 **Motivation:** the pillar-ownership repair removed the leaked legacy `revenue_delta` that was
 accidentally the only decision-driven revenue lever in pillar mode (§9 of
 AUDIT_FULLCOURSE_RESPONSE_2026-08-31.md). v1 proposed values by internal calibration only;
@@ -249,3 +249,23 @@ circular launch, and the R6 temptation.
 3. Extend `tests/test_pillar_impact_ownership.py` for the revenue block's scaling.
 4. Re-run the pillar-game harness and record the trajectory next to the §9 numbers.
 5. Rebaseline multi_toggles goldens if any tighten. Cohort-boundary shipping.
+
+## 7. Validation trajectory (implemented)
+
+Same 10-round pillar policy and seed as the §9 baselines in
+AUDIT_FULLCOURSE_RESPONSE_2026-08-31.md:
+
+| Variant | Closing treasury | Terminal value | M_R |
+|---|---:|---:|---:|
+| Pre-fix (leaky legacy stacking) | +$53.6M | +$65.7M | 1.58 |
+| Ownership fix, no revenue lever | −$137.5M | −$214.1M | 1.58 |
+| **Ownership fix + SPEC v2 revenue** | **+$13.8M** | **+$61.1M** | **1.58** |
+
+Terminal value lands within 7% of what the leaky engine produced — pillar-cohort
+difficulty is comparable to what the last thirty cohorts experienced — while the
+cash game is deliberately tighter (+$13.8M vs +$53.6M closing treasury) and every
+dollar now comes from designed, evidence-rated levers instead of the accident.
+Implementation notes: revenue is applied LAST in `_apply_pillar_aggregate_impacts`
+so the revenue-weighted deltas keep the round's incoming distribution as their
+basis; R7's waste_to_energy × full_circular mutual exclusivity correctly reverses
+one side's revenue along with its other impacts (covered by test).
