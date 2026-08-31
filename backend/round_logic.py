@@ -493,7 +493,8 @@ def post_tick(
     _revert_r5_hard_engineering_pulse(global_state, bu_states, extra_events, round_number)
 
     # Apply generic impacts (carbon_intensity_delta, revenue_delta) for ALL rounds
-    _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events)
+    _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events,
+                          events=events)
 
     # I9: Apply mid-game carbon cost (legacy_abc / un_sdg — not advanced_climate)
     # Skip R10: terminal valuation already applies a lump-sum carbon tax on exit EBITDA.
@@ -1183,6 +1184,7 @@ def _apply_common_impacts(
     decisions: list[dict],
     extra: dict,
     decision_paradigm: str | None = None,
+    events: dict | None = None,
 ):
     """
     Generic applicator for carbon_intensity_delta and revenue_delta.
@@ -1230,6 +1232,27 @@ def _apply_common_impacts(
             0.0, min(100.0, round(gs.get("group_reputation", 50.0) + rep_delta, 2))
         )
         extra[f"reputation_applied_r{round_number}"] = rep_delta
+
+    # Pillar mode: the router has already aggregated and applied pillar
+    # impacts (router.py ~2497). The applier below is legacy-only — it must
+    # not stack a translated legacy option's deltas on top of the pillar
+    # aggregate. (2026-08-31 full-course audit.)
+    pillar_mode = bool(events) and events.get("pillar_cost_applied") is not None
+
+    # Social licence delta — applied to all BUs (mirrors governance_risk_delta).
+    # C-1 fix (2026-08-31 full-course audit): R1, R2, R3, R7 and R10 promised
+    # social_license_delta in config and never applied it — the main lever on
+    # the −0.40 Instability Discount was dead in five of ten rounds. Handlers
+    # that apply it themselves (R6, R8, R9 — and R10, which must apply it
+    # BEFORE its M_R instability check reads the closing average) set the
+    # guard key below so nothing is applied twice.
+    sl_delta = impacts.get("social_license_delta", 0)
+    if sl_delta != 0 and not pillar_mode and f"social_license_applied_r{round_number}" not in extra:
+        for bu in bus:
+            bu["social_license_score"] = max(
+                0.0, min(100.0, round(bu.get("social_license_score", 50.0) + sl_delta, 2))
+            )
+        extra[f"social_license_applied_r{round_number}"] = sl_delta
 
     # NCD application is handled individually in each round's post handler
     # because some rounds (like R5 and R8) queue it as a pending capex project instead of applying immediately.
@@ -1639,6 +1662,9 @@ def _post_r4_contagion(
                     0.0, min(100.0, round(bu.get("social_license_score", 50.0) + sl, 2))
                 )
             extra["r4_social_license_applied"] = sl
+            # Guard for _apply_common_impacts once C-4 migrates this option
+            # key from social_license to social_license_delta.
+            extra["social_license_applied_r4"] = sl
 
         gov = impacts.get("governance_risk_delta", 0)
         if gov:
@@ -1825,6 +1851,7 @@ def _post_r6_ai_bias(
             for bu in bus:
                 bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
             extra["social_license_boosted"] = sl_delta
+            extra["social_license_applied_r6"] = sl_delta  # guard: generic applier must skip R6
 
         gov_delta = impacts.get("governance_risk_delta", 0)
         if gov_delta != 0:
@@ -2059,6 +2086,7 @@ def _post_r8_blue_stress(
     if sl_delta != 0:
         for bu in bus:
             bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
+        extra["social_license_applied_r8"] = sl_delta  # guard: generic applier must skip R8
 
     extra["r8_choice"] = choice
 
@@ -2157,6 +2185,22 @@ def _post_r10_grand_finale(
             impacts = opt.get("impacts", {})
         else:
             extra["synergy_gate_passed"] = True
+
+    # C-1 fix (2026-08-31 full-course audit): R10's social_license_delta must
+    # be applied HERE — after the synergy gate settles the effective choice,
+    # and before the M_R Instability Discount below reads the closing SLO
+    # average. The generic applier in _apply_common_impacts runs AFTER this
+    # handler, which would be too late for the terminal round; the guard key
+    # keeps it from applying the delta a second time. Legacy mode only — in
+    # pillar mode the router applies the pillar aggregates.
+    _r10_pillar_mode = events.get("pillar_cost_applied") is not None
+    _sl_delta_r10 = impacts.get("social_license_delta", 0)
+    if _sl_delta_r10 != 0 and not _r10_pillar_mode:
+        for bu in bus:
+            bu["social_license_score"] = max(
+                0.0, min(100.0, round(bu.get("social_license_score", 50.0) + _sl_delta_r10, 2))
+            )
+        extra["social_license_applied_r10"] = _sl_delta_r10
 
     # Option B: Spin-off weakest BU
     if impacts.get("spinoff_weakest_bu"):
@@ -2910,6 +2954,27 @@ def _post_r2_materiality(
 
     choice = _get_primary_choice(decs)
     gs["r2_governance_choice"] = choice
+
+    # 0) ── Option treasury (C-5, 2026-08-31 full-course audit) ────────────
+    # Every other round charges its chosen option's impacts["treasury"]; R2
+    # never did — before the F-1 repair it had no post-tick handler at all,
+    # and the repair wired tier/clawback/assurance without noticing option
+    # treasury still had no applier. Option A's -$2.5M compliance cost is the
+    # price the tiered governance premium (+0.10 vs +0.05) was designed
+    # around; without it Option A strictly dominated Option B. Charged BEFORE
+    # the Option C clawback so the clawback's treasury shortfall lands on the
+    # post-charge balance. Legacy mode only — pillar costs are applied by the
+    # router.
+    if events.get("pillar_cost_applied") is None:
+        _r2_opts = _fetch_options_for_industry(2, bus)
+        _r2_treasury = ((_r2_opts.get(choice) or {}).get("impacts") or {}).get("treasury", 0)
+        if _r2_treasury:
+            _apply_treasury_with_green_fund(
+                gs,
+                abs(_r2_treasury) if _r2_treasury < 0 else -_r2_treasury,
+                extra,
+            )
+            extra["option_treasury_applied_r2"] = _r2_treasury
 
     submitted = bool(_panel("csrd_completed", False))
     try:

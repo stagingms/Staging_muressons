@@ -237,6 +237,7 @@ def _post_r9_just_transition(
         if sl_delta != 0:
             for bu in bus:
                 bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
+            extra["social_license_applied_r9"] = sl_delta  # guard: generic applier must skip R9
 
         gov_delta = impacts.get("governance_risk_delta", 0)
         if gov_delta != 0:
