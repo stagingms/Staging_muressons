@@ -1801,6 +1801,13 @@ export const CONSEQUENCE_CATALOG = {
     icon: '🎯',
     explain: () => 'You disclosed against what actually matters, and that credibility pays back at the end of the game.',
   },
+  materiality_partial: {
+    label: 'Materiality — Partial Credit',
+    mechanism: 'An accurate double-materiality assessment approved through Strategic Exceptions earns half the governance credibility of full board alignment.',
+    severity: 'good',
+    icon: '🎯',
+    explain: () => 'Your analysis was right, but the governance around it was only partial — half the premium follows you to the end of the game.',
+  },
   materiality_ignored: {
     label: 'Materiality Ignored',
     mechanism: 'Disclosure that skips the material issues leaves you exposed when those issues fire.',

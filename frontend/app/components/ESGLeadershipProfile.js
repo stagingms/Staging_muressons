@@ -20,7 +20,8 @@
  */
 'use client';
 import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
-import styles from './ESGLeadershipProfile.module.css';
+import styles from './ESGLeadershipProfile.module.css';
+
 import { currencySymbol, atRate } from '../utils/format';
 
 /** The 5 ESG dimensions for the radar chart */
@@ -45,7 +46,7 @@ export const DEFAULT_ESG_WEIGHTS = {
   },
   governance: {
     base: 48, materiality_governance: 300, truth_premium: 260,
-    materiality_aligned: 10, instability_penalty: 100, reputation_blend: 0.3,
+    materiality_aligned: 10, materiality_partial: 5, instability_penalty: 100, reputation_blend: 0.3,
   },
   social_impact: {
     social_license_blend: 0.6, reputation_blend: 0.4, community_champion: 70,
@@ -123,7 +124,7 @@ function computePillarScores(data = {}, flags = {}, businessUnits = [], weights 
   const wg = W.governance;
   const governance = (1 - wg.reputation_blend) * (wg.base
       + b('materiality_governance') * wg.materiality_governance + b('truth_premium') * wg.truth_premium
-      + (flags.materiality_aligned ? wg.materiality_aligned : 0)
+      + (flags.materiality_aligned ? wg.materiality_aligned : (flags.materiality_partial ? wg.materiality_partial : 0))
       + b('instability_discount') * wg.instability_penalty)   // instability_discount is negative
     + wg.reputation_blend * reputation;
 

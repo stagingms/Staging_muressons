@@ -86,6 +86,7 @@ DECISION_LP_MAP = {
 FLAG_METRIC_SHIFTS = {
     "electronics_blindspot": [{"metric": "crisis_severity", "label": "Crisis Severity ×2", "delta": 40}],
     "materiality_aligned": [{"metric": "governance", "label": "Governance Credibility ↑", "delta": 10}],
+    "materiality_partial": [{"metric": "governance", "label": "Governance Credibility ↑ (partial)", "delta": 5}],
     "greenwash_risk": [{"metric": "reputation", "label": "Greenwash Vulnerability", "delta": -8}],
     "early_decarboniser": [{"metric": "carbon_intensity", "label": "Carbon Intensity < 35", "delta": -15}],
     "insurance_only": [{"metric": "resilience", "label": "Resilience Locked Out", "delta": -20}],
@@ -583,6 +584,7 @@ def _get_flag_projection_mapping(flag: str) -> str | None:
     """Map a flag to its M_R projection node ID."""
     mapping = {
         "materiality_aligned": "proj_materiality_governance",
+        "materiality_partial": "proj_materiality_governance",
         "synergy_unlock": "proj_synergy_bonus",
         "ethical_ai_overhaul": "proj_truth_premium",
         "community_fund": "proj_community_champion_bonus",

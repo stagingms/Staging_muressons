@@ -1703,6 +1703,17 @@ def _post_r3_scope3(
                         "📊 R2 Materiality Alignment Bonus: Institutional investors rewarded "
                         "your CSRD governance posture with a $500K Green Bond discount."
                     )
+                elif "materiality_partial" in r2_flags:
+                    # §5.2 decision: symmetric half-discount for the partial tier
+                    # (accurate matrix under Option B) — deliberate, not fall-through.
+                    discount = 250_000
+                    treasury_cost = max(0, treasury_cost - discount)
+                    extra["green_bond_r2_partial_discount"] = discount
+                    extra["green_bond_r2_partial_message"] = (
+                        "📊 R2 Partial Alignment: Investors acknowledged your accurate "
+                        "materiality analysis with a $250K Green Bond discount — half the "
+                        "full-alignment rate, reflecting the weaker governance posture."
+                    )
                 elif "materiality_ignored" in r2_flags:
                     premium = 1_000_000
                     treasury_cost += premium
@@ -2359,6 +2370,20 @@ def _post_r10_grand_finale(
             "📊 CSRD Governance Premium: Your Round 2 full materiality alignment earned "
             "+0.10 M_R. Institutional investors reward companies that embed ESG governance "
             "rigorously from the outset (ESRS 1 — General Requirements)."
+        )
+    elif "materiality_partial" in all_flags:
+        # §4.1 tier: ≥80% matrix accuracy under Option B (Strategic Exceptions).
+        # The analysis was right; the governance posture was only partial —
+        # half the premium. Mutually exclusive with materiality_aligned by
+        # construction (_post_r2_materiality is the single writer), so the
+        # maximum achievable M_R is unchanged.
+        mr += 0.05
+        extra["mr_materiality_partial_bonus"] = True
+        extra["mr_materiality_governance_message"] = (
+            "📊 Partial CSRD Governance Credit: Your Round 2 materiality analysis cleared "
+            "the 80% accuracy bar, but Strategic Exceptions (Option B) weakened board "
+            "oversight — +0.05 M_R instead of the full +0.10. Analysis and governance "
+            "are separate obligations (ESRS 1 §1.51)."
         )
 
     # +0.15: R7 Synergy achieved (waste_to_energy / synergy_unlock)

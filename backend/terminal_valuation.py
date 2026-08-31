@@ -178,6 +178,12 @@ def calculate_mr(
     if flags.get("materiality_aligned"):
         mr += 0.10; breakdown["materiality_governance"] = 0.10
         bonuses.append("Materiality Governance (+0.10)")
+    elif flags.get("materiality_partial"):
+        # §4.1 tier: ≥80% accuracy under Option B — half premium. Mutually
+        # exclusive with materiality_aligned (_post_r2_materiality is the
+        # single writer), so the M_R ceiling is unchanged.
+        mr += 0.05; breakdown["materiality_governance"] = 0.05
+        bonuses.append("Materiality Governance — partial (+0.05)")
 
     # ── Synergy Strategic Premium gate ──────────────────────────────────────
     # Condition A: R7 option_c "Resist & Integrate" set the synergy_unlock flag.

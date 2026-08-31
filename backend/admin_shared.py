@@ -836,6 +836,7 @@ DEFAULT_ESG_WEIGHTS: dict = {
         "materiality_governance": 300,
         "truth_premium": 260,
         "materiality_aligned": 10,
+        "materiality_partial": 5,
         "instability_penalty": 100,   # applied to the (negative) instability discount
         "reputation_blend": 0.3,      # 0-1 share of reputation vs governance-core
     },

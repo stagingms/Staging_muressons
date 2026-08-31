@@ -459,7 +459,9 @@ def generate_r5_checkpoint(
     locked_out = []
     if all_flags.get("electronics_blindspot"):
         locked_out.append("R1 Blindspot will double R4 crisis severity")
-    if not all_flags.get("materiality_aligned"):
+    if all_flags.get("materiality_partial"):
+        locked_out.append("Materiality Governance bonus — partial (+0.05 of +0.10 M_R): accurate matrix, but Option B governance")
+    elif not all_flags.get("materiality_aligned"):
         locked_out.append("Materiality Governance bonus (+0.10 M_R) — locked out")
     if all_flags.get("insurance_only"):
         locked_out.append("Resilience Champion bonus (+0.20 M_R) — locked out")

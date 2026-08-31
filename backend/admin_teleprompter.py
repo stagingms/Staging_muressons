@@ -88,7 +88,7 @@ _TELEPROMPTER_SCRIPTS = {
             "The 40% clawback is the simulation's version of ESG ratings agencies downgrading your disclosure quality score",
             "Option C also blocks the Green Bond discount in R3 — investors apply a $1M risk premium on your bond pricing",
             "Governance risk → Cash Conversion drag: at gov_risk=30, you lose ~6% revenue efficiency across all remaining rounds",
-            "★ R2→R10 PAYOFF: Option A sets the materiality_aligned flag → +0.10 M_R at terminal valuation (~$36M at the mean EBITDA). This closes the pedagogical loop: materiality governance has measurable long-term value",
+            "★ R2→R10 PAYOFF: the premium is TIERED — ≥80% matrix accuracy AND Option A → materiality_aligned (+0.10 M_R, ~$36M at the mean EBITDA); ≥80% AND Option B → materiality_partial (+0.05); Option C or <80% → materiality_ignored (nothing). Doing the analysis well does not excuse approving it badly",
         ],
         "key_teaching_moment": (
             "💡 DOUBLE MATERIALITY ≠ DOUBLE THE WORK. It's a lens change. Q1 issues are doubly material: "
@@ -175,7 +175,7 @@ _TELEPROMPTER_SCRIPTS = {
             "ux_gap": "CSRD matrix opens in isolation with no visual connection to R1 audit results.",
             "facilitator_prompt": "Explicitly link the materiality matrix to R1: 'Your R1 audit decision determines HOW MUCH data you have for this matrix.' Deep Audit teams can classify with confidence; Surface Scan teams are guessing.",
             "what_to_watch": "Students may feel the matrix is a standalone exercise. Draw the R1→R2 arrow on the whiteboard.",
-            "ui_tip": "The Consequence DNA panel (visible from R4) will trace materiality_aligned / greenwash_risk flags back to this round.",
+            "ui_tip": "The Consequence DNA panel (visible from R4) will trace materiality_aligned / materiality_partial / greenwash_risk flags back to this round.",
         },
     },
 
