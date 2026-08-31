@@ -101,11 +101,17 @@ back to the single classifier. **(b)** `_collect_all_flags` recursed into the
 (`governance_board`, `q1_recall`, …) as active flags despite the bundle's
 comment promising otherwise — same namespace-pollution class as F-2.
 
+Fixed in a follow-up commit after review sign-off: **(c)** healthcare R9
+"Halt Automation" carried `revenue_delta: -2_500_000` per unit — the F-7
+failure mode outside the sweep's reach (−$10M / 17.4% of the $57.5M
+healthcare group, −31% for telehealth, where every other healthcare option
+sits at 3.5–5.6%). Rescaled to −625K/unit = −$2.5M group (4.3%), and the
+per-unit sanity sweep now covers `HEALTHCARE_ROUND_CONFIGS` against the
+healthcare seed's own group base, with the two pre-existing revenue-EXPANSION
+outliers (R1A bed expansion +13.9%, R2A ICU expansion +10.4%) allow-listed
+with reasons pending design-owner review.
+
 Reported, not changed:
-- **Healthcare R9 "Halt Automation"** carries `revenue_delta: -2_500_000` per
-  unit (`healthcare_configs.py` ~464) — the same shape as F-7. It sits outside
-  `get_round_options`, so the audit's sweep and the new sanity test don't see
-  it. Recommend the same review.
 - **Convention inconsistency**: `opex_penalty` is group-scaled (divided across
   BUs) while `revenue_delta` is per-unit — this asymmetry is exactly how F-7
   happened. Worth a schema-level rename (`revenue_delta_per_bu`) some day.

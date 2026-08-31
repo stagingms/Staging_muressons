@@ -461,8 +461,16 @@ HEALTHCARE_ROUND_CONFIGS = {
                 "description": "Scrap the robotics deployment to appease the union. A colossal waste of prior R&D capital. Earns +0.12 M_R (Just Transition bonus).",
                 "flags_set": ["managed_transition"],
                 "impacts": {
-                    "treasury": -6_000_000,
-                    "revenue_delta": -2_500_000,
+                    "treasury": -6_000_000,   # the robotics R&D write-off
+                    # F-7 (healthcare instance): WAS -2_500_000 — revenue_delta
+                    # is applied PER business unit, so the group-sized figure
+                    # removed $10M of permanent group revenue (17.4% of the
+                    # $57.5M healthcare group, -31% for telehealth) on top of
+                    # the $6M write-off. Every other healthcare option sits at
+                    # 3.5-5.6% of group. -625K/unit = -$2.5M group (4.3%):
+                    # the automation efficiency gains foregone, at the scale
+                    # the option's economics imply.
+                    "revenue_delta": -625_000,
                 },
             },
             "option_c": {

@@ -268,6 +268,42 @@ def test_no_per_unit_revenue_delta_explodes_at_group_scale():
     )
 
 
+# Healthcare vertical: same tripwire, its own group base (db/seed_healthcare.json).
+# The two >10% entries are positive revenue-EXPANSION options (bed/ICU
+# capacity growth) that predate this audit; plausibly intentional growth
+# mechanics, allow-listed pending design-owner review. The one NEGATIVE
+# outlier (R9B Halt Automation, -2.5M/unit = -$10M group) was the F-7 failure
+# mode and has been rescaled to -625K/unit (-$2.5M group).
+HEALTHCARE_REVENUE_DELTA_ALLOWLIST = {
+    (1, "option_a"),   # Fast-Track Bed Expansion: +2M/unit (+13.9% group)
+    (2, "option_a"),   # Heavy ICU Expansion: +1.5M/unit (+10.4% group)
+}
+
+
+def test_no_healthcare_revenue_delta_explodes_at_group_scale():
+    from healthcare_configs import HEALTHCARE_ROUND_CONFIGS
+    seed_path = os.path.join(_BACKEND_DIR, "..", "db", "seed_healthcare.json")
+    with open(seed_path, encoding="utf-8") as f:
+        seed = json.load(f)
+    bus = seed["business_units"]
+    group = sum(b["revenue_base"] for b in bus)
+    n_bus = len(bus)
+    offenders = []
+    for rnd, cfg in HEALTHCARE_ROUND_CONFIGS.items():
+        for key, opt in (cfg.get("options") or {}).items():
+            if not isinstance(opt, dict):
+                continue
+            rd = (opt.get("impacts") or {}).get("revenue_delta", 0)
+            if rd and abs(rd) * n_bus > 0.10 * group \
+                    and (rnd, key) not in HEALTHCARE_REVENUE_DELTA_ALLOWLIST:
+                offenders.append((rnd, key, rd, rd * n_bus))
+    assert not offenders, (
+        f"healthcare revenue_delta is applied PER business unit; these options "
+        f"exceed 10% of the healthcare group revenue base once multiplied out "
+        f"(the F-7 failure mode): {offenders}"
+    )
+
+
 def test_r2_option_a_group_revenue_effect_is_zero():
     """Acceptance: Option A applies NO revenue_delta. _apply_common_impacts
     stamps revenue_delta_applied_r2 whenever it mutates revenue_base — that
