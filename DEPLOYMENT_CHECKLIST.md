@@ -67,23 +67,8 @@ upload or a registry write failed **mid-class**, with every health signal green.
   `low_space` stays `false`. Absence means *unknown*, not *healthy* — alert on
   `low_disk_space == true`, and treat missing keys as a probe to investigate,
   not an all-clear.
-**Alerting on it — use `?strict=1`.** Railway's own healthcheck only reads the
-status *code*, and `/health` deliberately returns **200** even on a low volume:
-a failing healthcheck RESTARTS the container, which fixes nothing and takes a
-live workshop down. So the failure is opt-in.
-
-```
-GET /health?strict=1   →  200 normally
-                       →  503 + {"status":"degraded"} when low_disk_space
-```
-
-Point any uptime monitor (UptimeRobot, Better Stack, Healthchecks.io — all have
-free tiers) at **`https://<your-domain>/health?strict=1`** with a 5–15 minute
-interval and the default "alert when not 200" rule. No JSON/keyword support
-needed. Disks fill slowly; a 15-minute interval is ample.
-
-Do **not** point Railway's `healthcheckPath` at the strict URL — that is the
-restart loop this design avoids. Leave it on `/api/health`.
+- **Set a Railway alert on `low_disk_space`** (or poll `/health` from any
+  uptime monitor). This is the one signal that gives warning before writes fail.
 
 ## 3. Deploy gating — do not let a push ship mid-class (A4)
 
