@@ -369,6 +369,12 @@ def _play_full_game(mode):
 
     random.seed(20260831 if mode == "max" else 20260832)
     sid, bus = _start()
+    # DEEP-4: cyclone/strike/retraining now roll from the cohort seed, and a
+    # solo session's auto-derived seed varies with session identity — stamp an
+    # explicit facilitator-style seed so this is a reproducible "graded run",
+    # order-independent under the full suite.
+    dbm._global_states[sid][-1].setdefault("active_event_flags", {})[
+        "stochastic_seed"] = f"slo-steerability-{mode}"
     for rnd in range(1, 11):
         if rnd == 2:
             assert _submit(sid, Q1_IDS, Q2_IDS, Q3_IDS).status_code == 200

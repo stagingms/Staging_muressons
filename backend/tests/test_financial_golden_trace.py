@@ -78,7 +78,7 @@ _SEED = 20260802
 _ROUND_DP = 4
 _N_ROUNDS = 10
 # Measured, then pinned — see test_bare_global_random_draws_stay_pinned.
-_EXPECTED_BARE_RANDOM_DRAWS = 3
+_EXPECTED_BARE_RANDOM_DRAWS = 0  # remediation #15 landed 2026-08-31 (DEEP-4)
 
 # Only the two genuinely out-of-scope engines are disabled: black swans and the
 # decision timer add noise without adding financial coverage. Everything that
@@ -404,18 +404,17 @@ def test_treasury_actually_moves_across_the_run():
 
 
 def test_bare_global_random_draws_stay_pinned():
-    """Count the un-seeded draws in the money path, and hold the number.
+    """The money path makes ZERO un-seeded random draws — hold it there.
 
-    Reproducibility in production depends on every stochastic draw going
-    through the seeded `event_rng` stream. Twelve engine sites still use the
-    bare global `random` module instead (remediation #15); a bare draw is
-    shared across interleaved commits from different teams, so it cannot be
-    reproduced from a cohort seed.
-
-    This measures how many such draws the core money path makes — 3 today, all
-    from one post_tick round handler — and fails if that changes. Up means a
-    new money path was routed through un-seeded randomness. Down to 0 means #15
-    landed, at which point delete this test and un-xfail the replay contract.
+    Remediation #15 landed (DEEP-4, 2026-08-31): the last three bare draws —
+    impact_engine's R5 cyclone/NBS and R9 strike/retraining rolls — moved onto
+    rng_util's named per-cohort streams (test_seeded_stochastics.py pins the
+    reproducibility contract). This counter stays as the tripwire: ANY count
+    above zero means someone routed a new money path through the bare global
+    `random` module, which interleaves across concurrent commits and cannot be
+    replayed from a cohort seed. The treasury-waterfall runner's strict xfail
+    remains — a residual entropy source outside the money path still varies
+    across processes.
     """
     import random as _random
     seen = []

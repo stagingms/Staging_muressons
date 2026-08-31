@@ -24,6 +24,25 @@ import random
 from typing import Any
 
 from round_configs import get_round_config
+from rng_util import event_rng, event_seed  # GAME-4 / DEEP-4: cohort-seeded rolls
+
+
+def _event_roller(gs: dict, prev_flags: dict, round_number: int, event_name: str):
+    """DEEP-4 (2026-08-31): the four highest-stakes rolls in the game — the
+    R5 cyclone, NBS establishment, R9 strike and retraining outcome — were the
+    only stochastics NOT on the GAME-4 per-cohort streams: they drew from the
+    bare module RNG, unseeded, shared across every concurrent session, and
+    deaf to the facilitator's fairness seed. Seeded cohorts (every cohort
+    since 4.2 auto-stamping) now get the named independent stream
+    rng_util prescribes; an UNSEEDED context falls back to the module RNG
+    itself, keeping legacy/demo/test behaviour bit-for-bit identical.
+
+    The seed is read from prev_flags first (the router merges flags into
+    global state only AFTER post_tick) with gs flags as fallback."""
+    for flags in (prev_flags, gs.get("active_event_flags")):
+        if isinstance(flags, dict) and event_seed(flags, round_number, event_name) is not None:
+            return event_rng(flags, round_number, event_name)
+    return random  # module RNG — historical unseeded behaviour
 
 
 # These are imported at call time to avoid circular imports.
@@ -92,7 +111,7 @@ def _post_r5_climate(
     # B-4 (2026-08-31 audit): the roll now actually reads the special_rules
     # switch that has always documented it. Default True preserves behaviour.
     stochastic_enabled = bool(special.get("stochastic_event", True))
-    roll = round(random.random(), 4)
+    roll = round(_event_roller(gs, prev_flags, 5, "r5:cyclone").random(), 4)
     extra["stochastic_roll"] = roll
     extra["stochastic_threshold"] = threshold
     if not stochastic_enabled:
@@ -170,7 +189,7 @@ def _post_r5_climate(
     # Option B (mangrove restoration) has stochastic success rate
     if choice == "option_b":
         nbs_success_rate = 0.75  # 75% chance of full establishment
-        nbs_roll = random.random()
+        nbs_roll = _event_roller(gs, prev_flags, 5, "r5:nbs").random()
         nbs_succeeded = nbs_roll < nbs_success_rate
         gs.setdefault("active_event_flags", {})["nbs_roll"] = round(nbs_roll, 4)
         gs["active_event_flags"]["nbs_succeeded"] = nbs_succeeded
@@ -311,7 +330,7 @@ def _post_r9_just_transition(
                     f"Consistent HR investment would have mitigated this risk."
                 )
 
-            roll = round(random.random(), 4)
+            roll = round(_event_roller(gs, prev_flags, 9, "r9:strike").random(), 4)
             extra["strike_roll"] = roll
             extra["strike_probability"] = strike_prob
 
@@ -350,7 +369,7 @@ def _post_r9_just_transition(
     if choice in ("option_b", "option_c"):
         avg_sl = sum(bu.get("social_license_score", 50) for bu in bus) / max(len(bus), 1)
         success_rate = min(1.0, 0.7 + 0.003 * avg_sl)
-        retrain_roll = random.random()
+        retrain_roll = _event_roller(gs, prev_flags, 9, "r9:retraining").random()
         retrain_succeeded = retrain_roll < success_rate
         # B-3 fix (2026-08-31 full-course audit): persist the outcome flag —
         # the facilitator dashboard (admin_router) reads retraining_succeeded
