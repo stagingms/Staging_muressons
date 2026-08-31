@@ -391,9 +391,12 @@ class TestPostTick:
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
-        # Set high SL to avoid instability discount
+        # Set high SL to avoid instability discount. DEEP-2 (single arbiter):
+        # the discount is now a GAME-2 ramp (0 at SLO>=80, full at <=70), and
+        # R10 option_b applies its own -5 SLO in-handler — start at 86 so the
+        # closing average (81) sits cleanly above the ramp band.
         for bu in bus:
-            bu["social_license_score"] = 80
+            bu["social_license_score"] = 86
             # burnout_index not set → defaults to 0.0 → wellbeing bonus active
         decs = make_decisions("option_b")
 

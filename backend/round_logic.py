@@ -498,6 +498,10 @@ def post_tick(
     # ITEM 14 / C-3: social-media velocity amplifier, escalating from R4 on.
     _apply_social_media_velocity(round_number, global_state, extra_events)
 
+    # ITEM 16 / DEEP-1: EU AI Act deferred liability, R7 onward.
+    _apply_eu_ai_act_liability(round_number, global_state, bu_states,
+                               extra_events, previous_flags)
+
     # Apply generic impacts (carbon_intensity_delta, revenue_delta) for ALL rounds
     _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events,
                           events=events)
@@ -1738,6 +1742,59 @@ def _apply_social_media_velocity(round_number: int, gs: dict, extra: dict) -> No
             }
 
 
+# ── ITEM 16 / DEEP-1: EU AI Act deferred liability (R7+) ────────────────────
+def _apply_eu_ai_act_liability(
+    round_number: int, gs: dict, bus: list[dict], extra: dict, prev_flags: dict,
+) -> None:
+    """DEEP-1 fix (2026-08-31 deep engine audit, design ruling): the R6
+    Monetise warning promised 'compliance audit costs will apply from Round 7'
+    — but the charge lived inside _post_r6_ai_bias, which only ever runs at
+    R6, behind a prev_flags check that could not yet contain ai_monetised.
+    Verified dead: the threat never fired for any cohort. It now runs from
+    post_tick every round: a $3M conformity assessment plus governance +5
+    once at R7 (eu_ai_act_assessed marks it done), then $1M/round ongoing
+    monitoring — matching the 'ongoing regulatory consequences' the player
+    was told about. Both paradigms (ai_monetised is set by legacy R6A and
+    the R6 operations pillar alike)."""
+    if round_number < 7:
+        return
+    all_flags = _collect_all_flags(prev_flags)
+    if "ai_monetised" not in all_flags:
+        return
+    flags = gs.setdefault("active_event_flags", {})
+    _assessed = bool(flags.get("eu_ai_act_assessed") or prev_flags.get("eu_ai_act_assessed"))
+    if not _assessed:
+        cost = 3_000_000
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - cost, 2)
+        for bu in bus:
+            bu["governance_risk_score"] = min(100, round(
+                bu.get("governance_risk_score", 20) + 5, 2
+            ))
+        flags["eu_ai_act_assessed"] = True
+        extra["eu_ai_act_compliance"] = {
+            "cost": cost,
+            "governance_risk_delta": 5,
+            "message": (
+                f"🏛️ EU AI ACT ENFORCEMENT: Mandatory bias audit + conformity "
+                f"assessment cost ${cost:,.0f}. Governance risk increased +5 "
+                f"across all BUs. Deploying AI without ethical review has "
+                f"ongoing regulatory consequences."
+            ),
+        }
+    else:
+        flags["eu_ai_act_assessed"] = True  # keep the marker persistent
+        cost = 1_000_000
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - cost, 2)
+        extra["eu_ai_act_monitoring"] = {
+            "cost": cost,
+            "message": (
+                f"🏛️ EU AI Act ongoing compliance: ${cost:,.0f} for continuous "
+                f"monitoring, human-oversight staffing and technical "
+                f"documentation upkeep (Art. 9/61)."
+            ),
+        }
+
+
 # ── R3: Scope 3 mutations ────────────────────────────────────────────────────
 def _post_r3_scope3(
     gs: dict, bus: list[dict], decs: list[dict],
@@ -1923,25 +1980,10 @@ def _post_r6_ai_bias(
                 "Compliance audit costs will apply from Round 7."
             ),
         }
-    # Apply deferred EU AI Act cost if the flag was set in a previous round
-    all_flags = _collect_all_flags(prev_flags)
-    if "ai_monetised" in all_flags and gs.get("round_number", 6) >= 7:
-        ai_compliance_cost = 3_000_000
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] - ai_compliance_cost, 2)
-        for bu in bus:
-            bu["governance_risk_score"] = min(100, round(
-                bu.get("governance_risk_score", 20) + 5, 2
-            ))
-        extra["eu_ai_act_compliance"] = {
-            "cost": ai_compliance_cost,
-            "governance_risk_delta": 5,
-            "message": (
-                f"🏛️ EU AI ACT ENFORCEMENT: Mandatory bias audit + conformity "
-                f"assessment cost ${ai_compliance_cost:,.0f}. Governance risk "
-                f"increased +5 across all BUs. Deploying AI without ethical "
-                f"review has ongoing regulatory consequences."
-            ),
-        }
+    # DEEP-1 (2026-08-31): the deferred EU AI Act charge used to live here —
+    # dead code, since this handler only runs at R6 and prev_flags could not
+    # yet contain ai_monetised. It now lives in _apply_eu_ai_act_liability,
+    # called from post_tick for every round >= 7.
 
 
 # ── R7: Circularity — Option C unlocks synergy multiplier ──────────────────
@@ -2211,18 +2253,20 @@ def _post_r10_grand_finale(
     synergy_gate = special.get("synergy_gate_threshold", 80)
     synergy_score = gs.get("synergy_multiplier", 1.0) * 100  # normalise
     # ═══════════════════════════════════════════════════════════════
-    #  REGENERATIVE MULTIPLE (M_R)
+    #  REGENERATIVE MULTIPLE (M_R) — overview. DEEP-2 (2026-08-31): the
+    #  single arbiter is terminal_valuation.calculate_mr (see the block
+    #  further down); this list mirrors its components:
     #  Base = 1.0
-    #  +0.10  CSRD Governance Premium: R2A materiality_aligned (NEW)
-    #  +0.30  if synergy achieved in R7  (synergy_unlock flag)
-    #  +0.20  if survived R5/R8 without bailout
+    #  +0.10  CSRD Governance Premium: R2A materiality_aligned (+0.05 partial)
+    #  +0.15  Synergy Strategic Premium (synergy_unlock AND multiplier >= 0.80, ramped)
+    #  +0.20  Resilience Champion (survived R5/R8 without bailout)
     #  +0.15  Truth Premium from R6 (ethical_ai_overhaul flag)
-    #  +0.18  Community Champion R9 (community_fund)
-    #  +0.12  Just Transition R9 (managed_transition)
-    #  +0.10  Workforce Excellence (readiness >= 75)
-    #  +0.05  Wellbeing Champion (avg burnout < 20)
-    #  −0.40  Instability Discount if Social License < 75
-    #  Max achievable (all bonuses): 1.0+0.10+0.30+0.20+0.15+0.18+0.10+0.05 = 2.08
+    #  +0.18  Community Champion R9 (community_fund) / +0.12 managed_transition (x JT scaling)
+    #  +0.10  Workforce Excellence (readiness ~75, GAME-2 ramp)
+    #  +0.05  Wellbeing Champion (avg burnout ~20, GAME-2 ramp)
+    #  −0.40  Instability Discount (avg SLO ~75, GAME-2 ramp)
+    #  Max achievable: 1.93 (2.02 with JT scaling); global clamp [0.0, 2.05]
+    #  after pathway bonuses — pinned by test_mr_ceilings_unchanged
     # ═══════════════════════════════════════════════════════════════
     if choice == "option_a":
         if synergy_score <= synergy_gate:
@@ -2455,156 +2499,100 @@ def _post_r10_grand_finale(
         2,
     )
 
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    #  REGENERATIVE MULTIPLE (M_R)
-    #  Base = 1.0
-    #  +0.30  if synergy achieved in R7  (synergy_unlock flag)
-    #  +0.20  if survived R5/R8 without bailout
-    #  +0.15  Truth Premium from R6 (ethical_ai_overhaul flag)
-    #  âˆ’0.40  Instability Discount if Social License < 75
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    mr = 1.0
+    # ═══════════════════════════════════════════════════════════════
+    #  REGENERATIVE MULTIPLE (M_R) — single arbiter (DEEP-2/3, 2026-08-31)
+    #  terminal_valuation.calculate_mr is the ONLY M_R formula. The award
+    #  below is exactly the projection consequence_dna_api and
+    #  pedagogical_engine display: GAME-2 ramps (no threshold cliffs), the
+    #  STRAT-010 synergy gate (flag AND multiplier >= 0.80), and ONE global
+    #  clamp [0.0, 2.05] applied after pathway bonuses. Default-pathway max
+    #  stays 1.93 (2.02 with JT scaling), pinned by test_mr_ceilings_unchanged.
+    # ═══════════════════════════════════════════════════════════════
+    from terminal_valuation import calculate_mr
 
-    # +0.10: R2 Materiality Governance Alignment (CSRD good governance → long-term value)
-    # Awarded when players chose Option A (Full Materiality Alignment) in Round 2.
-    # This closes the pedagogical promise: "getting materiality right creates long-term value."
-    if "materiality_aligned" in all_flags:
-        mr += 0.10
-        extra["mr_materiality_governance_bonus"] = True
-        extra["mr_materiality_governance_message"] = (
-            "📊 CSRD Governance Premium: Your Round 2 full materiality alignment earned "
-            "+0.10 M_R. Institutional investors reward companies that embed ESG governance "
-            "rigorously from the outset (ESRS 1 — General Requirements)."
-        )
-    elif "materiality_partial" in all_flags:
-        # §4.1 tier: ≥80% matrix accuracy under Option B (Strategic Exceptions).
-        # The analysis was right; the governance posture was only partial —
-        # half the premium. Mutually exclusive with materiality_aligned by
-        # construction (_post_r2_materiality is the single writer), so the
-        # maximum achievable M_R is unchanged.
-        mr += 0.05
-        extra["mr_materiality_partial_bonus"] = True
-        extra["mr_materiality_governance_message"] = (
-            "📊 Partial CSRD Governance Credit: Your Round 2 materiality analysis cleared "
-            "the 80% accuracy bar, but Strategic Exceptions (Option B) weakened board "
-            "oversight — +0.05 M_R instead of the full +0.10. Analysis and governance "
-            "are separate obligations (ESRS 1 §1.51)."
-        )
-
-    # +0.15: R7 Synergy achieved (waste_to_energy / synergy_unlock)
-    # STRAT-010: Reduced from +0.30 → +0.15.
-    # Synergy OPEX savings ALREADY raise terminal_ebitda through the synergy engine.
-    # Adding +0.30 on top multiplied a benefit already captured in the EBITDA base.
-    # +0.15 represents the *strategic optionality premium* — the investor premium for
-    # integrated, synergistic BUs, separate from the pure cash-flow benefit.
-    if "synergy_unlock" in all_flags or "waste_to_energy" in all_flags:
-        mr += 0.15
-        extra["mr_synergy_bonus"] = True
-
-    # +0.2: Survived R5/R8 without bailout
-    r5_bailout = "insurance_only" in all_flags
-    r8_bailout = "electronics_water_priority" in all_flags or "civil_water_priority" in all_flags
-    if not r5_bailout and not r8_bailout:
-        mr += 0.2
-        extra["mr_resilience_bonus"] = True
-
-    # +0.15: Truth Premium from R6 (chose ethical AI overhaul)
-    if "ethical_ai_overhaul" in all_flags:
-        mr += 0.15
-        extra["mr_truth_premium"] = True
-
-    # +0.18: Community Champion (highest just-transition investment in R9)
-    # Requires community_fund — the $20M community investment, not just managed closure.
-    # Narrowed gap from +0.20/+0.10 to +0.18/+0.12 so managed_transition
-    # retains meaningful pedagogical value (not just a "consolation prize").
-    #   community_fund (−$20M) → +0.18   [community-led transformation]
-    #   managed_transition (−$12M) → +0.12 [responsible but company-led]
-    if "community_fund" in all_flags:
-        mr += 0.18
-        extra["mr_community_champion_bonus"] = True
-    elif "managed_transition" in all_flags:
-        mr += 0.12
-        extra["mr_just_transition_bonus"] = True
-
-    # +0.10: Workforce Excellence (workforce_readiness >= 75 at R10)
-    # Rewards sustained HR investment across multiple rounds.
-    workforce_readiness = gs.get("workforce_readiness", 50.0)
-    if workforce_readiness >= 75.0:
-        mr += 0.10
-        extra["mr_workforce_bonus"] = True
-        extra["mr_workforce_readiness"] = round(workforce_readiness, 2)
-
-    # +0.05: Wellbeing Champion (avg burnout < 20 at terminal valuation)
-    # Rewards early, sustained HR investment — requires consistently choosing HIGH-tier
-    # HRM options (typically 6+ rounds) to keep burnout below the 20-point OPEX threshold.
-    # This is the second HRM-linked M_R pathway, complementing workforce_readiness.
-    # Max M_R with all 6 bonuses: 1.0+0.3+0.2+0.20+0.10+0.10+0.05 = 1.95
+    avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 0
     avg_burnout_r10 = round(
         sum(bu.get("staff_burnout_index", 0.0) for bu in bus) / len(bus), 2
     ) if bus else 0.0
-    if avg_burnout_r10 < 20.0:
-        mr += 0.05
-        extra["mr_wellbeing_bonus"] = True
-        extra["mr_wellbeing_avg_burnout"] = avg_burnout_r10
-    # Just Transition M_R Scaling: bonus scales with sustained HR investment
-    # Models ILO Just Transition Guidelines (social dialogue as process)
-    # Use prev_flags (dict) not all_flags (set) for key-value iteration
+    workforce_readiness = gs.get("workforce_readiness", 50.0)
     hr_investment_rounds = sum(
         1 for k, v in prev_flags.items()
         if isinstance(k, str) and k.startswith("hr_invested_r") and v is True
     )
-    if hr_investment_rounds > 0 and (extra.get("mr_community_champion_bonus") or extra.get("mr_just_transition_bonus")):
-        jt_scaling = round(1.0 + hr_investment_rounds * 0.10, 2)
-        jt_scaling = min(jt_scaling, 1.5)  # Cap at +50%
-        if extra.get("mr_community_champion_bonus"):
-            mr += round(0.18 * jt_scaling, 4) - 0.18
-        elif extra.get("mr_just_transition_bonus"):
-            mr += round(0.12 * jt_scaling, 4) - 0.12
-        extra["mr_jt_scaling_factor"] = jt_scaling
-        extra["mr_jt_hr_rounds"] = hr_investment_rounds
 
-    # Instability Discount if avg Social License < 75
-    avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 0
-    if avg_sl < 75:
-        mr -= 0.4
-        extra["mr_instability_discount"] = True
-        extra["mr_instability_avg_sl"] = round(avg_sl, 2)
-
-    mr = round(mr, 4)
-
-    # ── Pathway-Specific M_R Modifiers ─────────────────────────────
+    # Pathway modifiers feed calculate_mr as pathway_bonuses so the global
+    # clamp governs the FINAL value (pre-fix they were added unclamped:
+    # engine M_R could reach 2.58 or go negative).
+    pathway_bonuses: dict[str, float] = {}
     if ending_pathway == "climate_black_swan":
         from ending_pathways import calc_climate_black_swan_mr, calc_climate_exit_multiple
-        pathway_mr = calc_climate_black_swan_mr(bus, gs, all_flags, extra)
-        mr += pathway_mr
-        # Apply option-level M_R penalty (Option C: -0.40)
-        mr += extra.get("pathway_mr_penalty_from_option", 0)
+        pathway_bonuses["pathway_mr_delta"] = calc_climate_black_swan_mr(bus, gs, all_flags, extra)
         # CI-based exit multiple haircut
         if special.get("exit_multiple_ci_haircut") and not extra.get("exit_multiple_overridden"):
             exit_multiple = calc_climate_exit_multiple(bus, exit_multiple)
             extra["exit_multiple_ci_haircut"] = exit_multiple
     elif ending_pathway == "stakeholder_revolt":
         from ending_pathways import calc_stakeholder_revolt_mr
-        pathway_mr = calc_stakeholder_revolt_mr(bus, gs, all_flags, extra)
-        mr += pathway_mr
-        # Apply option-level M_R penalty (Option C: -0.30)
-        mr += extra.get("pathway_mr_penalty_from_option", 0)
+        pathway_bonuses["pathway_mr_delta"] = calc_stakeholder_revolt_mr(bus, gs, all_flags, extra)
     elif ending_pathway == "hostile_takeover":
         from ending_pathways import calc_hostile_takeover_mr
-        pathway_mr = calc_hostile_takeover_mr(bus, gs, all_flags, extra)
-        mr += pathway_mr
-        mr += extra.get("pathway_mr_penalty_from_option", 0)
-        # Option C: M_R cap
-        if extra.get("mr_cap"):
-            mr = min(mr, extra["mr_cap"])
-            extra["mr_capped_at"] = extra["mr_cap"]
+        pathway_bonuses["pathway_mr_delta"] = calc_hostile_takeover_mr(bus, gs, all_flags, extra)
     elif ending_pathway == "regulatory_shutdown":
         from ending_pathways import calc_regulatory_shutdown_mr
-        pathway_mr = calc_regulatory_shutdown_mr(bus, gs, all_flags, extra)
-        mr += pathway_mr
-        mr += extra.get("pathway_mr_penalty_from_option", 0)
+        pathway_bonuses["pathway_mr_delta"] = calc_regulatory_shutdown_mr(bus, gs, all_flags, extra)
+    if extra.get("pathway_mr_penalty_from_option"):
+        pathway_bonuses["pathway_option_penalty"] = extra["pathway_mr_penalty_from_option"]
 
+    _mr_flags = {f: True for f in all_flags}
+    mr_result = calculate_mr(
+        _mr_flags,
+        avg_slo=avg_sl,
+        avg_burnout=avg_burnout_r10,
+        workforce_readiness=workforce_readiness,
+        synergy_multiplier=gs.get("synergy_multiplier", 1.0),
+        hr_investment_rounds=hr_investment_rounds,
+        pathway_bonuses=pathway_bonuses or None,
+    )
+    mr = mr_result["mr"]
+    # Hostile-takeover Option C cap applies after the arbiter; the global
+    # floor still holds underneath it.
+    if extra.get("mr_cap") is not None and mr > extra["mr_cap"]:
+        mr = round(max(mr_result["mr_floor"], min(mr, extra["mr_cap"])), 4)
+        extra["mr_capped_at"] = extra["mr_cap"]
     mr = round(mr, 4)
+
+    # Compatibility keys — facilitator dashboards, invariants and the reveal
+    # breakdown below all read these; values now derive from the arbiter.
+    _bd = mr_result["breakdown"]
+    extra["mr_raw"] = mr_result["mr_raw"]
+    extra["mr_ceiling_clamped"] = mr_result["mr_ceiling_clamped"]
+    extra["mr_floor_clamped"] = mr_result["mr_floor_clamped"]
+    if _bd.get("materiality_governance") == 0.10:
+        extra["mr_materiality_governance_bonus"] = True
+    elif _bd.get("materiality_governance") == 0.05:
+        extra["mr_materiality_partial_bonus"] = True
+    if _bd.get("synergy_bonus"):
+        extra["mr_synergy_bonus"] = True
+    if _bd.get("resilience_bonus"):
+        extra["mr_resilience_bonus"] = True
+    if _bd.get("truth_premium"):
+        extra["mr_truth_premium"] = True
+    if _bd.get("community_champion_bonus"):
+        extra["mr_community_champion_bonus"] = True
+    if _bd.get("just_transition_bonus"):
+        extra["mr_just_transition_bonus"] = True
+    if _bd.get("workforce_bonus"):
+        extra["mr_workforce_bonus"] = True
+        extra["mr_workforce_readiness"] = round(workforce_readiness, 2)
+    if _bd.get("wellbeing_bonus"):
+        extra["mr_wellbeing_bonus"] = True
+        extra["mr_wellbeing_avg_burnout"] = avg_burnout_r10
+    if mr_result["jt_scaling_factor"] != 1.0:
+        extra["mr_jt_scaling_factor"] = mr_result["jt_scaling_factor"]
+        extra["mr_jt_hr_rounds"] = hr_investment_rounds
+    if _bd.get("instability_discount", 0) < 0:
+        extra["mr_instability_discount"] = True
+        extra["mr_instability_avg_sl"] = round(avg_sl, 2)
 
     # ---------------------------------------------------------------
     #  TERMINAL VALUE = (Terminal_EBITDA + Green_Fund) x Exit_Multiple x M_R
@@ -2783,23 +2771,13 @@ def _post_r10_grand_finale(
     extra["carbon_cost"] = carbon_cost
     extra["carbon_tax_per_ton"] = carbon_tax_per_ton
     extra["regenerative_multiple"] = mr
-    # FIX-002: Use JT-scaled values in breakdown for facilitator accuracy
+    # DEEP-2 (2026-08-31): the reveal breakdown IS the arbiter's breakdown —
+    # the radar, the reveal and the awarded M_R can no longer disagree. The
+    # values already carry GAME-2 ramp fractions and JT scaling.
     _jt_scale = extra.get("mr_jt_scaling_factor", 1.0)
-    extra["mr_breakdown"] = {
-        "base": 1.0,
-        "materiality_governance": 0.10 if extra.get("mr_materiality_governance_bonus") else 0,
-        # STRAT-010: +0.15 (reduced from +0.30 to remove double-count with EBITDA synergy savings)
-        "synergy_bonus": 0.15 if extra.get("mr_synergy_bonus") else 0,
-        "resilience_bonus": 0.2 if extra.get("mr_resilience_bonus") else 0,
-        "truth_premium": 0.15 if extra.get("mr_truth_premium") else 0,
-        "community_champion_bonus": round(0.18 * _jt_scale, 4) if extra.get("mr_community_champion_bonus") else 0,
-        "just_transition_bonus": round(0.12 * _jt_scale, 4) if extra.get("mr_just_transition_bonus") else 0,
-        "jt_scaling_factor": _jt_scale if _jt_scale != 1.0 else None,
-        "workforce_bonus": 0.10 if extra.get("mr_workforce_bonus") else 0,
-        "wellbeing_bonus": 0.05 if extra.get("mr_wellbeing_bonus") else 0,
-        "instability_discount": -0.4 if extra.get("mr_instability_discount") else 0,
-        "max_achievable_mr": 1.93,  # STRAT-010: 1.0+0.10+0.15+0.20+0.15+0.18+0.10+0.05 = 1.93 (2.03 with JT-scaling)
-    }
+    extra["mr_breakdown"] = dict(mr_result["breakdown"])
+    extra["mr_breakdown"]["jt_scaling_factor"] = _jt_scale if _jt_scale != 1.0 else None
+    extra["mr_breakdown"]["max_achievable_mr"] = mr_result["max_achievable_mr"]
     # Enrich mr_breakdown with pathway-specific bonuses.
     # FIX-002 follow-up: report the ACTUAL ramped value the M_R received —
     # the GAME-2 ramp calculators store it in extra (e.g. a partially-earned

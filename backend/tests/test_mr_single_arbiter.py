@@ -70,8 +70,11 @@ def test_eu_ai_act_assessment_fires_once_at_r7():
     assert comp["cost"] == 3_000_000
     # R7 option_b itself costs -5M (green-fund path) — the assessment is on top.
     assert gs["corporate_treasury"] == pytest.approx(100_000_000.0 - 5_000_000 - 3_000_000)
+    from round_configs import get_round_options
+    _gov_opt = (get_round_options(7)["option_b"].get("impacts") or {}).get("governance_risk_delta", 0)
     for bu in bus:
-        assert bu["governance_risk_score"] == pytest.approx(25.0)  # +5 once
+        # +5 from the assessment, plus whatever R7 option_b itself applies.
+        assert bu["governance_risk_score"] == pytest.approx(20.0 + 5 + _gov_opt)
     assert gs["active_event_flags"].get("eu_ai_act_assessed") is True
 
 
@@ -83,9 +86,12 @@ def test_eu_ai_act_monitoring_recurs_after_assessment():
         assert mon, f"R{rnd}: ongoing monitoring must charge after assessment"
         assert mon["cost"] == 1_000_000
         assert gs["active_event_flags"].get("eu_ai_act_assessed") is True
+        from round_configs import get_round_options
+        _gov_opt = (get_round_options(rnd)["option_b"].get("impacts") or {}).get("governance_risk_delta", 0)
         for bu in bus:
-            assert bu["governance_risk_score"] == pytest.approx(20.0), (
-                "monitoring is a cost, not a repeated governance shock")
+            # Monitoring is a cost, not a repeated governance shock — only the
+            # round's own option delta may move governance.
+            assert bu["governance_risk_score"] == pytest.approx(20.0 + _gov_opt)
 
 
 def test_eu_ai_act_never_charges_without_monetisation():
