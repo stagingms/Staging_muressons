@@ -1254,8 +1254,16 @@ def _apply_common_impacts(
             )
         extra[f"social_license_applied_r{round_number}"] = sl_delta
 
-    # NCD application is handled individually in each round's post handler
-    # because some rounds (like R5 and R8) queue it as a pending capex project instead of applying immediately.
+    # Natural capital debt delta — applied to all BUs (C-2, same audit as
+    # C-1 above). R2, R4 and R10 configured it with no applier anywhere.
+    # Rounds that queue it as a pending capex project (R5, R8) or apply it
+    # directly themselves (R3, R7 — and R10, in-handler so it lands before
+    # the DMAV solvency gate reads closing NCD) set the guard key.
+    ncd_delta = impacts.get("natural_capital_debt_delta", 0)
+    if ncd_delta != 0 and not pillar_mode and f"natural_capital_debt_applied_r{round_number}" not in extra:
+        for bu in bus:
+            bu["natural_capital_debt"] = max(0.0, round(bu.get("natural_capital_debt", 0.0) + ncd_delta, 2))
+        extra[f"natural_capital_debt_applied_r{round_number}"] = ncd_delta
 
     # â”€â”€ Healthcare Specific Impacts â”€â”€
     if impacts.get("bed_capacity_increase"):
@@ -1754,6 +1762,7 @@ def _post_r3_scope3(
         if ncd_delta != 0:
             for bu in bus:
                 bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+            extra["natural_capital_debt_applied_r3"] = ncd_delta  # guard: generic applier must skip R3
 
         ci_delta = impacts.get("carbon_intensity_delta", 0)
         if ci_delta != 0:
@@ -1924,6 +1933,7 @@ def _post_r7_circularity(
         if ncd_delta != 0:
             for bu in bus:
                 bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+            extra["natural_capital_debt_applied_r7"] = ncd_delta  # guard: generic applier must skip R7
 
         if "reputation" in impacts:
             gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
@@ -2059,6 +2069,9 @@ def _post_r8_blue_stress(
             "description": "Water Infrastructure Mega-Project"
         })
         extra["water_project_started"] = True
+        # Guard: R8 defers NCD as a pending project — the generic applier
+        # must not ALSO apply it immediately.
+        extra["natural_capital_debt_applied_r8"] = ncd_delta
 
     # Water dependency reduction
     wd_delta = impacts.get("water_dependency_delta", 0)
@@ -2201,6 +2214,15 @@ def _post_r10_grand_finale(
                 0.0, min(100.0, round(bu.get("social_license_score", 50.0) + _sl_delta_r10, 2))
             )
         extra["social_license_applied_r10"] = _sl_delta_r10
+
+    # C-2 fix: R10's natural_capital_debt_delta (Divest: +8) likewise lands
+    # in-handler, before the Double-Materiality Adjusted Value solvency gate
+    # and green cost-of-debt read closing NCD later in this function.
+    _ncd_delta_r10 = impacts.get("natural_capital_debt_delta", 0)
+    if _ncd_delta_r10 != 0 and not _r10_pillar_mode:
+        for bu in bus:
+            bu["natural_capital_debt"] = max(0.0, round(bu.get("natural_capital_debt", 0.0) + _ncd_delta_r10, 2))
+        extra["natural_capital_debt_applied_r10"] = _ncd_delta_r10
 
     # Option B: Spin-off weakest BU
     if impacts.get("spinoff_weakest_bu"):

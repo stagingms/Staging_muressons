@@ -156,6 +156,9 @@ def _post_r5_climate(
                 "description": "Hard Engineering Impact Adjustments"
             })
             extra["ncd_project_started"] = True
+            # Guard: R5 defers NCD as a pending project — the generic
+            # applier must not ALSO apply it immediately.
+            extra["natural_capital_debt_applied_r5"] = ncd_delta
 
     # ── ITEM 15: Nature-Based Solution Uncertainty ────────────
     # Option B (mangrove restoration) has stochastic success rate
