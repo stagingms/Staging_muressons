@@ -1196,7 +1196,24 @@ def _apply_common_impacts(
     Generic applicator for carbon_intensity_delta and revenue_delta.
     Runs for EVERY round after the round-specific handler.
     Skips if the round-specific handler already applied these (R3 carbon).
+
+    Pillar-mode ownership (2026-08-31 design ruling, fix/pillar-impact-
+    ownership): in pillar mode the ROUTER is the single applier of option
+    impacts — it applies the pillar aggregates (scaled by effectiveness)
+    before post_tick runs, and the legacy A/B/C translation exists for flags
+    and round bookkeeping only. This function therefore does NOTHING in
+    pillar mode; before this guard it silently stacked the translated
+    option's reputation / revenue_delta / carbon_intensity_delta /
+    governance_risk_delta on top of the router aggregates, every round.
+    ROUND 10 IS THE EXCEPTION: the finale maps the pillar selections to an
+    A/B/C ending whose FULL impact set is the single source (the router
+    skips R10 aggregates), so R10 runs through here in both paradigms.
     """
+    pillar_mode = bool(events) and events.get("pillar_cost_applied") is not None
+    if pillar_mode and round_number != 10:
+        extra["common_impacts_pillar_bypass"] = True
+        return
+
     choice = _get_primary_choice(decisions)
     cfg_opts = _fetch_options_for_industry(round_number, bus, decision_paradigm=decision_paradigm)
     opt = cfg_opts.get(choice, {})
@@ -1242,12 +1259,6 @@ def _apply_common_impacts(
         )
         extra[f"reputation_applied_r{round_number}"] = rep_delta
 
-    # Pillar mode: the router has already aggregated and applied pillar
-    # impacts (router.py ~2497). The applier below is legacy-only — it must
-    # not stack a translated legacy option's deltas on top of the pillar
-    # aggregate. (2026-08-31 full-course audit.)
-    pillar_mode = bool(events) and events.get("pillar_cost_applied") is not None
-
     # Social licence delta — applied to all BUs (mirrors governance_risk_delta).
     # C-1 fix (2026-08-31 full-course audit): R1, R2, R3, R7 and R10 promised
     # social_license_delta in config and never applied it — the main lever on
@@ -1258,7 +1269,7 @@ def _apply_common_impacts(
     # C-4: "social_license_delta" is canonical; the R4-era "social_license"
     # alias is honoured for ONE release, then the alias read goes away.
     sl_delta = impacts.get("social_license_delta", impacts.get("social_license", 0))
-    if sl_delta != 0 and not pillar_mode and f"social_license_applied_r{round_number}" not in extra:
+    if sl_delta != 0 and f"social_license_applied_r{round_number}" not in extra:
         for bu in bus:
             bu["social_license_score"] = max(
                 0.0, min(100.0, round(bu.get("social_license_score", 50.0) + sl_delta, 2))
@@ -1271,7 +1282,7 @@ def _apply_common_impacts(
     # directly themselves (R3, R7 — and R10, in-handler so it lands before
     # the DMAV solvency gate reads closing NCD) set the guard key.
     ncd_delta = impacts.get("natural_capital_debt_delta", 0)
-    if ncd_delta != 0 and not pillar_mode and f"natural_capital_debt_applied_r{round_number}" not in extra:
+    if ncd_delta != 0 and f"natural_capital_debt_applied_r{round_number}" not in extra:
         for bu in bus:
             bu["natural_capital_debt"] = max(0.0, round(bu.get("natural_capital_debt", 0.0) + ncd_delta, 2))
         extra[f"natural_capital_debt_applied_r{round_number}"] = ncd_delta
@@ -2232,11 +2243,11 @@ def _post_r10_grand_finale(
     # and before the M_R Instability Discount below reads the closing SLO
     # average. The generic applier in _apply_common_impacts runs AFTER this
     # handler, which would be too late for the terminal round; the guard key
-    # keeps it from applying the delta a second time. Legacy mode only — in
-    # pillar mode the router applies the pillar aggregates.
-    _r10_pillar_mode = events.get("pillar_cost_applied") is not None
+    # keeps it from applying the delta a second time. Applies in BOTH
+    # paradigms (pillar ruling 2026-08-31: the mapped ending's full impact
+    # set is the single R10 source; the router skips R10 aggregates).
     _sl_delta_r10 = impacts.get("social_license_delta", 0)
-    if _sl_delta_r10 != 0 and not _r10_pillar_mode:
+    if _sl_delta_r10 != 0:
         for bu in bus:
             bu["social_license_score"] = max(
                 0.0, min(100.0, round(bu.get("social_license_score", 50.0) + _sl_delta_r10, 2))
@@ -2247,7 +2258,7 @@ def _post_r10_grand_finale(
     # in-handler, before the Double-Materiality Adjusted Value solvency gate
     # and green cost-of-debt read closing NCD later in this function.
     _ncd_delta_r10 = impacts.get("natural_capital_debt_delta", 0)
-    if _ncd_delta_r10 != 0 and not _r10_pillar_mode:
+    if _ncd_delta_r10 != 0:
         for bu in bus:
             bu["natural_capital_debt"] = max(0.0, round(bu.get("natural_capital_debt", 0.0) + _ncd_delta_r10, 2))
         extra["natural_capital_debt_applied_r10"] = _ncd_delta_r10

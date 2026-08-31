@@ -116,3 +116,30 @@ def test_r10_pillar_mode_ending_impacts_fully_apply(choice):
     assert gs["corporate_treasury"] == pytest.approx(_BASE_TREASURY + tre_cfg), (
         f"R10 {choice}: ending treasury {tre_cfg} misapplied in pillar mode "
         f"(moved {gs['corporate_treasury'] - _BASE_TREASURY})")
+
+
+def test_router_helper_applies_aggregates_with_effectiveness_scaling():
+    """Direct unit test of the extracted router applier: reputation on the
+    group, per-BU deltas revenue-weighted, everything scaled by
+    effectiveness. The call site applies it for R1-R9 and skips it for R10
+    (events carry pillar_aggregates_skipped_r10 there)."""
+    from router import _apply_pillar_aggregate_impacts
+    gs = {"group_reputation": 50.0}
+    bus = [{"bu_id": "a", "revenue_base": 30_000_000.0, "opex_base": 1.0,
+            "carbon_intensity": 50.0, "social_license_score": 50.0,
+            "governance_risk_score": 20.0, "natural_capital_debt": 10.0,
+            "water_dependency": 30.0, "staff_burnout_index": 10.0},
+           {"bu_id": "b", "revenue_base": 10_000_000.0, "opex_base": 1.0,
+            "carbon_intensity": 50.0, "social_license_score": 50.0,
+            "governance_risk_score": 20.0, "natural_capital_debt": 10.0,
+            "water_dependency": 30.0, "staff_burnout_index": 10.0}]
+    events = {}
+    agg = {"reputation": 6, "social_license_delta": 4, "burnout_delta": -2}
+    _apply_pillar_aggregate_impacts(gs, bus, events, agg, effectiveness=0.5)
+    assert gs["group_reputation"] == pytest.approx(53.0)      # 6 × 0.5
+    # SLO: delta 4 × 0.5 = 2, revenue-weighted × num_bus: a gets 2×0.75×2=3, b 2×0.25×2=1
+    assert bus[0]["social_license_score"] == pytest.approx(53.0)
+    assert bus[1]["social_license_score"] == pytest.approx(51.0)
+    # burnout is NOT effectiveness-scaled (visible HR impact), flat per BU
+    assert bus[0]["staff_burnout_index"] == pytest.approx(8.0)
+    assert events["pillar_burnout_delta_applied"] == -2

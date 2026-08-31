@@ -2457,7 +2457,11 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         # Apply treasury cost from pillar selections (NOT modified by effectiveness — cost is always owed)
         if agg_cost != 0:
             new_global["corporate_treasury"] = round(new_global["corporate_treasury"] + agg_cost, 2)
-            events["pillar_cost_applied"] = agg_cost
+        # ALWAYS set the marker in pillar mode, even at zero cost — it is the
+        # paradigm signal every post_tick handler (and _apply_common_impacts)
+        # branches on. Before 2026-08-31 an all-free pillar selection left it
+        # unset and the whole tick ran in legacy mode by accident.
+        events["pillar_cost_applied"] = agg_cost
 
         # ── Workforce Readiness → Pillar Effectiveness ──
         # Low readiness reduces the magnitude of strategic impacts (not costs)
@@ -2465,62 +2469,15 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         if effectiveness != 1.0:
             events["pillar_effectiveness_modifier_applied"] = effectiveness
 
-        # Apply reputation delta (scaled by effectiveness)
-        rep_delta = round(agg_impacts.get("reputation", 0) * effectiveness, 2)
-        if rep_delta != 0:
-            new_global["group_reputation"] = max(0, min(100, round(new_global["group_reputation"] + rep_delta, 2)))
-
-        # Calculate BU revenue weights for proportional delta application
-        total_revenue = sum(bu.get("revenue_base", 0) for bu in new_bus)
-        num_bus = len(new_bus)
-
-        def _get_weight(bu_data: dict) -> float:
-            if total_revenue <= 0 or num_bus == 0:
-                return 1.0 / max(1, num_bus)
-            return bu_data.get("revenue_base", 0) / total_revenue
-
-        # Apply NCD delta proportionally across BUs (scaled by effectiveness)
-        ncd_delta = round(agg_impacts.get("natural_capital_debt_delta", 0) * effectiveness, 2)
-        if ncd_delta != 0:
-            for bu in new_bus:
-                proportional_ncd = ncd_delta * _get_weight(bu) * num_bus
-                bu["natural_capital_debt"] = max(0, round(bu.get("natural_capital_debt", 0) + proportional_ncd, 2))
-
-        # Apply carbon intensity delta proportionally across BUs (scaled by effectiveness)
-        ci_delta = round(agg_impacts.get("carbon_intensity_delta", 0) * effectiveness, 2)
-        if ci_delta != 0:
-            for bu in new_bus:
-                proportional_ci = ci_delta * _get_weight(bu) * num_bus
-                bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + proportional_ci, 2))
-
-        # Apply social license delta proportionally across BUs (scaled by effectiveness)
-        sl_delta = round(agg_impacts.get("social_license_delta", 0) * effectiveness, 2)
-        if sl_delta != 0:
-            for bu in new_bus:
-                proportional_sl = sl_delta * _get_weight(bu) * num_bus
-                bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + proportional_sl, 2)))
-
-        # Apply governance risk delta proportionally across BUs (scaled by effectiveness)
-        gov_delta = round(agg_impacts.get("governance_risk_delta", 0) * effectiveness, 2)
-        if gov_delta != 0:
-            for bu in new_bus:
-                proportional_gov = gov_delta * _get_weight(bu) * num_bus
-                bu["governance_risk_score"] = max(0, min(100, round(bu.get("governance_risk_score", 0) + proportional_gov, 2)))
-
-        # Apply water dependency delta proportionally across BUs (scaled by effectiveness)
-        wd_delta = round(agg_impacts.get("water_dependency_delta", 0) * effectiveness, 2)
-        if wd_delta != 0:
-            for bu in new_bus:
-                proportional_wd = wd_delta * _get_weight(bu) * num_bus
-                bu["water_dependency"] = max(0, round(bu.get("water_dependency", 0) + proportional_wd, 2))
-
-        # Apply burnout delta across all BUs (from HR pillar visible impacts)
-        burnout_delta = agg_impacts.get("burnout_delta", 0)
-        if burnout_delta != 0:
-            for bu in new_bus:
-                current_bo = bu.get("staff_burnout_index", 0.0)
-                bu["staff_burnout_index"] = max(0.0, min(100.0, round(current_bo + burnout_delta, 2)))
-            events["pillar_burnout_delta_applied"] = burnout_delta
+        # Pillar-impact ownership (2026-08-31 design ruling): R1-R9 the
+        # router applies the aggregates here — the single impact source in
+        # pillar mode. R10 is the exception: the pillar selections map to an
+        # A/B/C ending whose full impact set applies in post_tick, so the
+        # aggregates are NOT applied on top.
+        if current_round != 10:
+            _apply_pillar_aggregate_impacts(new_global, new_bus, events, agg_impacts, effectiveness)
+        else:
+            events["pillar_aggregates_skipped_r10"] = True
 
         # Store pillar metadata in events
         events["decision_paradigm"] = "multi_toggles"
@@ -7143,3 +7100,65 @@ async def get_front_page(session_id: str):
     except Exception as e:
         _log.warning(f"[WOW-5E] LLM front-page error, using deterministic fallback: {e}")
         return fallback
+
+
+def _apply_pillar_aggregate_impacts(
+    new_global: dict, new_bus: list, events: dict,
+    agg_impacts: dict, effectiveness: float,
+) -> None:
+    """Apply the aggregated pillar impacts (R1-R9 pillar-mode single source).
+
+    Moved verbatim out of commit_turn (2026-08-31, fix/pillar-impact-
+    ownership) so the application — and the R10 skip at the call site — is
+    directly unit-testable. Reputation lands on the group; the per-BU deltas
+    are distributed proportionally to revenue weight; all strategic impacts
+    scale by workforce effectiveness (costs never do).
+    """
+    rep_delta = round(agg_impacts.get("reputation", 0) * effectiveness, 2)
+    if rep_delta != 0:
+        new_global["group_reputation"] = max(0, min(100, round(new_global["group_reputation"] + rep_delta, 2)))
+
+    total_revenue = sum(bu.get("revenue_base", 0) for bu in new_bus)
+    num_bus = len(new_bus)
+
+    def _get_weight(bu_data: dict) -> float:
+        if total_revenue <= 0 or num_bus == 0:
+            return 1.0 / max(1, num_bus)
+        return bu_data.get("revenue_base", 0) / total_revenue
+
+    ncd_delta = round(agg_impacts.get("natural_capital_debt_delta", 0) * effectiveness, 2)
+    if ncd_delta != 0:
+        for bu in new_bus:
+            proportional_ncd = ncd_delta * _get_weight(bu) * num_bus
+            bu["natural_capital_debt"] = max(0, round(bu.get("natural_capital_debt", 0) + proportional_ncd, 2))
+
+    ci_delta = round(agg_impacts.get("carbon_intensity_delta", 0) * effectiveness, 2)
+    if ci_delta != 0:
+        for bu in new_bus:
+            proportional_ci = ci_delta * _get_weight(bu) * num_bus
+            bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + proportional_ci, 2))
+
+    sl_delta = round(agg_impacts.get("social_license_delta", 0) * effectiveness, 2)
+    if sl_delta != 0:
+        for bu in new_bus:
+            proportional_sl = sl_delta * _get_weight(bu) * num_bus
+            bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + proportional_sl, 2)))
+
+    gov_delta = round(agg_impacts.get("governance_risk_delta", 0) * effectiveness, 2)
+    if gov_delta != 0:
+        for bu in new_bus:
+            proportional_gov = gov_delta * _get_weight(bu) * num_bus
+            bu["governance_risk_score"] = max(0, min(100, round(bu.get("governance_risk_score", 0) + proportional_gov, 2)))
+
+    wd_delta = round(agg_impacts.get("water_dependency_delta", 0) * effectiveness, 2)
+    if wd_delta != 0:
+        for bu in new_bus:
+            proportional_wd = wd_delta * _get_weight(bu) * num_bus
+            bu["water_dependency"] = max(0, round(bu.get("water_dependency", 0) + proportional_wd, 2))
+
+    burnout_delta = agg_impacts.get("burnout_delta", 0)
+    if burnout_delta != 0:
+        for bu in new_bus:
+            current_bo = bu.get("staff_burnout_index", 0.0)
+            bu["staff_burnout_index"] = max(0.0, min(100.0, round(current_bo + burnout_delta, 2)))
+        events["pillar_burnout_delta_applied"] = burnout_delta
