@@ -63,3 +63,18 @@ Healthcare impact-key coverage (every key generic-applied or handler-owned, R1�
 3. **DEEP-6 + DEEP-7**: config-driven green_claim key; doc/glossary alignment + generator test. Small.
 4. **DEEP-8**: ledger completion, starting with the $2M lead. Non-behavioural, high trust value.
 5. **DEEP-5 + DEEP-9**: flag triage with the design owner (the biggest single sweep, mostly rulings not code).
+
+---
+
+## Resolution addendum (same day, branch `fix/mr-single-arbiter`)
+
+DEEP-1, DEEP-2 and DEEP-3 are RESOLVED (commits 1b5ddb1 red acceptance → b124487 fix),
+per design rulings: calculate_mr semantics canonical; EU AI Act = $3M + gov +5 once at
+R7 then $1M/round monitoring; one global clamp [0.0, 2.05]. Verified: 7/7 acceptance
+tests (award==projection at SLO 72: 0.88 ramped, was 0.80 cliff; pathway stack clamped
+from 2.58; Corporate Hardball stack floored at 0; enforcement fires R7 and recurs);
+golden trace unchanged (its team sits outside every ramp band); typical trajectories
+unchanged (max-path M_R 1.68→1.68, min-path 0.80→0.75); full suite 2177 passed with
+only the 11 pre-existing failures. Remaining open: DEEP-4 (seeded stochastics),
+DEEP-5/9 (flag triage), DEEP-6 (green_claim key), DEEP-7 (strike docs), DEEP-8
+(ledger ratchet).
