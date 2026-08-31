@@ -42,7 +42,10 @@ from models import (
     MaterialitySubmissionResponse,
     SaveDecisionsRequest,
 )
-from round2_csrd import CSRD_ISSUES, ROUND_2_DEFAULT_CONFIG, ASSURANCE_LABELS
+from round2_csrd import (
+    CSRD_ISSUES, ROUND_2_DEFAULT_CONFIG, ASSURANCE_LABELS,
+    ESRS_MAT_THRESHOLD, correct_quadrant_v2,
+)
 
 router = APIRouter(prefix="/api/simulations", tags=["Simulations"])
 
@@ -3983,38 +3986,11 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
             f"Governance posture must be consistent with capital allocation rationale."
         )
 
-    # ── Full-Quadrant Accuracy Bonus — ESRS 1 §1.30-1.38 ──────────────────────
-    # Upgrade: dual-axis severity×likelihood scoring.
-    # For issues with numeric fields: threshold ≥ ESRS_MAT_THRESHOLD (default 12/25)
-    # determines whether each axis is "high" (material) — no more binary string labels.
-    # Falls back to legacy string-label matching for issues without numeric fields.
-    ESRS_MAT_THRESHOLD = 12  # out of 25 (5×5). Mirrors real ESRS significance threshold.
-
-    def _mat_axis_is_high(issue, axis: str) -> bool:
-        """
-        Returns True if the given axis (financial or societal) is 'high' (material).
-        Priority: numeric severity/likelihood product → legacy string label fallback.
-        """
-        sev = issue.get("severity_score")
-        like = issue.get("likelihood_score")
-        if sev is not None and like is not None:
-            product = sev * like
-            # For financial axis we use the product as proxy for enterprise risk
-            # For societal axis we use the same product (both axes use same severity/likelihood)
-            # This reflects ESRS 1 §1.30: both impact and financial materiality use the same
-            # underlying severity/likelihood assessment of the underlying matter.
-            return product >= ESRS_MAT_THRESHOLD
-        # Fallback: legacy string label
-        return issue.get(f"{'financial' if axis == 'fin' else 'societal'}_impact") == "high"
-
-    def _correct_quadrant_v2(issue: dict) -> str:
-        """ESRS-aligned quadrant classification using severity×likelihood axes."""
-        h_fin = _mat_axis_is_high(issue, "fin")
-        h_imp = _mat_axis_is_high(issue, "soc")
-        if h_fin and h_imp:     return "q1"
-        if not h_fin and h_imp: return "q2"
-        if h_fin and not h_imp: return "q3"
-        return "q4"
+    # ── Full-Quadrant Accuracy — one classifier (F-6) ─────────────────────────
+    # Scoring uses round2_csrd.correct_quadrant_v2: dual-axis numeric scoring
+    # only when all four axis-specific fields are present, otherwise the same
+    # string labels that build q1_target_issue_ids. One rule, not two.
+    _correct_quadrant_v2 = correct_quadrant_v2
 
     # Adjacent-quadrant map for ambiguous partial credit
     _ADJACENT_Q = {
@@ -4152,7 +4128,9 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         "q1_correct":     q1_correct_ids,
         "q1_missed":      q1_missed_ids,
         "scoring_rationale": (
-            f"Scoring engine: severity × likelihood ≥ {12}/25 on BOTH axes = Q1 (doubly material). "
+            "Scoring engine: impact materiality and financial materiality are assessed "
+            "SEPARATELY (ESRS 1). High on both axes = Q1 (doubly material); high impact "
+            f"only = Q2; high financial only = Q3. "
             f"Your Q1 recall: {len(q1_correct_ids)}/{len(q1_target_issue_ids)} issues correctly prioritised "
             f"({round(full_accuracy * 100, 1)}% weighted accuracy including partial credit for ambiguous placements)."
         ),

@@ -472,6 +472,59 @@ _FINANCIAL_ISSUE_IDS: set[str] = {
 }
 
 
+# ── Axis classification (F-6) ─────────────────────────────────────────────────
+# ESRS 1 treats impact materiality and financial materiality as SEPARATE
+# assessments: impact materiality is severity (scale, scope, irremediability)
+# × likelihood of the impact; financial materiality is magnitude × likelihood
+# of the financial effect. A single severity × likelihood product cannot
+# express both: applying one product to each axis forces every issue onto the
+# Q1/Q4 diagonal and makes Q2 and Q3 unreachable (that defect shipped —
+# 3 of 8 DEFAULT_CONFIG issues were mis-scored, Q2/Q3 placements were marked
+# wrong, and the Q2 disclosure budget could never unlock).
+#
+# Numeric scoring is therefore used ONLY when all four axis-specific fields
+# are present. Otherwise the string labels govern — and the string labels are
+# already the authority for q1_target_issue_ids, so this makes the round use
+# ONE rule instead of two. No shipped dictionary carries the four dual-axis
+# fields today, so every dictionary falls back to the string labels, while
+# proper dual-axis scoring stays available for future configs.
+ESRS_MAT_THRESHOLD = 12  # out of 25 (5x5)
+_DUAL_AXIS_FIELDS = (
+    "impact_severity_score", "impact_likelihood_score",
+    "financial_magnitude_score", "financial_likelihood_score",
+)
+
+
+def _has_dual_axis_scores(issue: dict) -> bool:
+    return all(issue.get(f) is not None for f in _DUAL_AXIS_FIELDS)
+
+
+def mat_axis_is_high(issue: dict, axis: str) -> bool:
+    """True if the given axis clears the ESRS significance threshold."""
+    if _has_dual_axis_scores(issue):
+        if axis == "fin":
+            product = issue["financial_magnitude_score"] * issue["financial_likelihood_score"]
+        else:
+            product = issue["impact_severity_score"] * issue["impact_likelihood_score"]
+        return product >= ESRS_MAT_THRESHOLD
+    # Legacy single-pair severity_score/likelihood_score is NOT sufficient to
+    # separate the axes and is deliberately ignored here.
+    return issue.get("financial_impact" if axis == "fin" else "societal_impact") == "high"
+
+
+def correct_quadrant_v2(issue: dict) -> str:
+    """The round's ONE quadrant classifier (see mat_axis_is_high)."""
+    h_fin = mat_axis_is_high(issue, "fin")
+    h_imp = mat_axis_is_high(issue, "soc")
+    if h_fin and h_imp:
+        return "q1"
+    if not h_fin and h_imp:
+        return "q2"
+    if h_fin and not h_imp:
+        return "q3"
+    return "q4"
+
+
 def compute_panel_recommendations(issues: list[dict]) -> dict[str, dict[str, str]]:
     """
     Compute per-group quadrant recommendations for every issue.
@@ -493,8 +546,12 @@ def compute_panel_recommendations(issues: list[dict]) -> dict[str, dict[str, str
 
     for issue in issues:
         iid = issue.get("id", "")
-        cq_num = issue.get("correct_quadrant", 4)
-        cq = f"q{cq_num}"
+        cq_num = issue.get("correct_quadrant")
+        # Dictionaries without an explicit correct_quadrant (e.g. the 8-issue
+        # materiality_db.DEFAULT_CONFIG) used to default EVERY issue to q4,
+        # silently degrading all panel recommendations — experts included.
+        # Fall back to the round's single classifier instead.
+        cq = f"q{cq_num}" if cq_num is not None else correct_quadrant_v2(issue)
         issue_recs: dict[str, str] = {}
 
         for group, bias in _PANEL_GROUP_BIASES.items():
