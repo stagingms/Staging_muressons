@@ -237,6 +237,7 @@ from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 # ARCH-002: Import all shared state from admin_shared.py
 # Re-export for backward compatibility — external modules that do
 # `from admin_router import _god_mode_settings` continue to work.
+from round2_csrd import correct_quadrant_v2 as _cq_v2  # F-6: single classifier
 from admin_shared import (
     _god_mode_settings,
     # GOD-012: Per-cohort settings layer
@@ -12192,7 +12193,7 @@ async def list_industry_verticals():
             continue
         cfg = mat_db.get_bu_config(bu["id"])
         issues = cfg.get("issues", [])
-        q1_issues = [i for i in issues if i.get("financial_impact") == "high" and i.get("societal_impact") == "high"]
+        q1_issues = [i for i in issues if _cq_v2(i) == "q1"]  # F-6: single classifier
         verticals.append({
             "id": bu["id"],
             "label": bu["label"],
@@ -12264,7 +12265,7 @@ async def apply_industry_vertical(vertical_id: str, session_id: str, request: Re
             await db.update_latest_global_state(child["session_id"], cgs, child_state["bu_states"])
 
     issues = cfg.get("issues", [])
-    q1_issues = [i for i in issues if i.get("financial_impact") == "high" and i.get("societal_impact") == "high"]
+    q1_issues = [i for i in issues if _cq_v2(i) == "q1"]  # F-6: single classifier
 
     _audit("industry_vertical_applied", details={
         "session_id": session_id,

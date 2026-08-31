@@ -3898,11 +3898,16 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
             stakeholder_boosts.update(issue_ids)
     global_state["stakeholder_boosted_issues"] = list(stakeholder_boosts)
 
-    # Pre-compute the target Q1 (High Fin + High Impact)
-    q1_target_issue_ids = set()
-    for issue in all_issues:
-        if issue["financial_impact"] == "high" and issue["societal_impact"] == "high":
-            q1_target_issue_ids.add(issue["id"])
+    # Pre-compute the target Q1 (High Fin + High Impact) through the round's
+    # single classifier (F-6 follow-up). For every shipped dictionary this is
+    # the same string-label rule as before — correct_quadrant_v2 falls back to
+    # financial_impact/societal_impact — but capital release and full-quadrant
+    # accuracy can no longer drift apart, and issues missing a label no longer
+    # raise KeyError.
+    q1_target_issue_ids = {
+        issue["id"] for issue in all_issues
+        if correct_quadrant_v2(issue) == "q1"
+    }
 
     total_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["total_materiality_budget"]
     disclosure_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["disclosure_investment_budget"]
