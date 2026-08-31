@@ -1206,3 +1206,12 @@ now real: $3M conformity assessment + governance +5 once at R7, then $1M/round
 ongoing monitoring while `ai_monetised` stands (it previously never fired — dead
 code). Behavioural at thresholds and pathway extremes only; cohort-boundary
 shipping.
+
+### Addendum — seeded stochastics (2026-08-31, branch `fix/seeded-stochastics`)
+
+The R5 cyclone, R5 NBS establishment, R9 strike and R9 retraining rolls now draw
+from the GAME-4 per-cohort streams (`rng_util.event_rng`) like every other
+stochastic engine: all teams in a cohort meet the same events, and a graded run
+replays exactly from its `stochastic_seed`. Unseeded/legacy contexts keep the
+historical module-RNG behaviour unchanged. The money path now makes zero
+un-seeded random draws (tripwire test holds it there).
