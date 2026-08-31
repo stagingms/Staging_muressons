@@ -294,7 +294,7 @@ Each round has:
 |---|---|---|---|
 | A | Resist & Integrate | −$5M | Requires Synergy Score > 80; synergy bonus + terminal valuation calculated |
 | B | Spin-off | +$10M | Spins off weakest BU; partial value unlock |
-| C | Divest | +$25M | `synergy_wipe`; divests all; short-term cash max, long-run value destroyed |
+| C | Divest | +$25M | `synergy_wipe`; SLO −12; NCD +8; short-term cash max, long-run value destroyed. The `divest_all` impact key is declared but deliberately inert pending a design ruling (C-6, 2026-08-31) |
 
 **Terminal Valuation** runs after R10 options are applied (see §8).
 
@@ -481,7 +481,7 @@ The simulation has **5 ending pathways** that replace the default "Activist Ulti
 
 **Pathway M_R Bonuses/Penalties**:
 - +0.30 Regulatory Exemplar (ethical_score > 7 AND no scandal flags)
-- +0.20 Supply Chain Transparency (scope_3_transparency OR full_remediation)
+- +0.20 Supply Chain Transparency (scope_3_transparency OR full_remediation). `scope_3_transparency` is earned in R3 when Scope 3 data completeness reaches ≥80% (Option A, Direct Supplier Audit) — wired 2026-08-31 (B-2).
 - +0.15 Proactive Compliance (ethical_score > 6 AND avg SLO > 60)
 - −0.45 Regulatory Failure (ethical_score < 4)
 - −0.25 Shadow Board (governance_fragility flag)
@@ -1140,3 +1140,42 @@ A full static dependency trace was performed from `backend/main.py`. **139 files
 
 *Last updated: 2026-07-08 | Maintained by the Muressons simulation engineering team.*
 *Reference files: `round_configs.py`, `pillar_configs.py`, `ending_pathways.py`, `terminal_valuation.py`, `black_swan_registry.py`, `bu_profiles.py`, `side_tracks/`, `DEPENDENCY_MAP.md`*
+
+---
+
+## Engine repairs — full-course impact audit (2026-08-31, branch `fix/full-course-impact-audit`)
+
+Behavioural changes shipped after the whole-course audit (companion to the Round 2
+repair of the same date). **Do not apply to a mid-course cohort — cohort-boundary only.**
+
+- **C-1** `social_license_delta` is applied in ALL ten rounds. It moved into
+  `_apply_common_impacts` (guarded per round, legacy mode only); R1/R2/R3/R7/R10 had
+  silently discarded it (a ±23-point swing on the lever behind the −0.40 Instability
+  Discount). R10 applies its own delta in-handler, before the M_R instability check
+  reads the closing SLO average.
+- **C-5** Round 2 now charges its chosen option's `treasury` (Option A: −$2.5M via the
+  green-fund-aware applier, before the Option C clawback). Option A no longer strictly
+  dominates Option B — the tiered premium trade-off is real again.
+- **C-2** `natural_capital_debt_delta` likewise applies generically (R5/R8 deferrals
+  preserved; R10 in-handler before the DMAV solvency gate).
+- **C-3** The social-media velocity amplifier escalates for real: 1.1× in R4 up to
+  1.7× in R10, applied every round from R4 on while group reputation < 60 (design
+  ruling: persistent escalation).
+- **C-4** One spelling per impact concept: `reputation` and `social_license_delta` are
+  canonical; `reputation_delta` and `social_license` were migrated out of the configs
+  and are honoured as read-aliases for ONE release only.
+- **B-1** `just_transition_passed` (6 social-ESG points) = R9 `managed_transition` OR
+  `community_fund`. The old test read two never-written flags and then the ROUND 10
+  choice; it now agrees with the +0.12 M_R just-transition bonus.
+- **B-2 / B-3** `scope_3_transparency` (R3 ≥80% Scope 3 completeness) and
+  `retraining_succeeded` (R9 ITEM 20 outcome) are now written; both reads were dead.
+  The R9 retraining clawback's `reputation_applied_r9` read is also live for the first
+  time — failed retraining actually claws back 30% of the R9 reputation gain.
+- **B-4** `electronics_blindspot_doubles_crisis`, `stochastic_event`,
+  `low_social_license_strike_trigger` and `regulatory_friction_enabled` are read by the
+  code that implements them (default True) — real facilitator switches now.
+- **C-6** `divest_all` stays declared but inert, pending a design ruling.
+- **Ceilings unchanged**: M_R max 1.93 / 2.02 (with JT scaling), pinned by
+  `test_mr_ceilings_unchanged`. The financial golden trace was rebaselined in the same
+  branch. Invariants live in `backend/tests/test_engine_invariants.py` (7 test
+  families; the AST-resolved impact-key coverage check is the acceptance criterion).
