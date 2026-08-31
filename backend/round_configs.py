@@ -293,21 +293,21 @@ ROUND_CONFIGS = {
                 "title": "Full Transparency & Remediation",
                 "description": "Public disclosure, factory audits, worker compensation.",
                 "flags_set": ["remediation_active"],
-                "impacts": {"treasury": -6_000_000, "reputation": +10, "social_license": +8, "carbon_intensity_delta": -4, "revenue_delta": -500_000, "governance_risk_delta": -5, "natural_capital_debt_delta": 0},
+                "impacts": {"treasury": -6_000_000, "reputation": +10, "social_license_delta": +8, "carbon_intensity_delta": -4, "revenue_delta": -500_000, "governance_risk_delta": -5, "natural_capital_debt_delta": 0},
             },
             "option_b": {
                 "label": "B",
                 "title": "Damage Control PR",
                 "description": "Hire crisis PR firm. Contains narrative but doesn't fix root cause.",
                 "flags_set": ["pr_containment"],
-                "impacts": {"treasury": -2_000_000, "reputation": +2, "social_license": -3, "carbon_intensity_delta": -1, "revenue_delta": 0, "governance_risk_delta": +3, "natural_capital_debt_delta": 0},
+                "impacts": {"treasury": -2_000_000, "reputation": +2, "social_license_delta": -3, "carbon_intensity_delta": -1, "revenue_delta": 0, "governance_risk_delta": +3, "natural_capital_debt_delta": 0},
             },
             "option_c": {
                 "label": "C",
                 "title": "Deny & Deflect",
                 "description": "Issue a denial. Cheapest option but highest contagion risk.",
                 "flags_set": ["deny_and_deflect"],
-                "impacts": {"treasury": 0, "reputation": -15, "social_license": -10, "carbon_intensity_delta": +4, "revenue_delta": -1_000_000, "governance_risk_delta": +8, "natural_capital_debt_delta": +5},
+                "impacts": {"treasury": 0, "reputation": -15, "social_license_delta": -10, "carbon_intensity_delta": +4, "revenue_delta": -1_000_000, "governance_risk_delta": +8, "natural_capital_debt_delta": +5},
             },
         },
     },
@@ -422,7 +422,7 @@ ROUND_CONFIGS = {
                 "flags_set": ["ai_monetised"],
                 "impacts": {
                     "software_revenue_delta": +10_000_000,
-                    "reputation_delta": -20,
+                    "reputation": -20,
                     "contagion_spike": True,
                     "carbon_intensity_delta": +2,
                     "social_license_delta": -15,
@@ -441,7 +441,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": -8_000_000,
                     "social_license_delta": +15,
-                    "reputation_delta": +5,
+                    "reputation": +5,
                     "carbon_intensity_delta": -4,
                     "revenue_delta": +800_000,
                     "governance_risk_delta": -5,
@@ -455,7 +455,7 @@ ROUND_CONFIGS = {
                 "flags_set": ["quiet_patch"],
                 "impacts": {
                     "treasury": -1_000_000,
-                    "reputation_delta": -5,
+                    "reputation": -5,
                     "governance_risk_delta": +10,
                     "carbon_intensity_delta": 0,
                     "revenue_delta": -200_000,
@@ -640,7 +640,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": +5_000_000,
                     "social_license_delta": -20,
-                    "reputation_delta": -15,
+                    "reputation": -15,
                     "strike_risk": True,
                     "carbon_intensity_delta": +3,
                     "revenue_delta": -1_200_000,
@@ -655,7 +655,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": -12_000_000,
                     "social_license_delta": +10,
-                    "reputation_delta": +8,
+                    "reputation": +8,
                     "carbon_intensity_delta": -4,
                     "revenue_delta": +600_000,
                 },
@@ -672,7 +672,7 @@ ROUND_CONFIGS = {
                 "impacts": {
                     "treasury": -20_000_000,
                     "social_license_delta": +18,
-                    "reputation_delta": +12,
+                    "reputation": +12,
                     "governance_risk_delta": -5,
                     "carbon_intensity_delta": -3,
                     "revenue_delta": +400_000,

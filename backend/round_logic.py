@@ -202,7 +202,10 @@ def _pre_r4_contagion(
     special = cfg.get("special_rules", {}) if cfg else {}
     base = special.get("base_crisis_severity", 40)
 
-    if "electronics_blindspot" in all_flags:
+    if "electronics_blindspot" in all_flags and special.get(
+            "electronics_blindspot_doubles_crisis", True):
+        # B-4 (2026-08-31 audit): the doubling now actually reads the
+        # special_rules switch that has always documented it.
         result["crisis_severity"] = base * 2  # doubled
         result["pre_events"]["electronics_blindspot_triggered"] = True
         result["pre_events"]["crisis_severity_doubled"] = True
@@ -1228,8 +1231,11 @@ def _apply_common_impacts(
             )
         extra[f"governance_risk_applied_r{round_number}"] = gov_delta
 
-    # Reputation delta — applied to group reputation
-    rep_delta = impacts.get("reputation", 0)
+    # Reputation delta — applied to group reputation.
+    # C-4: "reputation" is the canonical option-impact spelling; the
+    # "reputation_delta" alias is honoured for ONE release for any saved
+    # side-track/custom config, then the alias read goes away.
+    rep_delta = impacts.get("reputation", impacts.get("reputation_delta", 0))
     if rep_delta != 0 and f"reputation_applied_r{round_number}" not in extra:
         gs["group_reputation"] = max(
             0.0, min(100.0, round(gs.get("group_reputation", 50.0) + rep_delta, 2))
@@ -1249,7 +1255,9 @@ def _apply_common_impacts(
     # that apply it themselves (R6, R8, R9 — and R10, which must apply it
     # BEFORE its M_R instability check reads the closing average) set the
     # guard key below so nothing is applied twice.
-    sl_delta = impacts.get("social_license_delta", 0)
+    # C-4: "social_license_delta" is canonical; the R4-era "social_license"
+    # alias is honoured for ONE release, then the alias read goes away.
+    sl_delta = impacts.get("social_license_delta", impacts.get("social_license", 0))
     if sl_delta != 0 and not pillar_mode and f"social_license_applied_r{round_number}" not in extra:
         for bu in bus:
             bu["social_license_score"] = max(
@@ -1666,7 +1674,7 @@ def _post_r4_contagion(
             extra["r4_reputation_applied"] = rep
             extra["reputation_applied_r4"] = rep
 
-        sl = impacts.get("social_license", 0)
+        sl = impacts.get("social_license_delta", impacts.get("social_license", 0))
         if sl:
             for bu in bus:
                 bu["social_license_score"] = max(
@@ -1864,9 +1872,10 @@ def _post_r6_ai_bias(
                     break
             extra["software_revenue_boosted"] = rev_delta
 
-        rep_delta = impacts.get("reputation_delta", 0)
+        rep_delta = impacts.get("reputation", impacts.get("reputation_delta", 0))
         if rep_delta != 0:
             gs["group_reputation"] = max(0, min(100, round(gs["group_reputation"] + rep_delta, 2)))
+            extra["reputation_applied_r6"] = rep_delta  # guard: generic applier must skip R6
 
         if impacts.get("contagion_spike"):
             extra["contagion_spike_triggered"] = True
