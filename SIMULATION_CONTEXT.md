@@ -1191,3 +1191,18 @@ impact source, and R10 pillar aggregates are not applied. `pillar_cost_applied` 
 always set on pillar commits, even at zero cost. Open design item: pillar options
 declare no revenue impacts, so pillar mode currently has no decision-driven revenue
 lever — the pre-fix leak was masking this. Cohort-boundary shipping only.
+
+### Addendum — single M_R arbiter + EU AI Act enforcement (2026-08-31, branch `fix/mr-single-arbiter`)
+
+`terminal_valuation.calculate_mr` is now the ONLY Regenerative Multiple formula: the
+R10 award equals the mid-game projection exactly. Thresholds are GAME-2 ramps (±5
+points around SLO 75 / readiness 75 / burnout 20), the synergy premium requires
+`synergy_unlock` AND synergy multiplier ≥ 0.80 (waste_to_energy alone no longer
+qualifies), and one global clamp [0.0, 2.05] governs the final M_R after ending-
+pathway bonuses and the hostile-takeover cap — pathway stacking previously reached
+~2.58 unclamped and penalty stacks could go negative. Default-pathway maxima stay
+1.93 / 2.02 (JT-scaled). Separately, the EU AI Act threat shown at R6 Monetise is
+now real: $3M conformity assessment + governance +5 once at R7, then $1M/round
+ongoing monitoring while `ai_monetised` stands (it previously never fired — dead
+code). Behavioural at thresholds and pathway extremes only; cohort-boundary
+shipping.
