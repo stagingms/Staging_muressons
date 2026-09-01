@@ -102,3 +102,34 @@ passed, 0 failed** at this baseline. The fix is one declared dependency; every
 statement in these documents that those failures were "pre-existing code
 failures" should be read as "pre-existing environment gap". Roadmap W1 item 1 is
 thereby closed; the flake-isolation and CI-gate items stand.
+
+## Resolution addendum (2026-09-01, branch `fix/treasury-ledger-capex`)
+
+DEEP-8 is RESOLVED — the ratchet is retired because the equality it ratcheted
+toward now holds. Eight ledger terms explain every dollar of treasury movement,
+every round, in all six composition×paradigm cases; `test_treasury_conservation_law`
+asserts `|residual| < $0.01` unconditionally. In claiming order: (1) the exact-$2M
+lead — CapEx principal is BY DESIGN not a treasury outflow (interest-only
+financing, engine.py's `new_treasury = base_treasury + csf − total_interest`), so
+the ledger was subtracting a term the engine never charges; (2) engine-authoritative
+CSF read from the consequence waterfall instead of recomputed from post-mutation BU
+tables (~$0.4–0.7M/round of phantom residual); (3) post-tick option treasury,
+stamped by the shared applier (R7/R8/R9 inline green-fund copies deduplicated onto
+it); (4) the Regulatory Ratchet fine — the silent exact-valued $2.5M/$3.75M R1
+debit; (5) CBAM; (6) the Loss & Damage levy; (7) deferred revenue collection;
+(8) black-swan treasury hits; and (9 — new event) the insolvency-floor clamp, now
+evented as `treasury_floor_clamp_applied` with an "Insolvency Floor Relief"
+waterfall entry (diagnostics only; the clamped value is unchanged).
+
+The entropy source blocking the strict xfail is also FOUND and FIXED, and it was
+not PYTHONHASHSEED: `process_tick` returns a rebuilt `active_event_flags` that
+drops the cohort `stochastic_seed`. Production never sees this (router.commit_turn
+merges the old flags back as the base, and dry_run.py:164 re-carries the seed
+manually), but the deterministic test runner fed the engine its own raw output —
+so from R2 onward every `event_rng()` call silently fell back to a SYSTEM-seeded
+`random.Random()`, entropy `random.seed()` cannot reach. That one defect was
+simultaneously the cross-process nondeterminism AND the "flaky residual" (unseeded
+black swans firing per-process, hitting treasury through an untracked path). The
+runner now re-stamps the seed each round; six cross-process run fingerprints are
+pinned in `test_treasury_waterfall.py`, and the strict xfail is retired as a
+passing baseline test. Remaining open: DEEP-5/9 (flag triage — design rulings).

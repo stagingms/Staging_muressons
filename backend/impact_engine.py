@@ -244,18 +244,13 @@ def _post_r9_just_transition(
         impacts = opt.get("impacts", {})
 
         if "treasury" in impacts:
-            if impacts["treasury"] < 0:
-                cost = abs(impacts["treasury"])
-                fund = gs.get("green_transition_fund", 0.0)
-                if fund >= cost:
-                    gs["green_transition_fund"] -= cost
-                    extra["green_fund_used"] = cost
-                else:
-                    gs["green_transition_fund"] = 0.0
-                    gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
-                    extra["green_fund_used"] = fund
-            else:
-                gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
+            # DEEP-8: route through the shared applier so the ledger term
+            # captures this charge/gain like every other round's.
+            _apply_treasury_with_green_fund(
+                gs,
+                abs(impacts["treasury"]) if impacts["treasury"] < 0 else -impacts["treasury"],
+                extra,
+            )
 
         rep_delta = impacts.get("reputation", impacts.get("reputation_delta", 0))
         if rep_delta != 0:

@@ -3060,7 +3060,25 @@ def _run_financial_layer(ctx: TickContext) -> None:
         # Up to +$200M floor relief at 100% investment ratio
         _floor_adjustment = _avg_invest_floor * 200_000_000
         _adjusted_floor = FINANCIAL_TREASURY_FLOOR + _floor_adjustment
+        # DEEP-8 term 8 (2026-09-01): event the clamp so the treasury ledger
+        # can account for the money the floor forgave. Diagnostics only — the
+        # clamped value itself is unchanged.
+        _pre_clamp = ctx.new_treasury
         ctx.new_treasury = max(ctx.new_treasury, _adjusted_floor)
+        _clamp_credit = round(ctx.new_treasury - _pre_clamp, 2)
+        if _clamp_credit > 0:
+            ctx.events["treasury_floor_clamp_applied"] = round(
+                float(ctx.events.get("treasury_floor_clamp_applied", 0.0)) + _clamp_credit, 2
+            )
+            ctx.record_waterfall(
+                "Insolvency Floor Relief", _clamp_credit,
+                because=(
+                    f"Creditors will not extend losses below the treasury floor "
+                    f"(${_adjusted_floor:,.0f}); ${_clamp_credit:,.0f} of this round's "
+                    f"losses were absorbed by the floor."
+                ),
+                counterfactual="A higher ESG investment ratio raises the floor (better credit lines).",
+            )
         ctx.events["negative_treasury_interest_applied"] = debt_service
         ctx.events["negative_treasury_interest_because"] = (
             f"Your treasury is negative. Creditors charge {corporate_cost_of_capital*100:.1f}% "
@@ -3780,7 +3798,24 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     if ctx.new_treasury < 0:
         _avg_inv_final = ctx.events.get("_pre_austerity_avg_invest", 0)
         _final_floor = FINANCIAL_TREASURY_FLOOR + (_avg_inv_final * 200_000_000)
+        # DEEP-8 term 8 (2026-09-01): event the final-gate clamp too (see the
+        # debt-service clamp above) — accumulate, both gates can fire in one round.
+        _pre_clamp_final = ctx.new_treasury
         ctx.new_treasury = max(ctx.new_treasury, _final_floor)
+        _clamp_credit_final = round(ctx.new_treasury - _pre_clamp_final, 2)
+        if _clamp_credit_final > 0:
+            ctx.events["treasury_floor_clamp_applied"] = round(
+                float(ctx.events.get("treasury_floor_clamp_applied", 0.0)) + _clamp_credit_final, 2
+            )
+            ctx.record_waterfall(
+                "Insolvency Floor Relief", _clamp_credit_final,
+                because=(
+                    f"Creditors will not extend losses below the treasury floor "
+                    f"(${_final_floor:,.0f}); ${_clamp_credit_final:,.0f} of this round's "
+                    f"losses were absorbed by the floor."
+                ),
+                counterfactual="A higher ESG investment ratio raises the floor (better credit lines).",
+            )
     ctx.new_green_fund_balance = round(ctx.new_green_fund_balance, 2)
     ctx.new_synergy            = round(ctx.new_synergy, 4)
 

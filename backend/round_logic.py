@@ -260,9 +260,16 @@ def _apply_treasury_with_green_fund(
     This ensures the green fund subsidises ALL round costs in advanced_climate mode.
     Cost should be positive for expenses, negative for revenue/gains.
     """
+    # DEEP-8 ledger term: every treasury movement this applier makes is
+    # accumulated into ledger_option_treasury (signed: negative = charge)
+    # so the conservation-law harness can attribute it. Diagnostic only.
+    def _stamp(delta: float) -> None:
+        extra["ledger_option_treasury"] = round(
+            extra.get("ledger_option_treasury", 0.0) + delta, 2)
     if cost <= 0:
         # Positive impacts (revenues) bypass the fund — add to treasury directly
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - cost, 2)
+        _stamp(-cost)
         return
     fund = gs.get("green_transition_fund", 0.0)
     if fund >= cost:
@@ -272,8 +279,10 @@ def _apply_treasury_with_green_fund(
         gs["green_transition_fund"] = 0.0
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
         extra["green_fund_used"] = extra.get("green_fund_used", 0) + fund
+        _stamp(-(cost - fund))
     else:
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - cost, 2)
+        _stamp(-cost)
 
 
 def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events: dict, extra: dict, prev_flags: dict):
@@ -2000,15 +2009,13 @@ def _post_r7_circularity(
         impacts = opt.get("impacts", {})
 
         if "treasury" in impacts:
-            cost = abs(impacts["treasury"])
-            fund = gs.get("green_transition_fund", 0.0)
-            if fund >= cost:
-                gs["green_transition_fund"] -= cost
-                extra["green_fund_used"] = cost
-            else:
-                gs["green_transition_fund"] = 0.0
-                gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
-                extra["green_fund_used"] = fund
+            # DEEP-8: was a verbatim inline copy of _apply_treasury_with_green_fund
+            # (minus the ledger stamp) — call the shared applier instead.
+            _apply_treasury_with_green_fund(
+                gs,
+                abs(impacts["treasury"]) if impacts["treasury"] < 0 else -impacts["treasury"],
+                extra,
+            )
 
         ncd_delta = impacts.get("natural_capital_debt_delta", 0)
         if ncd_delta != 0:
@@ -2098,15 +2105,13 @@ def _post_r8_blue_stress(
                        if k not in ("governance_delta",) or v >= 0}
 
         if "treasury" in impacts:
-            cost = abs(impacts["treasury"])
-            fund = gs.get("green_transition_fund", 0.0)
-            if fund >= cost:
-                gs["green_transition_fund"] -= cost
-                extra["green_fund_used"] = cost
-            else:
-                gs["green_transition_fund"] = 0.0
-                gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
-                extra["green_fund_used"] = fund
+            # DEEP-8: was a verbatim inline copy of _apply_treasury_with_green_fund
+            # (minus the ledger stamp) — call the shared applier instead.
+            _apply_treasury_with_green_fund(
+                gs,
+                abs(impacts["treasury"]) if impacts["treasury"] < 0 else -impacts["treasury"],
+                extra,
+            )
     else:
         extra["r8_pillar_bypass"] = True
         impacts = {}  # Standard impacts already applied by router
@@ -2248,6 +2253,8 @@ def _post_r10_grand_finale(
     # ── Apply Activist Ultimatum choice effects first ──
     if "treasury" in impacts:
         gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
+        extra["ledger_option_treasury"] = round(
+            extra.get("ledger_option_treasury", 0.0) + impacts["treasury"], 2)
 
     # Option A: Resist & Integrate — validate synergy gate
     synergy_gate = special.get("synergy_gate_threshold", 80)
