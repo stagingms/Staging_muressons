@@ -91,3 +91,14 @@ cannot recur. Found on the way: check_bu_greenwash_scandal has zero callers (add
 to the DEEP-5 triage). Remaining open: DEEP-5/9 (flag triage), DEEP-8 (ledger
 ratchet — one entropy source outside the money path still blocks its strict
 xfail).
+
+## Correction (2026-08-31, Workstream 1 of the roadmap)
+
+The "11 pre-existing failing tests" cited throughout this cycle's reports were
+NOT broken code: they are async tests, `requirements-dev.txt` omitted
+`pytest-asyncio`, and the audit environment additionally lacked `asyncpg` from
+requirements.txt. With the dependencies installed the full suite is **2200
+passed, 0 failed** at this baseline. The fix is one declared dependency; every
+statement in these documents that those failures were "pre-existing code
+failures" should be read as "pre-existing environment gap". Roadmap W1 item 1 is
+thereby closed; the flake-isolation and CI-gate items stand.

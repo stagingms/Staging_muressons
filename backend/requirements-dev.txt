@@ -2,3 +2,8 @@
 # CI installs requirements.txt + this file before running pytest.
 -r requirements.txt
 pytest==8.3.4
+# The async test files (team_seats, scope_seeding_parity, backend parity) are
+# silently un-runnable without this — a fresh environment then reports 11
+# "permanent failures" that look like broken code (they misled the 2026-08-31
+# audit cycle until diagnosed). Declare it so green means green everywhere.
+pytest-asyncio==1.4.0
