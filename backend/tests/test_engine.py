@@ -655,7 +655,7 @@ class TestGreenwashingRisk:
     def test_greenwashing_option_b(self):
         """Option B with zero investment triggers greenwashing (10% threshold, 7.5 SLO penalty)."""
         decs = [{"bu_id": "a", "investment_ratio": 0.0}]
-        hit, penalty = calc_greenwashing_risk("option_b", decs)
+        hit, penalty = calc_greenwashing_risk("option_b", decs, claim_level="moderate")
         assert hit is True
         assert penalty == 7.5  # Half penalty for option_b (15.0 / 2)
 
@@ -665,7 +665,7 @@ class TestGreenwashingRisk:
             {"bu_id": "a", "investment_ratio": 0.05},
             {"bu_id": "b", "investment_ratio": 0.03},
         ]
-        hit, penalty = calc_greenwashing_risk("option_a", decs)
+        hit, penalty = calc_greenwashing_risk("option_a", decs, claim_level="full")
         assert hit is True
         assert penalty == 15.0  # SDG-ORCH upgraded penalty
 
@@ -675,7 +675,7 @@ class TestGreenwashingRisk:
             {"bu_id": "a", "investment_ratio": 0.3},
             {"bu_id": "b", "investment_ratio": 0.2},
         ]
-        hit, _ = calc_greenwashing_risk("option_c", decs)
+        hit, _ = calc_greenwashing_risk("option_c", decs, claim_level="full")
         assert hit is False
 
     def test_greenwashing_in_tick(self):

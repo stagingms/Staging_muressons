@@ -40,7 +40,7 @@ ROUND_CONFIGS = {
             "icon": "📋",
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "full", 
                 "label": "A",
                 "title": "Surface-Level Scan",
                 "description": (
@@ -58,7 +58,7 @@ ROUND_CONFIGS = {
                     "natural_capital_debt_delta": 0,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Deep Forensic Audit",
                 "description": (
@@ -76,7 +76,7 @@ ROUND_CONFIGS = {
                     "natural_capital_debt_delta": 0,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Phased Audit Rollout",
                 "description": (
@@ -132,7 +132,7 @@ ROUND_CONFIGS = {
             "accuracy_bonus_points": 1000,
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "full", 
                 "label": "A",
                 "title": "Full Materiality Alignment",
                 "description": (
@@ -167,7 +167,7 @@ ROUND_CONFIGS = {
                     "natural_capital_debt_delta": -3,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Strategic Exceptions",
                 "description": "Allow limited off-quadrant spending with CFO approval. Partial compliance.",
@@ -211,7 +211,7 @@ ROUND_CONFIGS = {
             "icon": "🏭",
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "full", 
                 "label": "A",
                 "title": "Rapid Supplier Switch",
                 "description": (
@@ -232,7 +232,7 @@ ROUND_CONFIGS = {
                     "natural_capital_debt_delta": -10,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "full", 
                 "label": "B",
                 "title": "Green Bond Investment",
                 "description": (
@@ -251,7 +251,7 @@ ROUND_CONFIGS = {
                     "governance_risk_delta": -2,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "full", 
                 "label": "C",
                 "title": "Offset & Defer",
                 "description": "Buy carbon offsets and wait for regulation clarity.",
@@ -288,14 +288,14 @@ ROUND_CONFIGS = {
             "base_crisis_severity": 40,
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "moderate", 
                 "label": "A",
                 "title": "Full Transparency & Remediation",
                 "description": "Public disclosure, factory audits, worker compensation.",
                 "flags_set": ["remediation_active"],
                 "impacts": {"treasury": -6_000_000, "reputation": +10, "social_license_delta": +8, "carbon_intensity_delta": -4, "revenue_delta": -500_000, "governance_risk_delta": -5, "natural_capital_debt_delta": 0},
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Damage Control PR",
                 "description": "Hire crisis PR firm. Contains narrative but doesn't fix root cause.",
@@ -332,7 +332,7 @@ ROUND_CONFIGS = {
             "stochastic_threshold": 0.75,
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "moderate", 
                 "label": "A",
                 "title": "Hard Engineering Defence",
                 "description": (
@@ -355,7 +355,7 @@ ROUND_CONFIGS = {
                     "reputation": +3,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "full", 
                 "label": "B",
                 "title": "Nature-Based Solutions",
                 "description": (
@@ -430,7 +430,7 @@ ROUND_CONFIGS = {
                     "natural_capital_debt_delta": 0,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Ethical AI Overhaul",
                 "description": (
@@ -480,7 +480,7 @@ ROUND_CONFIGS = {
             "icon": "♻️",
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "full", 
                 "label": "A",
                 "title": "Full Circular Redesign",
                 "description": "Redesign products for full disassembly and reuse.",
@@ -496,7 +496,7 @@ ROUND_CONFIGS = {
                     "governance_risk_delta": -3,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "full", 
                 "label": "B",
                 "title": "Extended Producer Responsibility",
                 "description": "Fund take-back programs and recycling partnerships.",
@@ -512,7 +512,7 @@ ROUND_CONFIGS = {
                     "governance_risk_delta": -2,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Waste-to-Energy Partnership",
                 "description": (
@@ -547,7 +547,7 @@ ROUND_CONFIGS = {
             "icon": "🌊",
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "full", 
                 "label": "A",
                 "title": "Water Efficiency for All BUs",
                 "description": "Equitable water-saving upgrades across all units.",
@@ -581,7 +581,7 @@ ROUND_CONFIGS = {
                     "reputation": -8,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Desalination Mega-Project",
                 "description": (
@@ -646,7 +646,7 @@ ROUND_CONFIGS = {
                     "revenue_delta": -1_200_000,
                 },
             },
-            "option_b": {
+            "option_b": {"green_claim": "moderate", 
                 "label": "B",
                 "title": "Managed Transition",
                 "description": "2-year phase-out with retraining and severance packages.",
@@ -660,7 +660,7 @@ ROUND_CONFIGS = {
                     "revenue_delta": +600_000,
                 },
             },
-            "option_c": {
+            "option_c": {"green_claim": "moderate", 
                 "label": "C",
                 "title": "Community Investment Fund",
                 "description": (
@@ -706,7 +706,7 @@ ROUND_CONFIGS = {
             },
         },
         "options": {
-            "option_a": {
+            "option_a": {"green_claim": "moderate", 
                 "label": "A",
                 "title": "Resist & Integrate",
                 "description": (

@@ -81,7 +81,13 @@ impact_engine's four rolls moved onto rng_util's named per-cohort streams
 counter dropped 3 → 0 and became a zero-tripwire per its own instructions
 (remediation #15); reproducibility is pinned by test_seeded_stochastics.py. Note:
 the audit's session_id suggestion was wrong — the house convention deliberately
-seeds per cohort so teammates meet the same events. Remaining open: DEEP-5/9
-(flag triage), DEEP-6 (green_claim key), DEEP-7 (strike docs), DEEP-8 (ledger
+seeds per cohort so teammates meet the same events. DEEP-6 and DEEP-7 are RESOLVED (branch
+`fix/greenwash-claims-strike-docs`): a per-option `green_claim` config key
+("full"/"moderate"/absent) replaces the every-A/C-is-green heuristic — 33 options
+tagged across core and healthcare, the absurd cases (Deny & Deflect, CEO-Only,
+Immediate Closure, Divest) are no longer greenwash-punishable, and the glossary's
+strike entries interpolate the shipped R9 config so the 75%/phantom-formula drift
+cannot recur. Found on the way: check_bu_greenwash_scandal has zero callers (add
+to the DEEP-5 triage). Remaining open: DEEP-5/9 (flag triage), DEEP-8 (ledger
 ratchet — one entropy source outside the money path still blocks its strict
 xfail).

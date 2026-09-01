@@ -1215,3 +1215,14 @@ stochastic engine: all teams in a cohort meet the same events, and a graded run
 replays exactly from its `stochastic_seed`. Unseeded/legacy contexts keep the
 historical module-RNG behaviour unchanged. The money path now makes zero
 un-seeded random draws (tripwire test holds it there).
+
+### Addendum — config-driven greenwash claims + strike doc parity (2026-08-31, branch `fix/greenwash-claims-strike-docs`)
+
+Which options constitute a public green/ESG claim is now per-option config
+(`green_claim: "full"` = 15% investment threshold / −15 SLO; `"moderate"` = 10% /
+−7.5; absent = never greenwash-checked) instead of the positional rule that
+treated every Option A/C as green — so Deny & Deflect, CEO-Only Sign-Off,
+Immediate Closure and Divest can no longer trigger greenwashing scandals, while
+green bonds, offsets, circular redesigns and net-zero claims remain fully
+checked. The technical glossary's strike-engine entries are generated from the
+R9 config (50% base below SLO 50; burnout adds up to +20pts, cap 95%).

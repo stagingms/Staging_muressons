@@ -1032,38 +1032,66 @@ def calc_technology_lockin(
 
 
 # ── 20. ESG Greenwashing Risk Engine ───────────────────────────
+def resolve_green_claim(
+    round_number: int,
+    choice: str,
+    bus: list[dict],
+    decision_paradigm: str | None = None,
+) -> str | None:
+    """DEEP-6 (2026-08-31 deep engine audit): which options make a public
+    green/ESG claim is CONFIG, not position. Returns the chosen option's
+    `green_claim` value — "full" (checked at the 15% investment threshold,
+    full SLO penalty), "moderate" (10%, half penalty) — or None for options
+    that make no green claim and are never greenwash-checked. Industry-aware
+    (healthcare/BRSR configs carry their own tags)."""
+    try:
+        if decision_paradigm == "brsr_ngrbc":
+            from side_tracks.brsr_ngrbc.configs import get_brsr_round_options as _g
+        elif any(b.get("bu_id") == "hospitals" for b in (bus or [])):
+            from healthcare_configs import get_healthcare_round_options as _g
+        else:
+            from round_configs import get_round_options as _g
+        opt = (_g(round_number) or {}).get(choice) or {}
+        level = opt.get("green_claim")
+        return level if level in ("full", "moderate") else None
+    except Exception:
+        return None
+
+
 def calc_greenwashing_risk(
     choice: str,
     decisions: list[dict],
     green_investment_threshold: float = GREENWASH_INVESTMENT_THRESHOLD,
     penalty: float = GREENWASH_SLO_PENALTY,
+    claim_level: str | None = None,
 ) -> tuple[bool, float]:
     """
     FEATURE 16 — ESG Greenwashing Risk:
-    If a player selects a "green" option (A or C) but their actual
-    average investment ratio is below green_investment_threshold,
-    a greenwashing scandal is triggered.
+    If a player selects an option that makes a green/ESG claim but their
+    actual average investment ratio does not back it, a greenwashing
+    scandal is triggered.
 
-    SDG-ORCH Enhancement: Penalty upgraded from 8.0 to 15.0 (Group Reputation).
+    DEEP-6 (2026-08-31): classification is config-driven via `claim_level`
+    (from resolve_green_claim). The old positional heuristic treated EVERY
+    option_a/option_c as green — so Deny & Deflect, CEO-Only Sign-Off,
+    Immediate Closure and Divest could fire a *greenwashing* scandal for
+    teams that made no green claim at all. claim_level=None → never checked.
+
+    "full"     → 15% threshold, full penalty (SDG-ORCH: 15.0)
+    "moderate" → 10% threshold, half penalty
     Returns (scandal_triggered, social_license_penalty).
     """
-    # Green options (A/C) are checked against the standard 15% threshold.
-    # Option B (moderate) is also checked but with a more lenient 10% threshold —
-    # even moderate choices should be backed by *some* investment to avoid
-    # greenwashing allegations.
-    green_choices = ("option_a", "option_c")
-    moderate_choices = ("option_b",)
-    if choice in green_choices:
-        ratios = [d.get("investment_ratio", 0.0) for d in decisions]
-        avg_ratio = sum(ratios) / max(len(ratios), 1)
+    if claim_level not in ("full", "moderate"):
+        return False, 0.0
+    ratios = [d.get("investment_ratio", 0.0) for d in decisions]
+    avg_ratio = sum(ratios) / max(len(ratios), 1)
+    if claim_level == "full":
         if avg_ratio < green_investment_threshold:
             return True, penalty
-    elif choice in moderate_choices:
-        ratios = [d.get("investment_ratio", 0.0) for d in decisions]
-        avg_ratio = sum(ratios) / max(len(ratios), 1)
+    else:
         moderate_threshold = green_investment_threshold * GREENWASH_MODERATE_THRESHOLD_SCALE  # ~10% for default 15%
         if avg_ratio < moderate_threshold:
-            return True, round(penalty * GREENWASH_MODERATE_PENALTY_SCALE, 2)  # Half penalty for moderate choices
+            return True, round(penalty * GREENWASH_MODERATE_PENALTY_SCALE, 2)
     return False, 0.0
 
 
@@ -3597,7 +3625,12 @@ def _run_reporting_layer(ctx: TickContext) -> None:
         if c.startswith("option_"):
             primary_choice = c
             break
-    greenwash_hit, greenwash_penalty = calc_greenwashing_risk(primary_choice, ctx.decisions)
+    _claim_level = resolve_green_claim(
+        current_global.get("round_number", 1), primary_choice,
+        ctx.new_bus, ctx.decision_paradigm,
+    )
+    greenwash_hit, greenwash_penalty = calc_greenwashing_risk(
+        primary_choice, ctx.decisions, claim_level=_claim_level)
     # FIX-A: Use pre-austerity investment ratio for greenwashing check.
     # Without this, good players entering austerity are falsely punished for
     # greenwashing every round (austerity zeroes their investment_ratio).
