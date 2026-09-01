@@ -40,6 +40,7 @@ from config import (
     CONTAGION_STEEPNESS,
     # Layer-2 Config Isolation: Engine magic numbers
     SYNERGY_DAMPENING_FACTOR, NCD_INTEREST_COEFFICIENT, NATURAL_DECAY_FACTOR,
+    INFLATION_REVENUE_PASSTHROUGH,
     BURNOUT_NATURAL_DRIFT, BURNOUT_OPEX_THRESHOLD, BURNOUT_CRITICAL_THRESHOLD, BURNOUT_OPEX_PENALTY_COEFF,
     BURNOUT_PASSIVE_DECAY_HEALTHCARE, BURNOUT_PASSIVE_DECAY_DEFAULT,
     READINESS_DELTA_HIGH, READINESS_DELTA_MEDIUM, READINESS_DELTA_NONE,
@@ -2320,6 +2321,19 @@ class TickContext:
     sdg_political_capital:     float = 50.0
     sdg_community_trust:       float = 50.0
 
+    # ── Calibration ruling A/C (2026-09-01): transient flow adjustments ────
+    # Per-round penalties recorded here are REAL for this round (CSF, the
+    # waterfall and every intra-round reader see the adjusted figures) but are
+    # reversed from the persisted BU base just before output assembly, so they
+    # charge the round instead of compounding forever (the "ratchet-down
+    # economy" of CALIBRATION_DIAGNOSIS_2026-09-01.md). Entries:
+    # (bu_id, field, applied_delta) — reversal subtracts applied_delta.
+    transient_flow_adjustments: list = field(default_factory=list)
+
+    def record_transient(self, bu: dict, field_name: str, applied_delta: float) -> None:
+        if applied_delta:
+            self.transient_flow_adjustments.append((bu.get("bu_id"), field_name, applied_delta))
+
     def record_waterfall(
         self,
         label: str,
@@ -2404,6 +2418,9 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
         for bu in ctx.new_bus:
             if bu["bu_id"] == bu_id:
                 bu["revenue_base"] = round(bu["revenue_base"] - penalty, 2)
+                # Ruling C: market-overlap drag recurs while the overlap
+                # persists; charging the base compounded it forever.
+                ctx.record_transient(bu, "revenue_base", -penalty)
                 ctx.events[f"revenue_cannibalized_{bu_id}"] = penalty
                 ctx.events[f"revenue_cannibalized_{bu_id}_because"] = (
                     f"{bu_id} revenue reduced by ${penalty:,.0f} due to market overlap "
@@ -2435,6 +2452,9 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
         for bu in ctx.new_bus:
             if bu["bu_id"] == bu_id:
                 bu["revenue_base"] = round(bu["revenue_base"] + fx_delta, 2)
+                # Ruling C: this round's currency swing must not permanently
+                # rescale the base (it was compounding a random walk into it).
+                ctx.record_transient(bu, "revenue_base", fx_delta)
                 break
     ctx.events["fx_risk"] = {
         "fx_index":     fx_result["fx_index"],
@@ -2473,6 +2493,10 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
         bu["revenue_base"] = calc_cash_conversion(old_rev, gov_risk)
         if bu["revenue_base"] < old_rev:
             ctx.events[f"cash_conversion_drag_{bu['bu_id']}"] = round(old_rev - bu["revenue_base"], 2)
+            # Ruling A: the drag is realized-cash timing (this function's own
+            # docstring), so it charges THIS round and is reversed from the
+            # persisted base at end of tick — no more permanent erosion.
+            ctx.record_transient(bu, "revenue_base", bu["revenue_base"] - old_rev)
 
     # ── FEATURE 5: Macroeconomic Inflation + FEATURE 24 Noise ───
     inflation_index = current_global.get("inflation_index", 0.05)
@@ -2499,6 +2523,8 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
         target_bu   = next(b for b in ctx.new_bus if b.get("bu_id") == _target_id)
         micro_penalty = round(target_bu["opex_base"] * MICRO_STRIKE_OPEX_RATE, 2)
         target_bu["opex_base"] = round(target_bu["opex_base"] + micro_penalty, 2)
+        # Ruling C: a one-round disruption must not inflate the base forever.
+        ctx.record_transient(target_bu, "opex_base", micro_penalty)
         ctx.events["micro_strike_applied"] = {
             "bu_id":        target_bu["bu_id"],
             "opex_penalty": micro_penalty,
@@ -2506,6 +2532,14 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
         }
     for bu in ctx.new_bus:
         bu["opex_base"] = calc_inflation(bu["opex_base"], inflation_index)
+    # Ruling B (2026-09-01): nominal symmetry — revenue inflates at a
+    # configurable fraction of cost inflation. Persistent by design (it is
+    # growth of the base, exactly as the opex line above is).
+    _rev_infl = round(inflation_index * INFLATION_REVENUE_PASSTHROUGH, 6)
+    if _rev_infl:
+        for bu in ctx.new_bus:
+            bu["revenue_base"] = round(bu["revenue_base"] * (1.0 + _rev_infl), 2)
+    ctx.events["revenue_inflation_applied"] = _rev_infl
     ctx.events["inflation_index_applied"] = inflation_index
     # Store inflation_index so _run_operational_layer can produce the drift event
     ctx.new_inflation_index = inflation_index
@@ -2530,7 +2564,11 @@ def _run_financial_layer(ctx: TickContext) -> None:
             outcomes     = bu.get("patient_outcomes_score", PATIENT_OUTCOMES_BASELINE)
             rev_modifier = 1.0 + ((outcomes - PATIENT_OUTCOMES_BASELINE) / PATIENT_OUTCOMES_DIVISOR)
             rev_modifier = max(PATIENT_OUTCOMES_MOD_MIN, min(PATIENT_OUTCOMES_MOD_MAX, rev_modifier))
+            _pre_outcomes_rev = bu["revenue_base"]
             bu["revenue_base"] = round(bu["revenue_base"] * rev_modifier, 2)
+            # Ruling C (symmetric): the outcomes multiplier recurs each round
+            # the score deviates — flow in both directions, never compounded.
+            ctx.record_transient(bu, "revenue_base", bu["revenue_base"] - _pre_outcomes_rev)
             ctx.events[f"patient_outcomes_billing_multiplier_{bu['bu_id']}"] = round(rev_modifier, 4)
 
         dec       = ctx.decision_map.get(bu["bu_id"], {})
@@ -2847,6 +2885,10 @@ def _run_financial_layer(ctx: TickContext) -> None:
             bu["opex_base"], talent_penalty = calc_talent_braindrain(
                 bu["opex_base"], ctx.group_reputation, bu.get("staff_burnout_index", 0.0)
             )
+            # Ruling C: the retention premium is a per-round surcharge while
+            # reputation stays low — it recurs on its own; compounding it into
+            # the base double-counted the spiral.
+            ctx.record_transient(bu, "opex_base", bu["opex_base"] - old_opex)
             ctx.events[f"talent_penalty_applied_{bu['bu_id']}"] = talent_penalty
             if talent_penalty:
                 ctx.events[f"braindrain_opex_impact_{bu['bu_id']}"] = {
@@ -3216,6 +3258,8 @@ def _run_operational_layer(ctx: TickContext) -> None:
             if ncd_opex_penalty > 0:
                 bu["opex_base"] = round(bu["opex_base"] + ncd_opex_penalty, 2)
                 ctx.events[f"{bu['bu_id']}_opex_ncd_penalty"] = ncd_opex_penalty
+                # Ruling C: recurs each round NCD stays high; flow, not base.
+                ctx.record_transient(bu, "opex_base", ncd_opex_penalty)
 
         # Scope 1/2/3 tagging (I5)
         scope_details = {}
@@ -4272,6 +4316,23 @@ def process_tick(
     _run_financial_layer(ctx)
     _run_operational_layer(ctx)
     _run_reporting_layer(ctx)
+
+    # ── 5a. Reverse transient flow adjustments (rulings A/C) ─────
+    # Every reader inside the tick saw the penalized figures; only the
+    # PERSISTED base is restored. Additive reversal of recorded deltas is
+    # exact under stacking (each later multiplier's delta includes the
+    # earlier one's contribution).
+    if ctx.transient_flow_adjustments:
+        _reversed_summary: dict[str, float] = {}
+        _bus_by_id = {b.get("bu_id"): b for b in ctx.new_bus}
+        for _bu_id, _fld, _delta in ctx.transient_flow_adjustments:
+            _b = _bus_by_id.get(_bu_id)
+            if _b is None:
+                continue  # BU removed mid-tick (divestiture)
+            _b[_fld] = round(_b[_fld] - _delta, 2)
+            _key = f"{_bu_id}.{_fld}"
+            _reversed_summary[_key] = round(_reversed_summary.get(_key, 0.0) - _delta, 2)
+        ctx.events["transient_flow_adjustments_reversed"] = _reversed_summary
 
     # ── 5. Assemble and return immutable output ──────────────────
     new_global = _assemble_global_state(ctx, initial_treasury)

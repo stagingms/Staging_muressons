@@ -375,13 +375,19 @@ def _play_full_game(mode):
     # order-independent under the full suite.
     dbm._global_states[sid][-1].setdefault("active_event_flags", {})[
         "stochastic_seed"] = f"slo-steerability-{mode}"
+    from config import CSF_POOL_TREASURY_FRACTION, GREENWASH_INVESTMENT_THRESHOLD
     for rnd in range(1, 11):
         if rnd == 2:
             assert _submit(sid, Q1_IDS, Q2_IDS, Q3_IDS).status_code == 200
-        # capex 3M keeps the avg investment ratio above the 15% greenwash
-        # threshold — otherwise the greenwash scandal (-7.5/round) dominates
-        # SLO and the test measures the wrong mechanic.
-        _commit(sid, bus, rnd, picker(rnd), capex=3_000_000)
+        # Keep the avg investment RATIO above the greenwash threshold —
+        # otherwise the greenwash scandal (-7.5/round) dominates SLO and the
+        # test measures the wrong mechanic. A fixed $3M was enough in the
+        # pre-2026-09 ratchet economy; with healthier treasuries (calibration
+        # ruling A/B/C) the CSF pool grows, so scale capex to the pool.
+        _treas = float(dbm._global_states[sid][-1].get("corporate_treasury", 0) or 0)
+        _pool = max(_treas * CSF_POOL_TREASURY_FRACTION, 1.0)
+        _capex = max(3_000_000.0, round(_pool * (GREENWASH_INVESTMENT_THRESHOLD + 0.02), 2))
+        _commit(sid, bus, rnd, picker(rnd), capex=_capex)
     flags = dict(dbm._global_states[sid][-1].get("active_event_flags") or {})
     bl = _bus_latest(sid)
     avg = sum(b["social_license_score"] for b in bl) / len(bl)

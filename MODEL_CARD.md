@@ -43,6 +43,8 @@ config defaults; facilitators can override several per cohort.
 | Parameter | Shipped | Benchmark | Verdict |
 |---|---|---|---|
 | NCD → cost of debt (`NCD_INTEREST_COEFFICIENT`) | +1bp per NCD unit, compounding (NCD 500 ⇒ +5pts) | Corporate-bond studies find ESG-quartile spreads of tens of bps, not hundreds | `pedagogical` — amplified ~10× so natural-capital neglect becomes a visible debt spiral within 10 rounds; direction supported by the cost-of-debt literature |
+| Governance → cash conversion | revenue × (1 − gov_risk/500), charged to the ROUND as realized-cash drag (ruling A, 2026-09-01 — previously eroded `revenue_base` permanently, the diagnosed death-spiral driver) | DSO/working-capital drag rises with weak governance; supported directionally | `stylized` |
+| Inflation symmetry (`INFLATION_REVENUE_PASSTHROUGH`) | revenue inflates at 80% of cost inflation (ruling B, 2026-09-01) — inflation is margin pressure, no longer a one-sided death tax | firms with pricing power pass through most input inflation; 70–100% pass-through observed in recent inflation episodes | `realistic` |
 | Greenwash check (`GREENWASH_*`) | claim-tagged options vs 15% avg investment; −15 SLO/BU (full), half for moderate | ESMA fund-naming rules, FTC Green Guides enforcement | `stylized` — enforcement probability is 1.0 when triggered (real enforcement is sporadic); threshold is invented but directionally right |
 | Dividend ratchet | cut >20% ⇒ −5 reputation | Dividend-signalling literature: cuts reliably produce negative abnormal returns | `realistic` in direction, invented magnitude |
 
@@ -72,10 +74,14 @@ SIMULATION_CONTEXT §6 match the shipped code. Cross-pathway difficulty coeffici
    5%/round, NCD compounding) behave closer to annual rates, an intentional 2× speed-up.
 3. **Pillar-mode balance is unmeasured headlessly**: the router owns pillar impact
    application, so BALANCE_REPORT covers legacy_abc only.
-4. **Scripted-bot bankruptcy**: at bot capex levels every scripted strategy goes bankrupt
-   by R4–R7 (BALANCE_REPORT §1). Real cohorts out-perform bots (minigames, side tracks,
-   adaptive capex), but this is the current empirical difficulty floor — cross-check
-   against cohort telemetry (roadmap W4.3) before recalibrating.
+4. **Difficulty (recalibrated 2026-09-01)**: the pre-ruling economy bankrupted every
+   scripted strategy AND every real alpha team by R4–R7 (see
+   CALIBRATION_DIAGNOSIS_2026-09-01.md). After rulings A+B+C (flow-not-stock
+   penalties, 80% inflation pass-through) the balance report shows the intended
+   gradient: disciplined ESG solvent and winning, extraction/neglect still failing.
+   Watch item: greenwash checks use a RELATIVE investment ratio, so healthier
+   treasuries raise the absolute investment needed to avoid scandal — monitor
+   greenwash frequency in the next cohort's telemetry.
 5. **M_R amplification** dominates terminal spread by design; instructors should present
    TV rankings as strategy quality, not market realism.
 6. Magnitudes marked `pedagogical` above are teaching devices; the model card verdict —

@@ -11,24 +11,24 @@ gated behind those are expected to show 0% attainment here.
 
 | Strategy | Terminal Value | M_R | Archetype | Final treasury | Bankrupt |
 |---|---|---|---|---|---|
-| pure_A | $-785.4M | 0.80 | STRANDED_RELIC | $-543.8M | R4 |
-| pure_B | $-333.5M | 0.92 | STRANDED_RELIC | $-527.5M | R5 |
-| pure_C | $-73,162.2M | 1.02 | STRANDED_RELIC | $-491.1M | R5 |
-| aggressive_green | $56.4M | 1.42 | HOLLOW_IDEALIST | $-505.8M | R5 |
-| extractive | $-123,528.6M | 0.84 | STRANDED_RELIC | $-523.8M | R4 |
-| balanced | $-176.3M | 1.02 | STRANDED_RELIC | $-530.3M | R6 |
+| pure_A | $-346.5M | 0.80 | STRANDED_RELIC | $-368.9M | R7 |
+| pure_B | $28.7M | 0.92 | FRAGILE_GIANT | $93.5M | — |
+| pure_C | $-1,712.2M | 1.02 | STRANDED_RELIC | $-491.1M | R7 |
+| aggressive_green | $349.2M | 1.42 | SAFE_HAVEN | $221.5M | — |
+| extractive | $-2,297.4M | 0.84 | STRANDED_RELIC | $-523.8M | R5 |
+| balanced | $126.7M | 1.02 | FRAGILE_GIANT | $120.2M | — |
 
-Spread: $-123,528.6M … $56.4M  (unbounded (a strategy ends below TV $0))
+Spread: $-2,297.4M … $349.2M  (unbounded (a strategy ends below TV $0))
 
 ### 1b. CapEx intensity ladder (pure_B choices, varying capex share of CSF pool)
 
 | CapEx share | Terminal Value | M_R | Final treasury | Bankrupt |
 |---|---|---|---|---|
-| 5% | $-687.8M | 0.96 | $-530.3M | R5 |
-| 10% | $-253.7M | 0.92 | $-527.5M | R6 |
-| 20% | $-69.0M | 0.96 | $-522.1M | R6 |
-| 35% | $-14.6M | 0.96 | $-514.0M | R7 |
-| 60% | $35.4M | 0.92 | $-500.4M | R5 |
+| 5% | $-228.5M | 0.96 | $-176.6M | R8 |
+| 10% | $11.3M | 0.92 | $117.4M | — |
+| 20% | $152.5M | 0.96 | $234.0M | — |
+| 35% | $172.3M | 0.96 | $275.2M | — |
+| 60% | $209.2M | 0.92 | $256.1M | — |
 
 ## 2. M_R component attainment (across all runs above)
 
@@ -50,33 +50,33 @@ bots do not play), `synergy_bonus`/`truth_premium`/`workforce_bonus`
 REAL cohort also never earns is a calibration finding — cross-check with
 the cohort telemetry report (W4.3).
 
-## 3. Lever sensitivity (legacy_abc, baseline pure_B @ 10% capex: TV $-333.5M, M_R 0.92)
+## 3. Lever sensitivity (legacy_abc, baseline pure_B @ 10% capex: TV $28.7M, M_R 0.92)
 
 Switching ONE round away from all-B. A ~zero row is a dead lever for
 this trajectory (C-1's failure mode, measured).
 
 | Round | → option | Δ Terminal Value | Δ M_R | Δ final treasury |
 |---|---|---|---|---|
-| R1 | A | −$1,935.2M | +0.04 | −$30.9M |
-| R1 | C | −$468.2M | +0.04 | +$0.0M |
-| R2 | A | +$151.5M | +0.04 | +$0.0M |
-| R2 | C | −$295.5M | +0.04 | +$0.0M |
-| R3 | A | −$44.7M | +0.04 | +$0.0M |
-| R3 | C | −$645.4M | +0.00 | +$0.0M |
-| R4 | A | −$209.7M | +0.00 | −$3.1M |
-| R4 | C | −$40.2M | +0.04 | +$0.0M |
-| R5 | A | +$111.0M | +0.04 | +$0.0M |
-| R5 | C | −$420.0M | +0.04 | +$0.0M |
-| R6 | A | −$517.0M | +0.04 | −$0.8M |
-| R6 | C | −$166.6M | +0.04 | +$0.0M |
-| R7 | A | +$122.8M | +0.04 | +$0.0M |
-| R7 | C | −$44.3M | +0.04 | +$0.0M |
-| R8 | A | +$167.7M | +0.04 | +$0.0M |
-| R8 | C | −$2.8M | +0.00 | +$0.0M |
-| R9 | A | +$83.5M | -0.12 | +$0.0M |
-| R9 | C | +$40.0M | +0.10 | +$0.0M |
-| R10 | A | +$122.0M | +0.00 | −$16.3M |
-| R10 | C | −$12,080.2M | +0.04 | +$16.3M |
+| R1 | A | −$1,216.5M | +0.04 | −$651.9M |
+| R1 | C | −$360.1M | +0.04 | −$433.9M |
+| R2 | A | +$76.1M | +0.04 | +$71.3M |
+| R2 | C | −$124.0M | +0.04 | −$109.2M |
+| R3 | A | −$39.8M | +0.04 | −$57.4M |
+| R3 | C | −$306.3M | +0.00 | −$266.0M |
+| R4 | A | −$160.1M | +0.00 | −$70.0M |
+| R4 | C | −$23.6M | +0.04 | −$18.1M |
+| R5 | A | +$24.3M | +0.04 | +$13.9M |
+| R5 | C | −$231.7M | +0.04 | −$253.8M |
+| R6 | A | −$186.2M | +0.04 | −$160.0M |
+| R6 | C | −$127.8M | +0.04 | −$64.5M |
+| R7 | A | +$54.8M | +0.04 | +$43.6M |
+| R7 | C | +$16.1M | +0.04 | +$12.2M |
+| R8 | A | +$63.5M | +0.04 | +$49.4M |
+| R8 | C | −$18.8M | +0.00 | −$29.4M |
+| R9 | A | −$31.2M | -0.12 | −$26.5M |
+| R9 | C | +$49.8M | +0.10 | +$22.0M |
+| R10 | A | +$16.2M | +0.00 | +$19.2M |
+| R10 | C | +$11.5M | +0.04 | +$41.0M |
 
 **No dead levers: every round's options move terminal value by ≥0.5%.**
 

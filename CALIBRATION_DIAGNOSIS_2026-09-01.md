@@ -95,3 +95,29 @@ Recommended package: **A + B (at ~80% pass-through) + C**, then remeasure with
 failing hard, pure_B marginal, and disciplined ESG strategies solvent — and
 verify the M_R ceilings (1.93/2.02) and golden trace, which none of A–C should
 touch (they change cash, not M_R components).
+
+## 5. Resolution (same day, branch `fix/ratchet-economy`, ruling: A+B+C)
+
+Implemented as red-acceptance-tests-first (tests/test_ratchet_economy.py):
+transient flow adjustments — the penalty is REAL for the round it occurs
+(CSF, waterfall and all intra-round readers see the adjusted figures) and is
+reversed from the persisted base at end of tick. Sites converted: governance
+cash-conversion drag (revenue_base), talent braindrain, NCD opex penalty,
+micro-strike (opex_base) — and three more base-eroding flow sites found during
+implementation: revenue cannibalization, FX swings (a random walk was being
+compounded into the base!), and the healthcare patient-outcomes multiplier
+(converted symmetrically). Ruling B: `INFLATION_REVENUE_PASSTHROUGH = 0.80`
+(config-overridable; 0 restores old behaviour).
+
+After (balance report, DEFAULT_4_BU/legacy, seeded): aggressive_green
+**solvent, TV +$349M, SAFE_HAVEN, M_R 1.42**; balanced +$127M; pure_B marginal
++$29M; pure_A and pure_C bankrupt R7; extractive bankrupt R5 at −$2.3B. CapEx
+ladder: 5% fails, 10%+ solvent with diminishing returns — the intended
+teaching gradient. Deliberate rebaselines: financial + stakeholder golden
+traces, six treasury fingerprints; INV-8 now accounts for the end-of-tick
+reversals via the engine's own reversal event; the SLO-steerability fixture
+scales capex to the (now larger) CSF pool so it keeps measuring SLO, not
+greenwash. Conservation law and M_R ceilings (1.93/2.02) untouched and green.
+Ships at the cohort boundary with everything else. Watch item for next
+cohort's telemetry: greenwash scandal frequency (relative-ratio threshold vs
+healthier treasuries).
