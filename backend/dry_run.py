@@ -40,6 +40,18 @@ STRATEGIES: dict[str, dict] = {
 }
 
 
+def _stable_strategy_offset(sid: str) -> int:
+    """W4 (2026-09-01): hash() is per-process randomised (PYTHONHASHSEED), so
+    seeds built from it broke this module's own cross-process determinism
+    claim. SHA-256 keeps each strategy's seed stream distinct AND stable."""
+    import hashlib
+    return int(hashlib.sha256(sid.encode()).hexdigest()[:4], 16) % 1000
+
+
+# W4 balance report: scripted strategies registered at runtime by
+# scripts/balance_report.py (never part of the facilitator-facing set).
+_EXTRA_STRATEGIES: dict[str, dict] = {}
+
 def _option_scores(impacts: dict) -> tuple[float, float]:
     """(profit_score, green_score) for one option's configured impacts."""
     profit = (impacts.get("treasury", 0) or 0) / 1e6 + 2 * (impacts.get("revenue_delta", 0) or 0) / 1e6
@@ -53,8 +65,11 @@ def _option_scores(impacts: dict) -> tuple[float, float]:
     return profit, green
 
 
-def _pick_choice(round_number: int, scorer: str, rng: random.Random) -> str:
+def _pick_choice(round_number: int, scorer: str, rng: random.Random,
+                 choice_map: dict | None = None) -> str:
     opts = get_round_options(round_number) or {}
+    if choice_map and round_number in choice_map and choice_map[round_number] in opts:
+        return choice_map[round_number]  # W4 balance report: scripted play
     keys = sorted(k for k in opts if k.startswith("option_"))
     if not keys:
         return "option_b"
@@ -77,7 +92,8 @@ def _decisions(round_number: int, bus: list[dict], treasury: float,
     the R2 CFO materiality gate treats bot capex as materially justified —
     bots do not play the materiality mini-game; the report notes this.
     """
-    choice = _pick_choice(round_number, strategy["scorer"], rng)
+    choice = _pick_choice(round_number, strategy["scorer"], rng,
+                          strategy.get("choice_map"))
     csf_pool = max((treasury or 0) * CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR)
     frac = strategy["capex_frac"]
     if frac is None:
@@ -114,7 +130,7 @@ def _run_one(initial_global: dict, initial_bus: list[dict], strategy_id: str,
              seed: int, end_round: int, paradigm: str, ped_overrides: dict,
              difficulty_tier: str) -> dict:
     """One seeded bot playthrough. Returns the per-round trajectory + events."""
-    strategy = STRATEGIES[strategy_id]
+    strategy = STRATEGIES.get(strategy_id) or _EXTRA_STRATEGIES[strategy_id]
     rng = random.Random(seed)
     random.seed(seed)  # engines that roll on the bare global random module
 
@@ -164,10 +180,15 @@ def _run_one(initial_global: dict, initial_bus: list[dict], strategy_id: str,
         new_gs.setdefault("active_event_flags", {})["stochastic_seed"] = gs["active_event_flags"]["stochastic_seed"]
         new_gs["active_event_flags"]["difficulty_tier"] = difficulty_tier
         try:
-            post_tick(round_number=rnd, global_state=new_gs, bu_states=new_bus,
-                      decisions=decs, events=events,
-                      previous_flags=gs.get("active_event_flags", {}),
-                      decision_paradigm=paradigm)
+            # post_tick RETURNS its extra events (the router merges them into
+            # the round's events); discarding them here silently dropped the
+            # R10 terminal breakdown from dry-run reports (W4, 2026-09-01).
+            post_events = post_tick(round_number=rnd, global_state=new_gs, bu_states=new_bus,
+                                    decisions=decs, events=events,
+                                    previous_flags=gs.get("active_event_flags", {}),
+                                    decision_paradigm=paradigm)
+            if isinstance(post_events, dict):
+                events.update(post_events)
         except Exception:
             pass
         events["decisions_raw"] = decs
@@ -196,8 +217,19 @@ def _run_one(initial_global: dict, initial_bus: list[dict], strategy_id: str,
         })
         gs, bus = new_gs, new_bus
 
+    # W4 balance report: the R10 grand finale writes terminal valuation into
+    # the final round's events (via post_tick extra keys) — surface it.
+    terminal = {
+        "terminal_value": float(events.get("terminal_value", 0.0) or 0.0),
+        "regenerative_multiple": float(events.get("regenerative_multiple", 0.0) or 0.0),
+        "terminal_ebitda": float(events.get("terminal_ebitda", 0.0) or 0.0),
+        "archetype": str(events.get("archetype", "") or ""),
+        "mr_breakdown": dict(events.get("mr_breakdown", {}) or {}),
+    } if rounds_out and rounds_out[-1]["round"] >= 10 else None
+
     return {
         "rounds": rounds_out,
+        "terminal": terminal,
         "bankrupt_round": bankrupt_round,
         "escalation_peak": escalation_peak,
         "final_treasury": rounds_out[-1]["treasury"] if rounds_out else None,
@@ -227,7 +259,7 @@ def run_dry_run(initial_global: dict, initial_bus: list[dict], *,
     per_strategy: dict[str, Any] = {}
     for sid in strategies:
         runs = [
-            _run_one(initial_global, initial_bus, sid, seed=90_000 + i * 7 + hash(sid) % 1000,
+            _run_one(initial_global, initial_bus, sid, seed=90_000 + i * 7 + _stable_strategy_offset(sid),
                      end_round=end_round, paradigm=paradigm,
                      ped_overrides=ped_overrides, difficulty_tier=difficulty_tier)
             for i in range(n_reps)

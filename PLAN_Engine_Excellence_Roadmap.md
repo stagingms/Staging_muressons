@@ -157,6 +157,22 @@ the config teaches what is intended. Three instruments:
 card exists and is cited by SIMULATION_CONTEXT; per-cohort telemetry is a
 one-command report.
 
+**Status (2026-09-01, branch `feat/balance-report`):** item 1 DONE.
+`scripts/balance_report.py` plays scripted strategies (pure A/B/C, a capex
+ladder, the facilitator bots) through the REAL pipeline via dry_run.py and
+writes `BALANCE_REPORT_BASELINE.md`: strategy outcomes + TV spread, M_R
+component attainment (with explicit 0%-unreachable rows), and per-round lever
+sensitivity vs the all-B baseline. Found and fixed on the way: dry_run
+discarded post_tick's RETURNED events (every dry-run report silently lacked
+the R10 terminal breakdown), and its strategy seeds rode on `hash()`
+(PYTHONHASHSEED — contradicting its own determinism claim); both fixed, and
+tests/test_balance_report.py pins determinism + terminal capture. First
+baseline's headline findings: at bot capex levels every strategy goes
+bankrupt by R4-R7 (the capex ladder shows solvency only near 60% deployment);
+pillar-mode balance cannot be measured headlessly because the router owns
+pillar application — a router-path harness is future work. Items 2 (model
+card) and 3 (telemetry) remain.
+
 ## Workstream 5 — Hygiene
 
 `.gitattributes` for line endings; normalise the mixed-encoding comment headers
