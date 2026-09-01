@@ -26,10 +26,10 @@
         "social_license_score": 58.12
       }
     ],
-    "group_reputation": 21.96,
+    "group_reputation": 26.96,
     "npcs": {
       "activist_investor": {
-        "escalation_level": "hostile",
+        "escalation_level": "concerned",
         "satisfaction": 49.55,
         "trust": 50.0
       },
@@ -39,13 +39,13 @@
         "trust": 50.0
       },
       "journalist": {
-        "escalation_level": "critical",
-        "satisfaction": 47.39,
+        "escalation_level": "neutral",
+        "satisfaction": 48.39,
         "trust": 50.0
       },
       "regulator": {
-        "escalation_level": "investigation",
-        "satisfaction": 48.39,
+        "escalation_level": "monitoring",
+        "satisfaction": 49.39,
         "trust": 50.0
       }
     },

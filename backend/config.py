@@ -474,6 +474,17 @@ NCD_FORGIVENESS_LOG_COEFF:     float = float(_forgive.get("log_coefficient", 2.0
 # inflation pass-through at this fraction of cost inflation, so inflation is
 # margin pressure (costs outrun prices by 1-q) instead of a one-sided death
 # tax on a revenue base that never grew. 0.0 restores the old behaviour.
+# EVAL_Stakeholder_SLO recs 4+5 (2026-09-01): absolute-capex escapes so the
+# post-repair richer economy doesn't silently harden relative thresholds, a
+# mild middle growth tier for SLO, and a baseline sentiment-bridge weight
+# that keeps the heat-map and NPC surfaces aligned even with F1 off.
+_slo_ramp = _engine.get("slo_ramp", {})
+NATURAL_DECAY_GROWTH_ABS_CAPEX: float = float(_slo_ramp.get("growth_abs_capex", 3_000_000))
+NATURAL_DECAY_MID_RATIO:        float = float(_slo_ramp.get("mid_ratio", 0.20))
+NATURAL_DECAY_MID_GROWTH:       float = float(_slo_ramp.get("mid_growth", 1.0))
+GREENWASH_ABS_CAPEX_FLOOR:      float = float(_slo_ramp.get("greenwash_abs_capex_floor", 3_000_000))
+NPC_SENTIMENT_BRIDGE_BASELINE:  float = float(_trust.get("sentiment_bridge_baseline", 0.15))
+
 _infl_sym = _engine.get("inflation_symmetry", {})
 INFLATION_REVENUE_PASSTHROUGH:  float = float(_infl_sym.get("revenue_passthrough", 0.80))
 

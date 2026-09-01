@@ -40,6 +40,8 @@ from config import (
     CONTAGION_STEEPNESS,
     # Layer-2 Config Isolation: Engine magic numbers
     SYNERGY_DAMPENING_FACTOR, NCD_INTEREST_COEFFICIENT, NATURAL_DECAY_FACTOR,
+    NATURAL_DECAY_GROWTH_ABS_CAPEX, NATURAL_DECAY_MID_RATIO, NATURAL_DECAY_MID_GROWTH,
+    GREENWASH_ABS_CAPEX_FLOOR,
     INFLATION_REVENUE_PASSTHROUGH,
     BURNOUT_NATURAL_DRIFT, BURNOUT_OPEX_THRESHOLD, BURNOUT_CRITICAL_THRESHOLD, BURNOUT_OPEX_PENALTY_COEFF,
     BURNOUT_PASSIVE_DECAY_HEALTHCARE, BURNOUT_PASSIVE_DECAY_DEFAULT,
@@ -700,15 +702,23 @@ def apply_natural_decay(
     social_license: float,
     invested: bool,
     investment_ratio: float = 0.0,
+    capex_abs: float = 0.0,
 ) -> tuple[float, float]:
     """
     FIX-B: Gradated SLO/reputation decay based on investment_ratio.
-    - investment_ratio >= 0.30 → SLO GROWS by +3/round (community rewards ESG)
-    - investment_ratio >= 0.15 → No decay (treading water)
-    - investment_ratio <  0.15 → Full 4% decay (neglect erodes trust)
+    - ratio >= 0.30 (or capex >= NATURAL_DECAY_GROWTH_ABS_CAPEX) → SLO GROWS
+      +3/round (community rewards ESG). EVAL rec 4 (2026-09-01): the absolute
+      escape exists because the ratio is relative to the CSF pool, and the
+      ratchet-economy repair made pools larger — the same real investment
+      must not stop earning licence because the company got healthier.
+    - ratio >= NATURAL_DECAY_MID_RATIO → mild growth (+NATURAL_DECAY_MID_GROWTH)
+    - ratio >= 0.15 → No decay (treading water)
+    - ratio <  0.15 → Full 4% decay (neglect erodes trust)
     Reputation always decays when not invested (harder to rebuild brand).
     """
     decay = NATURAL_DECAY_FACTOR  # ~0.96
+    if capex_abs >= NATURAL_DECAY_GROWTH_ABS_CAPEX and investment_ratio < 0.30:
+        investment_ratio = 0.30  # absolute escape lands in the growth tier
     if investment_ratio >= 0.30:
         # Active ESG commitment → SLO grows, reputation stabilises
         slo_growth = 3.0 + (investment_ratio - 0.30) * 10  # +3 to +10
@@ -716,6 +726,10 @@ def apply_natural_decay(
             reputation,  # reputation stable
             round(min(100.0, social_license + slo_growth), 2),
         )
+    elif investment_ratio >= NATURAL_DECAY_MID_RATIO:
+        # EVAL rec 4: a mild middle tier so the road back from a low SLO
+        # exists below the 30% full-growth bar.
+        return reputation, round(min(100.0, social_license + NATURAL_DECAY_MID_GROWTH), 2)
     elif investment_ratio >= 0.15 or invested:
         # Moderate investment → treading water (no decay, no growth)
         return reputation, social_license
@@ -1086,6 +1100,13 @@ def calc_greenwashing_risk(
         return False, 0.0
     ratios = [d.get("investment_ratio", 0.0) for d in decisions]
     avg_ratio = sum(ratios) / max(len(ratios), 1)
+    # EVAL rec 4 (2026-09-01): the bar is max(relative, absolute) — an average
+    # absolute capex at GREENWASH_ABS_CAPEX_FLOOR backs a green claim even when
+    # a large CSF pool makes the RATIO look thin. Real money is real backing.
+    capexes = [float(d.get("capex_allocated", 0.0) or 0.0) for d in decisions]
+    avg_capex = sum(capexes) / max(len(capexes), 1)
+    if avg_capex >= GREENWASH_ABS_CAPEX_FLOOR:
+        return False, 0.0
     if claim_level == "full":
         if avg_ratio < green_investment_threshold:
             return True, penalty
@@ -2803,6 +2824,7 @@ def _run_financial_layer(ctx: TickContext) -> None:
         bu["reputation_score"], bu["social_license_score"] = apply_natural_decay(
             bu["reputation_score"], bu["social_license_score"], invested,
             investment_ratio=_inv_ratio,
+            capex_abs=float(dec.get("capex_allocated", 0) or 0),
         )
 
         # ── FEATURE 4: Technical Debt ───────────────────────────
@@ -4056,7 +4078,14 @@ def _run_reporting_layer(ctx: TickContext) -> None:
         # set, ignoring the cohort's vertical/region/pack scope that the rest
         # of play resolves. Pass the global state itself, which carries the
         # scope (seeded at creation and hydrated at the read boundaries).
-        _sh_list       = current_global.get("sentiment_stakeholders", [])
+        # EVAL rec 5 (2026-09-01): the working list was only ever read from a
+        # TOP-LEVEL key that nothing persists, so attitudes silently
+        # re-initialised every round and the F1 bridge could never fire in
+        # production. It round-trips through active_event_flags (events are
+        # merged there by the router), so read it back from either place.
+        _sh_list       = (current_global.get("sentiment_stakeholders")
+                          or (current_global.get("active_event_flags") or {}).get("sentiment_stakeholders")
+                          or [])
         if not _sh_list:
             _raw_stakeholders = get_stakeholders_for_session(current_global)
             if _raw_stakeholders:

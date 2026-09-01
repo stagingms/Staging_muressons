@@ -91,19 +91,9 @@ FLAG_TAXONOMY: dict[str, dict[str, str]] = {
     "turnaround_restructuring": {"class": "choice-marker", "declared_in": "round_configs.py"},
     # ── side_tracks/brsr_ngrbc/configs.py ──
     "brsr_indicator_leadership": {"class": "narrative", "declared_in": "side_tracks/brsr_ngrbc/configs.py"},
-    # ── side_tracks/stakeholder_management/configs.py ──
-    "sm_community_partnership": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_defensive_crisis": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_esg_gold_standard": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_gap_closure": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_investor_focus": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_issb_aligned": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_legal_escalation": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_media_hostile": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_rating_challenge": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_structured_response": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_transparency_champion": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
-    "sm_voluntary_commitments": {"class": "narrative", "declared_in": "side_tracks/stakeholder_management/configs.py"},
+    # side_tracks/stakeholder_management outcomes were wired into NPC trust /
+    # agent tolerance on 2026-09-01 (EVAL rec 6) — their entries are retired
+    # per this registry's own contract (a read flag may not keep a ruling).
     # ── side_tracks/supply_chain/configs.py ──
     "circular_minimum_compliance": {"class": "narrative", "declared_in": "side_tracks/supply_chain/configs.py"},
     "circular_procurement_partial": {"class": "narrative", "declared_in": "side_tracks/supply_chain/configs.py"},

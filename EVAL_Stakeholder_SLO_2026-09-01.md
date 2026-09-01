@@ -296,3 +296,44 @@ waves-off baseline), balanced solvent, extraction/neglect still fail; note
 that scripted bots never negotiate or keep promises, so real teams should
 outperform this floor using the exits the rooms provide. Full suite: 2242
 passed. Recommendations 3–8 remain open.
+
+## 10. Implementation status — recommendations 3–8 (branch `feat/stakeholder-recs-3-8`)
+
+**All implemented** (owner ruling), red acceptance tests first
+(`tests/test_stakeholder_recs.py`, 9 tests):
+
+- **3. Staged escalation**: a named NPC's tier may worsen by at most one level
+  per round (`determine_npc_action`; standing start counts as cooperative, so
+  R1 caps one step past tier 0 — no more Round-1 proxy fights). De-escalation
+  is never rate-limited; the F4 patience clock still forces its +1. The F4
+  jitter golden test was reseeded with a prior tier so it keeps measuring the
+  boundary, not the stager.
+- **4. SLO recovery ramp + absolute escapes**: `apply_natural_decay` gains a
+  mild middle growth tier (ratio ≥ 20% → +1/round) and an absolute-capex
+  escape into the full growth tier (≥ $3M `NATURAL_DECAY_GROWTH_ABS_CAPEX`);
+  the greenwash bar becomes max(relative, absolute) via
+  `GREENWASH_ABS_CAPEX_FLOOR` ($3M avg/BU) — real money backs a green claim
+  even when a healthy CSF pool makes the ratio look thin. All config-backed.
+- **5. Always-on sentiment bridge — and a real bug fixed**: the working
+  sentiment list was only ever read from a top-level key nothing persists, so
+  attitude scores silently re-initialised every round and the bridge could
+  never fire in production. It now round-trips through active_event_flags,
+  and with F1 off the bridge runs at a low baseline weight
+  (`NPC_SENTIMENT_BRIDGE_BASELINE` = 0.15) so the two surfaces can never
+  fully disagree.
+- **6. SM side track wired in**: all 12 `sm_` outcome flags now grant one-shot
+  trust/tolerance credits (or debits — the hostile paths cost you) via
+  `SM_TRACK_CREDITS` + `apply_sm_track_credits`, guarded by
+  `sm_stakeholder_credits_applied`. Their narrative-only taxonomy entries are
+  retired per the registry's own contract (a read flag may not keep a ruling).
+- **7. Treasury guard**: the regulator enforcement path no longer KeyErrors on
+  states without `corporate_treasury`.
+- **8. Telemetry**: `scripts/cohort_telemetry.py` now reports each team's
+  worst NPC tier per persona, permanently-triggered agents, and negotiation
+  meetings/deals, with a per-cohort table.
+
+Deliberate rebaselines: the stakeholder golden trace (staging + bridge
+changed its pinned tiers). Balance report regenerated: gradient intact, and
+pure_B's transient R9 bankruptcy from the waves-on baseline is gone — staged
+escalation removed the R1 NPC pile-on without weakening endgame consequences.
+Full suite: 2251 passed. This closes every recommendation in §8.

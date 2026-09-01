@@ -142,13 +142,22 @@ def _matched_attitude(npc_id: str, gs: dict) -> float | None:
     if not patterns:
         return None
     scores = []
-    for s in (gs.get("sentiment_stakeholders") or []):
+    _slist = (gs.get("sentiment_stakeholders")
+              or (gs.get("active_event_flags") or {}).get("sentiment_stakeholders")
+              or [])
+    for s in _slist:
         sid = str(s.get("id", "")).lower()
         if any(p in sid for p in patterns):
             v = s.get("attitude_score")
             if isinstance(v, (int, float)):
                 scores.append(float(v))
     return (sum(scores) / len(scores)) if scores else None
+
+
+def _bridge_weight_baseline() -> float:
+    """Low always-on bridge weight used when F1 memory is off (EVAL rec 5)."""
+    from config import NPC_SENTIMENT_BRIDGE_BASELINE
+    return NPC_SENTIMENT_BRIDGE_BASELINE
 
 
 def _bridge_weight() -> float:
@@ -519,6 +528,21 @@ def determine_npc_action(
             action, label, tier_idx = level["action"], level["label"], i
             break
 
+    # ── Staged escalation (EVAL rec 3, 2026-09-01) ─────────────────────────
+    # A relationship may WORSEN by at most one tier per round: real
+    # stakeholders write the concerned letter before the proxy fight, and a
+    # standing start (no prior tier) counts as cooperative — so Round 1 can
+    # reach at most one step past tier 0, however bad the KPIs. De-escalation
+    # is never rate-limited (with F1 on, the trust stock already makes the
+    # way back slow). The F4 patience clock below still forces its own +1.
+    if tier_idx is not None and escalation_levels:
+        _prev_tier = npc_state.get("last_tier")
+        _cap = (0 if _prev_tier is None else _prev_tier) + 1
+        if tier_idx > _cap:
+            tier_idx = _cap
+            staged = escalation_levels[tier_idx]
+            action, label = staged["action"], staged["label"]
+
     # Patience clock (F4): sitting at a wary tier too long forces escalation.
     if patience_limit is not None and tier_idx is not None and escalation_levels:
         if tier_idx == npc_state.get("last_tier"):
@@ -533,7 +557,9 @@ def determine_npc_action(
             npc_state["rounds_at_tier"] = 1        # reset so it doesn't force every round
         if tier_idx == 0:
             npc_state["rounds_at_tier"] = 0        # cooperation resets patience generously
-        npc_state["last_tier"] = tier_idx
+
+    # Staged escalation + the patience clock both key off last round's tier.
+    npc_state["last_tier"] = tier_idx
 
     # Generate dialogue
     templates = profile.get("dialogue_templates", {})
@@ -616,7 +642,10 @@ def process_npc_tick(
     trust_consts = _trust_constants() if memory_enabled else None
     # Bridge only pulls satisfaction toward portfolio sentiment when memory is on;
     # 0.0 otherwise keeps the legacy metric-only path (SPEC F1 §1.4).
-    bridge_weight = _bridge_weight() if memory_enabled else 0.0
+    # EVAL rec 5 (2026-09-01): the bridge never fully sleeps — with F1 off it
+    # runs at a low baseline weight so the heat-map and the named NPCs cannot
+    # drift into telling the classroom two different moods for one regulator.
+    bridge_weight = _bridge_weight() if memory_enabled else _bridge_weight_baseline()
     # F4 uncertainty: seeded threshold jitter + patience clock (default off).
     _uncert = _uncertainty_consts() if uncertainty_enabled else None
     _seed = gs.get("active_event_flags", {}).get("stochastic_seed")
@@ -662,7 +691,7 @@ def process_npc_tick(
             if npc_id == "regulator" and action_result["action"] == "enforcement":
                 fine = (_seeded_fine(_seed, npc_id, round_number, 5_000_000, 25_000_000)
                         if _seed not in (None, "") else round(random.uniform(5_000_000, 25_000_000), 2))
-                gs["corporate_treasury"] = round(gs["corporate_treasury"] - fine, 2)
+                gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0.0) - fine, 2)
                 diagnostics["regulatory_fine"] = fine
 
         npc_state["interactions"].append({
@@ -674,6 +703,73 @@ def process_npc_tick(
     npc_master_state["total_interactions"] += len(diagnostics["npc_actions"])
 
     return npc_master_state, diagnostics
+
+
+# ═══════════════════════════════════════════════════════════════
+#  EVAL rec 6 (2026-09-01) — Stakeholder-Management side track feeds
+#  the stakeholder system it teaches
+# ═══════════════════════════════════════════════════════════════
+# The sm_ outcome flags were declared-but-read-by-nothing (flag taxonomy,
+# DEEP-5). Each completion outcome now grants a ONE-SHOT credit (or debit —
+# the hostile paths cost you) to the named NPCs' trust stock and/or the
+# autonomous agents' tolerance. Guarded by `sm_stakeholder_credits_applied`
+# so replays and later rounds never double-apply. Magnitudes sit at 1-2
+# rounds of trust/tolerance movement: meaningful, never game-deciding.
+#
+# npc: list of named-NPC ids credited on `trust` (skipped until the F1 stock
+#      is initialised); agents: autonomous-agent ids credited on `tolerance`.
+SM_TRACK_CREDITS: dict[str, dict] = {
+    "sm_esg_gold_standard":     {"trust": +8, "npc": ["activist_investor", "regulator", "community_leader", "journalist"],
+                                 "tolerance": +6, "agents": ["the_institutional_investor", "the_regulator"]},
+    "sm_transparency_champion": {"trust": +6, "npc": ["journalist", "regulator"],
+                                 "tolerance": +5, "agents": ["the_journalist"]},
+    "sm_community_partnership": {"trust": +6, "npc": ["community_leader"],
+                                 "tolerance": +6, "agents": ["the_community_activist"]},
+    "sm_investor_focus":        {"trust": +5, "npc": ["activist_investor"],
+                                 "tolerance": +5, "agents": ["the_institutional_investor"]},
+    "sm_issb_aligned":          {"trust": +5, "npc": ["regulator", "activist_investor"],
+                                 "tolerance": +4, "agents": ["the_regulator"]},
+    "sm_voluntary_commitments": {"trust": +4, "npc": ["regulator", "community_leader"],
+                                 "tolerance": +3, "agents": ["the_regulator", "the_community_activist"]},
+    "sm_structured_response":   {"trust": +3, "npc": ["journalist", "regulator"],
+                                 "tolerance": +3, "agents": ["the_journalist"]},
+    "sm_gap_closure":           {"trust": +3, "npc": ["regulator"],
+                                 "tolerance": +3, "agents": ["the_regulator"]},
+    "sm_rating_challenge":      {"trust": -3, "npc": ["activist_investor"],
+                                 "tolerance": -3, "agents": ["the_institutional_investor"]},
+    "sm_defensive_crisis":      {"trust": -4, "npc": ["journalist", "community_leader"],
+                                 "tolerance": -4, "agents": ["the_journalist"]},
+    "sm_media_hostile":         {"trust": -6, "npc": ["journalist"],
+                                 "tolerance": -5, "agents": ["the_journalist"]},
+    "sm_legal_escalation":      {"trust": -5, "npc": ["regulator", "community_leader"],
+                                 "tolerance": -4, "agents": ["the_regulator", "the_community_activist"]},
+}
+
+
+def apply_sm_track_credits(npc_master_state: dict, agent_master_state: dict,
+                           flags: dict) -> dict:
+    """One-shot application of SM_TRACK_CREDITS for every sm_ outcome flag
+    present in `flags`. Stamps `sm_stakeholder_credits_applied` (a list of
+    the flags credited) into `flags` as the double-apply guard. Mutates the
+    engine sub-states in place; returns a diagnostics dict."""
+    already = set(flags.get("sm_stakeholder_credits_applied") or [])
+    applied: list[dict] = []
+    for flag, spec in SM_TRACK_CREDITS.items():
+        if not flags.get(flag) or flag in already:
+            continue
+        for npc_id in spec.get("npc", []):
+            st = (npc_master_state.get("npcs") or {}).get(npc_id)
+            if st is not None and st.get("trust_initialised"):
+                st["trust"] = round(max(0.0, min(100.0, float(st.get("trust", 50.0)) + spec["trust"])), 2)
+        for agent_id in spec.get("agents", []):
+            ag = (agent_master_state.get("agents") or {}).get(agent_id)
+            if ag is not None and ag.get("triggered_round") is None:
+                ag["tolerance"] = round(max(0.0, min(100.0, float(ag.get("tolerance", 50.0)) + spec["tolerance"])), 1)
+        already.add(flag)
+        applied.append({"flag": flag, "trust": spec["trust"], "tolerance": spec["tolerance"]})
+    if applied:
+        flags["sm_stakeholder_credits_applied"] = sorted(already)
+    return {"applied": applied}
 
 
 # ═══════════════════════════════════════════════════════════════

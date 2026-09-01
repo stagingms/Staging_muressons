@@ -649,8 +649,14 @@ def test_threshold_jitter_seeded_and_effective():
               {"threshold": 0, "action": "legal", "label": "L"}]
     prof = {"escalation_levels": levels, "dialogue_templates": {}, "name": "n", "title": "t", "icon": "i"}
 
-    base = determine_npc_action("x", {"profile": prof}, 52.0, {}, 1)["action"]
-    jit = determine_npc_action("x", {"profile": prof}, 52.0, {}, 1, threshold_offsets=[0, 4, 0, 0])["action"]
+    # EVAL rec 3 (2026-09-01): escalation is staged — a standing start caps at
+    # one tier past cooperative, which would mask the jitter here. Seed the
+    # state as "was watchful last round" so the jittered drop to protest is a
+    # legal one-tier move and the test keeps measuring the BOUNDARY, not the
+    # stager.
+    base = determine_npc_action("x", {"profile": prof, "last_tier": 1}, 52.0, {}, 1)["action"]
+    jit = determine_npc_action("x", {"profile": prof, "last_tier": 1}, 52.0, {}, 1,
+                               threshold_offsets=[0, 4, 0, 0])["action"]
     assert base == "watchful"       # 52 ≥ base watchful threshold 50
     assert jit == "protest"         # 52 < jittered watchful threshold 54 → drops a tier
 

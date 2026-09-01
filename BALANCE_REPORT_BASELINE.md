@@ -11,21 +11,21 @@ gated behind those are expected to show 0% attainment here.
 
 | Strategy | Terminal Value | M_R | Archetype | Final treasury | Bankrupt |
 |---|---|---|---|---|---|
-| pure_A | $-444.7M | 0.80 | STRANDED_RELIC | $-543.8M | R6 |
-| pure_B | $23.1M | 0.92 | FRAGILE_GIANT | $8.3M | R9 |
-| pure_C | $-2,021.1M | 1.02 | STRANDED_RELIC | $-516.9M | R6 |
+| pure_A | $-444.7M | 0.80 | STRANDED_RELIC | $-568.2M | R6 |
+| pure_B | $23.1M | 0.92 | FRAGILE_GIANT | $7.6M | — |
+| pure_C | $-2,021.1M | 1.02 | STRANDED_RELIC | $-526.5M | R6 |
 | aggressive_green | $250.4M | 1.02 | FRAGILE_GIANT | $209.0M | — |
-| extractive | $-2,626.6M | 0.84 | STRANDED_RELIC | $-551.4M | R5 |
+| extractive | $-2,626.9M | 0.84 | STRANDED_RELIC | $-551.4M | R5 |
 | balanced | $122.9M | 1.02 | FRAGILE_GIANT | $74.5M | — |
 
-Spread: $-2,626.6M … $250.4M  (unbounded (a strategy ends below TV $0))
+Spread: $-2,626.9M … $250.4M  (unbounded (a strategy ends below TV $0))
 
 ### 1b. CapEx intensity ladder (pure_B choices, varying capex share of CSF pool)
 
 | CapEx share | Terminal Value | M_R | Final treasury | Bankrupt |
 |---|---|---|---|---|
 | 5% | $-332.6M | 0.96 | $-545.6M | R6 |
-| 10% | $8.5M | 0.92 | $34.4M | — |
+| 10% | $8.5M | 0.92 | $24.8M | — |
 | 20% | $148.0M | 0.96 | $181.1M | — |
 | 35% | $169.5M | 0.96 | $249.4M | — |
 | 60% | $212.9M | 0.92 | $243.0M | — |
@@ -57,26 +57,26 @@ this trajectory (C-1's failure mode, measured).
 
 | Round | → option | Δ Terminal Value | Δ M_R | Δ final treasury |
 |---|---|---|---|---|
-| R1 | A | −$1,240.6M | +0.04 | −$550.3M |
-| R1 | C | −$411.6M | +0.04 | −$535.9M |
-| R2 | A | +$76.7M | +0.04 | +$92.9M |
-| R2 | C | −$251.1M | +0.04 | −$317.0M |
-| R3 | A | −$92.4M | +0.04 | −$127.6M |
-| R3 | C | −$350.9M | +0.00 | −$336.0M |
-| R4 | A | −$180.3M | +0.00 | −$72.7M |
-| R4 | C | −$10.9M | +0.04 | +$10.8M |
-| R5 | A | +$27.7M | +0.04 | +$40.8M |
-| R5 | C | −$321.9M | +0.04 | −$455.9M |
-| R6 | A | −$276.9M | +0.04 | −$274.2M |
-| R6 | C | −$125.6M | +0.04 | −$68.2M |
-| R7 | A | +$59.5M | +0.04 | +$88.5M |
-| R7 | C | +$17.4M | +0.04 | +$24.2M |
-| R8 | A | +$64.1M | +0.04 | +$74.2M |
-| R8 | C | −$19.6M | +0.00 | −$37.5M |
-| R9 | A | −$27.7M | -0.12 | −$3.0M |
-| R9 | C | +$50.0M | +0.10 | +$27.4M |
-| R10 | A | +$16.5M | +0.00 | +$52.8M |
-| R10 | C | +$9.7M | +0.04 | +$77.3M |
+| R1 | A | −$1,240.6M | +0.04 | −$566.0M |
+| R1 | C | −$411.6M | +0.04 | −$560.1M |
+| R2 | A | +$76.7M | +0.04 | +$93.6M |
+| R2 | C | −$251.1M | +0.04 | −$309.2M |
+| R3 | A | −$92.4M | +0.04 | −$126.8M |
+| R3 | C | −$350.9M | +0.00 | −$335.2M |
+| R4 | A | −$180.3M | +0.00 | −$78.6M |
+| R4 | C | −$10.9M | +0.04 | +$11.6M |
+| R5 | A | +$27.7M | +0.04 | +$41.6M |
+| R5 | C | −$387.9M | +0.04 | −$527.9M |
+| R6 | A | −$276.9M | +0.04 | −$273.5M |
+| R6 | C | −$149.0M | +0.04 | −$104.2M |
+| R7 | A | +$59.5M | +0.04 | +$89.3M |
+| R7 | C | +$17.4M | +0.04 | +$25.2M |
+| R8 | A | +$64.1M | +0.04 | +$74.9M |
+| R8 | C | −$19.6M | +0.00 | −$36.7M |
+| R9 | A | −$30.4M | -0.12 | −$6.4M |
+| R9 | C | +$50.0M | +0.10 | +$28.1M |
+| R10 | A | +$16.5M | +0.00 | +$53.5M |
+| R10 | C | +$9.7M | +0.04 | +$78.0M |
 
 **No dead levers: every round's options move terminal value by ≥0.5%.**
 
