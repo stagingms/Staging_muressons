@@ -117,6 +117,10 @@ class EthicsSustainabilityTrack(BaseSideTrack):
             "ethics_grade":           score["grade"],
             "ethics_archetype":       score["archetype"]["title"],
         }
+        # DEEP-9 ruling (2026-09-01): these M_R flags are written but READ BY
+        # NOTHING, by design — the owner chose honest display over wiring them
+        # (pinned M_R ceilings 1.93/2.02 stay untouched). Student-facing text
+        # must not promise an M_R reward. See backend/flag_taxonomy.py.
         if score["total_score"] >= 80:
             flags["es_track_mr_bonus"] = 0.10
         elif score["total_score"] >= 60:

@@ -1095,63 +1095,8 @@ def calc_greenwashing_risk(
     return False, 0.0
 
 
-# ── 20b. Per-BU Greenwash Scandal Detection (SDG-ORCH) ─────────
-def check_bu_greenwash_scandal(
-    choice: str,
-    bu_investment_ratios: dict[str, float],
-    threshold: float = 0.15,
-) -> tuple[bool, dict]:
-    """
-    SDG-ORCH Enhancement — Per-BU Greenwash Detection:
-    If a player selects a high-impact 'A' option (Remediation, Ethical Overhaul,
-    Circularity) but maintains Average Investment Ratio < 15% for that BU,
-    trigger the Greenwashing Scandal.
-
-    Consequences:
-      - Group Reputation: -15
-      - Consequence DNA: Credibility Impairment (Leak Node, red)
-      - Auditor tolerance: set to 'Hostile' (tolerance = 0)
-
-    Args:
-        choice: The option selected (e.g., "option_a")
-        bu_investment_ratios: {bu_id: average_investment_ratio_pct}
-        threshold: Minimum ratio to avoid scandal (default 15%)
-
-    Returns:
-        (scandal_triggered, {bu_id: ratio, offending_bus: [...], penalty_details: {...}})
-    """
-    if choice != "option_a":
-        return False, {}
-
-    offending_bus = []
-    for bu_id, ratio in bu_investment_ratios.items():
-        if ratio < threshold:
-            offending_bus.append({
-                "bu_id": bu_id,
-                "investment_ratio": round(ratio, 4),
-                "gap": round(threshold - ratio, 4),
-            })
-
-    if offending_bus:
-        return True, {
-            "scandal_type": "greenwash_hypocrisy",
-            "offending_bus": offending_bus,
-            "penalty_details": {
-                "reputation_delta": GREENWASH_BU_REP_PENALTY,
-                "auditor_tolerance_override": 0,  # Set to Hostile
-                "credibility_impairment": True,    # Red DNA leak node
-                "consequence_dna_node": "credibility_impairment",
-            },
-            "narrative": (
-                "📰 GREENWASH SCANDAL: Independent analysis reveals that despite "
-                f"choosing the highest-impact option, {len(offending_bus)} Business "
-                f"Unit(s) maintained investment ratios below the {threshold*100:.0f}% "
-                "threshold. Market credibility collapses. Auditor moves to Hostile."
-            ),
-        }
-
-    return False, {}
-
+# ── 20b. (removed 2026-09-01) check_bu_greenwash_scandal had zero callers
+#     since the DEEP-6 config-driven green_claim rewrite — ruled dead code.
 
 
 # ── 21. Macro Interest Rate Environment ─────────────────────────

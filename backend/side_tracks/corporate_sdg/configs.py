@@ -300,8 +300,8 @@ SDG_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "label": "Integrated Value Creation",
                 "description": (
                     "Codify the Universal Care Mandate into annual reporting. "
-                    "SDG alignment becomes a board-level governance obligation. "
-                    "Locks exit multiple at 12× and adds +0.35 to M_R."
+                    "SDG alignment becomes a board-level governance obligation — "
+                    "the track's strongest SDG-score and reputation reward."
                 ),
                 "cost_label": "-$8M",
                 "sdg_points": 20,

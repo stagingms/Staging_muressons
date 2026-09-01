@@ -86,8 +86,14 @@ Production is unaffected (router.commit_turn merges old flags back as the base;
 was silently unseeded from R2 on — which was simultaneously the nondeterminism
 AND the flaky residual (unseeded black swans). The runner now re-stamps the seed
 each round, six cross-process fingerprints are pinned, and the strict xfail is
-retired as a passing baseline test. Item 2 (flag triage) remains: it is a design
-session needing owner rulings, not code.
+retired as a passing baseline test. Item 2 CLOSED (2026-09-01,
+branch `fix/flag-taxonomy`, owner rulings): all 117 declared-but-unread flags
+classified in `backend/flag_taxonomy.py` (side-track markers, pillar choice
+markers, healthcare narrative, R10 ending identities, core markers), enforced
+both ways by `tests/test_flag_taxonomy.py`; the five tracks' M_R bonus flags
+ruled honest-display (ceilings 1.93/2.02 untouched, the SDG track's false
+"+0.35 to M_R" promise reworded); `check_bu_greenwash_scandal` deleted.
+**Workstream 2 definition of done: MET.**
 
 ## Workstream 3 — Close the doc-drift class structurally
 

@@ -185,6 +185,10 @@ class CorporateSDGTrack(BaseSideTrack):
             flags[flag_key] = flag_val
         mr_bonus = track_state.get("mr_bonus_accumulated", 0)
         if mr_bonus > 0:
+        # DEEP-9 ruling (2026-09-01): these M_R flags are written but READ BY
+        # NOTHING, by design — the owner chose honest display over wiring them
+        # (pinned M_R ceilings 1.93/2.02 stay untouched). Student-facing text
+        # must not promise an M_R reward. See backend/flag_taxonomy.py.
             flags["sdg_mr_bonus"] = mr_bonus
         return DataBridgeOutput.from_legacy_dict(flags, filter_unregistered=True)
 
