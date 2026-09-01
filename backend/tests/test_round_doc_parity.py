@@ -96,3 +96,37 @@ def test_handwritten_round_tables_state_config_treasury():
             )
     assert checked >= 15, f"parser only matched {checked} rows — doc format changed?"
     assert not failures, "hand-written treasury figures drifted:\n  " + "\n  ".join(failures)
+
+
+# ── W4.2: the model card exists, is cited, and states the shipped values ───
+
+def test_model_card_exists_and_is_cited():
+    card = ROOT / "MODEL_CARD.md"
+    assert card.exists(), "MODEL_CARD.md missing (roadmap W4.2 definition of done)"
+    assert "MODEL_CARD.md" in DOC.read_text(encoding="utf-8"), \
+        "SIMULATION_CONTEXT no longer cites the model card"
+
+
+def test_model_card_states_current_config_values():
+    """The card's shipped-value column must track config — same discipline as
+    the glossary. Checked coarsely: the current value's rendering must appear."""
+    from config import (
+        FINANCIAL_SHADOW_CARBON_PRICE, FINANCIAL_DEFAULT_LOAN_RATE,
+        FINANCIAL_FREE_CSF_PCT, NCD_INTEREST_COEFFICIENT,
+        TV_EXIT_MULTIPLE_FLOOR, TV_EXIT_MULTIPLE_CEILING,
+        CYCLONE_PROB_BASE, PHYSICAL_VAR_DAMAGE_BASE,
+        GREENWASH_INVESTMENT_THRESHOLD,
+    )
+    card = (ROOT / "MODEL_CARD.md").read_text(encoding="utf-8")
+    for needle in (
+        f"${FINANCIAL_SHADOW_CARBON_PRICE:g}/t",
+        f"{FINANCIAL_DEFAULT_LOAN_RATE * 100:g}%",
+        f"{FINANCIAL_FREE_CSF_PCT * 100:g}% of treasury",
+        f"{TV_EXIT_MULTIPLE_FLOOR:g}–{TV_EXIT_MULTIPLE_CEILING:g}×",
+        f"{CYCLONE_PROB_BASE * 100:g}% probability",
+        f"${PHYSICAL_VAR_DAMAGE_BASE / 1e6:g}M base damage",
+        f"{GREENWASH_INVESTMENT_THRESHOLD * 100:g}% avg investment",
+    ):
+        assert needle in card, f"MODEL_CARD.md no longer states the shipped value: {needle!r}"
+    assert f"+1bp per NCD unit" in card and NCD_INTEREST_COEFFICIENT == 0.0001, \
+        "NCD coefficient changed — update MODEL_CARD.md §2.3 and this test"
