@@ -1052,11 +1052,24 @@ def check_invariant_8_ebitda_consistency(
         ))
         return
 
-    # Stage 3 only adds OPEX penalties, so final EBITDA ≤ historical_ebitda
+    # Stage 3 only adds OPEX penalties, so final EBITDA ≤ historical_ebitda —
+    # AFTER accounting for the transient flow adjustments the engine reverses
+    # from the persisted base at end of tick (calibration ruling A/C,
+    # 2026-09-01): the reversal restores revenue and removes opex penalties,
+    # so the persisted tables can exceed the mid-tick EBITDA by exactly the
+    # reversed amounts, which the engine reports per bu.field.
     final_ebitda = sum(
         bu["revenue_base"] - bu["opex_base"] for bu in final_bus
     )
-    if final_ebitda > historical_ebitda + 0.01:
+    _reversed = (final_gs.get("active_event_flags") or {}).get(
+        "transient_flow_adjustments_reversed") or {}
+    reversal_margin_uplift = 0.0
+    for key, restored in _reversed.items():
+        if key.endswith(".revenue_base"):
+            reversal_margin_uplift += restored          # revenue added back
+        elif key.endswith(".opex_base"):
+            reversal_margin_uplift -= restored          # opex removed (restored is negative)
+    if final_ebitda - reversal_margin_uplift > historical_ebitda + 0.01:
         report_violation(InvariantViolation(
             invariant_id="INV-8c",
             invariant_name="Final EBITDA ≤ Stage-2 historical_ebitda",
@@ -1064,8 +1077,10 @@ def check_invariant_8_ebitda_consistency(
             bu_composition=matrix.bu_composition,
             side_track=matrix.side_track_payload,
             round_number=len(ledgers),
-            expected_value=f"final_ebitda ({final_ebitda:.2f}) ≤ historical_ebitda ({historical_ebitda:.2f})",
-            actual_value=f"final_ebitda ({final_ebitda:.2f}) > historical_ebitda ({historical_ebitda:.2f})",
+            expected_value=(f"final_ebitda - reversals ({final_ebitda - reversal_margin_uplift:.2f}) "
+                            f"≤ historical_ebitda ({historical_ebitda:.2f})"),
+            actual_value=(f"final_ebitda {final_ebitda:.2f} (reversal uplift "
+                          f"{reversal_margin_uplift:.2f}) > historical_ebitda {historical_ebitda:.2f}"),
             tolerance=0.01,
         ))
 

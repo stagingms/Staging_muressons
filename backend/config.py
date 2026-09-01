@@ -470,6 +470,13 @@ _forgive = _engine.get("ncd_forgiveness", {})
 NCD_FORGIVENESS_LOG_COEFF:     float = float(_forgive.get("log_coefficient", 2.0))
 
 # ── Implementation Lag ──────────────────────────────────────────
+# Calibration ruling B (2026-09-01, CALIBRATION_DIAGNOSIS): revenue gains
+# inflation pass-through at this fraction of cost inflation, so inflation is
+# margin pressure (costs outrun prices by 1-q) instead of a one-sided death
+# tax on a revenue base that never grew. 0.0 restores the old behaviour.
+_infl_sym = _engine.get("inflation_symmetry", {})
+INFLATION_REVENUE_PASSTHROUGH:  float = float(_infl_sym.get("revenue_passthrough", 0.80))
+
 _impl_lag = _engine.get("implementation_lag", {})
 IMPLEMENTATION_LAG_INV_THRESHOLD: float = float(_impl_lag.get("inv_threshold", 0.10))
 

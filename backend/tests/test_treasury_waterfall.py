@@ -102,13 +102,18 @@ _ROUNDS = 10
 # fresh processes agreed bit-for-bit). A change here means the simulation's
 # numbers changed — intended (rebaseline deliberately, in its own commit) or
 # not (a regression this file exists to catch).
+# Rebaselined 2026-09-01 for the ratchet-economy repair (calibration ruling
+# A+B+C, CALIBRATION_DIAGNOSIS_2026-09-01.md): flow penalties no longer
+# compound into the BU base and revenue gains inflation pass-through, so every
+# trajectory deliberately changed. Verified bit-identical across two fresh
+# processes before pinning.
 _EXPECTED_RUNNER_FINGERPRINTS = {
-    ("DEFAULT_4_BU", "legacy_abc"): "f2e7215775df3b99",
-    ("DEFAULT_4_BU", "multi_toggles"): "cd378d9356ff2bf7",
-    ("SINGLE_BU_PHARMA", "legacy_abc"): "e6defcf896a20d08",
-    ("SINGLE_BU_PHARMA", "multi_toggles"): "f43330fe02332a10",
-    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "4f24e345a00ce367",
-    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "ec08596cb29fa0d5",
+    ("DEFAULT_4_BU", "legacy_abc"): "48b6975e38cde67b",
+    ("DEFAULT_4_BU", "multi_toggles"): "88ac674737be5123",
+    ("SINGLE_BU_PHARMA", "legacy_abc"): "ccd7bc80f0c01346",
+    ("SINGLE_BU_PHARMA", "multi_toggles"): "8a1eab1a44b60d14",
+    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "7bcc452bca48f8a9",
+    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "5f09a1b0ab8b8948",
 }
 
 _CASES = [
