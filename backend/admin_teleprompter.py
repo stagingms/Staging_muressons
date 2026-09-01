@@ -461,7 +461,7 @@ _TELEPROMPTER_SCRIPTS = {
         "title": "Round 7: Circularity — Synergy Unlock & Workforce Readiness Test",
         "crisis_theme": "♻️ EU circular economy regulations mandate 60% waste diversion. Comply, innovate, or synergise?",
         "talking_points": [
-            "Option C (Waste-to-Energy) unlocks +0.30 M_R — the single most impactful bonus in the simulation",
+            "Option C (Waste-to-Energy) unlocks +0.15 M_R (STRAT-010: reduced from +0.30 because the OPEX benefit already compounds through EBITDA) plus the +0.30 synergy multiplier boost",
             "Workforce Readiness interdependency: if readiness < 40, synergy boost is reduced by 30%",
             "If readiness ≥ 60, synergy boost is AMPLIFIED by 10%",
             "Teams who earned 'early_decarboniser' in R3 get an additional +0.10 synergy",
@@ -506,7 +506,7 @@ _TELEPROMPTER_SCRIPTS = {
             "How did your HR investment (or lack thereof) affect your synergy outcome?",
         ],
         "student_ux_coaching": {
-            "ux_gap": "Synergy multiplier (+0.35) is buried in the Advanced Metrics drawer. Students don't realize R7 gates R10 options.",
+            "ux_gap": "Synergy multiplier (+0.30) is buried in the Advanced Metrics drawer. Students don't realize R7 gates R10 options.",
             "facilitator_prompt": "Tell students explicitly: 'Open the Advanced Metrics drawer in the left panel. Your Synergy Multiplier is the MOST IMPORTANT number for your terminal valuation.' Write the threshold on the board: Synergy > 80 = unlocks Option A in R10.",
             "what_to_watch": "Students with workforce readiness < 40 will lose 30% of their synergy boost. Call this out: 'If you neglected HR, you're about to pay for it.'",
             "ui_tip": "From R7+, the round-tier shifts to Integration — the UI automatically surfaces more historical data and cross-round analytics.",
@@ -700,13 +700,13 @@ _TELEPROMPTER_SCRIPTS = {
             "SHOW THE M_R BREAKDOWN: walk teams through each bonus/penalty earned across 10 rounds",
             "Option A (Resist & Integrate) is GATED: requires Synergy Score > 80",
             "Option C (Divest) gives +$25M cash but WIPES synergy to 1.0 — destroying all R7 value",
-            "Terminal Value formula: V_T = EBITDA × 12× × M_R",
-            "Max M_R achievable: 1.98 (base 1.0 + all bonuses, no instability discount)",
+            "Terminal Value formula: V_T = (Terminal EBITDA + Green Fund) × Exit Multiple (WACC-coupled, 6-18×, 12× at baseline) × M_R",
+            "Max M_R achievable: 1.93 legacy / 2.02 pillar (pinned by test_mr_ceilings_unchanged; global clamp 2.05)",
         ],
         "key_teaching_moment": "💡 USE THE SPREAD: Regenerative Titan (~$700M) vs Stranded Relic (~$27M) = 25× difference. This 25× gap is driven ENTIRELY by ESG decisions across 10 rounds. No single decision caused it — it's the compound effect of consistent strategic alignment.",
         "mr_breakdown_guide": {
             "base": {"value": 1.0, "source": "Starting multiple"},
-            "synergy_bonus": {"value": 0.30, "source": "R7: Chose waste-to-energy / synergy unlock"},
+            "synergy_bonus": {"value": 0.15, "source": "R7: Chose waste-to-energy / synergy unlock (STRAT-010: reduced from 0.30)"},
             "resilience_bonus": {"value": 0.20, "source": "R5/R8: Avoided insurance-only and electronics prioritisation"},
             "truth_premium": {"value": 0.15, "source": "R6: Chose ethical AI overhaul"},
             "community_champion_bonus": {"value": 0.18, "source": "R9: Invested $20M in community fund"},
@@ -1293,7 +1293,7 @@ _HC_TELEPROMPTER_OVERLAYS = {
         "crisis_theme": "🏁 Board demands final market posture before going public with acquisition",
         "hc_specific": [
             "HC uses 14× exit multiple (vs NC 12×) and $180/ton carbon tax (vs NC $250)",
-            "HC max M_R is now 1.98 (same as NC) — community_fund and managed_transition flags fixed",
+            "HC max M_R matches NC — community_fund and managed_transition flags fixed (ceilings pinned at 1.93 legacy / 2.02 pillar by test_mr_ceilings_unchanged)",
             "HC archetypes: Community Health Champion / Resilient Care System / Profit-First / Fragile Ward",
             "Option C (Universal Care Mandate) protects synergy — the healthcare equivalent of NC's Resist & Integrate",
         ],
@@ -1372,7 +1372,7 @@ _SP_TELEPROMPTER_OVERLAYS = {
     },
     10: {
         "title": "Round 10: Terminal Valuation - Pillar Strategy Payoff",
-        "crisis_theme": "Your cumulative pillar strategy determines M_R. Consistent pillar investors earn up to 1.98x vs 0.65x for neglecters.",
+        "crisis_theme": "Your cumulative pillar strategy determines M_R. Consistent pillar investors earn up to 2.02x (the pinned pillar ceiling) vs 0.65x for neglecters.",
         "sp_specific": [
             "Pillar teams have MORE M_R bonus pathways than A/B/C teams: workforce readiness (+0.10) and wellbeing (+0.05) are pillar-exclusive bonuses",
             "Max M_R pathway: synergy(+0.3) + resilience(+0.2) + truth(+0.15) + community_fund(+0.18) + workforce(+0.10) + wellbeing(+0.05) = 1.98",
