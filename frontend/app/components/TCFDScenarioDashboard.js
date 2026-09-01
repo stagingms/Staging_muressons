@@ -12,7 +12,7 @@
  * Theory: TCFD (2017), NGFS (2022), IEA (2023)
  */
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import styles from './TCFDScenarioDashboard.module.css';
+import styles from './TCFDScenarioDashboard.module.css';
 import { currencySymbol, atRate } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';

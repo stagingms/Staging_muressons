@@ -7,7 +7,7 @@
  */
 import { useState, useEffect } from 'react';
 import BalanceSheetModal from './BalanceSheetModal';
-import styles from './ExecutiveCockpit.module.css';
+import styles from './ExecutiveCockpit.module.css';
 import { moneyM } from '../utils/format';
 
 // ══════════════════════════════════════════════════════════════════

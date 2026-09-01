@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import styles from './ConsequenceDNAVisualizer.module.css';
+import styles from './ConsequenceDNAVisualizer.module.css';
 import { currencySymbol, atRate } from '../utils/format';
 
 /**

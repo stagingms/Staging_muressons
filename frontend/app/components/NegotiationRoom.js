@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { playerIdHeader } from '../hooks/useSimulation';
+import { playerIdHeader } from '../hooks/useSimulation';
 import { currencySymbol, atRate } from '../utils/format';
 
 /**

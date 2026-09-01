@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { currencySymbol, atRate, moneyM, moneyFull } from '../utils/format';
 
 /* The scenario premise, and the slider starting points, are the same three

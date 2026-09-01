@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react';
 import { currencySymbol, money, atRate } from '../utils/format';
 
 /**

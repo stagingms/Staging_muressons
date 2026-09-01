@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import styles from './FocusOverlay.module.css';
+import styles from './FocusOverlay.module.css';
 import { moneyM } from '../utils/format';
 
 /**

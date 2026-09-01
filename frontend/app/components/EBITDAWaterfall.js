@@ -1,6 +1,6 @@
 'use client';
 import { useMemo } from 'react';
-import { buildWaterfall } from './ebitdaWaterfallModel';
+import { buildWaterfall } from './ebitdaWaterfallModel';
 import { currencySymbol, atRate } from '../utils/format';
 
 /**

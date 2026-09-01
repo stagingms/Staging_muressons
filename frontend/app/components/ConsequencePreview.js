@@ -4,7 +4,7 @@
  * Integrates with the What-If terminal valuation engine.
  */
 import React, { useMemo } from 'react';
-import styles from './ConsequencePreview.module.css';
+import styles from './ConsequencePreview.module.css';
 import { currencySymbol, money, atRate } from '../utils/format';
 
 const IMPACT_ICONS = {

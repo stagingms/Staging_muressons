@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { currencySymbol, atRate } from '../utils/format';
 
 /**

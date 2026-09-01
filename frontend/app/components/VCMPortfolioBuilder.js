@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { currencySymbol, atRate, moneyFull } from '../utils/format';
 
 /* The escalated internal carbon fee this module exists to relieve. */

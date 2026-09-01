@@ -5,7 +5,7 @@ import styles from './ResourceSidebar.module.css';
 import InlinePodcastPlayer from './InlinePodcastPlayer';
 import InlineQuizEngine from './InlineQuizEngine';
 import InlineReviewViewer from './InlineReviewViewer';
-import { useAnalyticsVisibility } from '../hooks/useAnalyticsVisibility';
+import { useAnalyticsVisibility } from '../hooks/useAnalyticsVisibility';
 import { currencySymbol, atRate } from '../utils/format';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';

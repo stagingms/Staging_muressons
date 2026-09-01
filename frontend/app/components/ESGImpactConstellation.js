@@ -3,7 +3,7 @@ import React, { useState, useMemo, useCallback, useRef, useEffect, Suspense } fr
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html, Float, Line } from '@react-three/drei';
 import * as THREE from 'three';
-import styles from './ESGImpactConstellation.module.css';
+import styles from './ESGImpactConstellation.module.css';
 import { currencySymbol, atRate } from '../utils/format';
 
 // ══════════════════════════════════════════════════════════════

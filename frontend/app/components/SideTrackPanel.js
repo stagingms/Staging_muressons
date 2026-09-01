@@ -628,5 +628,5 @@ export default function SideTrackPanel({ sessionId, onClose }) {
 }
 
 // Need React import for Fragment
-import React from 'react';
+import React from 'react';
 import { currencySymbol, money } from '../utils/format';

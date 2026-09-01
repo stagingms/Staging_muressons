@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { currencySymbol, atRate, moneyFull, money } from '../utils/format';
 
 /* The bond this module refinances. Three copies existed -- the headline, the
