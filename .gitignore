@@ -86,3 +86,6 @@ docs/
 
 # Scratch/staging dirs for pending deletions — never commit
 _to_delete/
+
+# W4.3 telemetry output — contains team names, never committed
+COHORT_TELEMETRY_LATEST.md

@@ -182,7 +182,17 @@ a known-limitations register (interest-only CapEx recorded as an open design
 question). Pathway M_R modifiers verified against ending_pathways.py (the W3
 deferral closed). SIMULATION_CONTEXT cites the card up top, and
 test_round_doc_parity.py asserts the card exists, stays cited, and states the
-CURRENT config values. Item 3 (telemetry) remains.
+CURRENT config values. Item 3 DONE (2026-09-01, branch
+`feat/cohort-telemetry`): `scripts/cohort_telemetry.py` reads every stored
+team session (both DB backends), groups by root cohort, and reports per-team
+TV/M_R/archetype/bankruptcy plus cohort-level M_R component attainment (with
+never-earned warnings), greenwash/black-swan/strike incidence — the realized
+side of the calibration loop, read against BALANCE_REPORT_BASELINE and
+MODEL_CARD. Output is local-only (.gitignored — team names). First run on the
+stored alpha data corroborates the balance report: every real finisher to
+date is a bankrupt STRANDED_RELIC (bankruptcy at R6 in each), which makes
+difficulty calibration the top W4 follow-up before the next cohort.
+**Workstream 4 definition of done: MET.**
 
 ## Workstream 5 — Hygiene
 
