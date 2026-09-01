@@ -32,11 +32,46 @@ WHAT I SET OUT TO DO, AND WHY I DIDN'T
     engine has a real conservation law — at which point replace this with the
     equality and delete the ratchet.
 
-A CONCRETE LEAD FOR WHOEVER PICKS THIS UP
-    `SINGLE_BU_PHARMA / legacy_abc` has a residual of **exactly 2,000,000.00**,
-    which is exactly that run's `total_capex`. A residual that equals a ledger
-    term to the cent is not a missing engine path — it is that term being
-    double-counted or never applied. Start there; it is the cheapest of the six.
+THE LEAD, CLAIMED (2026-08-31)
+    `SINGLE_BU_PHARMA / legacy_abc`'s residual of exactly 2,000,000.00 was the
+    predicted case of "a term never applied": CapEx principal is by design not
+    a treasury outflow (interest-only financing above the free-CSF allowance —
+    see _residual). Removing the term from the expected-waterfall zeroed that
+    case's residual outright. The remaining residuals were then hunted down
+    term by term — see below.
+
+THE CONSERVATION LAW, ACHIEVED (2026-09-01)
+    Eight terms explain every dollar, every round, in all six compositions:
+
+        + csf                        engine's own Gross Profit waterfall entry
+        + option_treasury            post-tick option charges/gains (signed)
+        - loan_interest              CapEx financing (interest-only, principal
+        - emergency_credit_interest    never debits treasury — the claimed lead)
+        - negative_treasury_interest
+        - regulatory_ratchet_fine    events["regulatory_ratchet"]["fine"]
+        - black_swan_treasury_hit    black_swan_diagnostics.total_treasury_drain
+        - cbam_surcharge             cbam_surcharge_applied
+        - loss_damage_levy           loss_damage_levy_applied
+        + deferred_revenue_collected revenue_generation_completed
+        + treasury_floor_clamp       treasury_floor_clamp_applied (insolvency
+        + side_track_treasury_delta    floor forgives losses below the floor)
+
+    residual == 0 (< $0.01) is asserted unconditionally for every case and
+    every round: the ratchet this file promised is retired, replaced by the
+    equality it was ratcheting toward.
+
+THE ENTROPY SOURCE, FOUND (2026-09-01)
+    The runner's nondeterminism was never PYTHONHASHSEED. process_tick returns
+    a REBUILT active_event_flags that drops the cohort stochastic_seed;
+    production survives because router.commit_turn merges the old flags back in
+    as the base, but this harness fed the engine its own raw output, so from R2
+    onward every event_rng() call fell back to a SYSTEM-seeded random.Random()
+    — entropy random.seed() cannot reach. Black swans then fired differently
+    per process (and their treasury hits were an untracked ledger term, which
+    is why the residuals both moved and refused to close). Re-stamping the seed
+    each round in the runner (exactly what dry_run.py:164 already did) made all
+    six fingerprints bit-identical across processes; the strict xfail below
+    became a passing pin.
 
 WHY THIS MATTERS BEYOND TIDINESS
     A characterization test (the financial golden trace) tells you the numbers
@@ -63,9 +98,18 @@ import test_universal_math_engine as UME  # noqa: E402  (reuses its runner + led
 
 _ROUNDS = 10
 
-# Captured once from a single process. The point of this constant is that it
-# does NOT hold across processes today — see the xfail below.
-_EXPECTED_RUNNER_FINGERPRINT = "0000000000000000"
+# Cross-process pins, captured 2026-09-01 after the seed re-stamp fix (three
+# fresh processes agreed bit-for-bit). A change here means the simulation's
+# numbers changed — intended (rebaseline deliberately, in its own commit) or
+# not (a regression this file exists to catch).
+_EXPECTED_RUNNER_FINGERPRINTS = {
+    ("DEFAULT_4_BU", "legacy_abc"): "f2e7215775df3b99",
+    ("DEFAULT_4_BU", "multi_toggles"): "cd378d9356ff2bf7",
+    ("SINGLE_BU_PHARMA", "legacy_abc"): "e6defcf896a20d08",
+    ("SINGLE_BU_PHARMA", "multi_toggles"): "f43330fe02332a10",
+    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "4f24e345a00ce367",
+    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "ec08596cb29fa0d5",
+}
 
 _CASES = [
     ("DEFAULT_4_BU", "legacy_abc"),
@@ -83,14 +127,46 @@ def _residual(ledger) -> float:
     Positive: treasury ended HIGHER than the recorded terms allow — money
     arrived from a path nobody is tracking. Negative: money left through one.
     """
+    # DEEP-8 lead CLAIMED (2026-08-31): `- ledger.total_capex` used to sit in
+    # this formula, and SINGLE_BU_PHARMA/legacy's residual equalled it to the
+    # cent — because CapEx principal is, BY DESIGN, not a treasury outflow in
+    # this engine. engine.py's treasury line is exactly
+    #     new_treasury = base_treasury + csf - total_interest
+    # (see "Free capital allowance"): allocation up to FREE_CSF_PCT x treasury
+    # is financed from gross profit, the excess becomes loan principal that is
+    # serviced with INTEREST ONLY, and the principal itself never debits
+    # treasury. The ledger was subtracting a term the engine never charges.
+    # total_capex stays recorded on the RoundLedger (it drives the loan-
+    # interest term and is useful diagnostics) — it just is not a waterfall
+    # outflow. Whether interest-only CapEx is the right ECONOMIC model is a
+    # design question for the model card (roadmap W4), not an accounting one.
     expected = (
         ledger.treasury_start
         + ledger.csf
-        - ledger.total_capex
+        + ledger.option_treasury           # DEEP-8 term 2 (2026-08-31): post-tick
+                                           # option charges/gains, signed — the
+                                           # second exact-valued residual claimed
+                                           # (R2A's -\$2.5M after the C-5 repair)
         - ledger.loan_interest
         - ledger.emergency_credit_interest
         - ledger.negative_treasury_interest
         + ledger.side_track_treasury_delta
+        # DEEP-8 terms 3-6 (2026-08-31): direct engine debits/credits, each
+        # read from its own event. The Regulatory Ratchet fine was the silent
+        # exact-valued residual (\$2.5M / \$3.75M at R1); CBAM (R3/R7), the
+        # Loss & Damage levy (tipping tiers) and deferred revenue collection
+        # (pending projects) are its evented siblings.
+        - ledger.regulatory_ratchet_fine
+        - ledger.black_swan_treasury_hit   # DEEP-8 term 7 (2026-09-01): black-swan
+                                              # direct debits (whistleblower/ransomware/
+                                              # pandemic...), from black_swan_diagnostics
+        + ledger.treasury_floor_clamp      # DEEP-8 term 8 (2026-09-01): losses the
+                                              # insolvency floor absorbed (creditors stop
+                                              # extending at FINANCIAL_TREASURY_FLOOR +
+                                              # 200M x ESG investment ratio)
+        - ledger.cbam_surcharge
+        - ledger.loss_damage_levy
+        + ledger.deferred_revenue_collected
     )
     return ledger.treasury_end - expected
 
@@ -118,65 +194,63 @@ def test_treasury_stays_a_finite_number(composition, paradigm):
 @pytest.mark.parametrize("composition,paradigm", _CASES)
 def test_every_recorded_ledger_term_is_finite(composition, paradigm):
     for ledger in _run(composition, paradigm):
-        for term in ("csf", "total_capex", "loan_interest", "emergency_credit_interest",
+        for term in ("csf", "total_capex", "option_treasury", "regulatory_ratchet_fine",
+                     "black_swan_treasury_hit", "treasury_floor_clamp",
+                     "cbam_surcharge", "loss_damage_levy", "deferred_revenue_collected",
+                     "loan_interest", "emergency_credit_interest",
                      "negative_treasury_interest", "side_track_treasury_delta"):
             value = getattr(ledger, term)
             assert math.isfinite(value), f"round {ledger.round_number}: {term} is {value}"
 
 
 @pytest.mark.parametrize("composition,paradigm", _CASES)
-def test_the_unexplained_movement_is_at_least_a_number(composition, paradigm):
-    """Weak on purpose. A dollar CEILING on the residual is what this file was
-    meant to carry, and it cannot be set yet — see the xfail below. Until the
-    runner is deterministic, the only honest assertion about the residual is
-    that it exists and is finite."""
+def test_treasury_conservation_law(composition, paradigm):
+    """residual == 0, to the cent, per round, for EVERY case (2026-09-01).
+
+    The equality INV-1 claimed and could not reach: treasury_end must equal
+    treasury_start plus the recorded ledger terms — see _residual for the full
+    eight-term waterfall. A failure here means a treasury path was added to the
+    engine without a ledger term (or an existing one stopped being evented):
+    add the term, don't widen the tolerance.
+    """
     for ledger in _run(composition, paradigm):
-        assert math.isfinite(_residual(ledger))
+        r = _residual(ledger)
+        assert math.isfinite(r)
+        assert abs(r) < 0.01, (
+            f"conservation law broken: R{ledger.round_number} residual {r:,.2f} — "
+            f"a treasury path was added without a ledger term")
 
 
-# ── 2. The blocker, recorded so it cannot be forgotten ─────────────────────
+# ── 2. Cross-process determinism, pinned ──────────────────────────────────
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "run_deterministic_simulation is not deterministic. Setting the cohort "
-        "stochastic_seed (RNG-2, applied) fixed one of six cases; the rest still "
-        "vary between two runs of the SAME command, so a second entropy source "
-        "remains. Until this passes, no value-based assertion on this runner is "
-        "meaningful — which is why the treasury ratchet this file was written to "
-        "carry is absent. When it passes: delete the marker, measure the "
-        "residuals, and add the ceilings."
-    ),
-)
-def test_the_deterministic_runner_is_actually_deterministic():
-    """The most valuable assertion in this file, and it fails today.
+@pytest.mark.parametrize("composition,paradigm", _CASES)
+def test_the_deterministic_runner_is_actually_deterministic(composition, paradigm):
+    """Once the most valuable failing assertion in this file; now a pin.
 
-    `run_deterministic_simulation` seeds the global `random` module before the
-    run and again before every tick. That is not sufficient: engine paths draw
-    from `rng_util.event_rng`, which returns a system-seeded `random.Random()`
-    when the cohort seed is absent — a generator `random.seed()` cannot reach.
-    Setting the seed (done) stabilised DEFAULT_4_BU/multi_toggles and left the
-    others moving, so at least one further source remains. A strong candidate is
-    `hash()` on a string somewhere in the engine path: PYTHONHASHSEED is
-    randomised per process and is set nowhere in this repo, which produces
-    exactly this signature — stable within a process, varying across them.
+    Root cause (2026-09-01, module docstring "THE ENTROPY SOURCE, FOUND"):
+    process_tick drops the cohort stochastic_seed from active_event_flags, so
+    from R2 onward event_rng() fell back to a system-seeded random.Random() —
+    entropy neither random.seed() nor PYTHONHASHSEED could explain or control.
+    The runner now re-stamps the seed each round (as router.commit_turn's flag
+    merge does in production and dry_run.py:164 does in its own harness), and
+    these fingerprints are bit-identical across processes.
 
-    Why it matters more than the conservation gap it blocks: EVERY invariant in
-    test_universal_math_engine.py runs on this runner. They have been evaluating
-    a different simulation on every run, and passing — because they assert
-    bounds and finiteness rather than values. That is the definition of a suite
-    that is green without pinning anything.
+    This compares against a COMMITTED baseline, so it is the cross-process
+    guarantee that matters: every invariant in test_universal_math_engine.py
+    runs on this runner, and until this passed they were evaluating a different
+    simulation on every run. A mismatch means the simulation's numbers changed:
+    rebaseline deliberately in its own commit, or find the regression.
     """
     import hashlib
-    ledgers = _run("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc")
+    ledgers = _run(composition, paradigm)
     payload = "|".join(f"{l.round_number}:{l.treasury_end:.4f}:{_residual(l):.4f}" for l in ledgers)
     fingerprint = hashlib.sha256(payload.encode()).hexdigest()[:16]
-    assert fingerprint == _EXPECTED_RUNNER_FINGERPRINT, (
+    expected = _EXPECTED_RUNNER_FINGERPRINTS[(composition, paradigm)]
+    assert fingerprint == expected, (
         f"the runner produced a different simulation than the committed baseline.\n"
-        f"  expected {_EXPECTED_RUNNER_FINGERPRINT}\n  got      {fingerprint}\n"
-        "Note this compares across PROCESSES, which is the property that matters — "
-        "two calls inside one process already agree, because the remaining entropy "
-        "source is per-process (PYTHONHASHSEED is the prime suspect)."
+        f"  expected {expected}\n  got      {fingerprint}\n"
+        "Either a deliberate numbers change (rebaseline in its own commit) or a "
+        "regression — including the seed-drop regression this test was born from."
     )
 
 
@@ -185,15 +259,14 @@ def test_the_deterministic_runner_is_actually_deterministic():
 def test_report_unexplained_treasury(capsys):
     """Not an assertion — a printout. `pytest -s` shows the size of the gap.
 
-    These numbers are NOT stable run to run (see the xfail above); they are an
-    order-of-magnitude picture, and that picture is the point: a simulation that
-    opens with $50M of treasury is moving hundreds of millions through paths the
-    ledger does not record.
+    Stable run to run since the seed re-stamp fix, and all zeros since the
+    conservation law closed — kept as the quickest human-readable check that it
+    still holds.
     """
     with capsys.disabled():
         print("\n[treasury waterfall] unexplained movement, worst round per case:")
         for composition, paradigm in _CASES:
             worst = max(abs(_residual(l)) for l in _run(composition, paradigm))
             print(f"    {composition:<26} {paradigm:<14} ${worst:>16,.2f}")
-        print("    target: 0, and a ceiling that ratchets down to it — blocked on "
-              "the runner becoming deterministic.")
+        print("    conservation law holds: every value above should be $0.00 "
+              "(asserted per round by test_treasury_conservation_law).")

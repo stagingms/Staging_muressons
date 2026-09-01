@@ -337,6 +337,11 @@ def generate_test_matrices() -> Generator[MatrixConfig, None, None]:
 #  MULTI-ROUND SIMULATION RUNNER
 # ═════════════════════════════════════════════════════════════════
 
+# DEEP-8 diagnostics: raw engine events per round of the most recent
+# run_deterministic_simulation call (cleared at each run start).
+LAST_RUN_EVENTS: list = []
+
+
 @dataclass
 class RoundLedger:
     """Tracks per-round financial data for invariant verification."""
@@ -345,6 +350,18 @@ class RoundLedger:
     treasury_end: float
     csf: float  # Gross profit = Σ(rev - opex) - dividends
     total_capex: float
+    # DEEP-8: signed post-tick option-treasury movement (round handlers'
+    # charges/gains via _apply_treasury_with_green_fund and the R10 direct
+    # add). Negative = money left treasury.
+    option_treasury: float
+    # DEEP-8 terms 3-6 (2026-08-31): engine-side direct treasury movements,
+    # each read from its own event. Signed (negative = charge).
+    regulatory_ratchet_fine: float
+    black_swan_treasury_hit: float  # DEEP-8 term 7: sum of black-swan treasury hits (positive = money left)
+    treasury_floor_clamp: float  # DEEP-8 term 8: losses absorbed by the insolvency floor (positive = credit)
+    cbam_surcharge: float
+    loss_damage_levy: float
+    deferred_revenue_collected: float
     side_track_treasury_delta: float
     loan_interest: float
     emergency_credit_interest: float
@@ -393,6 +410,7 @@ def run_deterministic_simulation(
     gs.setdefault("active_event_flags", {})["stochastic_seed"] = f"ume-{DETERMINISTIC_SEED}"
 
     ledgers: list[RoundLedger] = []
+    LAST_RUN_EVENTS.clear()  # DEEP-8 diagnostics: raw events per round of the most recent run
 
     for rnd in range(1, num_rounds + 1):
         gs["round_number"] = rnd
@@ -418,8 +436,22 @@ def run_deterministic_simulation(
         )
 
         new_gs = result["global_state"]
+        # DEEP-8 root cause (2026-09-01): process_tick returns a REBUILT
+        # active_event_flags that drops the cohort stochastic_seed. Production
+        # never sees this: router.commit_turn merges the OLD flags back in as
+        # the base ("preserve history"), so the seed survives round to round.
+        # This harness feeds the engine its own raw output, so from R2 onward
+        # every event_rng() call was falling back to a SYSTEM-seeded Random —
+        # black swans fired nondeterministically per process, which was both
+        # the "flaky residual" and (at least one) strict-xfail entropy source.
+        # dry_run.py:164 carries the seed manually for the same reason; do the
+        # same here so this harness matches what a real cohort experiences.
+        new_gs.setdefault("active_event_flags", {})["stochastic_seed"] = (
+            gs["active_event_flags"]["stochastic_seed"]
+        )
         new_bus = result["bu_states"]
         events = result["events"]
+        LAST_RUN_EVENTS.append(events)
 
         # ── Apply side-track effects post-tick if configured ──
         side_track_treasury_delta = 0.0
@@ -434,10 +466,35 @@ def run_deterministic_simulation(
                 )
 
         # ── Extract waterfall data for the ledger ──
-        csf_val = sum(
-            bu["revenue_base"] - bu["opex_base"] for bu in new_bus
-        )
+        # DEEP-8 (2026-08-31): read the ENGINE's own CSF from its waterfall
+        # entry instead of recomputing from the FINAL bus table. Stages after
+        # the treasury line (talent surcharges, synergy-lag completions,
+        # reporting-layer mutations) keep moving rev/opex, so a recomputation
+        # measures a different quantity than the one the engine banked —
+        # that mismatch alone accounted for a smooth ~0.4–0.7M/round phantom
+        # residual. A ledger records what happened; it does not re-derive it.
+        csf_val = None
+        for entry in (events.get("consequence_waterfall") or {}).get("entries", []):
+            if entry.get("label") == "Gross Profit (CSF)":
+                csf_val = entry["amount"]
+                break
+        if csf_val is None:  # engine did not emit one — fall back to recompute
+            csf_val = sum(
+                bu["revenue_base"] - bu["opex_base"] for bu in new_bus
+            )
 
+        option_treasury = events.get("ledger_option_treasury", 0.0)
+        # DEEP-8: the Regulatory Ratchet fine nests inside a dict event — the
+        # exact silent debit behind the residuals of 2,500,000.00 (1 BU: 25
+        # gov-risk points x \$100K) and 3,750,000.00 (4 BU) at R1.
+        ratchet_fine = float((events.get("regulatory_ratchet") or {}).get("fine", 0.0) or 0.0)
+        # DEEP-8 term 7 (2026-09-01): black swans debit treasury directly in
+        # apply_black_swan_impacts; the diagnostics event carries the exact sum.
+        swan_hit = float((events.get("black_swan_diagnostics") or {}).get("total_treasury_drain", 0.0) or 0.0)
+        floor_clamp = float(events.get("treasury_floor_clamp_applied", 0.0) or 0.0)
+        cbam = float(events.get("cbam_surcharge_applied", 0.0) or 0.0)
+        levy = float(events.get("loss_damage_levy_applied", 0.0) or 0.0)
+        rev_gen = float(events.get("revenue_generation_completed", 0.0) or 0.0)
         loan_interest = events.get("loan_interest_payment", 0.0)
         emergency_interest = events.get("emergency_credit_interest", 0.0)
         neg_treasury_interest = events.get("negative_treasury_interest_applied", 0.0)
@@ -449,6 +506,13 @@ def run_deterministic_simulation(
             treasury_end=new_gs["corporate_treasury"],
             csf=csf_val,
             total_capex=total_capex,
+            option_treasury=option_treasury,
+            regulatory_ratchet_fine=ratchet_fine,
+            black_swan_treasury_hit=swan_hit,
+            treasury_floor_clamp=floor_clamp,
+            cbam_surcharge=cbam,
+            loss_damage_levy=levy,
+            deferred_revenue_collected=rev_gen,
             side_track_treasury_delta=side_track_treasury_delta,
             loan_interest=loan_interest,
             emergency_credit_interest=emergency_interest,

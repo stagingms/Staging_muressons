@@ -69,6 +69,26 @@ checks on `production`. Nothing further to code here.
 **Definition of done:** the waterfall ratchet reads $0 and asserts equality; the
 declared-flag surface has zero unruled entries.
 
+**Status (2026-09-01, branch `fix/treasury-ledger-capex`):** item 1 CLOSED, on
+both halves. The conservation law holds: eight ledger terms (engine-authoritative
+CSF, post-tick option treasury, CapEx-principal removal — the claimed $2M lead;
+interest-only by design — the Regulatory Ratchet fine, black-swan hits, CBAM,
+the Loss & Damage levy, deferred revenue, and the insolvency-floor clamp, now
+evented as `treasury_floor_clamp_applied` with its own waterfall entry) explain
+every dollar, every round, in all six composition×paradigm cases;
+`test_treasury_conservation_law` asserts `residual < $0.01` unconditionally.
+And the entropy hunt ended somewhere better than PYTHONHASHSEED: `process_tick`
+rebuilds `active_event_flags` WITHOUT the cohort `stochastic_seed`, so any
+harness that feeds the engine its own output loses the seed after R1 and every
+`event_rng()` call thereafter falls back to a system-seeded `random.Random()`.
+Production is unaffected (router.commit_turn merges old flags back as the base;
+`dry_run.py` already re-carries the seed manually), but the deterministic runner
+was silently unseeded from R2 on — which was simultaneously the nondeterminism
+AND the flaky residual (unseeded black swans). The runner now re-stamps the seed
+each round, six cross-process fingerprints are pinned, and the strict xfail is
+retired as a passing baseline test. Item 2 (flag triage) remains: it is a design
+session needing owner rulings, not code.
+
 ## Workstream 3 — Close the doc-drift class structurally
 
 Student-facing numbers must be GENERATED from config, never hand-written beside
