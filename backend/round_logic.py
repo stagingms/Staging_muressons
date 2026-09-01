@@ -1,12 +1,12 @@
 """
-Muressons Global Corporation â€” Round-Specific State Mutation Logic
+Muressons Global Corporation — Round-Specific State Mutation Logic
 Dispatches to per-round handlers that apply conditional mutations
 BEFORE and AFTER the generic tick engine runs.
 
 Architecture:
-  1. pre_tick(round, state, decisions)  â†’ validates, modifies crisis_severity
-  2. engine.process_tick()              â†’ runs the 8 generic formulas
-  3. post_tick(round, state, decisions) â†’ applies round-specific mutations
+  1. pre_tick(round, state, decisions)  → validates, modifies crisis_severity
+  2. engine.process_tick()              → runs the 8 generic formulas
+  3. post_tick(round, state, decisions) → applies round-specific mutations
 """
 
 from __future__ import annotations
@@ -132,9 +132,9 @@ def pre_tick(
 ) -> dict[str, Any]:
     """
     Returns a dict that may contain:
-      - "crisis_severity"  â†’ overridden value
-      - "validation_error" â†’ string message (will become 400)
-      - "pre_events"       â†’ dict of events to merge
+      - "crisis_severity"  → overridden value
+      - "validation_error" → string message (will become 400)
+      - "pre_events"       → dict of events to merge
     """
     result: dict[str, Any] = {"crisis_severity": crisis_severity, "pre_events": {}}
     handler = _PRE_TICK_MAP.get(round_number)
@@ -146,7 +146,7 @@ def pre_tick(
     return result
 
 
-# â”€â”€ R2: CFO Materiality Gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── R2: CFO Materiality Gate ─────────────────────────────────────
 def _pre_r2_materiality_gate(
     result: dict, current_global: dict, current_bus: list[dict], decisions: list[dict], force_override_cfo: bool = False
 ):
@@ -189,13 +189,13 @@ def _pre_r2_materiality_gate(
                 return
 
 
-# â”€â”€ R4: Electronics Blindspot doubles crisis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── R4: Electronics Blindspot doubles crisis ─────────────────────
 def _pre_r4_contagion(
     result: dict, current_global: dict, current_bus: list[dict], decisions: list[dict]
 ):
     """If electronics_blindspot flag is active, double crisis severity."""
     flags = current_global.get("active_event_flags", {})
-    # Walk history flags â€” check any flag list that might contain it
+    # Walk history flags — check any flag list that might contain it
     all_flags = _collect_all_flags(flags)
 
     cfg = get_round_config(4)
@@ -1244,7 +1244,7 @@ def _apply_common_impacts(
         if ci_routing == "scope3_weighted":
             extra[f"carbon_intensity_by_bu_r{round_number}"] = applied
 
-    # Revenue delta â€” applied to all BUs equally
+    # Revenue delta — applied to all BUs equally
     rev_delta = impacts.get("revenue_delta", 0)
     if rev_delta != 0:
         for bu in bus:
@@ -1300,7 +1300,7 @@ def _apply_common_impacts(
             bu["natural_capital_debt"] = max(0.0, round(bu.get("natural_capital_debt", 0.0) + ncd_delta, 2))
         extra[f"natural_capital_debt_applied_r{round_number}"] = ncd_delta
 
-    # â”€â”€ Healthcare Specific Impacts â”€â”€
+    # ── Healthcare Specific Impacts ──
     if impacts.get("bed_capacity_increase"):
         for b in bus:
             if b["bu_id"] in ("hospitals", "clinics"):
@@ -1399,7 +1399,7 @@ def _apply_common_impacts(
         else:
             gs["group_reputation"] = max(0.0, gs.get("group_reputation", 50.0) - 10.0)
 
-    # â”€â”€ UN SDG Edition: Apply cluster score deltas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── UN SDG Edition: Apply cluster score deltas ──────────────────
     # These are the budget_delta-based deltas defined in sdg_configs.py options.
     # They are scaled by institutional_leakage_multiplier and sanitation_miracle_bonus.
     sdg_cluster_keys = [
@@ -2488,12 +2488,12 @@ def _post_r10_grand_finale(
             extra["pathway_mr_penalty_from_option"] = impacts["mr_penalty"]
 
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    #  Terminal_EBITDA = Î£(Revenue_i âˆ’ OPEX_i) âˆ’ (Carbon_Tonnage Ã— $250/ton)
+    #  Terminal_EBITDA = Σ(Revenue_i − OPEX_i) − (Carbon_Tonnage × $250/ton)
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     total_revenue = sum(bu["revenue_base"] for bu in bus)
     total_opex = sum(bu["opex_base"] for bu in bus)
 
-    # Carbon tonnage: sum of carbon_intensity Ã— revenue scale across all BUs
+    # Carbon tonnage: sum of carbon_intensity × revenue scale across all BUs
     # FIX AUDIT-027: Use correct revenue-scaled formula for carbon tonnage, matching engine.py
     carbon_tonnage_group = sum(
         bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000 
@@ -2854,11 +2854,11 @@ def _post_r10_grand_finale(
         "wellbeing_bonus_earned": bool(extra.get("mr_wellbeing_bonus")),
     }
 
-    # Additional KPIs for the TBL-BSC 4Ã—3 Grid
+    # Additional KPIs for the TBL-BSC 4×3 Grid
     extra["total_revenue"] = total_revenue
     extra["total_opex"] = total_opex
     extra["instability_discount_applied"] = bool(extra.get("mr_instability_discount"))
-    # R&D allocation: sum capex_allocated across all BU decisions Ã· total_revenue
+    # R&D allocation: sum capex_allocated across all BU decisions ÷ total_revenue
     total_capex = sum(d.get("capex_allocated", 0) for d in decs) if decs else 0
     extra["rd_allocation_pct"] = round(total_capex / max(total_revenue, 1) * 100, 2)
     # Climate resilience factor
