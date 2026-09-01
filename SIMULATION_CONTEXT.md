@@ -300,6 +300,52 @@ Each round has:
 
 ---
 
+<!-- BEGIN GENERATED: ROUND-ECONOMICS (scripts/generate_round_economics_table.py — do not edit by hand) -->
+
+### Canonical Option Economics (generated from `round_configs.py`)
+
+The single source of truth for core-game option numbers. The per-round
+sections above summarise mechanics; when a figure here and a figure there
+disagree, THIS table is the one the engine runs. `Rev Δ/BU` applies per
+business unit; deltas are omitted when zero.
+
+| R | Opt | Title | Treasury | Rev Δ/BU | Rep | CI | NCD | SLO | Gov | Flags set |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | A | Surface-Level Scan | $0 | +$500K | -2 | +2 |  | -3 |  | `electronics_blindspot` |
+| 1 | B | Deep Forensic Audit | −$3M | −$200K | +5 | -5 |  | +5 |  | `deep_audit_completed` |
+| 1 | C | Phased Audit Rollout | −$1.5M | $0 | +2 | -2 |  | +2 |  | `deferred_audit` |
+| 2 | A | Full Materiality Alignment | −$2.5M | $0 | +5 | -3 | -3 | +5 |  | `full_materiality_alignment` |
+| 2 | B | Strategic Exceptions | $0 | $0 | +2 | -1 |  | +2 |  | `materiality_exceptions` |
+| 2 | C | CEO-Only Sign-Off (No Board Committee Oversight) | $0 | +$400K | -5 | +3 | +3 | -5 |  | `ceo_only_signoff` |
+| 3 | A | Rapid Supplier Switch | −$4M | −$800K | +3 | -15 | -10 | +4 |  | `supply_chain_disruption_risk`, `early_decarboniser` |
+| 3 | B | Green Bond Investment | −$2M | +$300K | +4 | -8 | -15 | +3 |  | `green_bond_active` |
+| 3 | C | Offset & Defer | −$1M | +$100K | -3 | -1 | +5 | -4 |  | `carbon_deferred` |
+| 4 | A | Full Transparency & Remediation | −$6M | −$500K | +10 | -4 |  | +8 |  | `remediation_active` |
+| 4 | B | Damage Control PR | −$2M | $0 | +2 | -1 |  | -3 |  | `pr_containment` |
+| 4 | C | Deny & Deflect | $0 | −$1M | -15 | +4 | +5 | -10 |  | `deny_and_deflect` |
+| 5 | A | Hard Engineering Defence | −$8M | −$600K | +3 | +3 | +10 |  |  | `hard_engineering` |
+| 5 | B | Nature-Based Solutions | −$5M | +$500K | +6 | -6 | -8 |  |  | `nature_based_resilience` |
+| 5 | C | Insurance Only | −$2M | $0 | -5 | +1 |  |  |  | `insurance_only` |
+| 6 | A | Monetise the Algorithm | $0 | $0 | -20 | +2 |  | -15 |  | `ai_monetised` |
+| 6 | B | Ethical AI Overhaul | −$8M | +$800K | +5 | -4 |  | +15 |  | `ethical_ai_overhaul` |
+| 6 | C | Quiet Patch | −$1M | −$200K | -5 |  |  | -3 |  | `quiet_patch` |
+| 7 | A | Full Circular Redesign | −$10M | +$1M | +8 | -8 | -12 | +6 |  | `circular_redesign` |
+| 7 | B | Extended Producer Responsibility | −$5M | +$600K | +4 | -5 | -6 | +3 |  | `epr_program` |
+| 7 | C | Waste-to-Energy Partnership | −$7M | +$400K |  | -6 | -4 |  |  | `waste_to_energy`, `synergy_unlock` |
+| 8 | A | Water Efficiency for All BUs | −$12M | +$700K | +5 | -3 |  | +5 |  | `water_efficiency_all` |
+| 8 | B | Prioritise Electronics | −$4M | −$400K | -8 | +2 |  |  |  | `electronics_water_priority` |
+| 8 | C | Desalination Mega-Project | −$30M | +$300K | +3 | +5 | -30 |  |  | `desalination_built` |
+| 9 | A | Immediate Closure | +$5M | −$1.2M | -15 | +3 |  | -20 |  | `immediate_closure` |
+| 9 | B | Managed Transition | −$12M | +$600K | +8 | -4 |  | +10 |  | `managed_transition` |
+| 9 | C | Community Investment Fund | −$20M | +$400K | +12 | -3 |  | +18 |  | `community_fund` |
+| 10 | A | Resist & Integrate | −$5M | +$1M | +5 | -3 |  | +3 |  | `resist_integrate` |
+| 10 | B | Spin-off | +$10M | −$500K | +2 | -1 |  | -5 |  | `spinoff` |
+| 10 | C | Divest | +$25M | −$2M | -10 | +2 | +8 | -12 |  | `divest` |
+
+<!-- END GENERATED: ROUND-ECONOMICS -->
+
+---
+
 ## 5. Decision Pillars (Multi-Toggle Paradigm)
 
 In the `multi_toggles` game paradigm, each round presents **5 strategic pillars**, each with **3 investment choices**. Players select one option per pillar simultaneously, in addition to the round's main crisis decision.
