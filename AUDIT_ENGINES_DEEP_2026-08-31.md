@@ -133,3 +133,30 @@ black swans firing per-process, hitting treasury through an untracked path). The
 runner now re-stamps the seed each round; six cross-process run fingerprints are
 pinned in `test_treasury_waterfall.py`, and the strict xfail is retired as a
 passing baseline test. Remaining open: DEEP-5/9 (flag triage — design rulings).
+
+## Resolution addendum (2026-09-01, branch `fix/flag-taxonomy`)
+
+DEEP-5 and DEEP-9 are RESOLVED per owner rulings (2026-09-01). Fresh sweep on
+current code: 117 of 263 declared flags unread (down from 171/271 — the
+green_claim, M_R and retraining repairs wired the difference). Rulings: all 117
+are deliberately unread — side-track outcome markers (54), pillar choice
+markers (26; the router is the single applier, so they record WHICH option, not
+an effect), healthcare narrative consequences (22; `union_busted` and
+`telehealth_litigation` carry future-mechanics notes), R10 ending identities
+(9; nothing runs after R10), core choice markers (4) and the whistleblower arc
+(3). Each now carries an explicit entry in `backend/flag_taxonomy.py`, and
+`tests/test_flag_taxonomy.py` enforces the line in both directions: a new
+declared-but-unread flag fails until it gets a reader or a ruling, and a
+taxonomy entry rots loudly if its flag gains a reader or stops being declared.
+
+DEEP-9 widened before it closed: not one but FIVE side tracks write M_R
+bonus/penalty flags that nothing reads (sc/sm/sr/es `_track_mr_bonus`/
+`_mr_penalty`, plus `sdg_mr_bonus` up to +0.50 accumulated) — and the
+corporate-SDG track charged $8M for an option whose description promised
+"+0.35 to M_R" it never paid. Ruling: honest display over wiring — the pinned
+M_R ceilings (1.93/2.02) stay untouched, the false promise is reworded to the
+track's real rewards (SDG score, reputation), and all five write sites carry
+the ruling as a comment. Also removed: `check_bu_greenwash_scandal`
+(engine.py §20b), dead since the DEEP-6 rewrite, per the same rulings session.
+
+With this, every finding in this audit is CLOSED.
