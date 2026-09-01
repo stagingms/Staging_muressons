@@ -337,7 +337,7 @@ class FacilitatorCreateRequest(BaseModel):
     shockwave_enabled: bool = True   # Feature 6: allow this facilitator to detonate synchronized shockwaves
     trading_floor_enabled: bool = True   # Feature 1: allow this facilitator to run the Trading-Floor finale console
     situation_room_enabled: bool = True   # W-D (W4): allow this facilitator to fire Situation-Room voice bulletins
-    negotiation_rooms_enabled: bool = False   # Slice 5: opt-in Stakeholder Negotiation Rooms (default OFF)
+    negotiation_rooms_enabled: bool = True    # Slice 5: Stakeholder Negotiation Rooms (default ON since 2026-09-01, EVAL rec 2; revocable)
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -541,7 +541,7 @@ async def get_global_settings(request: Request, session_id: str | None = _Query(
         "assigned_bu": s.get("assigned_bu", ""),
         # Slice 5: Stakeholder Negotiation Rooms — cohort-effective, capability-gated
         # (default OFF; a lead only turns it on if their profile holds the grant).
-        "negotiation_rooms_enabled": s.get("negotiation_rooms_enabled", False) is True,
+        "negotiation_rooms_enabled": s.get("negotiation_rooms_enabled", True) is not False,
         # GOD-012: expose whether cohort-level overrides are active
         "_cohort_overrides_active": bool(session_id and session_id in cohort_settings),
     }
@@ -1003,7 +1003,8 @@ async def patch_cohort_settings(
     # token so virtual identities aren't demoted) bypass. Refuse BEFORE any write
     # so a denied toggle leaves the cohort untouched.
     if body.get("negotiation_rooms_enabled") is True and not is_admin_role(caller_role):
-        if not (caller_fac and caller_fac.get("negotiation_rooms_enabled") is True):
+        from admin_shared import facilitator_negotiation_granted
+        if not (caller_fac and facilitator_negotiation_granted(caller_fac)):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=("Stakeholder Negotiation Rooms are not enabled for your facilitator "
@@ -1316,12 +1317,12 @@ async def get_scaffolding_status():
         ("supply_chain_network_enabled", "🔗 Supply Chain", True, "Model supply chain network effects — disruptions cascade through tier-1/2/3 suppliers"),
         ("npc_stakeholders_enabled", "👥 NPC Agents", True, "Activate NPC stakeholder agents (media, regulators, NGOs) that react to decisions"),
         ("org_politics_enabled", "🤝 Org Politics", True, "Internal politics engine — executive alignment, departmental friction, power dynamics"),
-        # Stakeholder realism waves (SPEC F1–F6) — per-cohort, default OFF
-        ("stakeholder_memory_enabled", "🧠 Stakeholder Memory", False, "F1 — NPCs accumulate a trust stock (rises slowly, falls fast) with betrayal scars; trust gates escalation and cascades"),
-        ("stakeholder_slo_feedback_enabled", "🔁 SLO Feedback", False, "F2 — each stakeholder's escalation tier continuously nudges the SLO of the BUs it's attached to (closes the loop)"),
-        ("stakeholder_engagement_enabled", "🤝 Promises", False, "F5 — per-round engagement actions (town hall / pledge / commitment) with a promise ledger; kept promises pay off, broken ones scar"),
-        ("stakeholder_coalitions_enabled", "🪧 Coalitions", False, "F3 — ≥2 hostile stakeholders form a coalition that amplifies SLO feedback and strike risk; fired cascades nudge their named targets"),
-        ("stakeholder_uncertainty_enabled", "🎲 Uncertain Thresholds", False, "F4 — escalation thresholds jittered per cohort (seeded/fair) plus a patience clock that forces escalation over time"),
+        # Stakeholder realism waves (SPEC F1–F6) — ON by default since 2026-09-01 (EVAL rec 1+2); F6 stays opt-in
+        ("stakeholder_memory_enabled", "🧠 Stakeholder Memory", True, "F1 — NPCs accumulate a trust stock (rises slowly, falls fast) with betrayal scars; trust gates escalation and cascades"),
+        ("stakeholder_slo_feedback_enabled", "🔁 SLO Feedback", True, "F2 — each stakeholder's escalation tier continuously nudges the SLO of the BUs it's attached to (closes the loop)"),
+        ("stakeholder_engagement_enabled", "🤝 Promises", True, "F5 — per-round engagement actions (town hall / pledge / commitment) with a promise ledger; kept promises pay off, broken ones scar"),
+        ("stakeholder_coalitions_enabled", "🪧 Coalitions", True, "F3 — ≥2 hostile stakeholders form a coalition that amplifies SLO feedback and strike risk; fired cascades nudge their named targets"),
+        ("stakeholder_uncertainty_enabled", "🎲 Uncertain Thresholds", True, "F4 — escalation thresholds jittered per cohort (seeded/fair) plus a patience clock that forces escalation over time"),
         ("stakeholder_intel_ui_enabled", "🔎 Intel Rail", False, "F6 — surfaces demand / leverage / trend cards per stakeholder (numbers kept to the facilitator view)"),
         ("branching_enabled", "🔀 Branching", True, "Enable narrative branching paths based on cumulative decision patterns"),
         ("dynamic_cases_enabled", "📰 Case Studies", True, "Dynamically inject industry case studies relevant to current round themes"),

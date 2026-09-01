@@ -709,17 +709,19 @@ DEFAULT_PEDAGOGICAL_TOGGLES = {
     # feeds back into engine state or terminal value calculation.
     "collaboration_gap_enabled": True,      # On by default; toggle off for speed
     # ── Stakeholder / SLO Realism Upgrade (SPEC v1) ──
-    # Phase 0 "land dark" toggles for the stakeholder ↔ SLO realism work.
-    # All default OFF: no gameplay code references them yet, so enabling
-    # them here is a no-op until the corresponding phase ships its engine.
-    # Per-cohort enablement flows through `pedagogical_overrides`
-    # (get_pedagogical_toggles merges any key already present in defaults).
-    "stakeholder_memory_enabled": False,       # F1 / Phase 1 — trust as a stock
-    "stakeholder_slo_feedback_enabled": False, # F2 / Phase 2 — continuous action→SLO
-    "stakeholder_engagement_enabled": False,   # F5 / Phase 3 — promises / dialogic verb
-    "stakeholder_coalitions_enabled": False,   # F3 / Phase 4 — salience contagion
-    "stakeholder_uncertainty_enabled": False,  # F4 / Phase 5 — seeded thresholds + patience
-    "stakeholder_intel_ui_enabled": False,     # F6 / Phase 6 — intent-forward UI
+    # F1–F5 shipped dark through the 2026-08 cycle and are ON by default since
+    # 2026-09-01 (EVAL_Stakeholder_SLO recommendations 1+2, owner ruling):
+    # stakeholder responses accumulate (trust stock, betrayal scars), the
+    # action→SLO loop is closed, thresholds are seeded-uncertain, and the
+    # promise ledger gives teams the designed exits. Per-cohort overrides
+    # (pedagogical_overrides) can still disable any of them; F6 (the intel
+    # UI rail) stays opt-in.
+    "stakeholder_memory_enabled": True,        # F1 — trust as a stock
+    "stakeholder_slo_feedback_enabled": True,  # F2 — continuous action→SLO
+    "stakeholder_engagement_enabled": True,    # F5 — promises / dialogic verb
+    "stakeholder_coalitions_enabled": True,    # F3 — salience contagion
+    "stakeholder_uncertainty_enabled": True,   # F4 — seeded thresholds + patience
+    "stakeholder_intel_ui_enabled": False,     # F6 — intent-forward UI (opt-in)
 }
 
 

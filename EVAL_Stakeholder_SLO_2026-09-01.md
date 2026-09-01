@@ -271,3 +271,28 @@ today; 3–7 are one small branch (`fix/stakeholder-staging`) with red tests
 first; 8 rides with it. Nothing above touches the tick pipeline's structure,
 the M_R ceilings, the conservation law, or any pinned baseline except via a
 deliberate, documented rebaseline if 3 or 4 ship.
+
+---
+
+## 9. Implementation status (same day, branch `feat/stakeholder-waves-on`)
+
+Recommendations **1 and 2 are IMPLEMENTED** (owner ruling): F1 memory, F2 SLO
+feedback, F3 coalitions, F4 uncertain thresholds/patience, and F5 engagement
+default ON in `DEFAULT_PEDAGOGICAL_TOGGLES` (per-cohort overrides unchanged;
+F6 intel rail stays opt-in). Negotiation Rooms default ON at the platform
+level (`_god_mode_settings`), and the per-facilitator capability contract
+changed from opt-in to **default-granted, explicitly revocable** — the shared
+rule lives in `admin_shared.facilitator_negotiation_granted`, used by both
+the room gate and the cohort-settings gate; the revoke path (explicit False)
+still refuses and still stops live cohorts. Acceptance: 5 red tests in
+`tests/test_stakeholder_defaults.py` (defaults, overridability, capability
+rule, and an end-to-end probe that the F1 trust stock initialises under
+default toggles); the capability and parent-walk suites were updated to the
+new contract with revocation coverage retained; the financial golden trace
+was deliberately rebaselined; the stakeholder golden was unaffected (its
+harness pins its own toggles). Balance report regenerated under waves-on:
+aggressive_green solvent +$250M (stakeholder pressure costs ~$100M TV vs the
+waves-off baseline), balanced solvent, extraction/neglect still fail; note
+that scripted bots never negotiate or keep promises, so real teams should
+outperform this floor using the exits the rooms provide. Full suite: 2242
+passed. Recommendations 3–8 remain open.

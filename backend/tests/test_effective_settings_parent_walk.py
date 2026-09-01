@@ -68,17 +68,19 @@ def test_child_session_inherits_the_cohort_override(client, cohort):
     from admin_shared import get_effective_settings
     parent, child, _ = cohort
 
-    assert get_effective_settings(child).get("negotiation_rooms_enabled") is not True
+    # Platform default is ON since 2026-09-01 (EVAL rec 2), so the walk is
+    # proven with an OFF override: parent disables, child must see it.
+    assert get_effective_settings(child).get("negotiation_rooms_enabled") is True
 
     r = client.patch(f"/api/admin/sessions/{parent}/cohort-settings",
-                     json={"negotiation_rooms_enabled": True})
+                     json={"negotiation_rooms_enabled": False})
     assert r.status_code == 200, r.text
 
-    assert get_effective_settings(parent).get("negotiation_rooms_enabled") is True
-    assert get_effective_settings(child).get("negotiation_rooms_enabled") is True, (
+    assert get_effective_settings(parent).get("negotiation_rooms_enabled") is False
+    assert get_effective_settings(child).get("negotiation_rooms_enabled") is False, (
         "the player's sub-session did not inherit the cohort override — every "
         "gate evaluated with a player session id resolves to the platform "
-        "default, which is how the negotiation room stayed 403"
+        "default, which is how the negotiation room originally stayed 403"
     )
 
 

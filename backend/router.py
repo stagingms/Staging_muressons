@@ -3368,6 +3368,9 @@ async def submit_shadow_board_rejection(
 # a stored value.
 # ─────────────────────────────────────────────────────────────────
 
+from admin_shared import facilitator_negotiation_granted as _facilitator_negotiation_granted
+
+
 async def _require_negotiation_open(session_id: str) -> dict:
     """Raise 403 unless BOTH (a) the cohort's negotiation_rooms_enabled is on
     AND (b) the owning facilitator currently holds the grant. Returns the
@@ -3391,8 +3394,10 @@ async def _require_negotiation_open(session_id: str) -> dict:
         None,
     )
     if owner is not None:
-        # Real registry owner: the grant must be live-True right now.
-        if owner.get("negotiation_rooms_enabled") is not True:
+        # Real registry owner: capability is DEFAULT-GRANTED since 2026-09-01
+        # (EVAL rec 2) — an absent key means granted; only an explicit False
+        # (the revoke path) refuses.
+        if not _facilitator_negotiation_granted(owner):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Stakeholder Negotiation Rooms are not enabled for the owning facilitator's profile.",
