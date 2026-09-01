@@ -1,8 +1,9 @@
 """Per-facilitator capability gate for Stakeholder Negotiation Rooms.
 
-Contract: the feature is OPT-IN per facilitator (super admin grants it on the
-registry record). Without the grant a lead facilitator may not enable it on
-their own cohorts, and — critically — revoking the grant stops rooms on
+Contract (updated 2026-09-01, EVAL_Stakeholder_SLO rec 2): the capability is
+DEFAULT-GRANTED — rooms are part of the standard experience — and explicitly
+REVOCABLE: a super admin can store False on the registry record, after which
+the lead may not enable the cohort flag and — critically — rooms stop on
 already-enabled LIVE cohorts, not merely future ones.
 """
 import pytest
@@ -47,10 +48,21 @@ def _make_hostile(sid):
     row["autonomous_agents"] = aa
 
 
-def test_capability_defaults_off_and_is_grantable():
+def test_capability_defaults_granted_and_is_revocable():
     god = _god()
-    assert _make_lead(god, "CapOffA", granted=False)["negotiation_rooms_enabled"] is False
+    # absent on create → granted (the platform default since 2026-09-01)
+    assert _make_lead(god, "CapOffA", granted=False)["negotiation_rooms_enabled"] is True
     assert _make_lead(god, "CapOnA", granted=True)["negotiation_rooms_enabled"] is True
+    # explicit revoke sticks
+    fid = _make_lead(god, "CapRevokable", granted=False)["facilitator_id"]
+    assert god.put(f"/api/admin/facilitators/{fid}", json={"negotiation_rooms_enabled": False}).status_code == 200
+    from admin_shared import facilitator_negotiation_granted
+    rec = next(f for f in dm.__dict__.get("_facilitator_registry", []) if f["facilitator_id"] == fid) \
+        if hasattr(dm, "_facilitator_registry") else None
+    if rec is None:
+        from admin_shared import _facilitator_registry
+        rec = next(f for f in _facilitator_registry if f["facilitator_id"] == fid)
+    assert facilitator_negotiation_granted(rec) is False
 
 
 def test_login_response_carries_the_capability():
@@ -61,15 +73,18 @@ def test_login_response_carries_the_capability():
     assert r.json()["negotiation_rooms_enabled"] is True
 
 
-def test_ungranted_lead_is_refused_with_an_explanation():
+def test_revoked_lead_is_refused_with_an_explanation():
     god = _god()
     fid = _make_lead(god, "CapDeny", granted=False)["facilitator_id"]
+    assert god.put(f"/api/admin/facilitators/{fid}", json={"negotiation_rooms_enabled": False}).status_code == 200
     c, sid = _session_for(fid, "DenyCohort")
     r = c.patch(f"/api/admin/sessions/{sid}/cohort-settings", json={"negotiation_rooms_enabled": True})
     assert r.status_code == 403
     assert "not enabled for your facilitator profile" in r.json()["detail"]
-    # …and nothing was written
-    assert god.get(f"/api/admin/global-settings?session_id={sid}").json()["negotiation_rooms_enabled"] is False
+    # …and no cohort override was written (effective still shows the platform
+    # default, which is True since 2026-09-01 — assert the store directly)
+    from admin_shared import cohort_settings
+    assert "negotiation_rooms_enabled" not in (cohort_settings.get(sid) or {})
 
 
 def test_granted_lead_can_enable_own_cohort():
@@ -89,12 +104,12 @@ def test_god_mode_bypasses_the_capability():
     assert god.patch(f"/api/admin/sessions/{sid}/cohort-settings", json={"negotiation_rooms_enabled": True}).status_code == 200
 
 
-def test_player_calls_blocked_when_owner_lacks_capability():
+def test_player_calls_blocked_when_owner_capability_revoked():
     god = _god()
     fid = _make_lead(god, "CapPlayerBlock", granted=False)["facilitator_id"]
+    assert god.put(f"/api/admin/facilitators/{fid}", json={"negotiation_rooms_enabled": False}).status_code == 200
     _, sid = _session_for(fid, "PlayerBlockCohort")
-    # admin turned the cohort flag on, but the owning facilitator has no grant
-    god.patch(f"/api/admin/sessions/{sid}/cohort-settings", json={"negotiation_rooms_enabled": True})
+    # cohort flag is on (platform default), but the owner's grant is revoked
     _make_hostile(sid)
     r = TestClient(app).post(f"/api/simulations/{sid}/negotiation/open", json={"agent_id": "the_regulator"})
     assert r.status_code == 403

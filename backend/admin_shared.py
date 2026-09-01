@@ -291,6 +291,11 @@ def _migrate_facilitator_roles(registry: list[dict]) -> list[dict]:
 
 _god_mode_settings: dict = {
     "allow_facilitator_cohort_creation": True,
+    # Slice 5 + EVAL_Stakeholder_SLO rec 2 (2026-09-01): Stakeholder
+    # Negotiation Rooms are enabled by default for every cohort; the
+    # per-cohort override (COHORT_OVERRIDABLE_KEYS) and the per-facilitator
+    # revoke path both still apply.
+    "negotiation_rooms_enabled": True,
     "system_frozen": False,
     "freeze_message": "",
     "freeze_started_at": None,
@@ -887,6 +892,16 @@ def resolve_climate_paradigm(settings: dict) -> str:
     if sm in _CLIMATE_PARADIGM_VALUES:
         return sm
     return "standard"
+
+
+def facilitator_negotiation_granted(record: dict | None) -> bool:
+    """Negotiation-rooms capability: DEFAULT-GRANTED, explicitly revocable
+    (2026-09-01, EVAL_Stakeholder_SLO rec 2). Absent key means granted; only
+    an explicit False stored by the revoke path refuses. None (no record)
+    refuses — virtual admin identities bypass via is_admin_role, not here."""
+    if record is None:
+        return False
+    return record.get("negotiation_rooms_enabled", True) is not False
 
 
 def get_effective_settings(session_id: str | None = None) -> dict:

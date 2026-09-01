@@ -322,16 +322,20 @@ def test_golden_trace_matches():
 def test_toggles_default_off():
     """Phase-0 contract: the six stakeholder toggles ship OFF by default."""
     from pedagogical_engine import DEFAULT_PEDAGOGICAL_TOGGLES as D
+    # Updated 2026-09-01 (EVAL_Stakeholder_SLO rec 1+2, owner ruling): the
+    # realism waves ship ON; only the F6 intel rail stays opt-in. This trace's
+    # own harness still pins its toggles explicitly (see _BASE_TOGGLES above),
+    # so the golden numbers are independent of these platform defaults.
     for key in (
         "stakeholder_memory_enabled",
         "stakeholder_slo_feedback_enabled",
         "stakeholder_engagement_enabled",
         "stakeholder_coalitions_enabled",
         "stakeholder_uncertainty_enabled",
-        "stakeholder_intel_ui_enabled",
     ):
-        assert key in D, f"missing Phase-0 toggle: {key}"
-        assert D[key] is False, f"Phase-0 toggle must default OFF: {key}"
+        assert key in D, f"missing wave toggle: {key}"
+        assert D[key] is True, f"wave toggle must default ON: {key}"
+    assert D["stakeholder_intel_ui_enabled"] is False, "F6 rail stays opt-in"
 
 
 def test_npc_state_carries_forward():
