@@ -201,6 +201,21 @@ difficulty calibration the top W4 follow-up before the next cohort.
 confirmed-dead code once Workstream 2's rulings land; retire fully-merged fix
 branches.
 
+**Status (2026-09-01, branch `chore/hygiene`):** DONE. `.gitattributes` pins
+LF for all source/text formats (the index was already uniformly LF, so no
+renormalisation churn); the mojibake comment/docstring headers in
+admin_analytics.py and round_logic.py are decoded back to real box-drawing
+characters (33 lines, including two student-facing em-dashes that rendered
+as `â€”`); dead code was already removed with the W2 rulings
+(check_bu_greenwash_scandal); this campaign's fully-merged branches are
+deleted (the repo's older merged feature branches are left for the owner to
+retire). Note: one unidentified single-test failure appeared in one full-suite
+run during this sitting and did not recur across three subsequent clean runs —
+identity was not captured; if it reappears, capture `--lf` output before
+rerunning. **All five workstreams of this roadmap are now complete**; the
+remaining actions are the owner's (push, Railway "Wait for CI", and the
+difficulty-calibration follow-up the balance/telemetry reports surfaced).
+
 ## Sequencing
 
 W1 first (a week of unglamorous work; everything else stands on it), then W2's

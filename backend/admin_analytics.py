@@ -50,11 +50,11 @@ def _require_facilitator(role: str = Depends(_get_fac_role)):
         raise HTTPException(status_code=401, detail='Facilitator authentication required')
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#  GOD MODE â€” Platform Analytics (#15)
+#  GOD MODE — Platform Analytics (#15)
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#  ANALYTICS VISIBILITY â€” God Mode controls what facilitators/players see
+#  ANALYTICS VISIBILITY — God Mode controls what facilitators/players see
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 # NOTE: this dict is the authoritative catalog + default state. The setter
@@ -203,7 +203,7 @@ async def set_analytics_visibility(body: dict = Body(...), _guard: None = Depend
     return _analytics_visibility
 
 
-# â”€â”€ Per-Cohort Analytics Visibility â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Per-Cohort Analytics Visibility ─────────────────────────────
 # Stored on session dict as session["analytics_visibility"] = {facilitator: {...}, player: {...}}
 # Global defaults apply when a cohort has no overrides.
 
@@ -394,11 +394,11 @@ async def get_platform_analytics(request: Request,
         bu_states = {sid: v for sid, v in bu_states.items() if sid in own}
         decision_log = [d for d in decision_log if d.get("session_id") in own]
 
-    # â”€â”€ Summary counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── Summary counts ────────────────────────────────────────
     cohort_sessions = {sid: s for sid, s in all_sessions.items() if not s.get("parent_cohort_id")}
     player_sessions = {sid: s for sid, s in all_sessions.items() if s.get("parent_cohort_id")}
 
-    # â”€â”€ 1. Decision Heatmap: choice distribution per round â”€â”€â”€â”€
+    # ── 1. Decision Heatmap: choice distribution per round ────
     decision_heatmap = defaultdict(lambda: defaultdict(int))
     for d in decision_log:
         rn = d.get("round_number", 0)
@@ -406,7 +406,7 @@ async def get_platform_analytics(request: Request,
         if choice:
             decision_heatmap[f"R{rn}"][choice] += 1
 
-    # â”€â”€ 2. Time-to-Decision: per round timing stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 2. Time-to-Decision: per round timing stats ───────────
     time_by_round = defaultdict(list)
     for d in decision_log:
         rn = d.get("round_number", 0)
@@ -427,7 +427,7 @@ async def get_platform_analytics(request: Request,
             "count": n,
         }
 
-    # â”€â”€ 3. Cohort Trajectories: KPI over rounds per cohort â”€â”€â”€â”€
+    # ── 3. Cohort Trajectories: KPI over rounds per cohort ────
     cohort_trajectories = {}
     for sid, sess in cohort_sessions.items():
         cname = sess.get("cohort_name", sid[:12])
@@ -446,7 +446,7 @@ async def get_platform_analytics(request: Request,
             })
         cohort_trajectories[cname] = trajectory
 
-    # â”€â”€ 4. Convergence Analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 4. Convergence Analysis ───────────────────────────────
     # Measure strategy similarity: CapEx StdDev and choice entropy per round
     capex_by_round = defaultdict(list)
     choices_by_round = defaultdict(list)
@@ -489,7 +489,7 @@ async def get_platform_analytics(request: Request,
         1 - (sum(all_entropies) / max(len(all_entropies), 1) / max_entropy), 3
     ) if all_entropies else 0.5
 
-    # â”€â”€ 5. Learning Outcomes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 5. Learning Outcomes ──────────────────────────────────
     total_bonuses = 0
     bonuses_breakdown = defaultdict(int)
     for sid, rounds in global_states.items():
@@ -518,7 +518,7 @@ async def get_platform_analytics(request: Request,
             if bk:
                 badges_awarded[bk] += 1
 
-    # â”€â”€ 6. Risk Exposure: per cohort risk trends â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 6. Risk Exposure: per cohort risk trends ──────────────
     risk_exposure = {}
     for sid, sess in cohort_sessions.items():
         cname = sess.get("cohort_name", sid[:12])
@@ -614,7 +614,7 @@ async def get_player_analytics(session_id: str, request: Request):
     player_reputation = float(latest.get("group_reputation", 50))
     player_synergy = float(latest.get("synergy_multiplier", 1.0))
 
-    # â”€â”€ 1. Peer Benchmarking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 1. Peer Benchmarking ──────────────────────────────────
     # Compute percentiles across all sessions at the same round
     player_round = latest.get("round_number", 1)
     all_treasuries = []
@@ -657,7 +657,7 @@ async def get_player_analytics(session_id: str, request: Request):
         },
     }
 
-    # â”€â”€ 2. Decision Impact Attribution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 2. Decision Impact Attribution ────────────────────────
     # For each round, show the KPI deltas caused by the player's choice
     decision_impact = []
     player_decisions = [
@@ -678,7 +678,7 @@ async def get_player_analytics(session_id: str, request: Request):
         synergy_delta = float(curr.get("synergy_multiplier", 1.0)) - float(prev.get("synergy_multiplier", 1.0))
 
         round_decs = dec_by_round.get(rn, []) or dec_by_round.get(curr.get("round_number", 0), [])
-        choice = round_decs[0].get("choice_selected", "â€”") if round_decs else "â€”"
+        choice = round_decs[0].get("choice_selected", "—") if round_decs else "—"
         total_capex = sum(d.get("capex_allocated", 0) for d in round_decs)
 
         # Generate narrative
@@ -699,10 +699,10 @@ async def get_player_analytics(session_id: str, request: Request):
             "treasury_delta": round(treasury_delta, 2),
             "reputation_delta": round(reputation_delta, 2),
             "synergy_delta": round(synergy_delta, 4),
-            "narrative": " â€” ".join(parts) if parts else "Minimal change this round",
+            "narrative": " — ".join(parts) if parts else "Minimal change this round",
         })
 
-    # â”€â”€ 3. What-If Simulator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # ── 3. What-If Simulator ──────────────────────────────────
     # Simple counterfactual: show what the average player chose at each
     # round and compare KPI trajectory
     what_if = []
@@ -772,7 +772,7 @@ async def get_player_analytics(session_id: str, request: Request):
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-# â”€â”€ Glossary CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Glossary CRUD ─────────────────────────────────────────────
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 # DEEP-7 (2026-08-31): the strike numbers in the glossary are interpolated
