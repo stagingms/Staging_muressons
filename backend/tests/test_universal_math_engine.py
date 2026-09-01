@@ -375,6 +375,7 @@ class RoundLedger:
 def run_deterministic_simulation(
     matrix: MatrixConfig,
     num_rounds: int = NUM_ROUNDS,
+    choice_map: dict[int, str] | None = None,
 ) -> tuple[list[RoundLedger], dict, list[dict]]:
     """
     Execute a multi-round simulation with deterministic stochastic suppression.
@@ -415,8 +416,12 @@ def run_deterministic_simulation(
     for rnd in range(1, num_rounds + 1):
         gs["round_number"] = rnd
 
+        # W4 balance report: an optional per-round strategy; the default path
+        # (all option_a) is bit-identical to before, keeping the pinned
+        # cross-process fingerprints valid.
         decisions = make_decisions(
-            bus, paradigm=matrix.decision_paradigm, choice="option_a"
+            bus, paradigm=matrix.decision_paradigm,
+            choice=(choice_map or {}).get(rnd, "option_a"),
         )
 
         treasury_before = gs["corporate_treasury"]
