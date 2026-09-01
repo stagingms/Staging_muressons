@@ -170,8 +170,19 @@ tests/test_balance_report.py pins determinism + terminal capture. First
 baseline's headline findings: at bot capex levels every strategy goes
 bankrupt by R4-R7 (the capex ladder shows solvency only near 60% deployment);
 pillar-mode balance cannot be measured headlessly because the router owns
-pillar application — a router-path harness is future work. Items 2 (model
-card) and 3 (telemetry) remain.
+pillar application — a router-path harness is future work. Item 2 DONE (2026-09-01,
+branch `docs/model-card`): MODEL_CARD.md reviews every load-bearing economic
+parameter against published evidence — EUA ~€70/t and CBAM €75/t vs the shipped
+$40-50 fee; EPA SCC $190/t vs the $250 shadow price; 2026 sector EV/EBITDA
+multiples vs the 6-18x/12x band; the ESG cost-of-debt literature vs the 1bp/NCD
+coupling (verdict: ~10x pedagogical amplification); BLS stoppage rates and
+hurricane climatology vs the strike/cyclone probabilities (verdict: pedagogical
+compression) — each with an explicit realistic/stylized/pedagogical verdict and
+a known-limitations register (interest-only CapEx recorded as an open design
+question). Pathway M_R modifiers verified against ending_pathways.py (the W3
+deferral closed). SIMULATION_CONTEXT cites the card up top, and
+test_round_doc_parity.py asserts the card exists, stays cited, and states the
+CURRENT config values. Item 3 (telemetry) remains.
 
 ## Workstream 5 — Hygiene
 

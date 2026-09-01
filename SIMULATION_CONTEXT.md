@@ -7,6 +7,11 @@
 
 ---
 
+> **Calibration provenance:** every load-bearing economic parameter in this document
+> is reviewed against real-world evidence in **[MODEL_CARD.md](MODEL_CARD.md)** — shipped
+> value, benchmark, and an explicit realistic/stylized/pedagogical verdict. When teaching
+> the numbers, teach the verdict too.
+
 ## Table of Contents
 
 1. [Simulation Overview](#1-simulation-overview)
