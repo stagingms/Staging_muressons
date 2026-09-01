@@ -72,6 +72,31 @@ def summarize_team(history: list[dict]) -> dict | None:
             break
     tv = flags.get("terminal_value")
     mr = flags.get("regenerative_multiple")
+
+    # ── EVAL rec 8 (2026-09-01): the stakeholder surface ────────────────────
+    # Worst named-NPC tier reached over the game (index into that NPC's own
+    # escalation_levels; higher = more hostile), permanently-triggered
+    # autonomous agents, and negotiation-room usage from the flags log.
+    npc_worst: dict[str, int] = {}
+    for h in history:
+        npcs = ((h.get("global_state") or {}).get("npc_stakeholders") or {}).get("npcs") or {}
+        for npc_id, st in npcs.items():
+            action = st.get("escalation_level")
+            levels = (st.get("profile") or {}).get("escalation_levels") or []
+            for i, lvl in enumerate(levels):
+                if lvl.get("action") == action:
+                    npc_worst[npc_id] = max(npc_worst.get(npc_id, 0), i)
+                    break
+    agents_final = ((gs.get("autonomous_agents") or {}).get("agents") or {})
+    agents_triggered = sorted(a for a, st in agents_final.items()
+                              if st.get("triggered_round") is not None)
+    neg_log = flags.get("negotiation_log") or {}
+    rooms = list(neg_log.get("history") or [])
+    if neg_log.get("active"):
+        rooms.append(neg_log["active"])
+    negotiation_meetings = len(rooms)
+    negotiation_deals = sum(len(r.get("deals") or []) for r in rooms)
+
     return {
         "rounds_played": int(last.get("round_number") or len(history)),
         "final_treasury": gs.get("corporate_treasury"),
@@ -83,6 +108,10 @@ def summarize_team(history: list[dict]) -> dict | None:
         "black_swan_rounds": black_swan_rounds,
         "bankrupt_round": bankrupt_round,
         "strike": bool(flags.get("strike_occurred")),
+        "npc_worst_tiers": npc_worst,
+        "agents_triggered": agents_triggered,
+        "negotiation_meetings": negotiation_meetings,
+        "negotiation_deals": negotiation_deals,
     }
 
 
@@ -192,6 +221,16 @@ def render(cohorts: dict) -> str:
                 mark = " ⚠ never earned" if n == 0 else ""
                 lines.append(f"| {c} | {n}/{d} | {share}{mark} |")
             lines.append("")
+        lines.append("### Stakeholder surface (EVAL rec 8)")
+        lines.append("")
+        lines.append("| Team | Worst NPC tiers | Agents triggered | Negotiation meetings | Deals |")
+        lines.append("|---|---|---|---|---|")
+        for tname, t in sorted(teams.items()):
+            tiers = ", ".join(f"{k}:{v}" for k, v in sorted((t.get("npc_worst_tiers") or {}).items())) or "—"
+            trig = ", ".join(t.get("agents_triggered") or []) or "—"
+            lines.append(f"| {tname} | {tiers} | {trig} | "
+                         f"{t.get('negotiation_meetings', 0)} | {t.get('negotiation_deals', 0)} |")
+        lines.append("")
         lines.append(f"Incidence: bankruptcy {agg['bankrupt']}/{agg['teams']} teams; "
                      f"greenwash scandal (any round) {agg['greenwash_any']}/{agg['teams']}; "
                      f"strike {agg['strike_any']}/{max(agg['finished'],1)} finishers.")

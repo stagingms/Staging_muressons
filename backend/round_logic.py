@@ -950,6 +950,18 @@ def run_new_engines(
                 uncertainty_enabled=_toggles.get("stakeholder_uncertainty_enabled", False),
             )
             global_state["autonomous_agents"] = aa
+
+            # ── EVAL rec 6 (2026-09-01): stakeholder-management side-track
+            # outcomes feed the stakeholder system (one-shot, guarded).
+            try:
+                from npc_stakeholders import apply_sm_track_credits
+                _sm_flags = global_state.setdefault("active_event_flags", {})
+                _sm_diag = apply_sm_track_credits(
+                    global_state.get("npc_stakeholders") or {}, aa, _sm_flags)
+                if _sm_diag.get("applied"):
+                    extra["sm_track_stakeholder_credits"] = _sm_diag["applied"]
+            except Exception as exc:
+                print(f"[WARN] SM-track stakeholder credits failed: {exc}")
             extra["autonomous_agents"] = aa_diag
             _agent_summary = get_agent_summary(aa)
             extra["agent_summary"] = _agent_summary
