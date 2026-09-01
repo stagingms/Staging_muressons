@@ -117,6 +117,61 @@ def test_health_stays_green_on_a_healthy_volume(client, monkeypatch):
     assert body["low_disk_space"] is False
 
 
+# ── ?strict=1 — turning the flag into a status code ────────────────────────
+#
+# A JSON field can only be alerted on by a monitor that inspects the body.
+# `?strict=1` makes the same condition visible to the simplest possible check
+# ("is this URL still 200?"), which is what most uptime services actually do.
+
+def test_strict_fails_when_the_volume_is_low(client, monkeypatch):
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: _usage(1 * MB, 100 * GB))
+    r = client.get("/api/health?strict=1")
+    assert r.status_code == 503, "a plain uptime monitor must be able to see this"
+    body = r.json()
+    assert body["status"] == "degraded"
+    assert body["low_disk_space"] is True
+    # the full report still travels with the alert — no second call needed
+    assert body["storage"]["free_bytes"] == 1 * MB
+
+
+def test_strict_passes_on_a_healthy_volume(client, monkeypatch):
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: _usage(80 * GB, 100 * GB))
+    r = client.get("/api/health?strict=1")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+
+
+def test_the_DEFAULT_endpoint_never_fails_on_disk(client, monkeypatch):
+    """THE safety property.
+
+    railway.json points its container healthcheck at /api/health, and a failing
+    healthcheck RESTARTS the container. Restarting is the wrong response to a
+    full volume: it fixes nothing and takes a live workshop down. So the
+    unqualified endpoint must stay 200 even when the disk is critically low.
+    """
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: _usage(0, 100 * GB))
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+    assert r.json()["low_disk_space"] is True, "…but it still REPORTS the problem"
+
+
+@pytest.mark.parametrize("q", ["strict=0", "strict=false", ""])
+def test_strict_is_opt_in(client, monkeypatch, q):
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: _usage(0, 100 * GB))
+    assert client.get(f"/api/health?{q}").status_code == 200
+
+
+def test_strict_does_not_fail_on_an_unreadable_filesystem(client, monkeypatch):
+    """Unknown is not an alarm — the same rule the flag itself follows.
+    Paging someone because a probe is unsupported would train them to mute it.
+    """
+    def boom(_p):
+        raise OSError("not supported")
+    monkeypatch.setattr(shutil, "disk_usage", boom)
+    assert client.get("/api/health?strict=1").status_code == 200
+
+
 # ── tripwire on the shape that hid the problem ─────────────────────────────
 
 def test_writability_alone_is_never_treated_as_enough(monkeypatch):

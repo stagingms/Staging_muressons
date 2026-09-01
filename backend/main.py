@@ -526,7 +526,22 @@ app.include_router(config_introspect_router)
 
 @app.get("/health", tags=["System"])
 @app.get("/api/health", tags=["System"])  # railway.json healthcheckPath — must exist
-async def health_check():
+async def health_check(strict: bool = False):
+    """Health report. `?strict=1` also FAILS (503) on a low data volume.
+
+    A6 follow-through. `low_disk_space` is a field in a 200 response, which
+    means alerting on it needs a monitor that can inspect a JSON body — not
+    every uptime service can, and the ones that can need configuring for it.
+    `?strict=1` turns the same condition into a status code, so the simplest
+    possible monitor ("tell me if this URL stops returning 200") becomes a
+    disk-space alarm.
+
+    It is OPT-IN for one specific reason: railway.json points its container
+    healthcheck at /api/health, and a failing healthcheck RESTARTS the
+    container. Restarting is the wrong response to a full volume — it fixes
+    nothing and takes a live workshop down. So the default stays 200 and only
+    an explicitly strict caller sees the failure.
+    """
     # BUGFIX: the old detection `"database_memory" in str(type(db))` was DEAD —
     # `db` is a module, so `str(type(db))` is "<class 'module'>" and never
     # matches. It reported "memory" ONLY when USE_MEMORY_DB was forced, and
@@ -551,8 +566,12 @@ async def health_check():
         _storage = storage_status()
     except Exception:
         _storage = {"durable": False, "error": "storage probe failed"}
-    return {
-        "status": "ok",
+    _low_disk = bool(_storage.get("low_space"))
+    _payload = {
+        # Under ?strict=1 a low volume is reported as "degraded", not "ok" —
+        # a monitor reading the body sees the same verdict as one reading only
+        # the status code.
+        "status": "degraded" if (strict and _low_disk) else "ok",
         "database": "memory" if _memory else "postgresql",
         "demo_mode": _demo,
         "storage": _storage,
@@ -560,7 +579,7 @@ async def health_check():
         # A6: hoisted next to durable_storage so a monitor can alert on one
         # top-level boolean. A full volume fails pack uploads and registry
         # writes while every other health signal still reads green.
-        "low_disk_space": bool(_storage.get("low_space")),
+        "low_disk_space": _low_disk,
         # WHICH BUILD IS THIS?
         #
         # Three separate times during the 2026-08 UI work, the question "has my
@@ -589,3 +608,10 @@ async def health_check():
             "uptime_seconds": round(_boot_time.time() - _PROCESS_STARTED_AT),
         },
     }
+
+    if strict and _low_disk:
+        # 503, not 500: the service is up and answering, the DEPENDENCY (disk
+        # headroom) is what has degraded. The body is the full report either
+        # way, so whoever is paged can read the numbers without a second call.
+        return JSONResponse(status_code=503, content=_payload)
+    return _payload
