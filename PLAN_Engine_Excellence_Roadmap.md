@@ -30,6 +30,18 @@ next C-1 ships.
 **Definition of done:** a fresh clone runs one command, everything is green, and
 `production` is mechanically unreachable otherwise.
 
+**Status (2026-08-31, branch `chore/green-suite`):** items 1–2 CLOSED — the "11
+permanent failures" were an environment gap, not code (async tests unrunnable
+without `pytest-asyncio`, which requirements-dev.txt omitted; now declared and
+pinned). Full suite: **2200 passed, 0 failed**, three consecutive clean runs.
+Items 3–4 largely PRE-EXISTED: `.github/workflows/ci.yml` already runs the full
+memory-mode suite, a real-Postgres parity job (the deploy gate), frontend tests/
+build, and dependency audits — and was itself red on the same missing
+dependency; the requirements fix un-reds it. **Remaining, human-action:** in
+Railway, enable "Wait for CI" on the service (the workflow's own comment says
+exactly this) and optionally add GitHub branch protection requiring the CI
+checks on `production`. Nothing further to code here.
+
 ## Workstream 2 — Finish the truth programme (claims = calculations)
 
 1. **DEEP-8, the treasury ledger.** `test_treasury_waterfall.py` documents up to
