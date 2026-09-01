@@ -117,10 +117,18 @@ constants the engine imports (the cost-of-capital sentence is generated from
 _MACRO_RATE_CYCLES itself); the teleprompter's stale M_R claims are corrected;
 SIMULATION_CONTEXT's R9A "75% strike" now states the shipped 0.50 override.
 tests/test_glossary_parity.py asserts audited entries track config AND that
-every stale literal stays dead, in both files. **Remaining:** the full
-R2-style generator treatment for SIMULATION_CONTEXT's per-round tables, and
-verifying the paradigm supplements' pathway-bonus figures against their
-configs (fold into the W4 model card).
+every stale literal stays dead, in both files. **Completed same day
+(branch `fix/round-doc-generator`):** SIMULATION_CONTEXT now carries a
+generated Canonical Option Economics table (all R1-R10 options: treasury,
+revenue delta, KPI deltas, flags — scripts/generate_round_economics_table.py,
+sentinel-spliced like the R2 block), and tests/test_round_doc_parity.py holds
+two layers: the block must match the generator's current output, and every
+bare treasury figure in the hand-written per-round tables is parsed and
+checked against config. The curated per-round prose stays hand-written; its
+most drift-prone column is now machine-checked, and the canonical numbers
+are machine-written. **Workstream 3 definition of done: MET** for the core
+game. Still open for W4: the paradigm supplements' pathway-bonus figures
+(verify against configs when writing the model card).
 
 ## Workstream 4 — Validate the model, not just the code (world-class layer)
 
