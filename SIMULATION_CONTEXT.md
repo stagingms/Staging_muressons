@@ -276,7 +276,7 @@ Each round has:
 
 | Option | Title | Treasury | Key Effect |
 |---|---|---|---|
-| A | Immediate Closure | +$5M | `immediate_closure`; SLO −20; Rep −15; 75% strike chance if SLO low |
+| A | Immediate Closure | +$5M | `immediate_closure`; SLO −20; Rep −15; 50% base strike chance if SLO low (strike_probability_override: 0.50; burnout adds up to +20pts) |
 | B | Managed Transition | −$12M | `managed_transition`; SLO +10; Rep +8; +0.12 M_R Just Transition bonus (×JT scaling) |
 | C | Community Investment Fund | −$20M | `community_fund`; SLO +18; Rep +12; +0.18 M_R Community Champion bonus (×JT scaling) |
 
