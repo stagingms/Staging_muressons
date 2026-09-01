@@ -104,6 +104,24 @@ per-round tables and the remaining hard-coded figures in the glossary and
 teleprompter. **Definition of done:** grep finds no load-bearing number in a
 student-facing doc that a config change would not update.
 
+**Status (2026-09-01, branch `fix/glossary-config-parity`):** the RUNTIME
+surfaces are done. The drift audit found EIGHT stale glossary claims beyond
+DEEP-7's strike numbers: macro rate cycles (wrong in every segment), the M_R
+range (0.60-2.08 vs the arbiter clamp [0, 2.05]) and synergy bonus (+0.30 vs
+STRAT-010's +0.15), inflation (+2.5%/round vs the 5% default), a $5M
+turnaround trigger that doesn't exist ($0 + rep<30 does), pre-DEEP-6
+greenwash mechanics, burnout drift (+3 vs +6), the R7C synergy-multiplier
+boost (+0.35 vs the config's 0.3), and CapEx loans described as auto-debits
+(interest-only per DEEP-8). All audited numbers now interpolate from the
+constants the engine imports (the cost-of-capital sentence is generated from
+_MACRO_RATE_CYCLES itself); the teleprompter's stale M_R claims are corrected;
+SIMULATION_CONTEXT's R9A "75% strike" now states the shipped 0.50 override.
+tests/test_glossary_parity.py asserts audited entries track config AND that
+every stale literal stays dead, in both files. **Remaining:** the full
+R2-style generator treatment for SIMULATION_CONTEXT's per-round tables, and
+verifying the paradigm supplements' pathway-bonus figures against their
+configs (fold into the W4 model card).
+
 ## Workstream 4 — Validate the model, not just the code (world-class layer)
 
 Everything above proves the engine does what the config says. Nothing yet proves
