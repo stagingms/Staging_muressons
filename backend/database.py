@@ -58,6 +58,38 @@ def _dumps(obj) -> str:
     return json.dumps(obj, default=_json_default)
 
 
+async def _allow_immutable_purge(conn) -> None:
+    """Transaction-local bypass of the append-only immutability guard, for the
+    admin purge/reset/undo paths that legitimately delete historical round rows.
+
+    MUST be called INSIDE an open transaction. `SET LOCAL` scopes the flag to
+    THIS transaction only — it auto-resets on COMMIT/ROLLBACK, so it never
+    leaks to another pooled connection and never leaves the guard disabled
+    platform-wide.
+
+    This replaces `ALTER TABLE ... DISABLE TRIGGER`, which was wrong three ways
+    (launch-audit follow-up 2026-09-02 — undeletable cohorts / delete-500):
+      1. It required TABLE OWNERSHIP. If the app's runtime role wasn't the
+         owner (e.g. after a PITR restore reassigned ownership) the ALTER
+         raised `must be owner of table`.
+      2. It took a table-level lock that conflicts with concurrent turn
+         commits writing those same tables, so under live load it could block
+         and then time out.
+      3. Worst: the ALTER ran inside the delete transaction, so ANY failure
+         (either of the above) poisoned the transaction. The `except: pass`
+         around it swallowed the real error, and the very next DELETE then
+         raised `current transaction is aborted, commands ignored ...`, which
+         was NOT caught — the request 500'd and the cohort survived the
+         rollback. `SET LOCAL` on a namespaced custom GUC needs no ownership,
+         no superuser and no lock, and cannot fail this way.
+
+    The guard (fn_immutable_guard) checks `current_setting('muressons.allow_purge')`
+    and, when it is 'on', allows the UPDATE/DELETE; the flag is set nowhere
+    else, so ordinary writes are still rejected exactly as before.
+    """
+    await conn.execute("SET LOCAL muressons.allow_purge = 'on'")
+
+
 # ── Connection Pool ─────────────────────────────────────────────
 
 _pool: Optional[asyncpg.Pool] = None
@@ -187,6 +219,18 @@ async def get_pool() -> asyncpg.Pool:
                 DECLARE
                     v_is_current boolean := false;
                 BEGIN
+                    -- Admin purge/reset/undo paths set a transaction-local flag
+                    -- (SET LOCAL muressons.allow_purge = 'on') instead of the old
+                    -- ALTER TABLE ... DISABLE TRIGGER dance, which needed table
+                    -- ownership, took a lock that blocked live commits, and
+                    -- poisoned the delete transaction when it failed (the
+                    -- undeletable-cohort / delete-500 bug, 2026-09-02). The flag
+                    -- is set nowhere but those paths, so ordinary writes are
+                    -- still guarded exactly as before.
+                    IF current_setting('muressons.allow_purge', true) = 'on' THEN
+                        RETURN COALESCE(NEW, OLD);
+                    END IF;
+
                     IF TG_OP = 'DELETE' THEN
                         RAISE EXCEPTION
                             'Immutability violation: DELETE on "%" is not allowed. '
@@ -1626,27 +1670,24 @@ async def undo_latest_round(session_id: str) -> dict:
         state_id = latest["state_id"]
 
         async with conn.transaction():
-            await conn.execute("ALTER TABLE decision_audit_log DISABLE TRIGGER trg_immutable_decision_audit_log")
-            await conn.execute("ALTER TABLE bu_round_states DISABLE TRIGGER trg_immutable_bu_round_states")
-            await conn.execute("ALTER TABLE global_round_states DISABLE TRIGGER trg_immutable_global_round_states")
+            # Transaction-local bypass of the append-only guard for this undo
+            # (see _allow_immutable_purge) — replaces ALTER TABLE ... DISABLE
+            # TRIGGER, which needed ownership, took a lock, and poisoned the
+            # transaction on failure.
+            await _allow_immutable_purge(conn)
 
-            try:
-                await conn.execute(
-                    "DELETE FROM decision_audit_log WHERE session_id = $1 AND round_number = $2",
-                    uuid.UUID(session_id), deleted_round,
-                )
-                await conn.execute(
-                    "DELETE FROM bu_round_states WHERE global_state_id = $1",
-                    state_id,
-                )
-                await conn.execute(
-                    "DELETE FROM global_round_states WHERE state_id = $1",
-                    state_id,
-                )
-            finally:
-                await conn.execute("ALTER TABLE global_round_states ENABLE TRIGGER trg_immutable_global_round_states")
-                await conn.execute("ALTER TABLE bu_round_states ENABLE TRIGGER trg_immutable_bu_round_states")
-                await conn.execute("ALTER TABLE decision_audit_log ENABLE TRIGGER trg_immutable_decision_audit_log")
+            await conn.execute(
+                "DELETE FROM decision_audit_log WHERE session_id = $1 AND round_number = $2",
+                uuid.UUID(session_id), deleted_round,
+            )
+            await conn.execute(
+                "DELETE FROM bu_round_states WHERE global_state_id = $1",
+                state_id,
+            )
+            await conn.execute(
+                "DELETE FROM global_round_states WHERE state_id = $1",
+                state_id,
+            )
 
     return {
         "success": True,
@@ -1782,14 +1823,12 @@ async def delete_session(session_id: str, hard: bool = False) -> bool:
             return False
         if hard:
             async with conn.transaction():
-                # Disable immutability triggers so historical data can be deleted
-                # (mirrors the pattern in reset_session_to_round1)
-                try:
-                    await conn.execute("ALTER TABLE decision_audit_log DISABLE TRIGGER trg_immutable_decision_audit_log")
-                    await conn.execute("ALTER TABLE bu_round_states DISABLE TRIGGER trg_immutable_bu_round_states")
-                    await conn.execute("ALTER TABLE global_round_states DISABLE TRIGGER trg_immutable_global_round_states")
-                except Exception:
-                    pass  # Triggers may not exist in all deployments — safe to proceed
+                # Allow this transaction to delete historical round rows past the
+                # append-only guard. Transaction-local flag (see
+                # _allow_immutable_purge) — NOT ALTER TABLE ... DISABLE TRIGGER,
+                # whose failure used to poison this transaction and 500 the
+                # delete while the cohort survived (2026-09-02).
+                await _allow_immutable_purge(conn)
 
                 # Cascade: child game-state rows first, then the session itself
                 await conn.execute(
@@ -1813,14 +1852,6 @@ async def delete_session(session_id: str, hard: bool = False) -> bool:
                     "DELETE FROM sessions WHERE session_id = $1",
                     uuid.UUID(session_id),
                 )
-
-                # Re-enable immutability triggers
-                try:
-                    await conn.execute("ALTER TABLE decision_audit_log ENABLE TRIGGER trg_immutable_decision_audit_log")
-                    await conn.execute("ALTER TABLE bu_round_states ENABLE TRIGGER trg_immutable_bu_round_states")
-                    await conn.execute("ALTER TABLE global_round_states ENABLE TRIGGER trg_immutable_global_round_states")
-                except Exception:
-                    pass
 
             # Evict from in-memory cache
             from database_memory import _sessions
@@ -1917,12 +1948,11 @@ async def reset_session_to_round1(session_id: str) -> bool:
 
     async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         async with conn.transaction():
-            # Delete old states for this session (cascades or explicit)
-            # Disable triggers for clean deletions
-            await conn.execute("ALTER TABLE decision_audit_log DISABLE TRIGGER trg_immutable_decision_audit_log")
-            await conn.execute("ALTER TABLE bu_round_states DISABLE TRIGGER trg_immutable_bu_round_states")
-            await conn.execute("ALTER TABLE global_round_states DISABLE TRIGGER trg_immutable_global_round_states")
-            
+            # Delete old states for this session (cascades or explicit).
+            # Transaction-local bypass of the append-only guard (see
+            # _allow_immutable_purge) — replaces ALTER TABLE ... DISABLE TRIGGER.
+            await _allow_immutable_purge(conn)
+
             try:
                 # 1. Delete audit log entries
                 await conn.execute("DELETE FROM decision_audit_log WHERE session_id = $1", uuid.UUID(session_id))
@@ -2005,10 +2035,11 @@ async def reset_session_to_round1(session_id: str) -> bool:
                         _dumps(rf),
                     )
             finally:
-                # Re-enable triggers
-                await conn.execute("ALTER TABLE global_round_states ENABLE TRIGGER trg_immutable_global_round_states")
-                await conn.execute("ALTER TABLE bu_round_states ENABLE TRIGGER trg_immutable_bu_round_states")
-                await conn.execute("ALTER TABLE decision_audit_log ENABLE TRIGGER trg_immutable_decision_audit_log")
+                # Nothing to re-enable: SET LOCAL muressons.allow_purge is
+                # scoped to this transaction and resets automatically on
+                # COMMIT/ROLLBACK. (The old code re-enabled the triggers it had
+                # disabled table-wide here.)
+                pass
 
     # Also reset child player sessions
     child_sessions = await get_child_sessions(session_id)
