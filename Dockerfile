@@ -31,6 +31,16 @@ COPY backend/ /app/backend/
 # Seed data (db/seed_round1.json etc.)
 COPY db/ /app/db/
 
+# Tunable economic config. config.py resolves the in-image default from
+# runtime_paths._REPO_ROOT (/app) and, on first boot, seeds it onto the durable
+# volume (/data). Without this line the file is absent in the image, so
+# SIMULATION_CONFIG loads empty and EVERY economic parameter silently falls
+# through to its config.py default — /api/admin/config/live flags this as a
+# high-severity "running on hardcoded defaults" problem. Ship the file so the
+# process loads its configuration explicitly. (decision_overrides.json ships
+# already, inside backend/.)
+COPY simulation_config.json /app/simulation_config.json
+
 # Frontend (built)
 COPY --from=frontend-build /app/frontend/.next /app/frontend/.next
 COPY --from=frontend-build /app/frontend/node_modules /app/frontend/node_modules
