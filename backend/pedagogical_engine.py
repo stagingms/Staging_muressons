@@ -717,7 +717,12 @@ DEFAULT_PEDAGOGICAL_TOGGLES = {
     # (pedagogical_overrides) can still disable any of them; F6 (the intel
     # UI rail) stays opt-in.
     "stakeholder_memory_enabled": True,        # F1 — trust as a stock
-    "stakeholder_slo_feedback_enabled": True,  # F2 — continuous action→SLO
+    # F-11 (launch audit 2026-09-01, owner ruling 2026-09-02): F2 is OFF by
+    # default again. With it on, a balanced all-B team's average SLO fell
+    # 53.8 → 0.0 by round 5 (−2/−3.5 per hostile NPC per BU per round,
+    # coalition-amplified) and no scripted strategy could reach the top two
+    # archetypes. Facilitators can still switch it on per cohort.
+    "stakeholder_slo_feedback_enabled": False, # F2 — continuous action→SLO (opt-in)
     "stakeholder_engagement_enabled": True,    # F5 — promises / dialogic verb
     "stakeholder_coalitions_enabled": True,    # F3 — salience contagion
     "stakeholder_uncertainty_enabled": True,   # F4 — seeded thresholds + patience

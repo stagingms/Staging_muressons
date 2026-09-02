@@ -1,23 +1,10 @@
-"""Extended Horizon Mode (rounds 11-20) must actually activate — and be guarded.
+"""Extended Horizon Mode (rounds 11-20) is RETIRED — F-32, launch audit 2026-09-01.
 
-BUG-2026-07-29, found by route audit. POST /api/simulations/{id}/extend had two
-independent defects, either of which alone made it useless:
-
-  1. NO AUTHORIZATION. The handler signature took no `request`, so no guard
-     could run: not the facilitator cookie, not player ownership. Any
-     anonymous caller holding a session id could flip `game_over` off and
-     mutate round state on someone else's run.
-
-  2. IT CALLED A FUNCTION THAT DOES NOT EXIST. `db.advance_round(...)` is
-     absent from BOTH database.py and database_memory.py, so every call raised
-     AttributeError -> HTTP 500. Extended Horizon could never be activated by
-     anyone, on either backend, ever.
-
-Defect 2 masked defect 1: the endpoint 500'd before anyone noticed it was also
-unguarded. The real mechanism is `insert_next_round`, the parity call
-commit_turn already uses.
-
-These tests pin BOTH: the guard, and that activation genuinely reaches round 11.
+The feature was dead end-to-end: POST /extend inserted round 11 and cleared
+game_over, but the commit path refuses current_round > 10, the Postgres schema
+has CHECK (round_number BETWEEN 1 AND 10) and the cockpit treats round > 10 as
+game over. Owner ruling 2026-09-02: remove it. These tests pin the retirement —
+the route answers 410 for everyone and never touches session state.
 """
 import os
 import pathlib
@@ -41,80 +28,26 @@ def client():
         yield c
 
 
-@pytest.fixture
-def owned_session(client):
-    """A cohort with one joined player. Returns (player_session_id, player_id)."""
-    from rate_limit import _rate_buckets, _persistent_bans
-    sid = str(client.post("/api/simulations/start",
-                          json={"cohort_name": "Ext-" + os.urandom(4).hex(),
-                                "facilitator_id": "god_mode"}
-                          ).json()["session_id"])
-    _rate_buckets.clear()
-    _persistent_bans.clear()
-    g = client.post(f"/api/admin/{sid}/generate-player").json()
-    j = client.post(f"/api/simulations/public/sessions/{sid}/join",
-                    json={"player_id": g["player_id"], "password": g["password"]})
-    return str(j.json()["session_id"]), g["player_id"]
+@pytest.fixture()
+def solo(client):
+    from admin_shared import _god_mode_settings
+    _god_mode_settings["solo_mode_enabled"] = True
+    r = client.post("/api/simulations/solo-start", json={"player_name": "EH"})
+    assert r.status_code in (200, 201), r.text
+    return r.json()["session_id"]
 
 
-def _anon(client):
-    """A client with no facilitator cookie."""
-    from fastapi.testclient import TestClient
-    from main import app
-    return TestClient(app, raise_server_exceptions=False)
+def test_extend_is_gone_and_mutates_nothing(client, solo):
+    before = client.get(f"/api/simulations/{solo}/dashboard").json()
+    r = client.post(f"/api/simulations/{solo}/extend")
+    assert r.status_code == 410, r.text
+    assert r.json()["detail"]["code"] == "extended_horizon_removed"
+    after = client.get(f"/api/simulations/{solo}/dashboard").json()
+    assert after["current_round"] == before["current_round"] == 1
+    assert not after["global_state"].get("extended_horizon_mode")
 
 
-def test_advance_round_is_not_a_real_parity_api(client):
-    """The root cause, pinned. If someone reintroduces db.advance_round they
-    must add it to BOTH backends — this asserts the current truth so the next
-    reader is not misled into calling it."""
-    import database as db
-    import database_memory as dm
-    assert not hasattr(dm, "advance_round"), \
-        "database_memory grew advance_round — update the extend endpoint and this test"
-    assert not hasattr(db, "advance_round") or hasattr(dm, "advance_round"), \
-        "advance_round exists in only ONE backend — that is the parity gap this file exists for"
-
-
-def test_anonymous_caller_cannot_extend(client, owned_session):
-    psid, _ = owned_session
-    r = _anon(client).post(f"/api/simulations/{psid}/extend", json={})
-    assert r.status_code == 403, (
-        f"anonymous caller got {r.status_code}; an unauthenticated request must "
-        "not be able to clear game_over on someone else's run"
-    )
-
-
-def test_wrong_player_cannot_extend(client, owned_session):
-    psid, _ = owned_session
-    r = _anon(client).post(f"/api/simulations/{psid}/extend", json={},
-                           headers={"X-Player-Id": "MUR-EVIL"})
-    assert r.status_code == 403
-
-
-def test_owner_can_activate_and_reaches_round_11(client, owned_session):
-    psid, pid = owned_session
-    hdr = {"X-Player-Id": pid}
-    r = _anon(client).post(f"/api/simulations/{psid}/extend", json={}, headers=hdr)
-    assert r.status_code == 200, f"owner could not activate Extended Horizon: {r.text}"
-    body = r.json()
-    assert body["extended_horizon_mode"] is True
-    assert body["new_round"] == 11
-    assert body.get("round_title"), "round 11 config did not resolve"
-
-    dash = client.get(f"/api/simulations/{psid}/dashboard", headers=hdr).json()
-    current = dash.get("current_round") or dash.get("round_number")
-    assert current == 11, f"dashboard still on round {current} — the round never persisted"
-
-
-def test_reactivation_is_idempotent(client, owned_session):
-    """A double-click must not raise, rewind the run, or violate
-    uq_session_round by inserting round 11 twice."""
-    psid, pid = owned_session
-    hdr = {"X-Player-Id": pid}
-    a = _anon(client)
-    first = a.post(f"/api/simulations/{psid}/extend", json={}, headers=hdr)
-    assert first.status_code == 200, first.text
-    second = a.post(f"/api/simulations/{psid}/extend", json={}, headers=hdr)
-    assert second.status_code == 200, f"re-activation failed: {second.text}"
-    assert second.json()["new_round"] == 11, "re-activation must not rewind or skip"
+def test_extended_round_content_is_gone():
+    import branching_engine
+    assert not hasattr(branching_engine, "EXTENDED_ROUNDS")
+    assert not hasattr(branching_engine, "get_extended_round_config")

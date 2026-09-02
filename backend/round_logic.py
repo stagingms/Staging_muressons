@@ -122,6 +122,26 @@ except ImportError:
 #  reject invalid inputs (raise ValueError), or set flags.
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
+def base_crisis_severity_for_round(round_number: int) -> float:
+    """F-07 (launch audit 2026-09-01): the SERVER decides how severe a round's
+    crisis is. The value comes from the round config's special_rules
+    (`base_crisis_severity`, e.g. 40 for the R4 contagion round) and is 0 for
+    rounds that have no crisis; pre_tick then applies the history-dependent
+    multipliers (blindspot, deferred audit, stakeholder misanalysis). The
+    request body used to be the source for nine of ten rounds — a client could
+    send 0 and skip every crisis, or 100 and wreck another team."""
+    try:
+        from round_configs import get_round_config
+        cfg = get_round_config(int(round_number))
+    except Exception:
+        cfg = None
+    special = (cfg or {}).get("special_rules", {}) if isinstance(cfg, dict) else {}
+    try:
+        return float(special.get("base_crisis_severity", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def pre_tick(
     round_number: int,
     current_global: dict,
@@ -385,8 +405,16 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     # Ensure mr is rounded and positive
     mr = round(max(0.0, mr), 4)
     
-    # Calculate terminal value
-    terminal_value = round(terminal_ebitda * exit_multiple * mr, 2)
+    # Calculate terminal value — F-12: same floor / M_SDG rules as the main
+    # finale (terminal_valuation is the single formula).
+    from terminal_valuation import calculate_sdg_multiplier as _sdg_mult, EBITDA_FLOOR as _EB_FLOOR
+    _m_sdg = _sdg_mult(float((gs.get("active_event_flags") or {}).get("sdg_impact_score", 0.0) or 0.0))["m_sdg"]
+    _ebitda_for_tv = max(_EB_FLOOR, terminal_ebitda)
+    if terminal_ebitda < _EB_FLOOR:
+        extra["ebitda_floored"] = True
+    extra["sdg_multiplier"] = _m_sdg
+    extra["ebitda_used_for_tv"] = _ebitda_for_tv
+    terminal_value = round(_ebitda_for_tv * exit_multiple * mr * _m_sdg, 2)
     
     # Profile archetype
     if mr >= 1.8:
@@ -590,6 +618,24 @@ def post_tick(
 #  Called from router.py commit_turn after post_tick returns.
 # ═══════════════════════════════════════════════════════════════
 
+def _engine_failed(extra: dict, engine: str, exc: BaseException) -> None:
+    """F-19 / F-36 (launch audit 2026-09-01): an engine exception is no longer a
+    print() nobody reads. It is logged at ERROR with the traceback AND recorded
+    on the round's events (`engine_failures`), which the commit path turns into
+    a facilitator-visible alert. Engines stay individually isolated — one
+    failing module must not take the round down — but a team silently getting
+    a round without its balance sheet / stakeholder update while its siblings
+    did was invisible to everyone; now it is not."""
+    import logging as _lg
+    _lg.getLogger("muressons.engines").error(
+        "[ENGINE-FAILURE] %s failed: %s", engine, exc, exc_info=exc
+    )
+    extra.setdefault("engine_failures", []).append({
+        "engine": engine,
+        "error": f"{type(exc).__name__}: {exc}"[:300],
+    })
+
+
 def run_new_engines(
     round_number: int,
     global_state: dict,
@@ -641,7 +687,7 @@ def run_new_engines(
             if tnfd_mr > 0:
                 extra["tnfd_mr_bonus"] = tnfd_mr
         except Exception as exc:
-            print(f"[WARN] Biodiversity engine failed: {exc}")
+            _engine_failed(extra, "Biodiversity engine", exc)
 
     # ── SE-6: Balance Sheet Engine ────────────────────────────
     if _toggles.get("balance_sheet_enabled", True):
@@ -701,7 +747,7 @@ def run_new_engines(
                     0.02 if covenant_st == "red" else 0.05
                 )
         except Exception as exc:
-            print(f"[WARN] Balance sheet engine failed: {exc}")
+            _engine_failed(extra, "Balance sheet engine", exc)
 
     # ── SE-1: Board Governance ────────────────────────────────
     if _toggles.get("board_governance_enabled", True):
@@ -726,7 +772,7 @@ def run_new_engines(
             if resolutions:
                 extra["pending_shareholder_resolutions"] = resolutions
         except Exception as exc:
-            print(f"[WARN] Board governance engine failed: {exc}")
+            _engine_failed(extra, "Board governance engine", exc)
 
     # ── SI-5: Organisational Politics ─────────────────────────
     if _toggles.get("org_politics_enabled", True):
@@ -745,7 +791,7 @@ def run_new_engines(
             global_state["org_politics"] = org
             extra["org_politics"] = org_diag
         except Exception as exc:
-            print(f"[WARN] Org politics engine failed: {exc}")
+            _engine_failed(extra, "Org politics engine", exc)
 
     # ── SE-2: Supply Chain Network ────────────────────────────
     if _toggles.get("supply_chain_network_enabled", True):
@@ -764,7 +810,7 @@ def run_new_engines(
             global_state["supply_chain"] = sc
             extra["supply_chain"] = sc_diag
         except Exception as exc:
-            print(f"[WARN] Supply chain engine failed: {exc}")
+            _engine_failed(extra, "Supply chain engine", exc)
 
     # ── SI-2: NPC Stakeholders ────────────────────────────────
     if _toggles.get("npc_stakeholders_enabled", True):
@@ -795,7 +841,7 @@ def run_new_engines(
                     from npc_stakeholders import build_stakeholder_intel
                     extra["stakeholder_intel"] = build_stakeholder_intel(npc, global_state, bu_states)
                 except Exception as exc:
-                    print(f"[WARN] Stakeholder intel (F6) failed: {exc}")
+                    _engine_failed(extra, "Stakeholder intel (F6)", exc)
 
             # ── PHASE-1: NPC Cascading Reactions (evaluate_npc_cascades) ──
             # After NPC satisfaction is computed, check if any NPCs cross
@@ -833,7 +879,7 @@ def run_new_engines(
                         if _coalition_pressure > 0 or _coal.get("contagion_nudges"):
                             extra["stakeholder_coalition"] = _coal
                     except Exception as exc:
-                        print(f"[WARN] Stakeholder coalition (F3) failed: {exc}")
+                        _engine_failed(extra, "Stakeholder coalition (F3)", exc)
 
                 # ── PHASE-2 (F2): continuous tier→SLO feedback ──────────
                 # Runs on the round's escalation tiers, AFTER cascade detection
@@ -858,7 +904,7 @@ def run_new_engines(
                         if _slo_fb:
                             extra["npc_slo_feedback"] = _slo_fb
                     except Exception as exc:
-                        print(f"[WARN] Stakeholder SLO feedback (F2) failed: {exc}")
+                        _engine_failed(extra, "Stakeholder SLO feedback (F2)", exc)
 
                 if cascades:
                     extra["npc_cascade_events"] = cascades
@@ -904,10 +950,10 @@ def run_new_engines(
                             "severity": "critical",
                         })
             except Exception as exc:
-                print(f"[WARN] NPC cascade evaluation failed: {exc}")
+                _engine_failed(extra, "NPC cascade evaluation", exc)
 
         except Exception as exc:
-            print(f"[WARN] NPC stakeholders engine failed: {exc}")
+            _engine_failed(extra, "NPC stakeholders engine", exc)
 
     # ── PHASE-3 (F5): Stakeholder engagement actions & promise ledger ──
     # Runs after the NPC tick (trust is set) and reads the persistent
@@ -927,7 +973,7 @@ def run_new_engines(
                     _ar = apply_engagement_action(npc, global_state, _action, round_number)
                     extra["engagement_action_result"] = _ar
         except Exception as exc:
-            print(f"[WARN] Stakeholder engagement (F5) failed: {exc}")
+            _engine_failed(extra, "Stakeholder engagement (F5)", exc)
 
     # ── SI-2+: Autonomous Stakeholder Agents ──────────────────
     if _toggles.get("npc_stakeholders_enabled", True):
@@ -961,7 +1007,7 @@ def run_new_engines(
                 if _sm_diag.get("applied"):
                     extra["sm_track_stakeholder_credits"] = _sm_diag["applied"]
             except Exception as exc:
-                print(f"[WARN] SM-track stakeholder credits failed: {exc}")
+                _engine_failed(extra, "SM-track stakeholder credits", exc)
             extra["autonomous_agents"] = aa_diag
             _agent_summary = get_agent_summary(aa)
             extra["agent_summary"] = _agent_summary
@@ -970,7 +1016,7 @@ def run_new_engines(
             # escalation every round, not just in the post-commit results.
             global_state["agent_summary"] = _agent_summary
         except Exception as exc:
-            print(f"[WARN] Autonomous agents engine failed: {exc}")
+            _engine_failed(extra, "Autonomous agents engine", exc)
 
     # ── PHASE-1: Systemic Tipping Point Penalty Application ──────
     # After all engines run, apply irreversibility penalties from
@@ -1011,7 +1057,7 @@ def run_new_engines(
         if tipping_state:
             events["systemic_tipping_state"] = tipping_state
     except Exception as exc:
-        print(f"[WARN] Tipping penalty application failed: {exc}")
+        _engine_failed(extra, "Tipping penalty application", exc)
 
     # ── SI-1: Non-Linear Branching (R5 checkpoint) ────────────
     if _toggles.get("branching_enabled", True) and round_number == 5:
@@ -1025,7 +1071,7 @@ def run_new_engines(
             global_state["archetype_detail"] = archetype_result
             extra["archetype_classification"] = archetype_result
         except Exception as exc:
-            print(f"[WARN] Branching engine failed: {exc}")
+            _engine_failed(extra, "Branching engine", exc)
 
     # ── SE-3: Adaptive Crisis Severity (R6+ with archetype) ───
     if _toggles.get("branching_enabled", True) and round_number > 5:
@@ -1038,7 +1084,7 @@ def run_new_engines(
             )
             extra["adaptive_crisis_severity"] = sev_diag
         except Exception as exc:
-            print(f"[WARN] Adaptive crisis severity failed: {exc}")
+            _engine_failed(extra, "Adaptive crisis severity", exc)
 
     # ── SE-8: Dynamic Case Injection ──────────────────────────
     if _toggles.get("dynamic_cases_enabled", True):
@@ -1050,7 +1096,7 @@ def run_new_engines(
             if cases:
                 extra["contextual_cases"] = cases
         except Exception as exc:
-            print(f"[WARN] Dynamic cases engine failed: {exc}")
+            _engine_failed(extra, "Dynamic cases engine", exc)
 
     # ── QW-5: Peer Learning Prompts (R5, R6) ──────────────────
     if _toggles.get("peer_learning_prompts_enabled", True):
@@ -1060,7 +1106,7 @@ def run_new_engines(
             if prompts:
                 extra["peer_learning_prompts"] = prompts
         except Exception as exc:
-            print(f"[WARN] Peer learning prompts failed: {exc}")
+            _engine_failed(extra, "Peer learning prompts", exc)
 
     # ── QW-1: Decision Timer Config ───────────────────────────
     if _toggles.get("decision_timer_enabled", False):
@@ -1068,7 +1114,7 @@ def run_new_engines(
             from pedagogical_engine import get_timer_config
             extra["decision_timer"] = get_timer_config(_toggles)
         except Exception as exc:
-            print(f"[WARN] Decision timer config failed: {exc}")
+            _engine_failed(extra, "Decision timer config", exc)
 
     # ── Meadows / Senge: System Archetypes Detection ──────────
     if _toggles.get("system_archetypes_enabled", True):
@@ -1079,7 +1125,7 @@ def run_new_engines(
             if archetypes:
                 extra["system_archetypes_detected"] = archetypes
         except Exception as exc:
-            print(f"[WARN] System archetypes detection failed: {exc}")
+            _engine_failed(extra, "System archetypes detection", exc)
 
     # ── SE-7: Regulatory Sandbox Effects ──────────────────────
     # ARCHITECTURE: Middleware intercept runs FIRST (before values
@@ -1123,7 +1169,7 @@ def run_new_engines(
                 if agent_diag.get("agent_crosswire_triggers"):
                     extra["regulatory_sandbox_agent_crosswire"] = agent_diag
         except Exception as exc:
-            print(f"[WARN] Regulatory sandbox engine failed: {exc}")
+            _engine_failed(extra, "Regulatory sandbox engine", exc)
 
     # ── Analytics: Collaboration Gap Tracker ─────────────────────
     # Measures the spread between financial accumulation and ESG
@@ -1145,7 +1191,7 @@ def run_new_engines(
             if not gap_history or gap_history[-1].get("round") != round_number:
                 gap_history.append(gap_data)
         except Exception as exc:
-            print(f"[WARN] Collaboration gap analytics failed: {exc}")
+            _engine_failed(extra, "Collaboration gap analytics", exc)
 
     return extra
 
@@ -2621,11 +2667,31 @@ def _post_r10_grand_finale(
     #  Exit_Multiple = (1 + g) / (WACC − g)
     #  Teams that raised WACC through poor ESG governance now pay a multiple haircut.
     # ---------------------------------------------------------------
-    from terminal_valuation import calculate_dynamic_exit_multiple, calculate_equity_bridge, SHARES_OUTSTANDING
+    from terminal_valuation import (calculate_dynamic_exit_multiple, calculate_equity_bridge,
+                                    calculate_sdg_multiplier, SHARES_OUTSTANDING, EBITDA_FLOOR)
     green_fund_balance = gs.get("green_transition_fund", 0.0)
     green_fund_terminal_bonus = green_fund_balance if green_fund_balance > 0 else 0.0
     if green_fund_terminal_bonus > 0:
         extra["green_fund_terminal_bonus"] = green_fund_terminal_bonus
+
+    # F-12 (launch audit 2026-09-01): ONE terminal-value formula. This path used
+    # to differ from terminal_valuation.calculate_terminal_value in two ways —
+    # it omitted M_SDG (so the Corporate SDG side track's documented 0.97–1.26
+    # multiplier changed nothing) and it never floored EBITDA (a carbon-tax
+    # burden above gross profit produced a NEGATIVE enterprise value; the
+    # balance report showed TV −$2.0B). Both now follow the library:
+    #   TV = max(0, EBITDA) + GreenFund) × multiple × M_R × M_SDG
+    _sdg_score = float((gs.get("active_event_flags") or {}).get("sdg_impact_score", 0.0) or 0.0)
+    _sdg = calculate_sdg_multiplier(_sdg_score)
+    m_sdg = _sdg["m_sdg"]
+    extra["sdg_multiplier"] = m_sdg
+    extra["sdg_impact_score"] = _sdg_score
+    ebitda_for_tv = max(EBITDA_FLOOR, terminal_ebitda)
+    extra["ebitda_used_for_tv"] = ebitda_for_tv
+    if terminal_ebitda < EBITDA_FLOOR:
+        extra["ebitda_floored"] = True
+        extra["ebitda_floor_note"] = ("⚠️ Carbon tax exceeded gross profit. EBITDA floored at $0 for the "
+                                      "terminal value — the operation generates no cash value at exit.")
 
     # ── Dynamic exit multiple (WACC-based) ──
     # Only override if exit_multiple hasn't been hard-set by a pathway special rule.
@@ -2644,18 +2710,21 @@ def _post_r10_grand_finale(
     extra["exit_multiple_wacc_used"] = round(wacc_value, 4)
     extra["dynamic_exit_multiple_detail"] = dynamic_multiple_result
 
-    terminal_value = round((terminal_ebitda + green_fund_terminal_bonus) * effective_exit_multiple * mr, 2)
+    terminal_value = round((ebitda_for_tv + green_fund_terminal_bonus) * effective_exit_multiple * mr * m_sdg, 2)
 
     # ── STRAT-010: Equity Bridge ──────────────────────────────────────────────
     # Enterprise Value (TV) − Net Debt = Equity Value → Price Per Share
-    # Net Debt = financial debt (revolving credit + bonds) − treasury cash
+    # Net Debt = financial debt (revolving credit + bonds + CapEx term loan) − treasury cash
     # Balance sheet data (may be absent in early rounds — graceful fallback)
     _bs = gs.get("balance_sheet", {})
     _ncl = _bs.get("non_current_liabilities", {})
     _cl  = _bs.get("current_liabilities", {})
+    # F-05: the CapEx term loan is debt whether or not a ledger exists.
+    _capex_loan = float((gs.get("active_event_flags") or {}).get("capex_loan_balance", 0.0) or 0.0)
     total_financial_debt = (
         _ncl.get("revolving_credit_facility", 50_000_000)
         + _ncl.get("green_bonds_outstanding", 0.0)
+        + max(_ncl.get("capex_term_loan", 0.0), _capex_loan)
         + _cl.get("short_term_debt", 0.0)
     )
     treasury_cash = gs.get("corporate_treasury", 0.0)

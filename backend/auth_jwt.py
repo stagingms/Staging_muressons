@@ -114,7 +114,13 @@ def _jwt_available() -> bool:
     return _JWT_LIB_AVAILABLE and bool(JWT_SECRET)
 
 
-def create_facilitator_token(facilitator_id: str, role: str, token_version: int = 0) -> str:
+def create_facilitator_token(
+    facilitator_id: str,
+    role: str,
+    token_version: int = 0,
+    *,
+    master_bypass: bool = False,
+) -> str:
     """Issue a signed JWT for a facilitator session.
 
     SEC-1: ALL accounts — including god_mode — now receive a normal
@@ -126,6 +132,13 @@ def create_facilitator_token(facilitator_id: str, role: str, token_version: int 
     version for an account (admin_shared.bump_token_version) invalidates every
     outstanding token for that account on the next request — the revocation
     kill-switch that god_mode in particular previously lacked.
+
+    F-22 (launch audit 2026-09-01): `master_bypass=True` stamps an `mb` claim
+    on tokens minted from a MASTER_PASSWORD login. The login response already
+    suppresses `must_change_password` for those logins (admin impersonation is
+    not the facilitator's first-login flow); the claim lets the server-side
+    enforcement in `admin_router.get_fac_role` make the same exemption. It is
+    signed, so a client cannot grant it to itself.
     """
     if not _JWT_LIB_AVAILABLE:
         raise RuntimeError("PyJWT is not installed. Run: pip install PyJWT")
@@ -137,6 +150,8 @@ def create_facilitator_token(facilitator_id: str, role: str, token_version: int 
         "iat": now,
         "exp": now + timedelta(hours=JWT_EXPIRY_HOURS),
     }
+    if master_bypass:
+        payload["mb"] = True
     return _pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -270,6 +285,53 @@ def get_facilitator_from_request(request: Request) -> Optional[str]:
             return None
     return None
 
+
+
+# ── Player HTTP token (F-22, launch audit 2026-09-01) ─────────────────────────
+# Players used to be identified by the bare X-Player-Id header, which anyone
+# holding a team's session UUID and player id could forge. Login now mints a
+# signed, session-scoped bearer token; _assert_player_owns_session refuses an
+# owned session unless the request carries one (or a facilitator cookie).
+# Players have no refresh flow, so the TTL defaults to a full teaching day.
+PLAYER_TOKEN_TTL_HOURS: int = int(os.getenv("PLAYER_TOKEN_TTL_HOURS", "12"))
+PLAYER_TOKEN_HEADER = "X-Player-Token"
+
+
+def create_player_token(session_id: str, player_id: str, *, observer: bool = False,
+                        ttl_hours: int | None = None) -> str:
+    """Signed bearer token binding a player (or team observer) to ONE session."""
+    if not _jwt_available():
+        return ""
+    hours = int(ttl_hours if ttl_hours is not None else max(PLAYER_TOKEN_TTL_HOURS, JWT_EXPIRY_HOURS))
+    now = datetime.now(timezone.utc)
+    payload = {"sid": str(session_id), "pid": str(player_id or ""), "typ": "player",
+               "obs": bool(observer), "iat": now, "exp": now + timedelta(hours=hours)}
+    return _pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def verify_player_token(token: str) -> Optional[dict]:
+    """Return {"session_id", "player_id", "observer"} for a valid player token, else None."""
+    if not token or not _jwt_available():
+        return None
+    try:
+        payload = _pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except Exception:
+        return None
+    if payload.get("typ") != "player":
+        return None
+    return {"session_id": str(payload.get("sid") or ""), "player_id": str(payload.get("pid") or ""),
+            "observer": bool(payload.get("obs", False))}
+
+
+def get_player_from_request(request: Request) -> Optional[dict]:
+    """Player identity from `Authorization: Bearer <token>` or X-Player-Token."""
+    raw = ""
+    auth = request.headers.get("Authorization", "") or ""
+    if auth.lower().startswith("bearer "):
+        raw = auth[7:].strip()
+    if not raw:
+        raw = (request.headers.get(PLAYER_TOKEN_HEADER, "") or "").strip()
+    return verify_player_token(raw) if raw else None
 
 
 def create_player_ws_ticket(session_id: str, player_id: str = "", ttl_hours=None) -> str:

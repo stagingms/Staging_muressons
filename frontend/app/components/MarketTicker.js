@@ -61,6 +61,7 @@ function deriveMetrics(gs, bus) {
     natural_capital_debt: avgNCD,
     group_reputation: reputation,
     cost_of_capital: wacc,
+    exit_multiple: g.active_event_flags?.valuation_preview?.exit_multiple ?? null,  // F-17
   });
   return { ebitda, tco2e, reputation, wacc, inflation, carbonFee, greenFund, price };
 }

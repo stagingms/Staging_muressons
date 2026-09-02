@@ -11,15 +11,23 @@ def _cookies(creds):
     assert r.status_code == 200, r.text
     return r.cookies
 
-def test_base_facilitator_can_edit_and_project_admin_cannot():
+def test_only_super_admin_edits_the_platform_rubric():
+    """F-24 (launch audit 2026-09-01): the rubric is platform-wide, so a base
+    facilitator may READ it (to explain the scoring) but not rewrite it for
+    every other cohort; project_admin sees neither."""
     gm = _cookies(_GOD)
     r = client.post("/api/admin/facilitators", json={"name": "EsgFix", "role": "facilitator"}, cookies=gm)
     fid, pw = r.json()["facilitator_id"], r.json()["one_time_password"]
+    from conftest import rotate_facilitator_password  # F-22: initial password → personal
+    pw = rotate_facilitator_password(client, fid, pw)
     fc = _cookies({"facilitator_id": fid, "password": pw})
     from admin_shared import get_allowed_tabs
-    assert "esg_weights" in get_allowed_tabs({"role": "facilitator"})
+    assert "esg_weights" not in get_allowed_tabs({"role": "facilitator"})
     assert "esg_weights" not in get_allowed_tabs({"role": "project_admin"})
-    assert client.post("/api/admin/esg-profile-weights", json={"weights": {}}, cookies=fc).status_code == 200
+    assert "*" in get_allowed_tabs({"role": "super_admin"})
+    assert client.get("/api/admin/esg-profile-weights", cookies=fc).status_code == 200
+    assert client.post("/api/admin/esg-profile-weights", json={"weights": {}}, cookies=fc).status_code == 403
+    assert client.post("/api/admin/esg-profile-weights", json={"weights": {}}, cookies=gm).status_code == 200
     pa = _cookies(_PA)
     assert client.post("/api/admin/esg-profile-weights", json={"weights": {}}, cookies=pa).status_code == 403
 

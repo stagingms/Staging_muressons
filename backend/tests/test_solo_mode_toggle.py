@@ -86,7 +86,8 @@ def test_lead_facilitator_can_enable_and_disable(client):
     fac_id = (body.get("facilitator") or {}).get("facilitator_id") or body.get("facilitator_id")
     from default_credentials import default_facilitator_password
     client.cookies.clear()
-    assert _login(client, fac_id, default_facilitator_password(fac_id)).status_code == 200
+    from conftest import rotate_facilitator_password  # F-22: initial password → personal
+    rotate_facilitator_password(client, fac_id, default_facilitator_password(fac_id))
 
     on = client.patch("/api/admin/solo-mode", json={"enabled": True})
     assert on.status_code == 200 and on.json()["solo_mode_enabled"] is True
@@ -109,7 +110,8 @@ def test_base_facilitator_cannot_toggle(client):
     fac_id = (made.json().get("facilitator") or {}).get("facilitator_id") or made.json().get("facilitator_id")
     from default_credentials import default_facilitator_password
     client.cookies.clear()
-    assert _login(client, fac_id, default_facilitator_password(fac_id)).status_code == 200
+    from conftest import rotate_facilitator_password  # F-22: initial password → personal
+    rotate_facilitator_password(client, fac_id, default_facilitator_password(fac_id))
     r = client.patch("/api/admin/solo-mode", json={"enabled": True})
     assert r.status_code == 403
     # and it did NOT change the flag

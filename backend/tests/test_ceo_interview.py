@@ -44,7 +44,9 @@ def test_ceo_interview_llm_scoring():
     # cockpit sends. Before the audit these CEO-interview endpoints took no
     # `request` at all and ran no ownership check, so this call used to pass
     # anonymously. It must not.
-    hdr = {"X-Player-Id": "test_player"}
+    # F-22 (launch audit 2026-09-01): the credential is the signed player token.
+    from conftest import player_token_headers
+    hdr = player_token_headers(session_id, "test_player")
     resp = client.post(f"/api/simulations/{session_id}/ceo-interview/assess",
                        json={"responses": responses}, headers=hdr)
     assert resp.status_code == 200, resp.text

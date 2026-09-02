@@ -5,7 +5,9 @@ Operator   : Antigravity AI (approved by user on 2026-07-08)
 Archive Dir: c:\Users\Home\.gemini\antigravity\scratch\muressons-sim\temp_archive
 Total Files: 139
 
-REVERSIBILITY: Run revert.py in the project root to restore all files.
+REVERSIBILITY: revert.py was removed on 2026-09-02 (audit F-38) — the temp_archive it
+restored from was never in the repository (operator-local path above) and the
+refactor has shipped; git history is the record of what was moved.
 
 PROTECTED FILES (NOT MOVED):
   backend/main.py, router.py, admin_router.py, admin_teleprompter.py,

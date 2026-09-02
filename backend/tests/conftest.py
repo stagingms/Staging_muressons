@@ -30,6 +30,12 @@ os.environ.setdefault("PROJECT_ADMIN_PASSWORD", "simadmin2026@")
 # this line cannot weaken a deployment even if it is copied into a .env.
 os.environ.setdefault("BCRYPT_ROUNDS", "4")
 
+# F-29: the memory snapshot is debounced and written off-loop in production.
+# Tests read the snapshot file straight after a write, so make writes
+# immediate and synchronous here (0 = no debounce). test_launch_audit pins the
+# debounce itself by overriding this in-process.
+os.environ.setdefault("MURESSONS_SNAPSHOT_DEBOUNCE_MS", "0")
+
 # Import main immediately to force sys.modules["database"] patching
 # before any other test file imports router.py or admin_router.py
 import sys
@@ -302,3 +308,74 @@ def clear_memory_db():
             _ORIG_MARKETPLACE["green_talent_pool"]["cost_history"] = [200_000]
     except Exception:
         pass
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Launch-audit (2026-09-01) credential helpers — F-22
+#
+#  Two production rules now apply inside the suite:
+#    * a facilitator signed in with its id-derived INITIAL password may only
+#      change that password (every other admin route → 403
+#      password_change_required), and
+#    * a player is identified by the signed bearer token minted at login, not by
+#      the X-Player-Id header; a driver still on the initial password may read
+#      but not commit.
+#  These helpers give tests the same one-call setup a real classroom performs.
+# ═════════════════════════════════════════════════════════════════════════════
+
+def rotate_facilitator_password(client, fac_id: str, current_password: str,
+                                new_password: str | None = None, cookies=None) -> str:
+    """Log in with the initial credential and replace it. Returns the new password.
+    The client's cookie jar ends holding a session for `fac_id` under the NEW
+    password, so the caller can keep using `client` directly."""
+    new_password = new_password or f"Personal-{fac_id}-2026!"
+    try:
+        import rate_limit as _rl
+        _rl._rate_buckets.clear(); _rl._persistent_bans.clear()
+    except Exception:
+        pass
+    r = client.post("/api/admin/facilitators/login",
+                    json={"facilitator_id": fac_id, "password": current_password})
+    assert r.status_code == 200, f"initial login failed for {fac_id}: {r.text}"
+    r2 = client.post("/api/admin/facilitators/change-password",
+                     json={"facilitator_id": fac_id, "old_password": current_password,
+                           "new_password": new_password}, cookies=r.cookies)
+    assert r2.status_code == 200, f"password rotation failed for {fac_id}: {r2.text}"
+    r3 = client.post("/api/admin/facilitators/login",
+                     json={"facilitator_id": fac_id, "password": new_password})
+    assert r3.status_code == 200, r3.text
+    return new_password
+
+
+def player_login(client, player_id: str, password: str, *, personalise: bool = True):
+    """Log a player in over HTTP. Returns (session_id, headers) where headers
+    carries the bearer token for every subsequent player request. When
+    `personalise` is set and the account is still on its initial password, the
+    password is replaced with `<password>-x` first so commits are allowed."""
+    try:
+        import rate_limit as _rl
+        _rl._rate_buckets.clear(); _rl._persistent_bans.clear()
+    except Exception:
+        pass
+    r = client.post("/api/simulations/player-login",
+                    json={"player_id": player_id, "password": password})
+    assert r.status_code == 200, f"player login failed for {player_id}: {r.text}"
+    body = r.json()
+    if personalise and body.get("must_change_password"):
+        rc = client.post("/api/simulations/change-password",
+                         json={"player_id": player_id, "old_password": password,
+                               "new_password": f"{password}-personal"})
+        assert rc.status_code == 200, rc.text
+    tok = body.get("player_token", "")
+    headers = {"Authorization": f"Bearer {tok}"} if tok else {}
+    if player_id:
+        headers["X-Player-Id"] = player_id
+    return body["session_id"], headers
+
+
+def player_token_headers(session_id: str, player_id: str, observer: bool = False) -> dict:
+    """Mint a token directly (no HTTP) for tests that build sessions through the
+    store rather than the login flow."""
+    from auth_jwt import create_player_token
+    return {"Authorization": f"Bearer {create_player_token(session_id, player_id, observer=observer)}",
+            "X-Player-Id": player_id}

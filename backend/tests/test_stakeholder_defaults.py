@@ -1,4 +1,4 @@
-"""Stakeholder realism waves + negotiation rooms are ON by default.
+"""Stakeholder realism waves (F1/F3/F4/F5) + negotiation rooms are ON by default; F2 is opt-in (F-11).
 
 EVAL_Stakeholder_SLO_2026-09-01 recommendations 1+2 (owner ruling): the
 accumulative stakeholder model (F1 trust stock, F2 continuous SLO feedback,
@@ -22,7 +22,6 @@ os.environ.setdefault("USE_MEMORY_DB", "true")
 
 WAVES_ON = (
     "stakeholder_memory_enabled",
-    "stakeholder_slo_feedback_enabled",
     "stakeholder_engagement_enabled",
     "stakeholder_coalitions_enabled",
     "stakeholder_uncertainty_enabled",
@@ -35,13 +34,16 @@ def test_wave_toggles_default_on_and_intel_stays_opt_in():
     for key in WAVES_ON:
         assert t[key] is True, f"{key} must default ON (EVAL rec 1/2)"
     assert t["stakeholder_intel_ui_enabled"] is False, "F6 rail stays opt-in"
+    # F-11 (launch audit, owner ruling 2026-09-02): F2 continuous pressure is
+    # opt-in — with it on, balanced play reached SLO 0 by round 5.
+    assert t["stakeholder_slo_feedback_enabled"] is False, "F2 must default OFF (F-11)"
 
 
 def test_wave_toggles_remain_cohort_overridable():
     from pedagogical_engine import get_pedagogical_toggles
-    t = get_pedagogical_toggles({"stakeholder_memory_enabled": False})
+    t = get_pedagogical_toggles({"stakeholder_memory_enabled": False, "stakeholder_slo_feedback_enabled": True})
     assert t["stakeholder_memory_enabled"] is False
-    assert t["stakeholder_slo_feedback_enabled"] is True
+    assert t["stakeholder_slo_feedback_enabled"] is True   # facilitators can still switch F2 on
 
 
 def test_negotiation_rooms_default_enabled_for_cohorts():

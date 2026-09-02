@@ -49,6 +49,19 @@ def _require_facilitator(role: str = Depends(_get_fac_role)):
     if role == 'anonymous':
         raise HTTPException(status_code=401, detail='Facilitator authentication required')
 
+
+async def _assert_session_visible(request: Request, session_id: str) -> None:
+    """F-21: delegate to the canonical read-side tenancy guard (lazy import —
+    admin_router imports this module's router at load time)."""
+    from admin_router import _assert_session_visible as _canonical
+    await _canonical(request, session_id)
+
+
+async def _assert_session_ownership(request: Request, session_id: str) -> None:
+    """F-21: delegate to the canonical write-side tenancy guard."""
+    from admin_router import _assert_session_ownership as _canonical
+    await _canonical(request, session_id)
+
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  GOD MODE — Platform Analytics (#15)
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -250,7 +263,11 @@ def resolve_analytics_visibility(session_id: str, facilitator_id: str | None = N
 
 
 @analytics_router.get("/cohort/{session_id}/analytics-visibility", summary="Get per-cohort analytics visibility")
-async def get_cohort_analytics_visibility(session_id: str, request: Request):
+async def get_cohort_analytics_visibility(session_id: str, request: Request, _guard: None = Depends(_require_facilitator)):
+    # F-21 (launch audit 2026-09-01): console-only read (AnalyticsControlPanel);
+    # _assert_session_visible passes anonymous callers through by design (it
+    # assumes a role guard ran first), so the guard is required here.
+    await _assert_session_visible(request, session_id)
     sess = database_memory._sessions.get(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -267,9 +284,10 @@ async def get_cohort_analytics_visibility(session_id: str, request: Request):
 
 
 @analytics_router.put("/cohort/{session_id}/analytics-visibility", summary="Set per-cohort analytics visibility overrides")
-async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...),
+async def set_cohort_analytics_visibility(session_id: str, request: Request, body: dict = Body(...),
                                           caller_role: str = Depends(_get_fac_role),
                                           _guard: None = Depends(_require_facilitator)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01)
     sess = database_memory._sessions.get(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -992,9 +1010,11 @@ def get_cohort_diversity(cohort_id: str) -> dict:
 )
 async def get_cohort_diversity_endpoint(
     session_id: str,
+    request: Request,
     _guard: None = Depends(_require_facilitator),
 ):
     """Return cohort diversity heatmap — Industry Vertical × Region player counts."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01)
     return get_cohort_diversity(session_id)
 
 
@@ -1004,8 +1024,10 @@ async def get_cohort_diversity_endpoint(
 )
 async def get_teachable_moments_endpoint(
     session_id: str,
+    request: Request,
     _guard: None = Depends(_require_facilitator),
 ):
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01)
     """B5: read-only detector — surfaces a prompt when >= half a cohort's teams
     share a flag the dependency graph marks as adverse (doubles a crisis, BLOCKS
     a bonus, triggers a penalty). Players are unaffected."""

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useCallback } from 'react';
 import { currencySymbol, atRate, moneyFull } from '../utils/format';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 /* The escalation this module is about. It was prose in one place, the slider
    default in another and a bare 90 in the cost projection -- three copies of
@@ -122,14 +123,9 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
             // owner (same SEC-3 contract as /api/simulations). Attach the
             // player's own id so registered players pass the ownership check;
             // solo sessions have no owner and pass without it.
-            let playerIdHeader = {};
-            try {
-                const pid = window.localStorage.getItem('muressons_playerId');
-                if (pid) playerIdHeader = { 'X-Player-Id': pid };
-            } catch { /* storage unavailable */ }
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/mod4-crisis-choices`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...playerIdHeader },
+                headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
                 body: JSON.stringify({ choices: buChoices, effective_fee: fee }),
             });
             if (res.ok) {

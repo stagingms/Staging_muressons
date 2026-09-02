@@ -58,8 +58,9 @@ def _fresh_facilitator_cookies(role="lead_facilitator"):
                     json={"name": "C3 Gate Probe", "role": role}, cookies=gm)
     assert r.status_code in (200, 201), r.text
     body = r.json()
-    return _cookies({"facilitator_id": body["facilitator_id"],
-                     "password": body["one_time_password"]})
+    from conftest import rotate_facilitator_password  # F-22: initial password → personal
+    pw = rotate_facilitator_password(client, body["facilitator_id"], body["one_time_password"])
+    return _cookies({"facilitator_id": body["facilitator_id"], "password": pw})
 
 
 def test_project_admin_blocked_on_run_management():

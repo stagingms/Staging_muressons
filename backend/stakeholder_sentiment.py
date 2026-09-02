@@ -317,3 +317,50 @@ def get_salience_weighted_score(stakeholders: list[dict]) -> float:
         return 50.0
 
     return round(weighted_sum / total_weight, 1)
+
+
+# ── Engine entry points (F-41, found 2026-09-02 while making F-36 failures visible) ──
+# engine.py's per-tick "Stakeholder Sentiment Update" block imported
+# `update_stakeholder_sentiment` and `initialise_sentiment` from this module —
+# names that were never defined here. The ImportError was swallowed by a bare
+# `except Exception: pass`, so the block has never executed in production:
+# no stakeholder attitude ever moved, `sentiment_stakeholders` was never
+# written, and the F1 NPC sentiment bridge (npc_stakeholders._sentiment_bridge)
+# always saw an empty list and did nothing. Two earlier fixes (2026-07-31,
+# EVAL rec 5) edited this dead block believing it ran. These wrappers compose
+# the functions that do exist, and fill the per-round fields the engine reads
+# (attitude_delta_this_round, salience_label, sentiment_narrative).
+
+_SALIENCE_LABELS = {"manage_closely": "Definitive", "keep_satisfied": "Dominant",
+                    "keep_informed": "Dependent", "monitor": "Latent"}
+
+
+def initialise_sentiment(stakeholders: list[dict]) -> list[dict]:
+    """Seed attitude scores for a freshly resolved stakeholder list."""
+    return initialise_stakeholder_attitudes(stakeholders)
+
+
+def update_stakeholder_sentiment(
+    stakeholders: list[dict],
+    flags_set_this_round: list[str],
+    round_number: int = 1,
+    black_swans_triggered: list[dict] | None = None,
+) -> list[dict]:
+    """One round of sentiment movement: decision flags, then black swans.
+    Returns a new list; each stakeholder carries the round's delta, its
+    salience label and the most recent narrative line."""
+    before = {sh.get("id"): float(sh.get("attitude_score", 50) or 50) for sh in stakeholders}
+    updated = apply_decision_sentiment(stakeholders, list(flags_set_this_round or []), round_number)
+    for swan in (black_swans_triggered or []):
+        eid = (swan or {}).get("event_id") or (swan or {}).get("id") or ""
+        if eid:
+            updated = apply_black_swan_sentiment(updated, eid, round_number)
+    for sh in updated:
+        sid = sh.get("id")
+        after = float(sh.get("attitude_score", 50) or 50)
+        sh["attitude_delta_this_round"] = round(after - before.get(sid, after), 2)
+        sh["salience_label"] = _SALIENCE_LABELS.get(sh.get("quadrant", "monitor"), "Latent")
+        narratives = sh.get("round_narratives") or []
+        this_round = [n for n in narratives if n.get("round") == round_number]
+        sh["sentiment_narrative"] = (this_round[-1]["text"] if this_round else "")
+    return updated

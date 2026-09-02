@@ -54,16 +54,24 @@ export function calculateRoundStockPrice(roundState) {
     natural_capital_debt = 0,
     group_reputation = 50,
     cost_of_capital = 0.08,
+    exit_multiple = null,   // F-17: the server's valuation_preview.exit_multiple when available
   } = roundState || {};
 
-  // STRAT-010: Dynamic exit multiple from WACC
-  const exitMultiple = calcExitMultiple(cost_of_capital);
+  // STRAT-010: Dynamic exit multiple from WACC. F-17: prefer the multiple the
+  // backend computed for this round (same Gordon formula, same clamps) so the
+  // ticker, the briefing and the finale agree; fall back to the local formula.
+  const exitMultiple = Number.isFinite(exit_multiple) && exit_multiple > 0
+    ? exit_multiple
+    : calcExitMultiple(cost_of_capital);
   // Baseline multiple at 8% WACC: (1.02)/(0.08−0.02) = 17× → seed at IPO_PRICE
   const baselineMultiple = calcExitMultiple(0.08);  // ~17.0
 
   // ESG Sentiment Multiplier
   const synergyBoost = synergy_multiplier - 1.0;
-  const ncdPenalty = natural_capital_debt / 100;
+  // F-17: natural_capital_debt is an INDEX (seed 0; ten rounds of neglect ≈ 2,000;
+  // hard cap 5,000). Dividing by 100 made NCD 50 a −50% sentiment hit; scale to the
+  // real range and cap the penalty so the price never collapses on NCD alone.
+  const ncdPenalty = Math.min(0.6, Math.max(0, natural_capital_debt) / 4000);
   const repPenalty = (100 - group_reputation) / 200;
   const sentiment = Math.max(0.1, 1.0 + synergyBoost - ncdPenalty - repPenalty);
 

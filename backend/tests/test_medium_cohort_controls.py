@@ -226,7 +226,11 @@ def _final_report(monkeypatch):
 
     monkeypatch.setattr(router_mod.db, "fetch_latest_state", _fake_latest)
     monkeypatch.setattr(router_mod.db, "get_session_info", _fake_info)
-    return asyncio.run(router_mod.get_final_report(_RC))
+
+    class _Req:  # F-22: the route now binds the caller; this session is unowned
+        headers, cookies, method = {}, {}, "GET"
+
+    return asyncio.run(router_mod.get_final_report(_RC, _Req()))
 
 
 def test_report_default_full_is_unchanged(monkeypatch):

@@ -204,13 +204,19 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
         if (!ok) return;
         setLoading(true);
         try {
+            // F-34: send the round we are opening so a double-click or a retried
+            // request is a no-op server-side instead of opening two rounds.
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing/unlock`, {
                 method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_round: nextRound }),
             });
             if (res.ok) {
                 const data = await res.json();
                 setPacing(prev => ({ ...prev, unlocked_round: data.unlocked_round }));
-                flash(`✅ Round ${data.unlocked_round} unlocked`);
+                flash(data.already_unlocked
+                    ? `ℹ️ Round ${data.unlocked_round} was already open`
+                    : `✅ Round ${data.unlocked_round} unlocked`);
                 // Arm the 60s relock window.
                 if (relockTimerRef.current) clearTimeout(relockTimerRef.current);
                 setRelockWindow({ round: data.unlocked_round, expiresAt: Date.now() + 60_000 });

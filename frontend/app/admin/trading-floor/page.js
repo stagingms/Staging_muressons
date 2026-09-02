@@ -151,7 +151,11 @@ export default function TradingFloorPage() {
   // engine's competitor growth model. Greyed, unranked, excluded from medals,
   // reveal sequence and the winner highlight.
   const maxRound = Math.max(1, ...teams.map((t) => t.round_number || 1));
-  const rivalEV = rivalBenchmarkEV(maxRound);
+  // F-17: value the rival with the median multiple the TEAMS are valued at
+  // (server-computed), so the benchmark and the board share one yardstick.
+  const teamMultiples = teams.map((t) => Number(t.exit_multiple)).filter((m) => Number.isFinite(m) && m > 0).sort((a, b) => a - b);
+  const rivalMultiple = teamMultiples.length ? teamMultiples[Math.floor(teamMultiples.length / 2)] : 17;
+  const rivalEV = rivalBenchmarkEV(maxRound, undefined, undefined, rivalMultiple);
   const rivalAfterIdx = teams.filter((t) => (t.terminal_value || 0) >= rivalEV).length;
   const rivalRow = (
     <div key="npc-nordhaven" style={{ ...S.row, opacity: 0.55, border: '1px dashed rgba(148,163,184,0.35)', background: 'rgba(148,163,184,0.05)' }}>

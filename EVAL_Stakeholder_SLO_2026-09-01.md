@@ -44,7 +44,7 @@ configuration decision, not code.
 | Black swans | black_swan_registry ~813 | per event (whistleblower −15 etc.) | Yes |
 | Agent triggered events | autonomous_agents | strike −20, media exposé −12, divestment −10 | Yes, one-shot |
 | NPC cascade gates | systemic_risk_engine reaction gates | per gate effects | Yes |
-| F2 continuous NPC pressure | npc_stakeholders `apply_stakeholder_slo_feedback` | +1.0 / 0 / −2.0 / −3.5 per round by tier, coalition-amplified | **OFF by default** |
+| F2 continuous NPC pressure | npc_stakeholders `apply_stakeholder_slo_feedback` | +1.0 / 0 / −2.0 / −3.5 per round by tier, coalition-amplified | **OFF by default** (switched ON 2026-09-01 with the other waves; back to OFF 2026-09-02 — launch audit F-11: with it on, balanced all-B play fell to SLO 0 by R5 and no scripted strategy reached the top archetypes. Opt in per cohort.) |
 | BRSR / regulatory sandbox / R10 handlers / admin override | various | bounded, guarded | Yes |
 
 ### Readers (what SLO gates)

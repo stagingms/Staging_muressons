@@ -42,6 +42,14 @@ def _login(client, fac_id, pw="test-master-pw"):
                        json={"facilitator_id": fac_id, "password": pw})
 
 
+def _personalise(client, fid, default_pw):
+    """F-22 (launch audit 2026-09-01): the id-derived initial password may only be
+    used to set a personal one; every other admin call is refused until then."""
+    from conftest import rotate_facilitator_password
+    _clear()
+    rotate_facilitator_password(client, fid, default_pw)
+
+
 @pytest.fixture
 def registry_project_admin(client):
     """A NAMED project_admin in the registry — the preferred form (F5b)."""
@@ -81,7 +89,7 @@ def test_both_forms_are_treated_identically_by_the_guards(client, registry_proje
     from default_credentials import default_facilitator_password
     from admin_shared import may_create_cohort
     fid = registry_project_admin
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
     # provisioning: may create facilitators…
     made = client.post("/api/admin/facilitators", json={"name": "Made By PA", "role": "facilitator"})
     assert made.status_code == 200, made.text
@@ -119,7 +127,7 @@ def test_project_admin_creates_the_shell_but_cannot_mint_players(client, registr
     """THE seam, end to end: cohort yes, roster no."""
     from default_credentials import default_facilitator_password
     fid = registry_project_admin
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
 
     made = client.post("/api/simulations/start",
                        json={"cohort_name": "F6-Shell", "facilitator_id": fid})
@@ -138,7 +146,7 @@ def test_a_real_facilitator_can_populate_that_same_cohort(client, registry_proje
     """The seam must not strand the cohort — the running facilitator completes it."""
     from default_credentials import default_facilitator_password
     fid = registry_project_admin
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
     sid = str(client.post("/api/simulations/start",
                           json={"cohort_name": "F6-Handover", "facilitator_id": fid}
                           ).json()["session_id"])

@@ -184,7 +184,7 @@ Each module that has shipped is documented here in full. Modules are grouped by 
 ---
 
 ### 2.10 ESG Greenwashing Risk Engine
-**File**: [`backend/engine.py`](backend/engine.py) — functions `calc_greenwashing_risk`, `check_bu_greenwash_scandal`
+**File**: [`backend/engine.py`](backend/engine.py) — function `calc_greenwashing_risk` (`check_bu_greenwash_scandal` was removed 2026-09-01 — zero callers since the config-driven `green_claim` rewrite)
 
 | Section | Detail |
 |---|---|
@@ -235,7 +235,7 @@ Quick-reference table of all shipped logic modules.
 | 20 | Dividend Ratchet | `engine.py` | `calc_dividend_ratchet` | — |
 | 21 | Talent Allocation Pressure | `engine.py` | `calc_talent_allocation_pressure` | — |
 | 22 | Technology Lock-In | `engine.py` | `calc_technology_lockin` | — |
-| 23 | ESG Greenwashing Risk | `engine.py` | `calc_greenwashing_risk`, `check_bu_greenwash_scandal` | — |
+| 23 | ESG Greenwashing Risk | `engine.py` | `calc_greenwashing_risk` | — |
 | 24 | Macro Interest Rate | `engine.py` | `calc_macro_rate_environment` | `SIM_ROUNDS` |
 | 25 | Biodiversity Engine | `biodiversity_engine.py` | _(see file)_ | — |
 | 26 | Balance Sheet Engine | `balance_sheet.py` | _(see file)_ | `CONSTRAINT_MIN_LIQUIDITY_RATIO` |

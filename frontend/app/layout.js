@@ -54,8 +54,26 @@ export default function RootLayout({ children }) {
             (function() {
                 if (typeof window !== 'undefined') {
                     const originalFetch = window.fetch;
+                    // F-22 (launch audit 2026-09-01): attach the player's signed token
+                    // (and id) to every simulation/admin API call. Owned sessions now
+                    // refuse requests without the token, and ~50 components fetch
+                    // player data with their own fetch() calls — this is the one place
+                    // that covers all of them. Explicit headers set by a caller win.
+                    function setHeader(cfg, name, value) {
+                        if (!value) return;
+                        cfg.headers = cfg.headers || {};
+                        if (typeof Headers !== 'undefined' && cfg.headers instanceof Headers) {
+                            if (!cfg.headers.has(name)) cfg.headers.set(name, value);
+                        } else if (Array.isArray(cfg.headers)) {
+                            if (!cfg.headers.some(function (h) { return String(h[0]).toLowerCase() === name.toLowerCase(); })) cfg.headers.push([name, value]);
+                        } else {
+                            var present = Object.keys(cfg.headers).some(function (k) { return k.toLowerCase() === name.toLowerCase(); });
+                            if (!present) cfg.headers[name] = value;
+                        }
+                    }
                     window.fetch = async function () {
                         let [resource, config] = arguments;
+                        const url = typeof resource === 'string' ? resource : (resource && resource.url) || '';
                         if (typeof resource === 'string' && resource.includes('/api/admin')) {
                             config = config || {};
                             config.credentials = 'include';
@@ -65,6 +83,17 @@ export default function RootLayout({ children }) {
                                 config.headers = config.headers || {};
                                 config.headers['X-Requested-With'] = 'XMLHttpRequest';
                             }
+                        }
+                        if (url.includes('/api/simulations') || url.includes('/api/admin')) {
+                            try {
+                                var pid = localStorage.getItem('muressons_playerId');
+                                var tok = localStorage.getItem('muressons_player_token');
+                                if (pid || tok) {
+                                    config = config || {};
+                                    setHeader(config, 'X-Player-Id', pid);
+                                    setHeader(config, 'Authorization', tok ? 'Bearer ' + tok : '');
+                                }
+                            } catch (e) { /* storage unavailable */ }
                         }
                         return originalFetch(resource, config);
                     };

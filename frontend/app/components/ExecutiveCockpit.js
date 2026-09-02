@@ -70,6 +70,7 @@ import BalanceSheetModal from './BalanceSheetModal';
 import Dialog from './Dialog';
 import soundManager from '../utils/soundManager';
 import dynamic from 'next/dynamic';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 // Antigravity Enhancement: 3D ESG Impact Constellation (code-split)
 const ESGImpactConstellation = dynamic(() => import('./ESGImpactConstellation'), {
@@ -771,7 +772,6 @@ export default function ExecutiveCockpit({
      here is whether the server has acknowledged it. */
   const sendPrediction = useCallback((key, round, text) => {
     const API = process.env.NEXT_PUBLIC_API_URL || '';
-    const pid = (typeof localStorage !== 'undefined' && localStorage.getItem('muressons_playerId')) || '';
     const mark = (unsent) => {
       try {
         if (unsent) sessionStorage.setItem(`${key}__unsent`, '1');
@@ -781,7 +781,7 @@ export default function ExecutiveCockpit({
     try {
       fetch(`${API}/api/simulations/${sim?.sessionId}/prediction`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(pid ? { 'X-Player-Id': pid } : {}) },
+        headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
         body: JSON.stringify({ round_number: round, text }),
       })
         .then((r) => mark(!r.ok))

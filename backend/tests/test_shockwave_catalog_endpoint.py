@@ -37,10 +37,11 @@ def test_catalog_matches_engine_for_authenticated_facilitator():
     )
     assert created.status_code in (200, 201), created.text
     body = created.json()
+    from conftest import rotate_facilitator_password  # F-22: initial password → personal
+    pw = rotate_facilitator_password(client, body["facilitator_id"], body["one_time_password"])
     login = client.post(
         "/api/admin/facilitators/login",
-        json={"facilitator_id": body["facilitator_id"],
-              "password": body["one_time_password"]},
+        json={"facilitator_id": body["facilitator_id"], "password": pw},
     )
     assert login.status_code == 200, login.text
 

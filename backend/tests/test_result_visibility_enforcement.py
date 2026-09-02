@@ -39,10 +39,21 @@ def _teardown():
     cohort_settings.pop(_PARENT, None)
 
 
+class _Req:
+    """F-22: the route binds the caller to the session — present the requester's
+    own signed player token (session _A is owned by player "pa")."""
+    method = "GET"
+    cookies = {}
+
+    def __init__(self, sid):
+        from conftest import player_token_headers
+        self.headers = player_token_headers(sid, dbm._sessions[sid]["player_id"])
+
+
 def _run(sid):
     # asyncio.run gives each call a fresh loop — robust when the shared loop has
     # been closed/replaced by other async tests earlier in the suite.
-    return asyncio.run(get_peer_leaderboard(sid))
+    return asyncio.run(get_peer_leaderboard(sid, _Req(sid)))
 
 
 def test_default_shows_real_names_and_all_rounds():

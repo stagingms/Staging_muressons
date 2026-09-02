@@ -75,7 +75,7 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
         await Promise.all(
             cohortSessions.map(async (s) => {
                 try {
-                    const res = await fetch(`${API}/api/admin/sessions/${s.session_id}/pacing`);
+                    const res = await fetch(`${API}/api/admin/sessions/${s.session_id}/pacing`, { credentials: 'include' });  // F-21: now a guarded read
                     if (res.ok) {
                         results[s.session_id] = await res.json();
                     }

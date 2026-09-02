@@ -11,7 +11,12 @@ Tests:
 7. Peer benchmarking data available
 8. No race conditions or state corruption
 """
+# Moved from backend/test_e2e_multiplayer.py (F-38, 2026-09-02): this is a
+# __main__ harness, not a pytest module — the test_ prefix at backend root
+# collected zero tests and misled readers. Run: python scripts/harness/e2e_multiplayer.py
 import os
+import sys as _sys
+_sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'backend'))
 os.environ['USE_MEMORY_DB'] = 'true'
 os.environ['DEBUG'] = 'true'
 os.environ['MASTER_PASSWORD'] = '321'

@@ -269,3 +269,255 @@ def test_generated_player_can_log_in_on_postgres(client, cohort):
     r = client.post("/api/simulations/player-login",
                     json={"player_id": pid, "password": pw})
     assert r.status_code == 200, r.text
+
+
+# ── Launch audit 2026-09-01 (F-20/F-21/F-22) — the authorization boundary on
+# the production store. Ownership is resolved through db.get_session_info and
+# the roster through sessions.metadata JSONB, so a memory-mode green run says
+# nothing about these paths under Postgres.
+
+def _rotate(client, fid, otp):
+    from conftest import rotate_facilitator_password
+    return rotate_facilitator_password(client, fid, otp)
+
+
+def _god_cookies(client):
+    r = client.post("/api/admin/facilitators/login",
+                    json={"facilitator_id": "god_mode", "password": os.environ["MASTER_PASSWORD"]})
+    assert r.status_code == 200, r.text
+    return r.cookies
+
+
+def test_player_token_and_first_login_gate_on_postgres(client, cohort):
+    gm = _god_cookies(client)
+    g = client.post(f"/api/admin/{cohort}/generate-player", json={"player_name": "PG Team"}, cookies=gm)
+    assert g.status_code == 200, g.text
+    pid, pw = g.json()["player_id"], g.json()["password"]
+    lr = client.post("/api/simulations/player-login", json={"player_id": pid, "password": pw})
+    assert lr.status_code == 200, lr.text
+    team, token = lr.json()["session_id"], lr.json()["player_token"]
+    assert token
+    H = {"Authorization": f"Bearer {token}"}
+
+    # The module client's jar carries god_mode's cookie; these checks need an
+    # anonymous caller. Clear it and re-login at the end (re-setting the saved
+    # values by hand would store them under a different domain/path and the
+    # jar would then send TWO mur_session cookies).
+    client.cookies.clear()
+    try:
+        assert client.get(f"/api/simulations/{team}/dashboard", headers=H).status_code == 200
+        bare = client.get(f"/api/simulations/{team}/dashboard", headers={"X-Player-Id": pid})
+        assert bare.status_code == 401 and bare.json()["detail"]["code"] == "player_token_required"
+        assert client.get(f"/api/simulations/{team}/dashboard").status_code == 403
+        assert client.get(f"/api/simulations/{team}/final-report").status_code == 403
+
+        dash = client.get(f"/api/simulations/{team}/dashboard", headers=H).json()
+        payload = {"decisions": [{"bu_id": b["bu_id"], "capex_allocated": 1, "choice_selected": "option_b"}
+                                 for b in dash["business_units"]],
+                   "expected_round": dash["current_round"]}
+        from router import _commit_timestamps
+        _commit_timestamps.pop(team, None)
+        blocked = client.post(f"/api/simulations/{team}/commit-turn", json=payload, headers=H)
+        assert blocked.status_code == 403 and blocked.json()["detail"]["code"] == "password_change_required"
+        assert client.post("/api/simulations/change-password",
+                           json={"player_id": pid, "old_password": pw, "new_password": "personal-pg-1"}).status_code == 200
+        _commit_timestamps.pop(team, None)
+        ok = client.post(f"/api/simulations/{team}/commit-turn", json=payload, headers=H)
+        assert ok.status_code == 201, ok.text
+        # the rotated flag LANDED in the JSONB roster — a fresh login says so
+        lr2 = client.post("/api/simulations/player-login", json={"player_id": pid, "password": "personal-pg-1"})
+        assert lr2.status_code == 200 and lr2.json().get("must_change_password") is False
+    finally:
+        _god_cookies(client)
+
+
+def test_cross_cohort_facilitator_is_refused_on_postgres(client, cohort):
+    gm = _god_cookies(client)
+    r = client.post("/api/admin/facilitators", json={"name": "PG Other", "role": "facilitator"}, cookies=gm)
+    assert r.status_code in (200, 201), r.text
+    fid, otp = r.json()["facilitator_id"], r.json()["one_time_password"]
+    pw = _rotate(client, fid, otp)   # leaves the jar holding fid's session
+    ck = client.post("/api/admin/facilitators/login", json={"facilitator_id": fid, "password": pw}).cookies
+    client.cookies.clear()
+    try:
+        _assert_cross_cohort_refused(client, ck, fid, cohort, gm)
+    finally:
+        _god_cookies(client)          # later fixtures expect god_mode in the jar
+
+
+def _assert_cross_cohort_refused(client, ck, fid, cohort, gm):
+    rows = client.get("/api/admin/sessions", cookies=ck).json()["sessions"]
+    assert cohort not in {s["session_id"] for s in rows}, "F-20: god_mode's cohort leaked to an unrelated facilitator"
+    assert client.get(f"/api/admin/{cohort}/player-sessions", cookies=ck).status_code == 403
+    assert client.get(f"/api/admin/sessions/{cohort}/pacing", cookies=ck).status_code == 403
+    assert client.put(f"/api/admin/cohort/{cohort}/pacing",
+                      json={"pacing_mode": "manual", "max_unlocked_round": 1}, cookies=ck).status_code == 403
+    assert client.post(f"/api/admin/{cohort}/generate-player",
+                       json={"player_name": "Intruder"}, cookies=ck).status_code == 403
+    assert client.patch(f"/api/admin/sessions/{cohort}/metadata",
+                        json={"cohort_name": "Hijacked", "facilitator_id": fid}, cookies=ck).status_code == 403
+    # the session list never carries roster credentials, owned or not
+    for s in client.get("/api/admin/sessions", cookies=gm).json()["sessions"]:
+        for p in s.get("registered_players", []) or []:
+            assert "password" not in p
+
+
+def test_extra_bu_keys_survive_a_round_trip_on_postgres(client, cohort):
+    """F-15 parity anchor: the Postgres store packs non-column BU keys into
+    risk_factors and unpacks them on read; the memory store now does the same
+    pass-through. Pin the production side so the two cannot drift apart again."""
+    import asyncio, uuid
+    import database as db
+
+    async def check():
+        sid = str(uuid.uuid4())
+        pool = await db.get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO sessions (session_id, cohort_name, facilitator_id, metadata) "
+                "VALUES ($1, $2, $3, $4::jsonb)",
+                uuid.UUID(sid), "F15", "god_mode", "{}")
+        gs = {"round_number": 1, "corporate_treasury": 1.0, "group_reputation": 50.0,
+              "synergy_multiplier": 0.3, "cost_of_capital": 0.05, "active_event_flags": {}}
+        bus = [{"bu_id": "pharma", "revenue_base": 1.0, "opex_base": 1.0, "natural_capital_debt": 0.0,
+                "social_license_score": 50.0, "reputation_score": 50.0, "governance_risk_score": 20.0,
+                "water_dependency": 30.0, "carbon_intensity": 30.0, "staff_burnout_index": 10.0,
+                "risk_factors": {}, "scope_1_ci": 12.5, "supplier_defection_active": True}]
+        await db.insert_next_round(sid, 1, gs, bus, [])
+        latest = await db.fetch_latest_state(sid)
+        if db._pool is not None:
+            await db._pool.close()
+        return latest
+
+    saved_pool = db._pool
+    db._pool = None
+    try:
+        latest = asyncio.new_event_loop().run_until_complete(check())
+    finally:
+        db._pool = saved_pool
+    bu = (latest.get("bu_states") or latest.get("business_units"))[0]
+    assert bu["scope_1_ci"] == 12.5
+    assert bu["supplier_defection_active"] is True
+
+
+def test_dashboard_history_batched_queries_and_since_round_on_postgres(client, cohort):
+    """F-27: fetch_round_history now runs 3 queries with `= ANY(...)` instead of
+    1 + 2×rounds, and pushes since_round into SQL. Pin the shape of what comes
+    back on the production store: every round, its BUs, its decisions."""
+    gm = _god_cookies(client)
+    g = client.post(f"/api/admin/{cohort}/generate-player", json={"player_name": "Hist"}, cookies=gm)
+    pid, pw = g.json()["player_id"], g.json()["password"]
+    import rate_limit as _rl
+    _rl._rate_buckets.clear(); _rl._persistent_bans.clear()   # earlier tests spent the per-IP login budget
+    lr = client.post("/api/simulations/player-login", json={"player_id": pid, "password": pw})
+    assert lr.status_code == 200, lr.text
+    team, token = lr.json()["session_id"], lr.json()["player_token"]
+    assert client.post("/api/simulations/change-password",
+                       json={"player_id": pid, "old_password": pw, "new_password": "hist-pass-1"}).status_code == 200
+    H = {"Authorization": f"Bearer {token}"}
+    from router import _commit_timestamps
+    bus = client.get(f"/api/simulations/{team}/dashboard", headers=H).json()["business_units"]
+    for rnd in (1, 2, 3):
+        _commit_timestamps.pop(team, None)
+        r = client.post(f"/api/simulations/{team}/commit-turn", headers=H, json={
+            "decisions": [{"bu_id": b["bu_id"], "capex_allocated": 1, "choice_selected": "option_b"} for b in bus],
+            "expected_round": rnd})
+        assert r.status_code == 201, r.text
+        bus = r.json()["business_units"]
+
+    full = client.get(f"/api/simulations/{team}/dashboard", headers=H)
+    assert full.status_code == 200 and full.headers.get("content-encoding") == "gzip"
+    body = full.json()
+    assert body["current_round"] == 4
+    assert [h["round_number"] for h in body["history"]] == [1, 2, 3, 4]
+    for h in body["history"]:
+        assert len(h["business_units"]) == len(bus)
+        assert "_prev_global_states" not in h["global_state"]["active_event_flags"]
+    # decisions were joined to their rounds (the batched decision query). The
+    # value is the CANONICAL option after de-shuffling, so only its shape is pinned.
+    for h in body["history"][:3]:
+        assert h["choice_selected"] in ("option_a", "option_b", "option_c"), h["choice_selected"]
+    part = client.get(f"/api/simulations/{team}/dashboard?since_round=3", headers=H).json()
+    assert [h["round_number"] for h in part["history"]] == [3, 4]
+    assert part["global_state"]["corporate_treasury"] == body["global_state"]["corporate_treasury"]
+
+    import asyncio
+    import database as db
+
+    async def check():
+        pool = await db.get_pool()
+        try:
+            latest = await db.fetch_latest_rounds([team, cohort])
+            hist = await db.fetch_round_history(team, since_round=4)
+            return latest, hist
+        finally:
+            await pool.close()
+
+    saved_pool = db._pool
+    db._pool = None
+    try:
+        latest, hist = asyncio.new_event_loop().run_until_complete(check())
+    finally:
+        db._pool = saved_pool
+    assert latest.get(team) == 4
+    assert [h["round_number"] for h in hist] == [4]
+
+
+def test_player_ids_are_unique_across_cohorts_on_postgres(client, cohort, monkeypatch):
+    """F-40 on the production store: the platform-wide check is a JSONB query
+    over sessions.metadata — pin it against real Postgres."""
+    import random
+    import admin_router
+    import database as db
+    gm = _god_cookies(client)
+    other = client.post("/api/simulations/start",
+                        json={"cohort_name": f"PGUniq-{os.urandom(3).hex()}", "facilitator_id": "god_mode"},
+                        cookies=gm).json()["session_id"]
+    g = client.post(f"/api/admin/{cohort}/generate-player", json={"player_name": "A1"}, cookies=gm)
+    assert g.status_code == 200, g.text
+    taken = g.json()["player_id"]
+    letters = list(taken.split("-", 1)[1])
+    draws = iter([letters] * 4)
+    real_choices = random.choices
+
+    def rigged(population, k=4, **kw):
+        try:
+            return next(draws)
+        except StopIteration:
+            return real_choices(population, k=k, **kw)
+    monkeypatch.setattr(random, "choices", rigged)
+    g2 = client.post(f"/api/admin/{other}/generate-player", json={"player_name": "B1"}, cookies=gm)
+    assert g2.status_code == 200, g2.text
+    assert g2.json()["player_id"] != taken
+
+    # sequential path after a simulated redeploy
+    r1 = client.post("/api/admin/players/induct",
+                     json={"session_id": cohort, "name": "Seq1", "email": "", "programme": "", "assigned_bu": ""},
+                     cookies=gm)
+    assert r1.status_code == 200, r1.text
+    admin_router._next_player_id = 1
+    admin_router._next_player_id_seeded = False
+    r2 = client.post("/api/admin/players/induct",
+                     json={"session_id": other, "name": "Seq2", "email": "", "programme": "", "assigned_bu": ""},
+                     cookies=gm)
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["player_id"] != r1.json()["player_id"]
+
+    import asyncio
+
+    async def check():
+        pool = await db.get_pool()
+        try:
+            return (await db.player_id_in_use(taken),
+                    await db.player_id_in_use(r1.json()["player_id"]),
+                    await db.player_id_in_use("MUR-NOPE"))
+        finally:
+            await pool.close()
+
+    saved_pool = db._pool
+    db._pool = None
+    try:
+        a, b, c = asyncio.new_event_loop().run_until_complete(check())
+    finally:
+        db._pool = saved_pool
+    assert (a, b, c) == (True, True, False)

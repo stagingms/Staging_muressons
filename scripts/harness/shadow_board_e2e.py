@@ -8,7 +8,15 @@ Tests:
 4. Submit a rejection (POST endpoint)
 5. Verify archetype is stored in active_event_flags
 6. Verify leaderboard returns shadow_board_archetype + shadow_board_rejection
+
+Moved from backend/test_shadow_board_e2e.py (F-38, 2026-09-02). Runs against a
+LIVE server: MURESSONS_API=http://127.0.0.1:8000 python scripts/harness/shadow_board_e2e.py
+(the original never imported `requests` nor defined SIM, so it could not run).
 """
+import os
+import requests
+
+SIM = os.environ.get("MURESSONS_API", "http://127.0.0.1:8000").rstrip("/") + "/api/simulations"
 
 def main():
     import uuid

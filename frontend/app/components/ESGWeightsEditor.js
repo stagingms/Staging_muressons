@@ -2,10 +2,12 @@
 
 /**
  * ESGWeightsEditor — Analytics & Assessment sub-tab on the Facilitator
- * dashboard, open to ALL facilitators (project_admin excluded server-side via
- * require_sim_manager). Tunes the weight each performance signal carries in
- * the five ESG Leadership Profile dimensions. Reads/writes the global rubric
- * via /api/admin/esg-profile-weights; the end-of-game ESG radar applies it.
+ * dashboard. Super Admin only since F-24 (launch audit 2026-09-01): the rubric
+ * is PLATFORM-WIDE (`_god_mode_settings`), so writes are require_super_admin
+ * server-side and the tab is `requiredRole: 'super_admin'` in sidebarConfig.
+ * Tunes the weight each performance signal carries in the five ESG Leadership
+ * Profile dimensions. Reads/writes the global rubric via
+ * /api/admin/esg-profile-weights; the end-of-game ESG radar applies it.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_ESG_WEIGHTS, mergeEsgWeights } from './ESGLeadershipProfile';

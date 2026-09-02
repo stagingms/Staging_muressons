@@ -270,10 +270,10 @@ $$\\text{R7-C Boost: }\\phi_{\\text{syn}} \\mathrel{+}= 0.35 \\quad | \\quad \\t
         abbr: 'M_R',
         keywords: 'regenerative multiple MR truth premium resilience bonus synergy instability discount archetype',
         definition: 'The simulation\'s most important single number: a risk-adjusted valuation modifier that reflects what ESG-informed institutional investors apply to EBITDA when pricing a company\'s exit multiple. It rewards regenerative strategies and penalises extractive or high-instability management.',
-        logic: 'Built from four independent conditions: +0.30 Synergy (R7-C synergy_unlock flag), +0.20 Resilience (no R5-C/R8-B bailouts), +0.15 Truth Premium (R6-B ethical_ai_overhaul), -0.40 Instability Discount (avg SLO < 75). Maximum M_R = 1.65 (Regenerative Titan). Minimum in practice = 0.6 (Stranded Relic).',
-        formula: `$$M_R = 1.0 + 0.30\\cdot\\mathbb{1}[\\text{synergy}] + 0.20\\cdot\\mathbb{1}[\\neg\\text{bailout}] + 0.15\\cdot\\mathbb{1}[\\text{ethical\\_ai}] - 0.40\\cdot\\mathbb{1}[\\overline{\\text{SLO}} < 75]$$
-$$M_R \\in [0.60,\\;1.65]$$`,
-        significance: 'Each M_R component maps to a real-world investor framework: Synergy?Circular Economy premiums, Resilience?TCFD risk reduction, Truth Premium?ESG governance index premium, Instability?activist investor impairment pricing (Danone 2021, Exxon 2021). The M_R swing of 1.05× EBITDA is the most powerful single learning in the simulation.',
+        logic: 'Computed by terminal_valuation.calculate_mr — the single arbiter — from the flags and KPIs the team finishes with. Additive components (ramped, not cliffs): +0.10 Materiality Governance (R2 matrix; +0.05 partial), +0.15 Synergy Strategic Premium (R7-C synergy_unlock AND synergy multiplier ≥ 0.80 — the OPEX saving itself is already in EBITDA), +0.20 Resilience Champion (no R5-C/R8-B bailouts), +0.15 Truth Premium (R6-B ethical_ai_overhaul), +0.18 Community Champion and +0.12 Just Transition (scaled by HR-investment rounds), +0.10 Workforce Excellence (readiness), +0.05 Wellbeing (low burnout); −0.20 Planet Expendable; the BRSR ESG Alpha Dividend where that track ran; and −0.40 × shortfall Instability Discount (average SLO below 75, ramped). Ending-pathway bonuses add on top. Clamped to [0.0, 2.05]; the default-pathway maximum is 1.93 (2.02 with Just-Transition scaling).',
+        formula: `$$M_R = 1.0 + \\Delta_{\\text{materiality}} + \\Delta_{\\text{synergy}} + \\Delta_{\\text{resilience}} + \\Delta_{\\text{truth}} + \\Delta_{\\text{community}} + \\Delta_{\\text{just\\_transition}} + \\Delta_{\\text{workforce}} + \\Delta_{\\text{wellbeing}} - \\Delta_{\\text{planet}} - 0.40\\cdot\\frac{\\max(0,\\,75-\\overline{\\text{SLO}})}{75}$$
+$$M_R \\in [0.0,\\;2.05],\\quad M_R^{\\max}_{\\text{default pathway}} = 1.93$$`,
+        significance: 'Each M_R component maps to a real-world investor framework: Synergy→Circular Economy premiums, Resilience→TCFD risk reduction, Truth Premium→ESG governance index premium, Instability→activist investor impairment pricing (Danone 2021, Exxon 2021). Terminal value = max(0, EBITDA) + Green Fund, × the WACC-linked exit multiple, × M_R, × M_SDG — so M_R is the largest single lever a team controls at exit.',
       },
       {
         id: 'flags',
@@ -281,10 +281,10 @@ $$M_R \\in [0.60,\\;1.65]$$`,
         abbr: 'Flags',
         keywords: 'flag dependency electronics blindspot contagion cascade path dependence decision tree',
         definition: 'Persistent boolean state variables stored in global_round_states.active_event_flags that encode consequences of past decisions into future round engines. They represent path dependence in strategic management: early choices create structural asymmetries in the decision space of later rounds.',
-        logic: 'Flags are set by _apply_option_flags() and read by _collect_all_flags(). Critical flags: electronics_blindspot (R1-A/C ? doubles R4 crisis), insurance_only/electronics_water_priority (R5-C/R8-B ? blocks M_R +0.20), ethical_ai_overhaul (R6-B ? M_R +0.15), synergy_unlock (R7-C ? M_R +0.30 and enables R10 Option A).',
+        logic: 'Flags are set by _apply_option_flags() and read by _collect_all_flags(). Critical flags: electronics_blindspot (R1-A/C → doubles R4 crisis), insurance_only/electronics_water_priority (R5-C/R8-B → blocks M_R +0.20), ethical_ai_overhaul (R6-B → M_R +0.15), synergy_unlock (R7-C → M_R +0.15 when the synergy multiplier is still ≥ 0.80, and enables R10 Option A).',
         formula: `$$\\text{R1: A/C}\\xrightarrow{\\text{sets}}\\texttt{electronics\\_blindspot}\\xrightarrow{\\text{doubles}}\\sigma_{\\text{crisis,R4}} = 80$$
 $$\\text{R6: B}\\xrightarrow{\\text{sets}}\\texttt{ethical\\_ai\\_overhaul}\\xrightarrow{\\text{unlocks}}\\Delta M_R^{\\text{truth}} = +0.15$$
-$$\\text{R7: C}\\xrightarrow{\\text{sets}}\\texttt{synergy\\_unlock}\\xrightarrow{\\text{unlocks}}\\Delta M_R^{\\text{syn}} = +0.30 \\;\\&\\;\\text{R10 Option A}$$`,
+$$\\text{R7: C}\\xrightarrow{\\text{sets}}\\texttt{synergy\\_unlock}\\xrightarrow{\\text{unlocks}}\\Delta M_R^{\\text{syn}} = +0.15 \\;\\&\\;\\text{R10 Option A}$$`,
         significance: 'Strategy is not a series of isolated decisions but an interconnected system. The flags create switching costs—teams who chose R1-A cannot undo the electronics blindspot by spending more in R2. Governance architecture (audit depth, AI ethics, circular economy commitments) must be embedded early, before crises make them purely reactive and costly.',
       },
       {
@@ -348,11 +348,11 @@ $$\\text{Active iff }\\tau_{\\text{rem}} = 0:\\quad X_{\\text{BU}} \\mathrel{+}=
         name: 'Circular Economy & Industrial Symbiosis',
         abbr: 'Circularity',
         keywords: 'circular economy waste to energy industrial symbiosis Ellen MacArthur Foundation lifecycle redesign',
-        definition: 'An economic model that eliminates waste and pollution by circulating products and materials at their highest value. In R7, the Industrial Symbiosis pathway (Option C: Waste-to-Energy) provides the single highest M_R bonus (+0.30) by converting one BU\'s waste stream into another\'s energy input.',
-        logic: 'Triggered by R7-C decision, which sets the synergy_unlock flag and adds +0.35 to synergy_multiplier. The M_R bonus (+0.30) is evaluated at R10 and requires the synergy_unlock flag to be active. This is the largest individual M_R component and the key gate for the "Resist & Integrate" R10 option.',
+        definition: 'An economic model that eliminates waste and pollution by circulating products and materials at their highest value. In R7, the Industrial Symbiosis pathway (Option C: Waste-to-Energy) provides a +0.15 M_R Strategic Premium (the OPEX saving itself flows through EBITDA) by converting one BU\'s waste stream into another\'s energy input.',
+        logic: 'Triggered by R7-C decision, which sets the synergy_unlock flag and adds +0.35 to synergy_multiplier. The M_R Strategic Premium (+0.15, ramped) is evaluated at R10 and requires BOTH the synergy_unlock flag and a synergy multiplier still ≥ 0.80 — VRIO decay can erode an earned unlock. It is also the gate for the "Resist & Integrate" R10 option.',
         formula: `$$\\text{R7-C: }\\phi_{\\text{syn}} \\mathrel{+}= 0.35, \\quad \\text{Flag: synergy\\_unlock} = \\text{True}$$
-$$\\text{M_R Component: }\\Delta M_R^{\\text{syn}} = +0.30 \\text{ iff synergy\\_unlock AND }\\phi_{\\text{syn}} \\times 100 > 80$$`,
-        significance: 'Ref: Ellen MacArthur Foundation (2013). "Towards the Circular Economy." McDonough, W. & Braungart, M. (2002). "Cradle to Cradle." The R7 decision is the simulation\'s most consequential single choice: the synergy boost (+0.35) compounds through VRIO decay, and the M_R bonus (+0.30) is worth approximately $108M in terminal value at median EBITDA.',
+$$\\text{M_R Component: }\\Delta M_R^{\\text{syn}} = +0.15 \\text{ iff synergy\\_unlock AND }\\phi_{\\text{syn}} \\ge 0.80\\;(\\text{ramped})$$`,
+        significance: 'Ref: Ellen MacArthur Foundation (2013). "Towards the Circular Economy." McDonough, W. & Braungart, M. (2002). "Cradle to Cradle." The R7 decision is the simulation\'s most consequential single choice: the synergy boost (+0.35) compounds through VRIO decay, and the M_R premium (+0.15) is worth roughly 15% of terminal value on top of the OPEX savings already in EBITDA.',
       },
       {
         id: 'justtrans',

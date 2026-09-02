@@ -274,17 +274,20 @@ export default function RoundBriefing({
   const showValuation = roundNumber > 5 && globalState;
   let valuationEstimate = null;
   if (showValuation && globalState) {
-    const treasury = globalState.corporate_treasury || 0;
-    const synergy = globalState.synergy_multiplier || 1.0;
-    const rep = globalState.group_reputation || 50;
-    const ebitda = Math.abs(globalState.historical_ebitda || 0);
-    // Use EBITDA-based valuation: ebitda × exit_multiple × M_R_proxy
-    // M_R proxy = synergy × (rep / 60) × reputation premium
-    const mrProxy = Math.max(0.4, synergy * (rep / 60));
-    const exitMultiple = 12.0; // Matches R10 config
-    // If EBITDA is available, use it; otherwise fall back to treasury-based
-    const baseEbitda = ebitda > 0 ? ebitda : Math.max(treasury * 0.08, 2_000_000);
-    const terminalValue = baseEbitda * exitMultiple * mrProxy;
+    // F-17: the backend stamps valuation_preview every round — the same Gordon
+    // exit multiple and calculate_mr projection the finale uses. The old local
+    // heuristic (12× fixed, M_R ≈ synergy × reputation/60) disagreed with the
+    // ticker, the rival benchmark and the R10 result.
+    const preview = globalState.active_event_flags?.valuation_preview || null;
+    let terminalValue;
+    if (preview && Number.isFinite(preview.ev_estimate)) {
+      terminalValue = preview.ev_estimate;
+    } else {
+      const treasury = globalState.corporate_treasury || 0;
+      const ebitda = Math.abs(globalState.historical_ebitda || 0);
+      const baseEbitda = ebitda > 0 ? ebitda : Math.max(treasury * 0.08, 2_000_000);
+      terminalValue = baseEbitda * 17.0 * 1.0;   // healthy-WACC multiple, neutral M_R
+    }
     const low = Math.round(atRate(Math.max(terminalValue * 0.75, 0)) / 1_000_000);
     const high = Math.round(atRate(Math.max(terminalValue * 1.30, 0)) / 1_000_000);
     valuationEstimate = { low, high };

@@ -1,24 +1,28 @@
 """
 SEC-3 regression tests -- get_dashboard and commit-turn must bind the caller to
-the session (via the X-Player-Id header, consistent with save_decisions and the
-other player routes), so a party holding only the session UUID cannot read or
-advance another team's game.
+the session, so a party holding only the session UUID cannot read or advance
+another team's game.
+
+F-22 (launch audit 2026-09-01): the player credential is the signed bearer
+token minted at login (conftest.player_token_headers mints one directly for
+store-built sessions). The X-Player-Id header is display-only and no longer
+identifies anyone: a request that carries it without a token gets 401
+player_token_required.
 
 Behaviour contract (audit #9 tightened SEC-3):
-  * Correct X-Player-Id      -> allowed (200 / not blocked by the ownership gate).
-  * Wrong X-Player-Id         -> 403 "Player is not the owner of this session."
-  * No X-Player-Id, OWNED     -> 403 unless the caller is an authenticated
-                                facilitator/observer (JWT cookie). Anonymous
-                                UUID-only callers can no longer bypass ownership.
-  * No X-Player-Id, facilitator JWT -> allowed (observer console).
+  * Correct player token      -> allowed (200 / not blocked by the ownership gate).
+  * Token for another session -> 403 "Player is not the owner of this session."
+  * Bare X-Player-Id, no token-> 401 player_token_required.
+  * No credential, OWNED      -> 403 unless the caller is an authenticated
+                                facilitator who owns/observes the cohort.
+  * Facilitator JWT           -> allowed (observer console).
   * Unowned (solo) session    -> allowed with no header (UUID is the bearer).
 """
-
-import asyncio
 
 from fastapi.testclient import TestClient
 
 from main import app
+from conftest import player_token_headers
 
 client = TestClient(app)
 
@@ -36,43 +40,53 @@ def _facilitator_cookies():
     return resp.cookies
 
 
-def _run(coro):
-    """Run a coroutine on a dedicated loop (the global loop may be closed by
-    other async tests in the suite)."""
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
 def _new_player_session():
-    """Create a cohort, register one allowed player, join -> (pid, sub_session_id)."""
-    import database as db
+    """Create a cohort, register one allowed player, join -> (pid, sub_session_id).
 
+    The roster entry is minted over HTTP rather than by awaiting the db module
+    on a private event loop: under Postgres the asyncpg pool belongs to the
+    TestClient's loop, so the old direct call failed with "another operation
+    is in progress" and this file could never run in the PG parity job."""
+    gm = _facilitator_cookies()
     cohort = client.post(
-        "/api/simulations/start", json={"cohort_name": "SEC3-Test"},
-        cookies=_facilitator_cookies(),
+        "/api/simulations/start", json={"cohort_name": "SEC3-Test"}, cookies=gm,
     ).json()["session_id"]
-    pid = _run(db.generate_player_id(cohort))
-    sub = client.post(
+    gen = client.post(f"/api/admin/{cohort}/generate-player", json={"player_name": "Owner"}, cookies=gm)
+    assert gen.status_code in (200, 201), gen.text
+    pid = gen.json()["player_id"]
+    pw = gen.json().get("password") or gen.json().get("plaintext_password") or gen.json().get("temp_password") or ""
+    joined = client.post(
         f"/api/simulations/public/sessions/{cohort}/join",
-        json={"player_id": pid, "password": "", "player_name": "Owner"},
-    ).json()["session_id"]
-    return pid, sub
+        json={"player_id": pid, "password": pw, "player_name": "Owner"},
+    )
+    assert joined.status_code == 200, joined.text
+    return pid, joined.json()["session_id"]
 
 
 def test_dashboard_correct_owner_allowed():
     pid, sub = _new_player_session()
-    r = client.get(f"/api/simulations/{sub}/dashboard", headers={"X-Player-Id": pid})
+    client.cookies.clear()
+    r = client.get(f"/api/simulations/{sub}/dashboard", headers=player_token_headers(sub, pid))
     assert r.status_code == 200
 
 
 def test_dashboard_wrong_owner_forbidden():
+    """A valid token scoped to ANOTHER session is refused."""
     pid, sub = _new_player_session()
-    r = client.get(f"/api/simulations/{sub}/dashboard", headers={"X-Player-Id": "MUR-EVIL"})
+    client.cookies.clear()
+    r = client.get(f"/api/simulations/{sub}/dashboard",
+                   headers=player_token_headers("00000000-0000-0000-0000-000000000000", "MUR-EVIL"))
     assert r.status_code == 403
     assert OWNERSHIP_DENIED in r.json().get("detail", "").lower()
+
+
+def test_dashboard_bare_header_without_token_is_401():
+    """F-22: the header alone (what a forger could send) no longer identifies anyone."""
+    pid, sub = _new_player_session()
+    client.cookies.clear()
+    r = client.get(f"/api/simulations/{sub}/dashboard", headers={"X-Player-Id": pid})
+    assert r.status_code == 401
+    assert r.json()["detail"]["code"] == "player_token_required"
 
 
 def test_dashboard_no_header_owned_session_rejected():
@@ -85,7 +99,7 @@ def test_dashboard_no_header_owned_session_rejected():
     client.cookies.clear()
     r = client.get(f"/api/simulations/{sub}/dashboard")
     assert r.status_code == 403
-    assert "x-player-id" in r.json().get("detail", "").lower()
+    assert "credential" in r.json().get("detail", "").lower()
 
 
 def test_dashboard_no_header_facilitator_allowed():
@@ -109,9 +123,10 @@ def test_dashboard_solo_session_no_header_allowed():
 
 def test_commit_wrong_owner_forbidden():
     pid, sub = _new_player_session()
+    client.cookies.clear()
     payload = {"dividends_paid": 0, "decisions": []}
     r = client.post(f"/api/simulations/{sub}/commit-turn", json=payload,
-                    headers={"X-Player-Id": "MUR-EVIL"})
+                    headers=player_token_headers("00000000-0000-0000-0000-000000000000", "MUR-EVIL"))
     assert r.status_code == 403
     assert OWNERSHIP_DENIED in r.json().get("detail", "").lower()
 

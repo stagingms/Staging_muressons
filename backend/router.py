@@ -18,13 +18,14 @@ import os as _os
 import database as db
 import materiality_db as mat_db
 from engine import process_tick
-from round_logic import pre_tick, post_tick, run_new_engines
+from round_logic import pre_tick, post_tick, run_new_engines, base_crisis_severity_for_round
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
-from config import MASTER_PASSWORD, CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR
+from config import MASTER_PASSWORD, CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR, DEFAULT_IMITATION_DECAY_RATE
 from master_credentials import verify_master_password, verify_player_master_password
-from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions, require_facilitator, _check_rate_limit
+from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions, require_facilitator, _check_rate_limit, _assert_player_or_facilitator_can_view
 from password_hashing import verify_password as _verify_pw, hash_password as _hash_pw, maybe_upgrade_password as _maybe_upgrade_pw
+from password_hashing import verify_password_async as _verify_pw_async, hash_password_async as _hash_pw_async, maybe_upgrade_password_async as _maybe_upgrade_pw_async  # F-30
 from admin_resources import check_hidden_resource_triggers
 from admin_shared import check_and_increment_cohort_count, is_practice_mode, _session_journey_responses
 from option_shuffle import shuffle_options_for_display, deshuffle_choice, strip_canonical_metadata
@@ -152,6 +153,8 @@ async def rebuild_session_players(force: bool = False) -> int:
         return 0
     _roster_rebuild_last = now
     try:
+        # A whole-platform scan is legitimate HERE: this rebuilds the roster map
+        # for every cohort after a restart, throttled to once per 30 s.
         sessions = await db.fetch_all_sessions_raw()
     except Exception as exc:
         _log.warning(f"[ROSTER-REBUILD] fetch_all_sessions_raw failed: {exc}")
@@ -176,6 +179,10 @@ async def rebuild_session_players(force: bool = False) -> int:
     return restored
 
 
+# F-19: per-process tally of engine-module failures (exposed by /api/health so
+# a monitor can alarm on a run where analytics silently stopped updating).
+_ENGINE_FAILURE_COUNTER: dict = {"total": 0, "last": None}
+
 # ── ITEM 4: Per-session commit rate limiter ──
 _commit_timestamps = {}
 
@@ -190,6 +197,76 @@ def _get_commit_lock(session_id: str) -> _asyncio.Lock:
     if session_id not in _commit_locks:
         _commit_locks[session_id] = _asyncio.Lock()
     return _commit_locks[session_id]
+
+
+# F-28 (launch audit 2026-09-01): both maps grew for the life of the process —
+# one entry per session that ever committed, never removed. A cooldown stamp
+# is meaningless after 5 s and an idle lock after an hour, so prune them
+# opportunistically (at most once a minute, on a commit).
+_COMMIT_MAP_PRUNE_INTERVAL_S = 60.0
+_COMMIT_MAP_IDLE_S = 3600.0
+_commit_maps_last_prune = 0.0
+
+
+def _prune_commit_maps(now: float) -> None:
+    global _commit_maps_last_prune
+    if now - _commit_maps_last_prune < _COMMIT_MAP_PRUNE_INTERVAL_S:
+        return
+    _commit_maps_last_prune = now
+    stale = [sid for sid, ts in _commit_timestamps.items() if now - ts > _COMMIT_MAP_IDLE_S]
+    for sid in stale:
+        _commit_timestamps.pop(sid, None)
+        lock = _commit_locks.get(sid)
+        if lock is not None and not lock.locked():
+            _commit_locks.pop(sid, None)
+
+
+# ── F-26 (launch audit 2026-09-01): process-wide commit gate ──────────────
+# The per-session lock above serialises commits for ONE team. Nothing bounded
+# how many DIFFERENT teams could be mid-commit at once, and each of those holds
+# a pooled connection (advisory lock) while its queries take a second one. At
+# DB_MAX_CONNECTIONS concurrent commits the pool is fully held by advisory
+# connections and every commit waits for a second connection nobody can free:
+# on real Postgres 40 simultaneous R1 commits produced 0 successes. See
+# config.COMMIT_MAX_IN_FLIGHT for the sizing rule.
+#
+# One semaphore per event loop: asyncio primitives bind to the loop that first
+# makes them wait, and the test-suite's module-level TestClients run each
+# request on a fresh loop.
+_commit_gates: dict[int, _asyncio.Semaphore] = {}
+
+
+def _commit_gate() -> _asyncio.Semaphore:
+    from config import COMMIT_MAX_IN_FLIGHT
+    loop = _asyncio.get_running_loop()
+    gate = _commit_gates.get(id(loop))
+    if gate is None:
+        gate = _asyncio.Semaphore(COMMIT_MAX_IN_FLIGHT)
+        # keep the map from growing with dead loops (tests create thousands)
+        if len(_commit_gates) > 64:
+            _commit_gates.clear()
+        _commit_gates[id(loop)] = gate
+    return gate
+
+
+async def _enter_commit_gate() -> _asyncio.Semaphore:
+    """Wait for a commit slot; 503 (retryable) if the queue is deeper than the
+    configured patience. Returns the gate so the caller can release it."""
+    from config import COMMIT_QUEUE_TIMEOUT_SECONDS
+    gate = _commit_gate()
+    try:
+        await _asyncio.wait_for(gate.acquire(), timeout=COMMIT_QUEUE_TIMEOUT_SECONDS)
+    except _asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "commit_queue_full",
+                "message": "The server is processing a burst of commits. Your decisions "
+                           "were not lost — please submit again in a moment.",
+            },
+            headers={"Retry-After": "5"},
+        )
+    return gate
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -230,20 +307,21 @@ def driver_id_for_view_code(view_code: str) -> str:
 
 
 async def _assert_player_owns_session(request: Request, session_id: str, allow_observer: bool = False) -> None:
-    """Bind the caller to the session it is acting on (SEC-3 / audit #9).
+    """Bind the caller to the session it is acting on (SEC-3 / audit #9 / F-22).
 
     Rules:
       • Session has NO owner (solo / self-paced, player_id unset) → allowed. The
         high-entropy session UUID is the bearer; there is no other player to
         protect against.
-      • X-Player-Id present → must equal the session owner, else 403.
-      • X-Player-Id ABSENT on an OWNED session → allowed ONLY for an
-        authenticated facilitator/observer (valid JWT cookie). An anonymous
-        caller that holds only the session UUID (leaked via URL, screen-share,
-        logs) is now rejected — audit #9 closes the previous
-        "omit the header to bypass ownership" gap. The frontend always attaches
-        X-Player-Id for real players (useSimulation.playerIdHeader), so live
-        cohort play is unaffected.
+      • A valid PLAYER TOKEN (Authorization: Bearer … or X-Player-Token, minted
+        at /player-login) is the player credential. It must be scoped to THIS
+        session; an observer token is admitted only where allow_observer=True.
+      • A valid facilitator JWT cookie (console / observer) is admitted.
+      • Anything else is refused. In particular a bare X-Player-Id header no
+        longer identifies anyone (F-22, launch audit 2026-09-01): it was a
+        plain, forgeable string, so whoever learned a team's session UUID and
+        player id could read AND commit for that team. Such requests get a
+        401 with code "player_token_required" so the client can re-login.
     """
     sess = await db.get_session_info(session_id)
     if not sess:
@@ -252,50 +330,103 @@ async def _assert_player_owns_session(request: Request, session_id: str, allow_o
     if not session_owner:
         return  # Unowned (solo) session — nothing to bind against.
 
-    player_id_header = request.headers.get("X-Player-Id", "").strip()
-    if player_id_header:
-        if session_owner == player_id_header:
-            return  # Correct owner (the team's driver).
-        # TEAM-1: a team observer presents the shared view code, which resolves
-        # to this session's driver. Only routes that opted in are readable;
-        # everything else — every mutation — refuses. Fail-closed by default.
-        if _is_view_code(player_id_header) and driver_id_for_view_code(player_id_header) == (session_owner or "").upper():
-            if allow_observer:
-                return
+    # 1. Player token (the credential) scoped to THIS session.
+    try:
+        from auth_jwt import get_player_from_request, get_facilitator_from_request
+        tok = get_player_from_request(request)
+        fac_id = get_facilitator_from_request(request)
+    except Exception:
+        tok, fac_id = None, None
+    if tok and tok.get("session_id") == str(session_id):
+        if tok.get("observer") and not allow_observer:
+            # TEAM-1: observers may only read routes that opted in; every
+            # mutation refuses. Fail-closed by default.
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are signed in as a team observer. Only your team's driver can change or commit decisions.",
             )
+        # F-22: a driver still on the id-derived initial password may READ
+        # (the cockpit needs the board to render the forced change-password
+        # modal) but may not play until the password is personal.
+        if not tok.get("observer") and request.method.upper() not in ("GET", "HEAD", "OPTIONS") \
+                and await _player_must_change_password(tok.get("player_id", ""), sess):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "password_change_required",
+                    "message": "Set a personal password before playing — the initial one is only for signing in.",
+                },
+            )
+        return
+
+    # 2. Authenticated facilitator (console / observer) — no player token needed,
+    #    but ONLY for a cohort they own / observe (F-21): any facilitator cookie
+    #    used to be admitted, so a facilitator could read and commit for a team
+    #    in someone else's cohort through the player routes. Checked before a
+    #    mismatched player token so a facilitator whose browser still holds a
+    #    player token from an earlier sign-in is not locked out of the console.
+    if fac_id:
+        from admin_router import _assert_session_visible, _assert_session_ownership
+        if request.method.upper() in ("GET", "HEAD", "OPTIONS"):
+            await _assert_session_visible(request, session_id)
+        else:
+            await _assert_session_ownership(request, session_id)
+        return
+
+    if tok:
+        # Valid token, wrong session.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Player is not the owner of this session.",
         )
 
-    # No X-Player-Id on an owned session: allow only an authenticated facilitator
-    # (observer/console), reject anonymous UUID-only callers.
-    try:
-        from auth_jwt import get_facilitator_from_request
-        if get_facilitator_from_request(request):
-            return
-    except Exception:
-        pass
+    # 3. Legacy header-only client, or anonymous UUID-only caller.
+    player_id_header = request.headers.get("X-Player-Id", "").strip()
+    if player_id_header:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "code": "player_token_required",
+                "message": "Your sign-in has expired or this client is out of date. Please sign in again.",
+            },
+        )
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Missing X-Player-Id: this session belongs to a registered player.",
+        detail="Missing player credential: this session belongs to a registered player.",
     )
 
-async def _cohort_commit_progress(session_info):
-    """MP-01 live badge: "X of Y teams committed the latest round" for a cohort
-    sub-session. Returns (committed_count, team_count), or (None, None) for solo /
-    non-cohort / before siblings are registered.
 
-    'committed' = teams whose latest round equals the furthest round ANY team in
-    the cohort has reached, so every team sees the same tally and it ticks up as
-    teams catch up (then resets when the first team advances again). Uses the cheap
-    fetch_latest_round helper; the cohort is capped at 5 players."""
-    parent = (session_info or {}).get("parent_cohort_id")
-    if not parent:
-        return None, None
+async def _player_must_change_password(player_id: str, sess: dict | None) -> bool:
+    """True while the player's live credential is still the id-derived default.
+    Reads the in-process registry first, then the cohort roster (durable in
+    both stores) so a fresh worker gives the same answer."""
+    if not player_id:
+        return False
+    try:
+        from admin_shared import _player_registry
+        rec = next((p for p in _player_registry if p.get("player_id") == player_id), None)
+        if rec is not None:
+            return bool(rec.get("must_change_password", False))
+    except Exception:
+        pass
+    parent = (sess or {}).get("parent_cohort_id")
+    roster_holder = sess or {}
+    if parent:
+        try:
+            roster_holder = (await db.get_session_info(parent)) or {}
+        except Exception:
+            roster_holder = {}
+    for rp in (roster_holder.get("registered_players") or []):
+        if rp.get("player_id") == player_id:
+            return bool(rp.get("must_change_password", False))
+    return False
+
+
+async def _cohort_sibling_rounds(parent: str) -> tuple[list[dict], list[int]]:
+    """F-27: the latest round of every team in a cohort, in ONE store call.
+    Returns (siblings, rounds). Both the commit badge and the free-advance
+    status need this; the dashboard poll computes it once and hands it to both
+    (they used to each issue one query per sibling)."""
     siblings = _session_players.get(parent, [])
     if not siblings:
         # RB-1 lazy self-heal: after a restart the roster map is empty even
@@ -304,15 +435,37 @@ async def _cohort_commit_progress(session_info):
         await rebuild_session_players()
         siblings = _session_players.get(parent, [])
     if not siblings:
-        return None, None
-    rounds = []
-    for s in siblings:
-        sid = s.get("player_session_id")
-        if sid:
+        return [], []
+    sids = [s.get("player_session_id") for s in siblings if s.get("player_session_id")]
+    _batched = getattr(db, "fetch_latest_rounds", None)
+    if _batched is not None:
+        latest = await _batched(sids)
+        rounds = [latest[sid] for sid in sids if sid in latest]
+    else:  # pragma: no cover — store without the batched helper
+        rounds = []
+        for sid in sids:
             r = await db.fetch_latest_round(sid)
             if r is not None:
                 rounds.append(r)
-    if not rounds:
+    return siblings, rounds
+
+
+async def _cohort_commit_progress(session_info, rounds: list[int] | None = None,
+                                  siblings: list[dict] | None = None):
+    """MP-01 live badge: "X of Y teams committed the latest round" for a cohort
+    sub-session. Returns (committed_count, team_count), or (None, None) for solo /
+    non-cohort / before siblings are registered.
+
+    'committed' = teams whose latest round equals the furthest round ANY team in
+    the cohort has reached, so every team sees the same tally and it ticks up as
+    teams catch up (then resets when the first team advances again). The
+    sibling rounds may be passed in by a caller that already fetched them."""
+    parent = (session_info or {}).get("parent_cohort_id")
+    if not parent:
+        return None, None
+    if rounds is None or siblings is None:
+        siblings, rounds = await _cohort_sibling_rounds(parent)
+    if not siblings or not rounds:
         return None, None
     target = max(rounds)
     committed = sum(1 for r in rounds if r >= target)
@@ -341,7 +494,9 @@ async def _run_commit_locked(session_id: str, body):
         return None
     await commit_lock.acquire()
     advisory = None
+    gate = None
     try:
+        gate = await _enter_commit_gate()  # F-26: bound in-flight commits per worker
         advisory = await db.acquire_advisory_lock(session_id)
         if advisory is None:
             return None
@@ -349,17 +504,37 @@ async def _run_commit_locked(session_id: str, body):
     finally:
         if advisory is not None:
             await db.release_advisory_lock(advisory, session_id)
+        if gate is not None:
+            gate.release()
         if commit_lock.locked():
             commit_lock.release()
 
 
-def _auto_commit_request(global_state: dict, bu_states: list, round_number: int):
+def _auto_commit_request(global_state: dict, bu_states: list, round_number: int,
+                         shuffle_seed=None, paradigm: str = "legacy_abc"):
     """Build a CommitTurnRequest from a team's SAVED decisions (a near-no-op
     roll-forward when nothing was saved). The engine recomputes investment_ratio
-    from capex/csf_pool, so we only need a valid capex (>= $1) per BU."""
+    from capex/csf_pool, so we only need a valid capex (>= $1) per BU.
+
+    F-33 (launch audit 2026-09-01): the request is fed through the same commit
+    path as a real player submission, which DESHUFFLES `choice_selected` as a
+    displayed key. A saved draft IS a displayed key, so that is right for it —
+    but the literal default "option_b" is a CANONICAL key, and deshuffling it
+    handed the straggler whichever canonical option sat in display slot B that
+    round (a random option), while the disclosure told the student "Option B".
+    The default is now expressed in the session's display space, so it always
+    deshuffles back to canonical option_b."""
     from models import CommitTurnRequest, BUDecision
     saved = (global_state or {}).get("saved_allocations") or {}
-    choice = (global_state or {}).get("saved_decision_choice") or "option_b"
+    choice = (global_state or {}).get("saved_decision_choice")
+    if not choice:
+        choice = "option_b"
+        if shuffle_seed is not None and paradigm == "legacy_abc":
+            try:
+                from option_shuffle import get_shuffle_mapping
+                choice = get_shuffle_mapping(shuffle_seed, round_number)["canonical_to_display"].get("option_b", "option_b")
+            except Exception:
+                choice = "option_b"
     treasury = (global_state or {}).get("corporate_treasury", 0) or 0
     csf_pool = max(treasury * 0.20, 5_000_000)
     decisions = []
@@ -378,10 +553,7 @@ def _auto_commit_request(global_state: dict, bu_states: list, round_number: int)
             # answered" case — recording 'majority' here was the fiction.
             team_consensus="not_recorded", pillar_decisions=None,
         ))
-    return CommitTurnRequest(
-        dividends_paid=0.0, crisis_severity=0.0, imitation_decay_rate=0.05,
-        decisions=decisions, emergency_credit_used=False,
-    )
+    return CommitTurnRequest(dividends_paid=0.0, decisions=decisions)  # engine params are server-derived (F-07)
 
 
 async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int:
@@ -412,7 +584,10 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
             # disclosure below can tell the player exactly what was submitted.
             _gs = state.get("global_state") or {}
             had_draft = bool(_gs.get("saved_allocations") or _gs.get("saved_decision_choice"))
-            body = _auto_commit_request(state["global_state"], state["bu_states"], latest)
+            _sinfo = await db.get_session_info(sid) or {}
+            body = _auto_commit_request(state["global_state"], state["bu_states"], latest,
+                                        shuffle_seed=_sinfo.get("shuffle_seed"),
+                                        paradigm=_sinfo.get("decision_paradigm", "legacy_abc"))
             if await _run_commit_locked(sid, body) is not None:
                 advanced += 1
                 # AC-1: stamp a persistent disclosure onto the new round's flags.
@@ -438,30 +613,29 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
     return advanced
 
 
-async def _cohort_advance_status(session_info, committed=None, teams=None):
+async def _cohort_advance_status(session_info, committed=None, teams=None,
+                                 rounds: list[int] | None = None):
     """Compute the free-advance barrier state for a cohort sub-session and
     ENFORCE the deadline (auto-commit stragglers once it lapses or a force flag
     is set). Returns {deadline_at, unblocked, committed} or None for
     solo/non-cohort. Safe to call on every dashboard read: it only writes when a
-    positive timeout has actually lapsed (or Force Advance was pressed)."""
+    positive timeout has actually lapsed (or Force Advance was pressed).
+    `rounds` (the siblings' latest rounds) may be supplied by a caller that
+    already fetched them (F-27)."""
     from datetime import datetime, timezone, timedelta
     from admin_shared import _get_pacing
     parent = (session_info or {}).get("parent_cohort_id")
     if not parent:
         return None
-    if committed is None or teams is None:
-        committed, teams = await _cohort_commit_progress(session_info)
+    if rounds is None:
+        _sibs, rounds = await _cohort_sibling_rounds(parent)
+        if committed is None or teams is None:
+            committed, teams = await _cohort_commit_progress(session_info, rounds=rounds, siblings=_sibs)
+    elif committed is None or teams is None:
+        committed, teams = await _cohort_commit_progress(session_info, rounds=rounds,
+                                                         siblings=_session_players.get(parent, []))
     if teams is None:
         return None
-
-    siblings = _session_players.get(parent, [])
-    rounds = []
-    for s in siblings:
-        sid = s.get("player_session_id")
-        if sid:
-            r = await db.fetch_latest_round(sid)
-            if r is not None:
-                rounds.append(r)
     if not rounds:
         return None
     max_r, min_r = max(rounds), min(rounds)
@@ -546,12 +720,62 @@ class SetUsernameRequest(BaseModel):
     username: str
 
 @router.post("/set-username", summary="Set unique username")
-async def set_username(req: SetUsernameRequest):
+async def set_username(request: Request, req: SetUsernameRequest):
     from admin_shared import (
         _player_registry, _facilitator_registry, _persist_facilitators,
         _virtual_account_profiles, is_virtual_facilitator, set_virtual_username,
     )
     import database_memory
+
+    # F-24 (launch audit 2026-09-01): this was fully unauthenticated — anyone
+    # could rename any player or facilitator and probe which ids exist. A player
+    # may rename only the identity their token carries; a facilitator only their
+    # own account (admins may rename anyone).
+    from auth_jwt import get_player_from_request, get_facilitator_from_request
+    _tok = get_player_from_request(request)
+    _fac_caller = get_facilitator_from_request(request)
+    if req.role == "player":
+        _tok_pid = (_tok or {}).get("player_id", "")
+        _tok_sid = (_tok or {}).get("session_id", "")
+        # (Local alias: `db` is re-imported as a function local further down,
+        # so the module-level name is shadowed and unbound at this point.)
+        import database as _db_su
+        if _tok and (_tok_pid == req.user_id or _tok_sid == req.user_id):
+            pass  # the player renames itself
+        elif _fac_caller:
+            # A facilitator may rename players only in cohorts it can see
+            # (owner / co-facilitator / admin) — not every player on the platform.
+            from admin_router import _assert_session_visible as _asv
+            _target_cohort = None
+            _rec = next((p for p in _player_registry if p.get("player_id") == req.user_id), None)
+            if _rec:
+                _target_cohort = _rec.get("session_id")
+            if not _target_cohort:
+                _sess = await _db_su.get_session_info(req.user_id)
+                if _sess:
+                    _target_cohort = _sess.get("parent_cohort_id") or req.user_id
+                else:
+                    for _sid, _s in database_memory._sessions.items():
+                        if _s.get("player_id") == req.user_id:
+                            _target_cohort = _s.get("parent_cohort_id") or _sid
+                            break
+            if _target_cohort:
+                await _asv(request, _target_cohort)
+        else:
+            # Solo sessions have no owner and no token: the session UUID itself
+            # is the bearer, exactly as on every other solo route.
+            _solo = await _db_su.get_session_info(req.user_id)
+            if not (_solo and not _solo.get("player_id")):
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                    detail={"code": "player_token_required", "message": "Sign in to change your team name."})
+    elif req.role == "facilitator":
+        if not _fac_caller:
+            raise HTTPException(status_code=401, detail="Facilitator authentication required")
+        if _fac_caller != req.user_id and _fac_caller != "god_mode":
+            from admin_shared import get_role as _get_role, is_admin_role as _is_admin
+            _caller_rec = next((f for f in _facilitator_registry if f.get("facilitator_id") == _fac_caller), None)
+            if not (_caller_rec and _is_admin(_get_role(_caller_rec))):
+                raise HTTPException(status_code=403, detail="You can only rename your own account.")
 
     username_lower = req.username.strip().lower()
     if not username_lower:
@@ -673,36 +897,64 @@ async def player_login(request: Request, req: PlayerLoginRequest):
     _as_observer = _is_view_code(_requested_id)
     _lookup_id = driver_id_for_view_code(_requested_id) if _as_observer else _requested_id
 
-    # Find the player in the registry
-    player_record = next(
-        (p for p in _player_registry if p.get("player_id") == _lookup_id),
-        None
-    )
-    
-    if not player_record:
+    # Find the player in the registry. F-40 (launch audit 2026-09-01): ids
+    # issued before the platform-wide uniqueness fix may exist in MORE than one
+    # cohort. Collect every candidate and, when there are several, pick the one
+    # whose password verifies instead of blindly taking the first — otherwise a
+    # team could be signed into another cohort's game, or told its password is
+    # wrong because a stranger's record came first.
+    _candidates = [p for p in _player_registry if p.get("player_id") == _lookup_id]
+
+    if not _candidates:
         import database as db
         for sid, sess in db._sessions.items():
             # Check player's own sub-session
             if sess.get("player_id") == _lookup_id:
-                player_record = {"player_id": _lookup_id, "session_id": sess.get("parent_cohort_id")}
-                break
+                _candidates.append({"player_id": _lookup_id, "session_id": sess.get("parent_cohort_id")})
+                continue
             # Check pre-generated players in registered_players (survives server restart)
+            _found_here = False
             for rp in sess.get("registered_players", []):
                 if rp.get("player_id") == _lookup_id:
-                    player_record = rp
+                    _candidates.append(rp)
+                    _found_here = True
                     # Re-hydrate into _player_registry so future logins are fast
                     from admin_shared import _player_registry as _reg
-                    if not any(p.get("player_id") == _lookup_id for p in _reg):
+                    if not any(p.get("player_id") == _lookup_id and p.get("session_id") == rp.get("session_id") for p in _reg):
                         _reg.append(rp)
                     break
-            if player_record:
-                break
+            if _found_here:
+                continue
             # allowed_player_ids: player was pre-generated via generate-player endpoint.
             # Their actual password is stored in _player_registry (added by generate_player_id).
             # Fall back to an empty stored_pw so the password check below handles it.
             if _lookup_id in sess.get("allowed_player_ids", []):
-                player_record = {"player_id": _lookup_id, "session_id": sid, "password": ""}
-                break
+                _candidates.append({"player_id": _lookup_id, "session_id": sid, "password": ""})
+
+    player_record = _candidates[0] if _candidates else None
+    if len(_candidates) > 1 and not verify_player_master_password(req.password):
+        _verified = []
+        for c in _candidates:
+            if c.get("password") and await _verify_pw_async(req.password, c["password"]):  # F-30: off-loop bcrypt
+                _verified.append(c)
+        if len(_verified) == 1:
+            player_record = _verified[0]
+        elif not _verified:
+            # No candidate matches: fall through to the normal "Incorrect
+            # password" path against the first record (unchanged behaviour).
+            player_record = _candidates[0]
+        else:
+            # Same id AND same (default) password in several cohorts: refusing
+            # is the only safe answer — logging in would be a coin toss between
+            # two teams' games. The facilitator re-issues one of the ids.
+            _log.error(f"[F-40] player id {_lookup_id} is ambiguous across "
+                       f"{len(_verified)} cohorts — refusing login")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "player_id_ambiguous",
+                        "message": "This player id exists in more than one cohort. "
+                                   "Ask your facilitator to issue a fresh id."},
+            )
 
     if not player_record:
         raise HTTPException(
@@ -730,14 +982,14 @@ async def player_login(request: Request, req: PlayerLoginRequest):
                 stored_pw = real_pw
         except Exception:
             pass
-    if stored_pw and not master_ok and not _verify_pw(req.password, stored_pw):
+    if stored_pw and not master_ok and not await _verify_pw_async(req.password, stored_pw):  # F-30
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Incorrect password."
         )
     # Auto-upgrade plaintext player passwords to bcrypt on successful login
     if stored_pw and not master_ok:
-        upgraded = _maybe_upgrade_pw(req.password, stored_pw)
+        upgraded = await _maybe_upgrade_pw_async(req.password, stored_pw)
         if upgraded:
             player_record["password"] = upgraded
 
@@ -760,7 +1012,7 @@ async def player_login(request: Request, req: PlayerLoginRequest):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No observer seat is open for this team. Ask your facilitator for the team's view code.",
             )
-        if _vc_hash and not _verify_pw(req.password, _vc_hash):
+        if _vc_hash and not await _verify_pw_async(req.password, _vc_hash):  # F-30
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect view-code password.")
 
     # Delegate to the existing join logic. Observers join with the DRIVER's id
@@ -788,11 +1040,16 @@ async def player_login(request: Request, req: PlayerLoginRequest):
     # channel no longer treats the raw session_id as a credential. Best-effort:
     # if JWT is unavailable the ticket is "" and the client degrades to polling.
     ws_ticket = ""
+    player_token = ""
     try:
-        from auth_jwt import create_player_ws_ticket
+        from auth_jwt import create_player_ws_ticket, create_player_token
         ws_ticket = create_player_ws_ticket(player_sid, _requested_id)
+        # F-22: the HTTP credential. Observers get a token flagged observer so
+        # every mutating route (and every read that did not opt in) refuses it.
+        player_token = create_player_token(player_sid, _requested_id, observer=_as_observer)
     except Exception:
         ws_ticket = ""
+        player_token = ""
 
     return {
         "status": join_result.get("status", "joined") if isinstance(join_result, dict) else "joined",
@@ -803,6 +1060,9 @@ async def player_login(request: Request, req: PlayerLoginRequest):
         "username": player_record.get("username", ""),
         "current_round": current_round,
         "ws_ticket": ws_ticket,
+        # F-22: signed, session-scoped bearer token; the client sends it as
+        # `Authorization: Bearer …` on every player request.
+        "player_token": player_token,
         # TEAM-1: the client renders a read-only cockpit when this is true. The
         # server does not rely on it — every mutation is refused independently.
         "is_observer": _as_observer,
@@ -831,7 +1091,13 @@ async def _join_session_impl(session_id: str, req: JoinSessionRequest, *,
     player_record = None
     try:
         from admin_shared import _player_registry
-        player_record = next((p for p in _player_registry if p.get("player_id") == req.player_id), None)
+        # F-40: prefer the record that belongs to THIS cohort — a legacy id
+        # colliding across cohorts must not be checked against a stranger's hash.
+        player_record = next((p for p in _player_registry
+                              if p.get("player_id") == req.player_id
+                              and p.get("session_id") == session_id), None)
+        if player_record is None:
+            player_record = next((p for p in _player_registry if p.get("player_id") == req.player_id), None)
         # QA-2026-07-16 #4: after a restart (or on another worker) the per-process
         # _player_registry may be empty, but the bcrypt credential is durable in
         # the cohort session's registered_players metadata. Fall back to it so the
@@ -852,7 +1118,7 @@ async def _join_session_impl(session_id: str, req: JoinSessionRequest, *,
             # a team view code against team_view_password. It cannot come from the
             # wire in any form — see the note on join_session below.
             master_ok = verify_player_master_password(req.password)
-            if not master_ok and not _verify_pw(req.password, player_record["password"]):
+            if not master_ok and not await _verify_pw_async(req.password, player_record["password"]):  # F-30
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password.")
     except ImportError:
         pass  # admin_router not available, skip password check
@@ -882,6 +1148,7 @@ async def _join_session_impl(session_id: str, req: JoinSessionRequest, *,
                 "status": "rejoined",
                 "session_id": p["player_session_id"],
                 "player_count": len(players),
+                "player_token": _mint_player_token(p["player_session_id"], req.player_id, bypass_password),
             }
 
     # ── MEDIUM-tier join-policy enforcement (new joins only — rejoin above is
@@ -1133,7 +1400,17 @@ async def _join_session_impl(session_id: str, req: JoinSessionRequest, *,
         "status": "joined",
         "session_id": player_sid,
         "player_count": len(players),
+        "player_token": _mint_player_token(player_sid, req.player_id, bypass_password),
     }
+
+
+def _mint_player_token(player_sid: str, player_id: str, observer: bool) -> str:
+    """F-22: best-effort token mint for the join paths (empty when JWT is unavailable)."""
+    try:
+        from auth_jwt import create_player_token
+        return create_player_token(player_sid, player_id, observer=bool(observer))
+    except Exception:
+        return ""
 
 
 @router.post("/public/sessions/{session_id}/join", summary="Join an active session")
@@ -1558,11 +1835,12 @@ async def solo_start_simulation(body: SoloStartRequest):
     "/{session_id}/solo-round-configs",
     summary="Get all pre-seeded round configs for a solo session",
 )
-async def get_solo_round_configs(session_id: str):
+async def get_solo_round_configs(session_id: str, request: Request):
     """
     Returns all 10 rounds' option sets pre-seeded at solo session creation.
     Used by the player cockpit to populate DecisionModal without extra fetches.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     import database_memory as _dm
     sess = _dm._sessions.get(session_id)
     if not sess:
@@ -1581,7 +1859,8 @@ async def get_solo_round_configs(session_id: str):
 # ─────────────────────────────────────────────────────────────────
 
 @router.get("/{session_id}/session-info", summary="Get session metadata (currency, preset, paradigm)")
-async def get_session_info(session_id: str):
+async def get_session_info(session_id: str, request: Request):
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     session = await db.get_session_info(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -1780,8 +2059,9 @@ async def export_my_data(session_id: str, request: Request):
     "/{session_id}/final-report",
     summary="Get final game report with terminal valuation",
 )
-async def get_final_report(session_id: str):
+async def get_final_report(session_id: str, request: Request):
     """Aggregated final report: terminal valuation, M_R, archetype, ending pathway."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -1918,20 +2198,17 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
             detail=f"Session {session_id} not found.",
         )
 
-    history_raw = await db.fetch_round_history(session_id)
-
-    # PER-1: optional bound on the history payload. Default (None) returns the
-    # full history unchanged, so existing clients are unaffected; a client that
-    # already holds older rounds can pass ?since_round=N to fetch only rounds
-    # >= N instead of re-receiving the whole game on every poll.
-    if since_round is not None:
-        history_raw = [h for h in history_raw if h.get("round_number", 0) >= since_round]
+    # PER-1 / F-27: optional bound on the history payload. Default (None)
+    # returns the full history, so existing clients are unaffected; the cockpit
+    # poller passes ?since_round=<highest round it holds> and receives only the
+    # newest round(s) — the filter now runs in the store (SQL), not here.
+    history_raw = await db.fetch_round_history(session_id, since_round=since_round)
 
     _choice_by_round = _choices_by_game_round(history_raw)
     history = [
         RoundSnapshot(
             round_number=h["round_number"],
-            global_state=GlobalStateOut(**h["global_state"]),
+            global_state=GlobalStateOut(**_slim_history_global_state(h["global_state"])),
             business_units=[_bu_out(bu) for bu in h["business_units"]],
             choice_selected=_choice_by_round.get(h["round_number"], ""),
         )
@@ -1942,7 +2219,13 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
     # on every read so all teams see it update as others commit (cohort sub-sessions
     # only; solo sessions short-circuit in the helper and pay nothing).
     _si = await db.get_session_info(session_id)
-    _committed, _teams = await _cohort_commit_progress(_si)
+    # F-27: one batched sibling scan feeds both the commit badge and the
+    # free-advance status (was 2 × one query per sibling, on every poll).
+    _sib_rounds = None
+    _sibs = None
+    if (_si or {}).get("parent_cohort_id"):
+        _sibs, _sib_rounds = await _cohort_sibling_rounds(_si["parent_cohort_id"])
+    _committed, _teams = await _cohort_commit_progress(_si, rounds=_sib_rounds, siblings=_sibs)
     if _teams is not None:
         latest["global_state"]["team_commits_this_round"] = _committed
         latest["global_state"]["cohort_team_count"] = _teams
@@ -1951,7 +2234,7 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
         # unless the facilitator set a positive free_advance_timeout_seconds
         # (or pressed Force Advance).
         try:
-            _adv = await _cohort_advance_status(_si, _committed, _teams)
+            _adv = await _cohort_advance_status(_si, _committed, _teams, rounds=_sib_rounds)
             if _adv is not None:
                 latest["global_state"]["cohort_advance_deadline"] = _adv.get("deadline_at")
                 latest["global_state"]["cohort_advance_unblocked"] = _adv.get("unblocked", False)
@@ -1988,10 +2271,38 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
     return DashboardResponse(
         session_id=session_id,
         current_round=latest["round_number"],
-        global_state=GlobalStateOut(**latest["global_state"]),
+        global_state=GlobalStateOut(**_slim_latest_global_state(latest["global_state"])),
         business_units=[_bu_out(bu) for bu in latest["bu_states"]],
         history=history,
     )
+
+
+# F-27: keys of active_event_flags that are engine-internal state, not
+# something the cockpit renders. `_prev_global_states` is the momentum window
+# (a rolling copy of previous global states — ~25 KB by R10) and
+# `consequence_dna_snapshot` (~19 KB) is served by its own endpoint and is
+# read by the Balanced Scorecard from the LATEST state only. Stripping them
+# from the response never touches what is persisted; the store dicts are not
+# mutated (new dicts are built).
+_DASHBOARD_FLAGS_STRIP_ALWAYS = frozenset({"_prev_global_states"})
+_DASHBOARD_FLAGS_STRIP_HISTORY = _DASHBOARD_FLAGS_STRIP_ALWAYS | frozenset({"consequence_dna_snapshot"})
+
+
+def _slim_flags(gs: dict, strip: frozenset) -> dict:
+    flags = gs.get("active_event_flags")
+    if not isinstance(flags, dict) or not any(k in flags for k in strip):
+        return gs
+    out = dict(gs)
+    out["active_event_flags"] = {k: v for k, v in flags.items() if k not in strip}
+    return out
+
+
+def _slim_latest_global_state(gs: dict) -> dict:
+    return _slim_flags(gs, _DASHBOARD_FLAGS_STRIP_ALWAYS)
+
+
+def _slim_history_global_state(gs: dict) -> dict:
+    return _slim_flags(gs, _DASHBOARD_FLAGS_STRIP_HISTORY)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -2036,7 +2347,15 @@ async def commit_turn(session_id: str, body: CommitTurnRequest, request: Request
     # no uq_session_round guard). In single-process / in-memory mode this is a
     # no-op sentinel, so classroom/offline runs are unaffected.
     advisory = None
+    gate = None
     try:
+        # F-26: wait for a commit slot BEFORE taking the advisory connection, so
+        # the number of connections pinned by in-flight commits is bounded and
+        # every admitted commit can always obtain the second connection its
+        # queries need. Excess commits queue in arrival order (503 only after
+        # COMMIT_QUEUE_TIMEOUT_SECONDS); the per-session lock above still makes
+        # a second commit for the SAME team fail fast with 409.
+        gate = await _enter_commit_gate()
         advisory = await db.acquire_advisory_lock(session_id)
         if advisory is None:
             raise HTTPException(
@@ -2067,6 +2386,8 @@ async def commit_turn(session_id: str, body: CommitTurnRequest, request: Request
         # CON-1: always hand the advisory lock / pooled connection back.
         if advisory is not None:
             await db.release_advisory_lock(advisory, session_id)
+        if gate is not None:
+            gate.release()  # F-26
         # FIX-RC-002: Guarantee in-process lock release on ANY exit path.
         # (_commit_turn_impl releases it early on some short-circuits; the
         # locked() guard makes a second release here a harmless no-op.)
@@ -2096,6 +2417,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             detail="Rate limited. Wait 5 seconds between commits.",
         )
     _commit_timestamps[session_id] = now
+    _prune_commit_maps(now)
 
     # ── Emergency Freeze guard ───────────────────────────────
     from admin_shared import _god_mode_settings as _gms
@@ -2150,9 +2472,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # terminal valuation. The normal finale now sets game_over (see the R10
     # persist branch below) and this gate refuses anything after it.
     #
-    # Extended Horizon and the turnaround arc are unaffected: activate_extended_mode
-    # explicitly clears game_over, and the turnaround arc commits through its own
-    # endpoint rather than this one.
+    # The turnaround arc is unaffected: it commits through its own endpoint
+    # rather than this one. (Extended Horizon, which used to clear game_over
+    # here, was removed — F-32.)
     if (current.get("global_state") or {}).get("game_over"):
         if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
@@ -2348,6 +2670,17 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid choice_selected '{choice}'. Must be option_a, option_b, or option_c.",
                 )
+        # F-35 (launch audit 2026-09-01): a submission with NO strategic option
+        # used to be accepted and silently scored as Option B (the R1 ledger
+        # showed a −$3M "Deep Forensic Audit" for a choice of ""). A commit
+        # must say which option the team chose.
+        if not any((d.get("choice_selected") or "").startswith("option_") for d in decisions_raw):
+            if commit_lock.locked(): commit_lock.release()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "choice_required",
+                        "message": "No strategic option was selected. Choose Option A, B or C before committing."},
+            )
 
     # VULN-009: Enforce minimum investment of $1 per BU
     for d in decisions_raw:
@@ -2377,13 +2710,33 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         _ratio = (_capex / _csf_pool) if _csf_pool > 0 else 0.0
         d["investment_ratio"] = max(0.0, min(1.0, _ratio))
 
+    # ── F-07 (launch audit 2026-09-01): engine parameters are SERVER-derived ──
+    # crisis_severity, imitation_decay_rate and emergency_credit_used used to be
+    # read from the player's request body. The model even documented
+    # crisis_severity as "ignored" — it was not (pre_tick only overrode round 4).
+    # A client could send crisis_severity=0 for every crisis round, or
+    # imitation_decay_rate=0 to freeze synergy decay. The body fields are still
+    # accepted for older clients but are ignored (and logged when non-default).
+    _server_crisis = base_crisis_severity_for_round(current_round)
+    _server_decay = DEFAULT_IMITATION_DECAY_RATE
+    # The cockpit's rule for the emergency credit line: the 20% CSF allowance
+    # has fallen below the $5M floor — computed here from the same numbers.
+    _server_emergency = bool((_treasury * CSF_POOL_TREASURY_FRACTION) < CSF_POOL_FLOOR)
+    if (body.crisis_severity not in (0.0, _server_crisis)
+            or abs(body.imitation_decay_rate - _server_decay) > 1e-9
+            or body.emergency_credit_used != _server_emergency):
+        _log.info(f"[F-07] client engine parameters ignored for {session_id} R{current_round}: "
+                  f"crisis={body.crisis_severity} decay={body.imitation_decay_rate} "
+                  f"emergency={body.emergency_credit_used} -> server "
+                  f"crisis={_server_crisis} decay={_server_decay} emergency={_server_emergency}")
+
     # ── PRE-TICK: Round-specific validation & overrides ───────
     pre_result = pre_tick(
         round_number=current_round,
         current_global=current_global,
         current_bus=current_bus,
         decisions=decisions_raw,
-        crisis_severity=body.crisis_severity,
+        crisis_severity=_server_crisis,
         force_override_cfo=body.force_override_cfo,
     )
 
@@ -2396,7 +2749,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         )
 
     # Use potentially overridden crisis severity
-    effective_crisis = pre_result.get("crisis_severity", body.crisis_severity)
+    effective_crisis = pre_result.get("crisis_severity", _server_crisis)
 
     # ── Crisis Multiplier KPI: expose severity source for UI display ──
     # Allows the frontend to show a visible "Crisis Multiplier" KPI panel.
@@ -2410,9 +2763,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     elif _pre_evts.get("deferred_audit_penalty") or _pre_evts.get("compliance_gap_triggered"):
         _crisis_source = "deferred_audit"
         _crisis_label = "⚠️ +50% — Audit deferred in Round 1"
-    elif effective_crisis != body.crisis_severity:
-        _crisis_source = "custom_override"
-        _crisis_label = f"Custom: {effective_crisis}"
+    elif effective_crisis != _server_crisis:
+        _crisis_source = "history_modifier"
+        _crisis_label = f"Modified by earlier decisions: {effective_crisis}"
     else:
         _crisis_source = "baseline"
         _crisis_label = "✅ Baseline — Full audit completed"
@@ -2426,9 +2779,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         decisions=decisions_raw,
         dividends_paid=body.dividends_paid,
         crisis_severity=effective_crisis,
-        imitation_decay_rate=body.imitation_decay_rate,
+        imitation_decay_rate=_server_decay,
         decision_paradigm=paradigm,
-        emergency_credit_used=body.emergency_credit_used,
+        emergency_credit_used=_server_emergency,
     )
 
     new_round = tick_result["global_state"]["round_number"]
@@ -2502,8 +2855,12 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         from admin_shared import seed_effective_flags
         new_global.setdefault("active_event_flags", {})
         seed_effective_flags(session_id, new_global["active_event_flags"])
-    except Exception:
-        pass
+    except Exception as _sef_exc:
+        # F-36: a failed seed means a Switchboard change silently did not apply
+        # to this round. Log it properly and mark the round.
+        _log.error(f"[ENGINE-FAILURE] seed_effective_flags failed for {session_id}: {_sef_exc}", exc_info=True)
+        events.setdefault("engine_failures", []).append(
+            {"engine": "seed_effective_flags", "error": f"{type(_sef_exc).__name__}: {_sef_exc}"[:300]})
 
     # ── POST-TICK: Round-specific state mutations ────────────
     post_events = post_tick(
@@ -2532,7 +2889,46 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         )
         events.update(new_engine_events)
     except Exception as exc:
-        _log.warning(f"[WARN] New engines batch failed: {exc}")
+        # F-19: the batch itself throwing means NO engine ran for this team this
+        # round. It must not be a warning nobody reads.
+        _log.error(f"[ENGINE-FAILURE] New engines batch failed for {session_id} R{current_round}: {exc}", exc_info=True)
+        events.setdefault("engine_failures", []).append(
+            {"engine": "run_new_engines (whole batch)", "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    # F-19 / F-36 (launch audit 2026-09-01): make engine failures VISIBLE.
+    # Every engine in run_new_engines is individually isolated (a failing
+    # balance sheet must not block a class), but until now a team could get a
+    # round without its stakeholder/balance-sheet update while its siblings
+    # did, and nobody was told. The failures are now (a) stamped on the round
+    # (`engine_failures`, persisted with the flags, shown by the console),
+    # (b) pushed to every facilitator console over the admin WebSocket, and
+    # (c) counted per process so a health probe can alarm on them.
+    _failures = events.get("engine_failures") or []
+    if _failures:
+        events["engine_failure_alert"] = {
+            "round": current_round,
+            "count": len(_failures),
+            "engines": [f.get("engine") for f in _failures],
+            "message": (f"⚠️ {len(_failures)} engine module(s) failed while processing round "
+                        f"{current_round} for this team: {', '.join(f.get('engine', '?') for f in _failures)}. "
+                        "The round committed, but the affected analytics/stakeholder state did not update."),
+        }
+        _ENGINE_FAILURE_COUNTER["total"] += len(_failures)
+        _ENGINE_FAILURE_COUNTER["last"] = {"session_id": session_id, "round": current_round,
+                                           "engines": events["engine_failure_alert"]["engines"]}
+        try:
+            from admin_router import manager as _ws_manager
+            _sess_meta_ef = await db.get_session_info(session_id)
+            await _ws_manager.broadcast_admin({
+                "type": "engine_failure",
+                "session_id": session_id,
+                "cohort_id": (_sess_meta_ef or {}).get("parent_cohort_id") or session_id,
+                "round": current_round,
+                "engines": events["engine_failure_alert"]["engines"],
+                "message": events["engine_failure_alert"]["message"],
+            })
+        except Exception:
+            pass  # the alert is on the round either way
 
     # ══ REPORTING-TRUTH RESYNC (math audit, 2026-07) ═══════════════════════
     # process_tick derives historical_ebitda / tco2e_emissions / per-BU
@@ -2590,8 +2986,10 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 for r in triggered
             ]
     except Exception as exc:
-        # Non-critical — don't block the turn commit
-        _log.warning(f"[WARN] Hidden resource trigger check failed: {exc}")
+        # Non-critical — don't block the turn commit; but visible (F-36).
+        _log.error(f"[ENGINE-FAILURE] Hidden resource trigger check failed for {session_id}: {exc}", exc_info=True)
+        events.setdefault("engine_failures", []).append(
+            {"engine": "Hidden resource triggers", "error": f"{type(exc).__name__}: {exc}"[:300]})
 
     # Clear saved decisions since turn was committed
     if "saved_allocations" in new_global:
@@ -2683,10 +3081,10 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # export. No migration — the column has been sitting there empty.
     _turn_envelope = {
         "dividends_paid": body.dividends_paid,
-        "emergency_credit_used": body.emergency_credit_used,
+        "emergency_credit_used": _server_emergency,     # F-07: server-derived
         "force_override_cfo": body.force_override_cfo,
         "engagement_action": body.engagement_action,
-        "imitation_decay_rate": body.imitation_decay_rate,
+        "imitation_decay_rate": _server_decay,           # F-07: server-derived
         "expected_round": body.expected_round,
         # Found by BUILDING the replay tool (4.9): these two are engine inputs
         # that the CLIENT never sends — the server derives them. Recording only
@@ -2889,8 +3287,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                         decisions=shadow_decisions,
                         dividends_paid=body.dividends_paid,
                         crisis_severity=effective_crisis,
-                        imitation_decay_rate=body.imitation_decay_rate,
+                        imitation_decay_rate=_server_decay,
                         decision_paradigm=paradigm,
+                        emergency_credit_used=_server_emergency,
                     )
                     shadow_gs = shadow_result["global_state"]
                     shadow_bus = shadow_result["bu_states"]
@@ -3044,7 +3443,8 @@ async def save_journey_response(request: Request, session_id: str, body: Journey
     "/{session_id}/journey-responses",
     summary="Retrieve all persisted journey responses for a session",
 )
-async def get_journey_responses(session_id: str):
+async def get_journey_responses(session_id: str, request: Request):
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     return {"session_id": session_id, "responses": _session_journey_responses.get(session_id, {})}
 
 
@@ -3057,12 +3457,13 @@ async def get_journey_responses(session_id: str):
     "/{session_id}/consequence-dna-data",
     summary="Get Consequence DNA Sankey data for the visualizer",
 )
-async def get_consequence_dna_data(session_id: str):
+async def get_consequence_dna_data(session_id: str, request: Request):
     """
     Returns the complete data model for the Consequence DNA Visualizer:
     decision nodes, causal flags, metric shifts, M_R projections,
     agent conflict/constriction nodes, cascade events, and Senge badges.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if latest is None:
         raise HTTPException(
@@ -3095,7 +3496,7 @@ async def get_consequence_dna_data(session_id: str):
     "/{session_id}/sdg-dashboard",
     summary="Get SDG alignment dashboard data for the radar visualizer",
 )
-async def get_sdg_dashboard(session_id: str):
+async def get_sdg_dashboard(session_id: str, request: Request):
     """
     Returns the complete SDG dashboard data:
     - Per-BU SDG alignment scores with material SDG details
@@ -3104,6 +3505,7 @@ async def get_sdg_dashboard(session_id: str):
     - Material gap alerts
     - Materiality mapping metadata
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if latest is None:
         raise HTTPException(
@@ -3242,12 +3644,13 @@ class ShadowBoardRejectionRequest(BaseModel):
     "/{session_id}/shadow-board-audit",
     summary="Get Shadow Board Audit personas and state (R5 middleware)",
 )
-async def get_shadow_board_audit(session_id: str):
+async def get_shadow_board_audit(session_id: str, request: Request):
     """
     Returns the three Shadow Board personas with their scripts and the
     current audit state for this session. Called when Round 5 briefing
     is dismissed to determine if the audit modal should be shown.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from shadow_board_audit import (
         get_shadow_board_personas,
         get_shadow_board_state,
@@ -3643,9 +4046,10 @@ async def get_pillar_config_endpoint(round_number: int):
     "/{session_id}/paradigm",
     summary="Get the decision paradigm for a session",
 )
-async def get_session_paradigm(session_id: str):
+async def get_session_paradigm(session_id: str, request: Request):
     """Returns which decision paradigm (legacy_abc or multi_toggles) a session uses.
     Falls back to the parent cohort's paradigm for child player sessions."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     session_info = await db.get_session_info(session_id)
     if not session_info:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -4362,7 +4766,12 @@ class ChangePasswordRequest(BaseModel):
     tags=["Simulation"],
     summary="Allow a player to change their password",
 )
-async def change_password(body: ChangePasswordRequest):
+async def change_password(request: Request, body: ChangePasswordRequest):
+    # F-24 (launch audit 2026-09-01): this path verified the old password with NO
+    # rate limit, so it was an unthrottled brute-force oracle that bypassed the
+    # login limiter. Same per-identity + per-IP policy as /player-login.
+    _check_rate_limit(request, "player_login", identity=body.player_id)
+    _check_rate_limit(request, "player_login")
     try:
         from admin_shared import _player_registry
     except ImportError:
@@ -4372,13 +4781,13 @@ async def change_password(body: ChangePasswordRequest):
     if not player:
         raise HTTPException(404, "Player ID not found")
 
-    if not _verify_pw(body.old_password, player.get("password", "")):
+    if not await _verify_pw_async(body.old_password, player.get("password", "")):  # F-30
         raise HTTPException(403, "Current password is incorrect")
 
     if len(body.new_password.strip()) < 8:
         raise HTTPException(400, "New password must be at least 8 characters")
 
-    player["password"] = _hash_pw(body.new_password.strip())
+    player["password"] = await _hash_pw_async(body.new_password.strip())  # F-30
     # Clear the forced-change flag now that the player has set a personal password
     player["must_change_password"] = False
     # The player owns their password now — the revealable temp credential must
@@ -4631,13 +5040,14 @@ async def get_quiz_questions(notebook_id: str):
     "/{session_id}/resources",
     summary="Get unlocked resources for a player session",
 )
-async def get_player_resources(session_id: str):
+async def get_player_resources(session_id: str, request: Request):
     """
     Returns resources available to the player:
     1. Standard resources whose facilitator_default_round <= current round (auto-available)
     2. Explicitly unlocked resources (facilitator-unlocked or hidden resources unlocked by triggers)
     Splits them into 'new_this_round' and 'archive'.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from admin_resources import _resource_library, _session_resource_state, _notebooklm_notebooks, _quiz_enabled
 
     # Get current round
@@ -4732,12 +5142,13 @@ TEAM_NAMES = [
     "/{session_id}/peer-leaderboard",
     summary="Get anonymized peer leaderboard for a player session",
 )
-async def get_peer_leaderboard(session_id: str):
+async def get_peer_leaderboard(session_id: str, request: Request):
     """
     Returns an anonymized leaderboard of all players in the same cohort.
     The requesting player is highlighted with isYou=True.
     For solo/demo sessions, generates AI benchmark players for comparison.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     # Get session info to find parent cohort
     session_info = await db.get_session_info(session_id)
     if not session_info:
@@ -4829,7 +5240,8 @@ async def get_peer_leaderboard(session_id: str):
     # Find all sibling sessions (same parent)
     # Parity API: read siblings + round history via db.* (works under Postgres;
     # a direct _sessions / _global_states read returns {} there).
-    all_sessions = await db.fetch_all_sessions_raw()
+    # F-28: indexed child lookup instead of scanning every session on the platform.
+    all_sessions = await db.get_child_sessions(parent_id)
 
     siblings = []
     for sess in all_sessions:
@@ -4916,7 +5328,7 @@ async def get_peer_leaderboard(session_id: str):
     "/{session_id}/peer-trend-history",
     summary="Get averaged round-by-round peer metrics for cohort comparison",
 )
-async def get_peer_trend_history(session_id: str):
+async def get_peer_trend_history(session_id: str, request: Request):
     """
     Returns averaged round-by-round performance metrics for all sibling
     sessions in the same cohort.  Each round entry contains:
@@ -4925,6 +5337,7 @@ async def get_peer_trend_history(session_id: str):
 
     For solo sessions, generates synthetic AI benchmark trend lines.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     session_info = await db.get_session_info(session_id)
     if not session_info:
         return {"available": False, "reason": "Session not found", "rounds": []}
@@ -4942,7 +5355,7 @@ async def get_peer_trend_history(session_id: str):
     sibling_ids = []
     _sess_by_id = {}
     if parent_id:
-        _all_sessions = await db.fetch_all_sessions_raw()
+        _all_sessions = await db.get_child_sessions(parent_id)   # F-28: indexed
         _sess_by_id = {s.get("session_id"): s for s in _all_sessions}
         sibling_ids = [
             s["session_id"] for s in _all_sessions
@@ -5213,11 +5626,12 @@ async def _get_active_side_track_for_session(session_id: str) -> tuple[str | Non
 
 
 @router.get("/{session_id}/side-tracks", summary="Get active side tracks for this session")
-async def get_session_side_tracks(session_id: str):
+async def get_session_side_tracks(session_id: str, request: Request):
     """
     Returns all side tracks assigned to this session (via cohort),
     their current progress, and whether the main sim is blocked.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from database_memory import _sessions
 
     session = _sessions.get(session_id)
@@ -5429,14 +5843,17 @@ async def commit_side_track_turn(request: Request, session_id: str, track_id: st
     decisions_raw = [d if isinstance(d, dict) else d.model_dump() for d in body.decisions]
 
     # ── PRE-TICK ─────────────────────────────────────────────
+    # F-07: side tracks take their crisis severity from the track definition
+    # (its pre_tick may override); the client value is ignored.
+    _track_base_crisis = float(getattr(track, "base_crisis_severity", 0.0) or 0.0)
     pre_result = track.pre_tick(
         round_number=current_track_round,
         track_state=track_data["state"],
         bus=current_bus,
         decisions=decisions_raw,
-        crisis_severity=body.crisis_severity,
+        crisis_severity=_track_base_crisis,
     )
-    effective_crisis = pre_result.get("crisis_severity", body.crisis_severity)
+    effective_crisis = pre_result.get("crisis_severity", _track_base_crisis)
     pre_events = pre_result.get("pre_events", {})
 
     # ── PROCESS TICK (Full 8-formula engine) ──────────────────
@@ -5450,7 +5867,7 @@ async def commit_side_track_turn(request: Request, session_id: str, track_id: st
         decisions=decisions_raw,
         dividends_paid=body.dividends_paid,
         crisis_severity=effective_crisis,
-        imitation_decay_rate=body.imitation_decay_rate,
+        imitation_decay_rate=DEFAULT_IMITATION_DECAY_RATE,  # F-07
         decision_paradigm=paradigm,
     )
 
@@ -5564,8 +5981,9 @@ async def commit_side_track_turn(request: Request, session_id: str, track_id: st
 
 
 @router.get("/{session_id}/side-tracks/{track_id}/history", summary="Get side track round history")
-async def get_side_track_history(session_id: str, track_id: str):
+async def get_side_track_history(session_id: str, request: Request, track_id: str):
     """Returns the round-by-round history for a specific side track."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from database_memory import _sessions
 
     session = _sessions.get(session_id)
@@ -5598,11 +6016,12 @@ async def get_side_track_history(session_id: str, track_id: str):
 
 
 @router.get("/{session_id}/side-tracks/{track_id}/leaderboard", summary="Side track leaderboard")
-async def get_side_track_leaderboard(session_id: str, track_id: str):
+async def get_side_track_leaderboard(session_id: str, request: Request, track_id: str):
     """
     Returns the separate leaderboard for a side track across all players in the cohort.
     Scores are independent of the main simulation leaderboard.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from database_memory import _sessions
     from side_tracks import get_track
 
@@ -5651,12 +6070,13 @@ async def get_side_track_leaderboard(session_id: str, track_id: str):
 
 
 @router.get("/{session_id}/side-tracks/aggregate-leaderboard", summary="Cross-track aggregated leaderboard")
-async def get_aggregate_side_track_leaderboard(session_id: str):
+async def get_aggregate_side_track_leaderboard(session_id: str, request: Request):
     """
     Returns an aggregated leaderboard across ALL completed side tracks.
     Each player gets a composite score (average of completed track scores)
     plus per-track breakdowns. Useful for facilitator debrief dashboards.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from database_memory import _sessions
     from side_tracks import get_all_tracks
 
@@ -5758,9 +6178,10 @@ def _is_interview_allowed(latest: dict) -> bool:
 
 
 @router.get("/{session_id}/ceo-interview/questions", summary="Get CEO interview questions")
-async def get_interview_questions_endpoint(session_id: str):
+async def get_interview_questions_endpoint(session_id: str, request: Request):
     """Returns the interview questions for the post-game CEO assessment.
     Auto-enabled after game completion. Can also be enabled pre-game via facilitator settings."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from admin_shared import _god_mode_settings
 
     latest = await db.fetch_latest_state(session_id)
@@ -5956,8 +6377,9 @@ async def submit_interview_responses(request: Request, session_id: str, body: di
 
 
 @router.get("/{session_id}/ceo-interview/results", summary="Get stored interview results")
-async def get_interview_results(session_id: str):
+async def get_interview_results(session_id: str, request: Request):
     """Retrieve previously completed CEO interview results with all enrichment data."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")
@@ -6191,8 +6613,9 @@ async def elevenlabs_status():
 # ─────────────────────────────────────────────────────────────────
 
 @router.get("/{session_id}/benchmarks", summary="ESG Industry Benchmarks comparison")
-async def get_industry_benchmarks(session_id: str):
+async def get_industry_benchmarks(session_id: str, request: Request):
     """Compare simulation metrics against real FTSE 100 ESG benchmarks."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6206,12 +6629,13 @@ async def get_industry_benchmarks(session_id: str):
 # ─────────────────────────────────────────────────────────────────
 
 @router.get("/{session_id}/peer-stats/{round_number}", summary="Aggregate peer decision stats")
-async def get_peer_stats(session_id: str, round_number: int):
+async def get_peer_stats(session_id: str, request: Request, round_number: int):
     """
     After all players commit a round, reveal aggregate statistics:
     choice distribution and average investment ratio.
     Only available for completed rounds.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     session_info = await db.get_session_info(session_id)
     if not session_info:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6321,8 +6745,9 @@ async def set_round_timer(request: Request, session_id: str, body: dict, _guard:
 # ─────────────────────────────────────────────────────────────────
 
 @router.get("/{session_id}/commit-notifications", summary="Get recent commit notifications")
-async def get_commit_notifications(session_id: str):
+async def get_commit_notifications(session_id: str, request: Request):
     """Return recent player commit notifications for the facilitator dashboard."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     session_info = await db.get_session_info(session_id)
     if not session_info:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6345,12 +6770,13 @@ async def get_commit_notifications(session_id: str):
     "/{session_id}/tcfd-scenarios",
     summary="Run TCFD climate scenario analysis on current portfolio",
 )
-async def get_tcfd_scenarios(session_id: str, scenario_id: str = None):
+async def get_tcfd_scenarios(session_id: str, request: Request, scenario_id: str = None):
     """
     Run TCFD-aligned climate scenario analysis.
     If scenario_id is provided, run that single scenario.
     Otherwise, run all three and return a comparison matrix.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6508,11 +6934,12 @@ async def coalition_check(request: Request, session_id: str, body: dict):
     "/{session_id}/leverage-analysis",
     summary="Meadows leverage points analysis for debrief",
 )
-async def leverage_analysis(session_id: str):
+async def leverage_analysis(session_id: str, request: Request):
     """
     Analyse the full session against Meadows' 12 Leverage Points.
     Best used post-game for debrief.
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6549,8 +6976,9 @@ async def leverage_analysis(session_id: str):
     "/{session_id}/contextual-cases",
     summary="Get context-aware real-world case studies",
 )
-async def get_contextual_cases(session_id: str, max_cases: int = 3):
+async def get_contextual_cases(session_id: str, request: Request, max_cases: int = 3):
     """Return real-world case studies relevant to the player's current state."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6632,8 +7060,9 @@ async def activate_regulation(request: Request, session_id: str, body: dict):
     "/{session_id}/regulatory-sandbox/instruments",
     summary="List available regulatory instruments",
 )
-async def list_instruments(session_id: str):
+async def list_instruments(session_id: str, request: Request):
     """Return all available regulatory instruments and their parameters."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from regulatory_sandbox import REGULATORY_INSTRUMENTS
     return {"instruments": REGULATORY_INSTRUMENTS}
 
@@ -6642,8 +7071,9 @@ async def list_instruments(session_id: str):
     "/{session_id}/regulatory-sandbox/exogenous-events",
     summary="List available exogenous crisis events",
 )
-async def list_exogenous_events(session_id: str):
+async def list_exogenous_events(session_id: str, request: Request):
     """Return all configurable exogenous events with trigger conditions."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     from regulatory_sandbox import EXOGENOUS_EVENTS
     latest = await db.fetch_latest_state(session_id)
     sandbox = {}
@@ -6736,8 +7166,9 @@ async def trigger_exogenous(request: Request, session_id: str, body: dict, _guar
     "/{session_id}/biodiversity",
     summary="Get biodiversity state and history",
 )
-async def get_biodiversity(session_id: str):
+async def get_biodiversity(session_id: str, request: Request):
     """Return the current biodiversity state for the session."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6749,9 +7180,10 @@ async def get_biodiversity(session_id: str):
     "/{session_id}/balance-sheet",
     summary="Get balance sheet state and history",
 )
-async def get_balance_sheet(session_id: str):
+async def get_balance_sheet(session_id: str, request: Request):
     """Return the current balance sheet for the session.
     Auto-initializes from BU states if not yet created by engine tick."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6783,8 +7215,9 @@ async def get_balance_sheet(session_id: str):
     "/{session_id}/board-governance",
     summary="Get board governance state",
 )
-async def get_board_governance(session_id: str):
+async def get_board_governance(session_id: str, request: Request):
     """Return board composition, effectiveness, and governance history."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6796,8 +7229,9 @@ async def get_board_governance(session_id: str):
     "/{session_id}/supply-chain",
     summary="Get supply chain network state",
 )
-async def get_supply_chain(session_id: str):
+async def get_supply_chain(session_id: str, request: Request):
     """Return the 3-tier supply chain network state."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6809,8 +7243,9 @@ async def get_supply_chain(session_id: str):
     "/{session_id}/npc-stakeholders",
     summary="Get NPC stakeholder states",
 )
-async def get_npc_stakeholders(session_id: str):
+async def get_npc_stakeholders(session_id: str, request: Request):
     """Return all NPC stakeholder satisfaction and actions."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6819,83 +7254,26 @@ async def get_npc_stakeholders(session_id: str):
 
 
 
-# ── Extended Horizon Mode (SI-3) ────────────────────────────────
+# ── Extended Horizon Mode — RETIRED (F-32, launch audit 2026-09-01) ──────
+# Rounds 11–20 were dead end-to-end: this endpoint inserted round 11 and
+# cleared game_over, but _commit_turn_impl refuses current_round > 10, the
+# Postgres schema has CHECK (round_number BETWEEN 1 AND 10), and the cockpit
+# treats current_round > 10 as game over — so activation produced a session
+# nobody could play (409 on the memory store, 500 on Postgres). Owner ruling
+# 2026-09-02: remove rather than build out. The route answers 410 so a stale
+# client gets a clear message instead of a half-mutated run.
 
 @router.post(
     "/{session_id}/extend",
-    summary="Activate Extended Horizon Mode (Rounds 11–20)",
+    summary="Retired: Extended Horizon Mode (rounds 11–20) has been removed",
+    status_code=status.HTTP_410_GONE,
 )
 async def activate_extended_mode(request: Request, session_id: str):
-    """
-    Activates Extended Horizon Mode (SI-3).
-    Sets extended_horizon_mode=True, clears game_over, and advances
-    round_number to 11 so the simulation loop continues seamlessly.
-
-    BUG-2026-07-29 (audit): this endpoint had TWO defects and was therefore
-    100 % broken for every caller.
-
-      1. NO AUTHORIZATION. It took no `request`, so neither the facilitator
-         guard nor player-ownership was ever evaluated — an anonymous caller
-         reached the handler body and mutated `game_over` / round state on
-         ANY session id. Unlocking rounds 11-20 is a run-management action,
-         so it now goes through the same ownership check as every other
-         live-run mutation.
-      2. It called `db.advance_round(...)`, which exists in NEITHER backend
-         (verified against database.py and database_memory.py). Every call
-         raised AttributeError → HTTP 500, so Extended Horizon could never be
-         activated by anyone. The real mechanism is `insert_next_round`, the
-         same call commit_turn uses to persist a new round.
-    """
-    await _assert_player_owns_session(request, session_id)
-
-    latest = await db.fetch_latest_state(session_id)
-    if not latest:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    gs = latest["global_state"]
-    bus = latest["bu_states"]
-    current_round = int(gs.get("round_number") or 0)
-    if current_round >= 11:
-        # Idempotent: already extended. Re-activating must not create a
-        # duplicate round row (uq_session_round) or rewind the run.
-        from branching_engine import get_extended_round_config
-        cfg = get_extended_round_config(current_round) or {}
-        return {
-            "ok": True,
-            "extended_horizon_mode": True,
-            "new_round": current_round,
-            "round_title": cfg.get("title", "Extended Horizon"),
-            "round_theme": cfg.get("theme", ""),
-            "message": "Extended Horizon was already active.",
-        }
-
-    gs["extended_horizon_mode"] = True
-    gs["game_over"] = False
-    gs["game_over_reason"] = None
-
-    await db.update_latest_global_state(session_id, gs, bus)
-
-    # Advance to round 11 through the parity API both backends implement.
-    from branching_engine import get_extended_round_config
-    r11 = get_extended_round_config(11) or {}
-    new_gs = dict(gs)
-    new_gs["round_number"] = 11
-    await db.insert_next_round(
-        session_id=session_id,
-        round_number=11,
-        global_state=new_gs,
-        bu_states=bus,
-        decisions=[],
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={"code": "extended_horizon_removed",
+                "message": "Extended Horizon (rounds 11–20) has been removed. The simulation is ten rounds."},
     )
-
-    return {
-        "ok": True,
-        "extended_horizon_mode": True,
-        "new_round": 11,
-        "round_title": r11.get("title", "Year 5 Q3: Extended Horizon"),
-        "round_theme": r11.get("theme", ""),
-        "message": "Extended Horizon activated. Rounds 11–20 are now unlocked.",
-    }
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -6904,9 +7282,10 @@ async def activate_extended_mode(request: Request, session_id: str):
 # ═════════════════════════════════════════════════════════════════
 
 @router.get("/{session_id}/annotations", summary="Get annotations visible to the player")
-async def get_player_annotations(session_id: str):
+async def get_player_annotations(session_id: str, request: Request):
     """Returns annotations for this session that the facilitator has
     marked as visible to students. Respects the session-level visibility toggle."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     import database_memory as db_mem
     from admin_router import _annotations
 
@@ -6974,7 +7353,7 @@ def _fp_band(mr: float) -> str:
     "/{session_id}/front-page",
     summary="WOW-5E: Generate newspaper front page copy (LLM-enhanced with deterministic fallback)",
 )
-async def get_front_page(session_id: str):
+async def get_front_page(session_id: str, request: Request):
     """
     Returns headline, subhead, and quote for the Year-5 front page.
 
@@ -6982,6 +7361,7 @@ async def get_front_page(session_id: str):
     If LLM_API_KEY is unset, call times out, or response is malformed →
     falls back to deterministic per-archetype templates (always works).
     """
+    await _assert_player_owns_session(request, session_id, allow_observer=True)  # F-22/F-23 (launch audit 2026-09-01)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")

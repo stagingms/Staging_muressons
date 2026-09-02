@@ -27,9 +27,9 @@
     "wacc_lender_threshold": 0.08
   },
   "ncd_parameters": {
-    "hard_cap": 1000000,
-    "warn_threshold": 500000,
-    "opex_scaling_factor": 50000,
+    "hard_cap": 5000,
+    "warn_threshold": 1000,
+    "opex_penalty_per_unit": 1000,
     "provision_per_unit": 5000,
     "event_provision": 2000000
   },
@@ -55,7 +55,8 @@
   },
   "engine_parameters": {
     "synergy": {
-      "dampening_factor": 0.7
+      "dampening_factor": 0.7,
+      "max_reduction_per_round": 0.06
     },
     "natural_capital": {
       "interest_coefficient": 0.0001
@@ -145,10 +146,10 @@
     "cbam": {
       "ci_threshold": 40,
       "scope12_fraction": 0.35,
-      "surcharge_rate": 100000
+      "surcharge_rate": 100
     },
     "regulatory_ratchet": {
-      "baseline": 10.0,
+      "baseline": 20.0,
       "round_increment": 5.0,
       "fine_per_point": 500000
     },
@@ -213,7 +214,7 @@
       "drift_rate": 0.1
     },
     "imitation_decay": {
-      "default_rate": 0.1
+      "default_rate": 0.05
     },
     "scoring": {
       "severity_routine_ceiling": 1,

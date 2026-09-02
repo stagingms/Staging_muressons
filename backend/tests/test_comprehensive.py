@@ -130,23 +130,26 @@ class TestContagionEdgeCases:
     def test_single_bu(self):
         bus = [{"bu_id": "x", "reputation_score": 75}]
         result = calc_contagion(bus, crisis_severity=0)
-        # Sigmoid at severity=0: input = (0-30)/15 = -2.0 → sigmoid ≈ 0.119
-        # result ≈ 75 - 50*0.119 ≈ 69.0
-        assert 60.0 < result < 75.0
+        # F-01 (launch audit 2026-09-01): the sigmoid is normalised so that
+        # severity 0 contributes NO drop — the group figure equals the BU
+        # average (previously a permanent ~5.9-point "phantom" dip). A crisis
+        # of severity 30 (the sigmoid midpoint) must still bite.
+        assert result == pytest.approx(75.0)
+        assert 40.0 < calc_contagion(bus, crisis_severity=30) < 60.0
 
 
 class TestSynergyEdgeCases:
     def test_synergy_clamp_at_one(self):
-        """FIX VULN-002: Investment ratio now clamped to 1.0 (was 1.5)."""
+        """FIX VULN-002: Investment ratio now clamped to 1.0 (was 1.5).
+        F-06: captured = min(1, 0.7 × 1.5) = 1 → the full 6% ceiling, no more."""
         result = calc_synergy_opex(10_000_000, 1.5, 1.5)
-        # Clamped to 1.0: factor = 1 - (1.0 * 1.5) = -0.5 → clamped to 0
-        assert result == 0.0
+        assert result == 9_400_000.0
 
     def test_very_high_synergy_multiplier(self):
-        """Extreme synergy multiplier still capped by OPEX floor."""
+        """Extreme synergy multiplier is capped by the per-round ceiling (F-06);
+        it used to drive OPEX to 0 in a single round."""
         result = calc_synergy_opex(10_000_000, 0.5, 3.0)
-        # factor = 1 - (0.5 * 3.0) = 1 - 1.5 = -0.5 → clamped to 0
-        assert result == 0.0
+        assert result == 9_400_000.0
 
     def test_zero_opex(self):
         result = calc_synergy_opex(0, 0.5, 1.0)
@@ -478,9 +481,9 @@ class TestVulnerabilities:
     def test_vuln_investment_ratio_clamped(self):
         """FIX VULN-002: Investment ratio now clamped to 1.0 (was 1.5)."""
         result = calc_synergy_opex(10_000_000, 1.5, 1.0)
-        # Clamped to 1.0: effective = sqrt(1.0) * 0.7 = 0.7
-        # factor = 1 - (0.7 * 1.0) = 0.3 → OPEX = 3,000,000
-        assert result == 3_000_000.0
+        # Clamped to 1.0: captured = sqrt(1.0) * 0.7 = 0.7 of the 6% ceiling
+        # factor = 1 - 0.06 * 0.7 = 0.958 → OPEX = 9,580,000 (F-06)
+        assert result == 9_580_000.0
         # Crucially, 1.5 is treated identically to 1.0 (clamped)
         result_at_1 = calc_synergy_opex(10_000_000, 1.0, 1.0)
         assert result == result_at_1

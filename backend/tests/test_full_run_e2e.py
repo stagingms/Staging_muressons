@@ -1,8 +1,9 @@
 """A complete simulation, played over HTTP, with assertions that can fail.
 
 WHAT THIS REPLACES
-    `backend/test_e2e_full_flow.py` (596 lines) plays a full game and is the
-    only end-to-end coverage this product has. pytest collects **zero** tests
+    `backend/test_e2e_full_flow.py` (596 lines; deleted 2026-09-02, F-38 — this
+    file is its replacement) played a full game and was the
+    only end-to-end coverage this product had. pytest collects **zero** tests
     from it — it is an `if __name__ == "__main__"` script. It contains zero
     `assert` statements; checking is done by an `assert_ok(resp, label)` helper
     that only compares the status code against `(200, 201)` and appends to a
@@ -176,7 +177,7 @@ def test_the_round_number_advances_exactly_once_per_commit():
 # ── 2. The graded numbers exist and are numbers ────────────────────────────
 
 def test_game_over_produces_real_terminal_values():
-    """test_e2e_full_flow.py LOGGED these and asserted none of them."""
+    """The retired test_e2e_full_flow.py LOGGED these and asserted none of them."""
     async def go():
         async with _client() as ac:
             sid, responses = await _play(ac)

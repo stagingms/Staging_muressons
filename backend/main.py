@@ -25,6 +25,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf-8-s
         pass
 from contextlib import asynccontextmanager
 
+import asyncio
 import logging
 
 from fastapi import FastAPI, Request
@@ -356,6 +357,12 @@ async def lifespan(app: FastAPI):
         print(f"[startup] Failed to sync/seed missing cohorts: {e}")
 
     yield
+    # F-29: the memory store debounces snapshot writes; flush anything pending
+    # before the process goes away so the last commits survive a redeploy.
+    try:
+        db.flush_snapshot()   # no-op on Postgres (backend parity)
+    except Exception:
+        pass
     try:
         import session_reaper as _sr
         await _sr.stop_reaper()
@@ -419,6 +426,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Accept", "X-Player-Id", "Authorization"],
 )
+
+# F-27 (launch audit 2026-09-01): compress JSON responses. A team dashboard is
+# ~1 MB by round 10 and every cockpit polls it every 5 s; the payload is highly
+# repetitive JSON (per-round event flags), which gzips ~10:1. Browsers and
+# httpx both send Accept-Encoding by default, so this is transparent to every
+# client; responses under 1 KB (health, pacing) are left alone.
+from fastapi.middleware.gzip import GZipMiddleware  # noqa: E402
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
 # HIGH-010: HTTP security headers middleware
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -489,6 +504,26 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 # Added last → outermost, so the context is set for all inner handling.
 app.add_middleware(RequestContextMiddleware)
 
+# F-26 (launch audit 2026-09-01): an exhausted connection pool surfaces as an
+# asyncio.TimeoutError from `pool.acquire(timeout=...)` deep inside a db call.
+# Left to the generic handler that is a 500 ("internal server error") — the
+# player reads it as a broken game and re-submits into the same congestion.
+# It is a capacity condition, so answer 503 + Retry-After, which the cockpit's
+# fetch layer treats as "try again shortly".
+@app.exception_handler(asyncio.TimeoutError)
+async def _timeout_as_service_unavailable(request: Request, exc: asyncio.TimeoutError):
+    logging.warning("Timeout while handling %s %s (pool exhausted or upstream slow)",
+                    request.method, request.url.path)
+    return JSONResponse(
+        status_code=503,
+        headers={"Retry-After": "5"},
+        content={"detail": {
+            "code": "server_busy",
+            "message": "The server is busy right now. Nothing was lost — please retry in a moment.",
+        }},
+    )
+
+
 # LOW-009: Generic error handler — never expose internal tracebacks in production
 @app.exception_handler(Exception)
 async def _global_exception_handler(request: Request, exc: Exception):
@@ -522,6 +557,36 @@ app.include_router(debrief_narrative_router)
 # import resolves after admin_router.
 from config_introspect import config_introspect_router  # noqa: E402
 app.include_router(config_introspect_router)
+
+
+def _scaling_summary() -> dict:
+    try:
+        from scale_preflight import safe_worker_count
+        workers, warnings = safe_worker_count(os.environ)
+        return {
+            "workers": workers,
+            "single_worker_required": True,
+            "multi_worker_verified": os.getenv("MURESSONS_MULTIWORKER_VERIFIED", "").lower() in ("1", "true", "yes"),
+            "clamped": bool(warnings),
+        }
+    except Exception:  # pragma: no cover
+        return {"workers": 1, "single_worker_required": True, "multi_worker_verified": False, "clamped": False}
+
+
+def _persistence_summary() -> dict:
+    try:
+        from admin_shared import persistence_health
+        return persistence_health()
+    except Exception:  # pragma: no cover
+        return {"failures": 0, "last": None}
+
+
+def _engine_failure_summary() -> dict:
+    try:
+        from router import _ENGINE_FAILURE_COUNTER
+        return dict(_ENGINE_FAILURE_COUNTER)
+    except Exception:  # pragma: no cover
+        return {"total": 0, "last": None}
 
 
 @app.get("/health", tags=["System"])
@@ -571,7 +636,7 @@ async def health_check(strict: bool = False):
         # Under ?strict=1 a low volume is reported as "degraded", not "ok" —
         # a monitor reading the body sees the same verdict as one reading only
         # the status code.
-        "status": "degraded" if (strict and _low_disk) else "ok",
+        "status": "degraded" if (strict and (_low_disk or _persistence_summary().get("failures"))) else "ok",
         "database": "memory" if _memory else "postgresql",
         "demo_mode": _demo,
         "storage": _storage,
@@ -580,6 +645,21 @@ async def health_check(strict: bool = False):
         # top-level boolean. A full volume fails pack uploads and registry
         # writes while every other health signal still reads green.
         "low_disk_space": _low_disk,
+        # F-19: engine modules that failed inside run_new_engines since this
+        # process started (each is also stamped on its round and pushed to the
+        # consoles). Non-zero means some team's analytics/stakeholder state
+        # silently stopped updating — worth a look before the debrief.
+        "engine_failures": _engine_failure_summary(),
+        # F-36: JSON persistence writes that failed since this process started
+        # (registry, token versions, bans, memory snapshot). Non-zero on a
+        # durable-volume deployment means writes are being LOST.
+        "persistence": _persistence_summary(),
+        # F-31 (launch audit 2026-09-01; owner ruling 2026-09-02: registries stay
+        # on JSON files, single worker): the facilitator registry, token
+        # versions, bans and virtual profiles are per-process files, so this
+        # service must run ONE web worker. scale_preflight clamps the launch
+        # command; this reports what it decided so a monitor can see it.
+        "scaling": _scaling_summary(),
         # WHICH BUILD IS THIS?
         #
         # Three separate times during the 2026-08 UI work, the question "has my

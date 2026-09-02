@@ -177,7 +177,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                                     type="text"
                                     value={playerId}
                                     onChange={e => setPlayerId(e.target.value.toUpperCase())}
-                                    placeholder="MUR-XXX"
+                                    placeholder="MUR-XXXX"
                                     required
                                     disabled={!!isForced && !!prefillPlayerId}
                                     style={{ ...inputStyle, opacity: isForced && prefillPlayerId ? 0.75 : 1 }}

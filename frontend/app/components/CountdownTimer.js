@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 /**
  * CountdownTimer — Visible round timer when facilitator sets time limits.
@@ -65,7 +66,8 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
       const targetId = cohortIdRef.current || sessionId;
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/sessions/${targetId}/pacing`
+          `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/sessions/${targetId}/pacing`,
+          { credentials: 'include', headers: { ...playerIdHeader() } }  // F-22: cohort reads need the player token
         );
         if (res.ok && !cancelled) {
           const data = await res.json();

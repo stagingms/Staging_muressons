@@ -49,6 +49,29 @@ DB_MAX_CONNECTIONS: int = int(os.getenv("DB_MAX_CONNECTIONS", "40"))
 DB_ACQUIRE_TIMEOUT_SECONDS: float = float(os.getenv("DB_ACQUIRE_TIMEOUT_SECONDS", "10"))
 DB_COMMAND_TIMEOUT_SECONDS: float = float(os.getenv("DB_COMMAND_TIMEOUT_SECONDS", "30"))
 
+# F-26 (launch audit 2026-09-01): a commit holds ONE pooled connection for its
+# advisory lock for the whole tick while its own queries take a SECOND one from
+# the same pool. Once DB_MAX_CONNECTIONS commits are in flight at once every
+# one of them is waiting for a connection none of them will release — measured
+# on real Postgres: 40 simultaneous R1 commits → 0 succeed, 39 time out after
+# DB_ACQUIRE_TIMEOUT_SECONDS and 1 gets a 503. Thirty cohorts sharing a round
+# deadline is exactly that shape. The gate bounds in-flight commits per worker
+# so each can always obtain its second connection, and leaves a couple spare
+# for dashboard polls. Excess commits QUEUE (the gate is fair, in arrival
+# order) and only fail — with a 503 the cockpit retries — if they wait longer
+# than COMMIT_QUEUE_TIMEOUT_SECONDS.
+COMMIT_MAX_IN_FLIGHT: int = max(1, int(os.getenv(
+    "COMMIT_MAX_IN_FLIGHT", str(max(1, DB_MAX_CONNECTIONS // 2 - 1)))))
+COMMIT_QUEUE_TIMEOUT_SECONDS: float = float(os.getenv("COMMIT_QUEUE_TIMEOUT_SECONDS", "45"))
+
+# F-40 follow-up (2026-09-02): random player ids are `MUR-` + N upper-case
+# letters, unique across the whole platform for its lifetime (ids are never
+# reissued, deleted cohorts included). Three letters gave 17,576 ids — about a
+# hundred 150-team launches before the allocator would start to struggle; four
+# give 456,976. Older three-letter ids stay valid: nothing validates the width,
+# the uniqueness check covers both. Floor 3, cap 8.
+PLAYER_ID_RANDOM_LETTERS: int = max(3, min(8, int(os.getenv("PLAYER_ID_RANDOM_LETTERS", "4"))))
+
 # App settings
 APP_TITLE: str = "Muressons Global Corporation API"
 APP_VERSION: str = "1.0.0"
@@ -174,14 +197,35 @@ FINANCIAL_WACC_LENDER_THRESHOLD:    float = float(_financial.get("wacc_lender_th
 
 # ── Natural Capital Debt (NCD) Parameters ────────────────────────
 
-# Absolute hard cap on Natural Capital Debt per BU (VULN-007).
-NCD_HARD_CAP:              float = float(_ncd.get("hard_cap", 1_000_000))
+# F-10 (launch audit 2026-09-01): NCD is an INDEX (seed 0; the docs' working
+# range is 30–200; ten rounds of outright neglect reach ≈2,170). The previous
+# values were dollar-scale (1,000,000 / 500,000 / 50,000) and could never be
+# reached, so the credit-downgrade card, the forecast countdown and the
+# Advanced-Climate NCD OPEX penalty (NCD 1000 → $250) were permanently inert.
+# Absolute hard cap on Natural Capital Debt per BU (VULN-007) — index units.
+NCD_HARD_CAP:              float = float(_ncd.get("hard_cap", 5_000))
 
-# 50%-of-cap warning threshold — triggers credit downgrade narrative.
-NCD_WARN_THRESHOLD:        float = float(_ncd.get("warn_threshold", 500_000))
+# Warning threshold — triggers the credit-downgrade narrative (index units;
+# a neglect trajectory crosses it around round 5).
+NCD_WARN_THRESHOLD:        float = float(_ncd.get("warn_threshold", 1_000))
 
-# Scaling factor converting NCD units to $ OPEX penalty (per unit × hostility multiplier).
-NCD_OPEX_SCALING_FACTOR:   float = float(_ncd.get("opex_scaling_factor", 50_000))
+# $ of OPEX penalty per NCD index unit (× hostility multiplier), Advanced
+# Climate paradigm. NCD 1,000 → $1M per round on a ~$20M BU; the penalty is
+# still capped at 50% (75% when tipped) of the BU's revenue.
+NCD_OPEX_PENALTY_PER_UNIT: float = float(_ncd.get("opex_penalty_per_unit", 1_000))
+
+# Deployed volumes keep their own simulation_config.json (runtime_paths.
+# config_file), so a volume that still carries the dollar-scale values would
+# keep the mechanics inert forever. Anything above 100,000 is unambiguously
+# the legacy scale: fall back to the index defaults and say so.
+if NCD_HARD_CAP > 100_000 or NCD_WARN_THRESHOLD > 100_000:
+    print(f"[CONFIG] WARNING: ncd_parameters hard_cap={NCD_HARD_CAP:,.0f} / warn_threshold="
+          f"{NCD_WARN_THRESHOLD:,.0f} are dollar-scale legacy values (F-10); using 5,000 / 1,000. "
+          "Update simulation_config.json on the data volume.")
+    NCD_HARD_CAP, NCD_WARN_THRESHOLD = 5_000.0, 1_000.0
+if "opex_penalty_per_unit" not in _ncd and "opex_scaling_factor" in _ncd:
+    print("[CONFIG] WARNING: ncd_parameters.opex_scaling_factor is the legacy key (F-10); "
+          "using opex_penalty_per_unit=1,000. Update simulation_config.json on the data volume.")
 
 # Balance sheet: $ environmental provision per unit of average NCD (IAS 37).
 BS_NCD_PROVISION_PER_UNIT: float = float(_ncd.get("provision_per_unit", 5_000))
@@ -259,6 +303,15 @@ _engine = SIMULATION_CONFIG.get("engine_parameters", {})
 # ── Synergy Engine ───────────────────────────────────────────────
 _synergy = _engine.get("synergy", {})
 SYNERGY_DAMPENING_FACTOR:       float = float(_synergy.get("dampening_factor", 0.7))
+# F-06 (launch audit 2026-09-01): the synergy efficiency used to be applied as
+# `opex × (1 − √ratio × 0.7 × synergy)` EVERY round — −35% per round at a 25%
+# ratio, compounding to the 35% floor by R4–R5, so a modest investment removed
+# two-thirds of costs in four rounds. The curve is now a fraction of a hard
+# per-round ceiling: reduction = ceiling × min(1, √ratio × dampening × synergy).
+# At the default 6%: a 25%-ratio team saves ≈2.1%/round (≈−19% over ten
+# rounds), an all-in team ≈4.2%/round (≈−35%); the first-seen-OPEX floor
+# (engine.SYNERGY_OPEX_FLOOR_FRACTION) still applies.
+SYNERGY_MAX_REDUCTION_PER_ROUND: float = float(_synergy.get("max_reduction_per_round", 0.06))
 
 # ── Natural Capital Interest ─────────────────────────────────────
 _nat_cap = _engine.get("natural_capital", {})
@@ -409,11 +462,28 @@ EU_TAXONOMY_COC_SURCHARGE:     float = float(_taxonomy.get("coc_surcharge", 0.00
 _cbam = _engine.get("cbam", {})
 CBAM_CI_THRESHOLD:             int   = int(_cbam.get("ci_threshold", 40))
 CBAM_SCOPE12_FRACTION:         float = float(_cbam.get("scope12_fraction", 0.35))
-CBAM_SURCHARGE_RATE:           float = float(_cbam.get("surcharge_rate", 100_000))
+# F-03 (launch audit 2026-09-01): a PRICE PER TONNE of CO2e. The shipped value
+# was 100_000, which turned the R3/R7 Scope-1+2 levy into an $80–110M hit on a
+# $50M treasury (EU CBAM certificates trade around €75/t). Because the live
+# config is read from the durable data dir, a stale volume copy could carry the
+# old number forever, so anything above _CBAM_SURCHARGE_SANITY_MAX is treated as
+# the legacy per-kilotonne mistake and clamped to the default with a warning.
+_CBAM_SURCHARGE_DEFAULT: float = 100.0
+_CBAM_SURCHARGE_SANITY_MAX: float = 5_000.0
+CBAM_SURCHARGE_RATE:           float = float(_cbam.get("surcharge_rate", _CBAM_SURCHARGE_DEFAULT))
+if CBAM_SURCHARGE_RATE > _CBAM_SURCHARGE_SANITY_MAX:
+    print(f"[CONFIG] WARNING: engine_parameters.cbam.surcharge_rate={CBAM_SURCHARGE_RATE:,.0f} $/tCO2e "
+          f"exceeds the {_CBAM_SURCHARGE_SANITY_MAX:,.0f} sanity ceiling (legacy value); "
+          f"using {_CBAM_SURCHARGE_DEFAULT:,.0f}. Update simulation_config.json on the data volume.")
+    CBAM_SURCHARGE_RATE = _CBAM_SURCHARGE_DEFAULT
 
 # ── Regulatory Ratchet ──────────────────────────────────────────
 _reg = _engine.get("regulatory_ratchet", {})
-REG_RATCHET_BASELINE:          float = float(_reg.get("baseline", 10.0))
+# F-10: baseline 10 → 20. The seed mean governance risk is 17.5, so at 10 every
+# team paid an unavoidable $3.75M fine in round 1 and $1.25M in round 2 before
+# any decision had taken effect. At 20 the seed is compliant; the fine bites
+# when governance actually deteriorates.
+REG_RATCHET_BASELINE:          float = float(_reg.get("baseline", 20.0))
 REG_RATCHET_ROUND_INCREMENT:   float = float(_reg.get("round_increment", 5.0))
 REG_RATCHET_FINE_PER_POINT:    float = float(_reg.get("fine_per_point", 500_000))
 
@@ -511,7 +581,11 @@ UTILIZATION_DRIFT_RATE:        float = float(_util.get("drift_rate", 0.10))
 
 # ── Imitation Decay ─────────────────────────────────────────────
 _imit = _engine.get("imitation_decay", {})
-DEFAULT_IMITATION_DECAY_RATE:  float = float(_imit.get("default_rate", 0.10))
+# F-07 (launch audit 2026-09-01): the SERVER applies this rate on every commit
+# (the client used to send its own — hard-coded 0.05 while this default said
+# 0.10 and the docs said 5%). The config now says what live play has always
+# done: 5% per round.
+DEFAULT_IMITATION_DECAY_RATE:  float = float(_imit.get("default_rate", 0.05))
 
 # ── Scoring / Grading Boundaries ────────────────────────────────
 _scoring = _engine.get("scoring", {})

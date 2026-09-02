@@ -59,6 +59,44 @@ _config_file_lock: asyncio.Lock = asyncio.Lock()
 _audit_counter: itertools.count = itertools.count(1)
 
 
+# F-22 (launch audit 2026-09-01): server-side enforcement of must_change_password.
+# Initial facilitator credentials are id-derived (FAC-NNN@321) and the flag used
+# to be advisory — the login response reported it and the UI showed a modal, but
+# every admin route accepted the default credential indefinitely. A holder of the
+# default may now only change the password, refresh or log out.
+_PASSWORD_CHANGE_ALLOWLIST = frozenset({
+    "/api/admin/facilitators/change-password",
+    "/api/admin/facilitators/login",
+    "/api/admin/auth/refresh",
+    "/api/admin/auth/logout",
+})
+
+
+def _enforce_password_change(request: Request, fac: dict | None, *, master_bypass: bool = False) -> None:
+    """F-22 (launch audit 2026-09-01): a facilitator still on its initial
+    (ID-derived, guessable) password may only sign in, refresh, log out and
+    change that password. Every other admin call is refused with a coded 403 so
+    the frontend can route to the change-password screen.
+
+    `master_bypass` is the signed `mb` claim of a MASTER_PASSWORD login — an
+    admin impersonating the account. That is not the account's first-login
+    flow, and the login response already reports must_change_password=False
+    for it, so the server-side gate is skipped for consistency.
+    """
+    if not fac or not fac.get("must_change_password") or master_bypass:
+        return
+    path = (request.url.path or "").rstrip("/")
+    if path in _PASSWORD_CHANGE_ALLOWLIST:
+        return
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "code": "password_change_required",
+            "message": "You are signed in with the initial password. Set a personal password to continue.",
+        },
+    )
+
+
 def get_fac_role(request: Request):
     from auth_jwt import get_facilitator_from_request, decode_facilitator_token, COOKIE_NAME
     fac_id = get_facilitator_from_request(request)
@@ -107,7 +145,10 @@ def get_fac_role(request: Request):
                     return 'anonymous'
                 if not fac.get('enabled', True):
                     return 'anonymous'
+                _enforce_password_change(request, fac, master_bypass=bool(payload.get("mb")))  # F-22
                 return get_role(fac)  # registry is authoritative, not JWT claim
+        except HTTPException:
+            raise
         except Exception:
             pass
 
@@ -117,6 +158,8 @@ def get_fac_role(request: Request):
          if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
         None,
     )
+    if fac:
+        _enforce_password_change(request, fac)  # F-22
     return get_role(fac) if fac else 'anonymous'
 
 async def _assert_session_ownership(request: Request, session_id: str) -> None:
@@ -149,6 +192,77 @@ async def _assert_session_ownership(request: Request, session_id: str) -> None:
             status_code=403,
             detail="Access denied: you do not own this session",
         )
+
+
+async def _assert_session_visible(request: Request, session_id: str) -> None:
+    """F-21 read-side guard: the caller must OWN the session, be an admin, or be
+    on its co_facilitator_ids list (can_observe_session). Used by GET endpoints
+    that expose a cohort's configuration or a team's data to the console."""
+    from auth_jwt import get_facilitator_from_request
+    fac_id = get_facilitator_from_request(request)
+    if not fac_id or fac_id == "god_mode":
+        return
+    fac = next(
+        (f for f in _facilitator_registry
+         if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
+        None,
+    )
+    if fac is None or is_admin_role(get_role(fac)):
+        return
+    session_info = await db.get_session_info(session_id)
+    if session_info and not can_observe_session(fac, session_info):
+        raise HTTPException(status_code=403, detail="Access denied: you do not own this session")
+
+
+async def _cohort_scoped_sessions(cohort_id: str) -> dict:
+    """F-28 (launch audit 2026-09-01): {session_id: record} for a cohort shell
+    and its player sub-sessions, via the indexed child lookup — the replacement
+    for `{s["session_id"]: s for s in await db.fetch_all_sessions_raw()}` in
+    every per-cohort console read (bulletin, pulse, shockwave, undo)."""
+    out: dict = {}
+    shell = await db.get_session_info(cohort_id)
+    if shell:
+        rec = dict(shell)
+        rec.setdefault("session_id", cohort_id)
+        out[cohort_id] = rec
+    for child in (await db.get_child_sessions(cohort_id) or []):
+        sid = child.get("session_id")
+        if sid:
+            out[sid] = child
+    return out
+
+
+async def _assert_player_or_facilitator_can_view(request: Request, session_id: str) -> None:
+    """F-21/F-22 read-side guard for cohort resources BOTH the player cockpit and
+    the facilitator console fetch (pacing, R2 BU selection, complexity feed).
+
+    Admits: a facilitator who can observe the cohort; a player token for this
+    session or for a sub-session of this cohort; and solo sessions (no roster,
+    no owner), which stay UUID-bearer exactly like the rest of solo play."""
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        return
+    from auth_jwt import get_facilitator_from_request, get_player_from_request
+    if get_facilitator_from_request(request):
+        await _assert_session_visible(request, session_id)
+        return
+    tok = get_player_from_request(request)
+    owned = bool(sess.get("player_id"))
+    has_roster = bool(sess.get("registered_players") or sess.get("allowed_player_ids"))
+    if tok is None:
+        if not owned and not sess.get("parent_cohort_id") and not has_roster:
+            return  # solo session: nothing to bind against
+        raise HTTPException(status_code=401, detail={
+            "code": "player_token_required",
+            "message": "Your sign-in has expired or this client is out of date. Please sign in again."})
+    tok_sid = str(tok.get("session_id") or "")
+    if tok_sid == str(session_id):
+        return
+    tok_sess = await db.get_session_info(tok_sid) or {}
+    cohort_of_token = tok_sess.get("parent_cohort_id")
+    if cohort_of_token and cohort_of_token in (str(session_id), sess.get("parent_cohort_id")):
+        return  # same cohort: the cohort shell itself, or a sibling team
+    raise HTTPException(status_code=403, detail="Player is not a member of this cohort.")
 
 
 def require_super_admin(role: str = Depends(get_fac_role)):
@@ -226,9 +340,10 @@ import materiality_db as mat_db
 from config import MASTER_PASSWORD, PROJECT_ADMIN_PASSWORD, SIM_ROUNDS, SIM_INITIAL_BUDGET
 from master_credentials import verify_master_password, set_master_password, master_override_active
 from password_hashing import hash_password, verify_password, maybe_upgrade_password
+from password_hashing import hash_password_async, verify_password_async, maybe_upgrade_password_async  # F-30
 from default_credentials import (
-    make_player_credentials,
-    make_facilitator_credentials,
+    make_player_credentials, make_player_credentials_async,
+    make_facilitator_credentials, make_facilitator_credentials_async,
     default_player_password,
     default_facilitator_password,
 )
@@ -901,13 +1016,14 @@ async def get_effective_settings_summary(
     "/sessions/{session_id}/cohort-settings",
     summary="Get per-cohort settings overrides (GOD-012)",
 )
-async def get_cohort_settings(session_id: str, _guard: None = Depends(require_facilitator)):
+async def get_cohort_settings(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Return the per-cohort override layer for a specific session.
 
     Returns only the keys that have been *explicitly overridden* for this cohort,
     not the full merged view.  Use GET /global-settings?session_id=... to get
     the effective merged settings as seen by a player session.
     """
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     overrides = cohort_settings.get(session_id, {})
     effective = get_effective_settings(session_id)
 
@@ -979,6 +1095,7 @@ async def patch_cohort_settings(
     Non-overridable keys in the body are silently ignored (not an error), so
     the frontend can safely POST the full settings object.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     # Resolve caller's role
     caller_fac = None
     try:
@@ -1083,7 +1200,7 @@ async def patch_cohort_settings(
                         child_flags.pop("stochastic_seed", None)
                     await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
         except Exception as _e:  # never fail the settings write on a stamping hiccup
-            print(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
+            _ar_log.warning(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
 
     # Durably persist the override to the volume so it survives redeploys /
     # restarts in both memory and Postgres backends.
@@ -1120,7 +1237,7 @@ async def patch_cohort_settings(
     summary="Reset per-cohort settings overrides to global defaults (GOD-012)",
 )
 async def delete_cohort_settings(
-    session_id: str,
+    session_id: str, request: Request,
     _guard: None = Depends(require_super_admin),
 ):
     """Clear all per-cohort setting overrides for session_id.
@@ -1128,6 +1245,7 @@ async def delete_cohort_settings(
     After this call the cohort reverts to global _god_mode_settings with no
     per-cohort overrides. super_admin only.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     removed = cohort_settings.pop(session_id, {})
     mark_cohort_settings_dirty()  # persist the removal to the durable volume
     _audit("cohort_settings_reset", details={"session_id": session_id, "removed_keys": list(removed.keys())})
@@ -1235,6 +1353,7 @@ async def apply_cohort_template(template_id: str, session_id: str, request: Requ
     Delegates to the cohort-settings PATCH handler so template application is
     byte-for-byte a manual settings edit: same normalisation, same role/key
     filtering, same RNG-seed stamping and audit trail."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     tpl = _cohort_templates.get(template_id)
     if tpl is None:
         raise HTTPException(status_code=404, detail="Template not found.")
@@ -1256,7 +1375,7 @@ class BriefingVideosRequest(BaseModel):
 
 @admin_router.post("/sessions/{session_id}/briefing-videos",
                    summary="Set per-cohort briefing video URLs")
-async def set_briefing_videos(session_id: str, body: BriefingVideosRequest,
+async def set_briefing_videos(session_id: str, request: Request, body: BriefingVideosRequest,
                               _guard: None = Depends(require_facilitator)):
     """Store the cohort's briefing-video config (URL pattern + per-round map)
     in the per-cohort settings layer, through the same normalisation as any
@@ -1264,6 +1383,7 @@ async def set_briefing_videos(session_id: str, body: BriefingVideosRequest,
     GET /global-settings?session_id=… and get a Read | Watch choice on each
     round briefing. Facilitator-level access: configuring a cohort's media is
     provisioning work, so project_admin is deliberately allowed too."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     payload = {}
     if body.briefing_video_base is not None:
         payload["briefing_video_base"] = body.briefing_video_base
@@ -1317,9 +1437,9 @@ async def get_scaffolding_status():
         ("supply_chain_network_enabled", "🔗 Supply Chain", True, "Model supply chain network effects — disruptions cascade through tier-1/2/3 suppliers"),
         ("npc_stakeholders_enabled", "👥 NPC Agents", True, "Activate NPC stakeholder agents (media, regulators, NGOs) that react to decisions"),
         ("org_politics_enabled", "🤝 Org Politics", True, "Internal politics engine — executive alignment, departmental friction, power dynamics"),
-        # Stakeholder realism waves (SPEC F1–F6) — ON by default since 2026-09-01 (EVAL rec 1+2); F6 stays opt-in
+        # Stakeholder realism waves (SPEC F1–F6) — F1/F3/F4/F5 ON by default since 2026-09-01 (EVAL rec 1+2); F2 and F6 opt-in (F-11, 2026-09-02)
         ("stakeholder_memory_enabled", "🧠 Stakeholder Memory", True, "F1 — NPCs accumulate a trust stock (rises slowly, falls fast) with betrayal scars; trust gates escalation and cascades"),
-        ("stakeholder_slo_feedback_enabled", "🔁 SLO Feedback", True, "F2 — each stakeholder's escalation tier continuously nudges the SLO of the BUs it's attached to (closes the loop)"),
+        ("stakeholder_slo_feedback_enabled", "🔁 SLO Feedback", False, "F2 — each stakeholder's escalation tier continuously nudges the SLO of the BUs it's attached to (closes the loop). OFF by default (F-11: drove balanced play to SLO 0 by R5); opt in per cohort"),
         ("stakeholder_engagement_enabled", "🤝 Promises", True, "F5 — per-round engagement actions (town hall / pledge / commitment) with a promise ledger; kept promises pay off, broken ones scar"),
         ("stakeholder_coalitions_enabled", "🪧 Coalitions", True, "F3 — ≥2 hostile stakeholders form a coalition that amplifies SLO feedback and strike risk; fired cascades nudge their named targets"),
         ("stakeholder_uncertainty_enabled", "🎲 Uncertain Thresholds", True, "F4 — escalation thresholds jittered per cohort (seeded/fair) plus a patience clock that forces escalation over time"),
@@ -1395,7 +1515,7 @@ async def update_facilitator_role(
     master_ok = verify_master_password(caller_password)
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        print(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
+        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
 
     if not master_ok:
         # Look up the facilitator in the registry and verify their bcrypt hash
@@ -1411,7 +1531,7 @@ async def update_facilitator_role(
         # Caller must have super-admin authority (super_admin/admin/god_mode)
         if not is_admin_role(get_role(caller_fac)):
             raise HTTPException(403, "Only Super Administrators can change roles.")
-        if not verify_password(caller_password, caller_fac.get("password", "")):
+        if not await verify_password_async(caller_password, caller_fac.get("password", "")):  # F-30
             raise HTTPException(403, "Invalid God Mode credentials.")
 
     # ── Apply role change ───────────────────────────────────
@@ -1664,7 +1784,7 @@ async def add_archetype(body: dict = Body(...), _guard: None = Depends(require_s
         customs[existing_idx] = archetype
     else:
         customs.append(archetype)
-    print(f"[god-mode] Archetype added/updated: {key}")
+    _ar_log.info(f"[god-mode] Archetype added/updated: {key}")
     return {"status": "ok", "archetype": archetype}
 
 
@@ -1689,7 +1809,7 @@ async def update_archetype(key: str, body: dict = Body(...), _guard: None = Depe
         customs[idx]["requires_solvent"] = bool(body["requires_solvent"])
     customs[idx]["is_default"] = False
     mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
-    print(f"[god-mode] Archetype updated: {key}")
+    _ar_log.info(f"[god-mode] Archetype updated: {key}")
     return {"status": "ok", "archetype": customs[idx]}
 
 
@@ -1701,7 +1821,7 @@ async def delete_archetype(key: str, _guard: None = Depends(require_super_admin)
     if len(_god_mode_settings["custom_archetypes"]) == before:
         raise HTTPException(404, f"Custom archetype '{key}' not found (defaults cannot be deleted, only overridden)")
     mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
-    print(f"[god-mode] Archetype deleted: {key}")
+    _ar_log.info(f"[god-mode] Archetype deleted: {key}")
     return {"status": "deleted", "key": key}
 
 
@@ -1737,8 +1857,9 @@ async def list_ending_pathways():
 
 
 @admin_router.get("/sessions/{session_id}/ending-pathway", summary="Get the ending pathway for a session")
-async def get_session_ending_pathway(session_id: str):
+async def get_session_ending_pathway(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Returns the current ending pathway for a session."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")
@@ -1787,7 +1908,7 @@ async def switch_session_ending_pathway(session_id: str, request: Request, body:
             child_gs.setdefault("active_event_flags", {})["ending_pathway"] = new_pathway
             await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
 
-    print(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
+    _ar_log.info(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
     return {
         "status": "ok",
         "session_id": session_id,
@@ -1943,7 +2064,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
         # hash is computed here, once the id is known. bcrypt (~100ms) now runs
         # inside the lock — acceptable: provisioning is not a hot path and is
         # inherently serialised (two admins must not mint the same id anyway).
-        _temp_plain, _temp_hash = make_facilitator_credentials(new_fac_id)
+        _temp_plain, _temp_hash = await make_facilitator_credentials_async(new_fac_id)  # F-30
         role = req.role or "facilitator"
         fac = {
             "facilitator_id": new_fac_id,
@@ -2178,7 +2299,7 @@ async def facilitator_bulk_upload_preview(file: UploadFile = File(...), _guard: 
     backend answers 404/405 and the frontend falls back safely instead of
     accidentally creating accounts."""
     raw = await file.read()
-    valid_rows, errors = _parse_bulk_upload_sheet(raw)
+    valid_rows, errors = await asyncio.to_thread(_parse_bulk_upload_sheet, raw)  # F-30: openpyxl off-loop
     return {
         "dry_run": True,
         "rows": valid_rows,
@@ -2199,7 +2320,7 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
     import re
 
     raw = await file.read()
-    valid_rows, errors = _parse_bulk_upload_sheet(raw)
+    valid_rows, errors = await asyncio.to_thread(_parse_bulk_upload_sheet, raw)  # F-30: openpyxl off-loop
 
     # C6/C1: a role from a spreadsheet is caller-scoped — a bulk upload must never
     # be a backdoor to grant a role above the uploader's own tier.
@@ -2224,7 +2345,7 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
             max_id += 1
             _new_fac_id = f"FAC-{max_id:03d}"
             # id-derived default (FAC-NNN@321) per row; hash after id is fixed.
-            _plain, _hash = make_facilitator_credentials(_new_fac_id)
+            _plain, _hash = await make_facilitator_credentials_async(_new_fac_id)  # F-30
             _req_role = parsed.get("role", "facilitator")
             _role = _req_role if _req_role in _grantable else "facilitator"
             fac = {
@@ -2336,7 +2457,7 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
             max_id += 1
             _new_fac_id = f"FAC-{max_id:03d}"
             # id-derived default (FAC-NNN@321); hash after the id is fixed.
-            _fac_plain, _fac_hash = make_facilitator_credentials(_new_fac_id)
+            _fac_plain, _fac_hash = await make_facilitator_credentials_async(_new_fac_id)  # F-30
             _req_role = (fac_req.role or "facilitator").strip().lower()
             _role = _req_role if _req_role in _grantable else "facilitator"
             fac = {
@@ -2635,7 +2756,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
             "is_admin": False,
             "enabled": True,
         }
-    elif not fac or (not master_ok and not verify_password(password, fac.get("password", ""))):
+    elif not fac or (not master_ok and not await verify_password_async(password, fac.get("password", ""))):  # F-30
         raise HTTPException(403, "Invalid facilitator ID or password")
         
     # Disabled accounts cannot log in
@@ -2645,13 +2766,13 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
     # LOW-003: Auto-upgrade plaintext passwords to bcrypt on successful login
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator login for fac_id={fac_id_lower}")
+        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator login for fac_id={fac_id_lower}")
         # SEC-4: durable forensic record of break-glass use.
         _audit("master_password_bypass", actor=fac_id_lower,
                details={"endpoint": "facilitator_login"},
                source_ip=(request.client.host if request.client else "unknown"))
     if not master_ok and fac:
-        upgraded = maybe_upgrade_password(password, fac.get("password", ""))
+        upgraded = await maybe_upgrade_password_async(password, fac.get("password", ""))  # F-30
         if upgraded:
             fac["password"] = upgraded
             _persist_facilitators()
@@ -2669,6 +2790,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         token = create_facilitator_token(
             fac["facilitator_id"], role,
             token_version=get_token_version(fac["facilitator_id"]),
+            master_bypass=bool(master_ok),  # F-22: mirrors must_change_password below
         )
         set_session_cookie(response, token, facilitator_id=fac["facilitator_id"])
     except Exception:
@@ -2735,18 +2857,18 @@ async def facilitator_change_password(
         raise HTTPException(403, "Current password is incorrect")
     # FIX AUDIT-005: Use configurable master password
     master_ok = verify_master_password(old_password)
-    if not verify_password(old_password, fac.get("password", "")) and not master_ok:
+    if not await verify_password_async(old_password, fac.get("password", "")) and not master_ok:  # F-30
         raise HTTPException(403, "Current password is incorrect")
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator password change for fac={fac.get('facilitator_id', 'unknown')}")
+        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator password change for fac={fac.get('facilitator_id', 'unknown')}")
         # SEC-4: durable forensic record.
         _audit("master_password_bypass", actor=fac.get("facilitator_id", "unknown"),
                details={"endpoint": "facilitator_change_password"},
                source_ip=(request.client.host if request.client else "unknown"))
     if len(new_password) < 8:
         raise HTTPException(400, "New password must be at least 8 characters")
-    fac["password"] = hash_password(new_password)  # LOW-003: always hash
+    fac["password"] = await hash_password_async(new_password)  # LOW-003: always hash; F-30: off-loop
     fac["must_change_password"] = False  # first-login requirement satisfied
     _persist_facilitators()
     return {"status": "success", "message": "Password updated successfully"}
@@ -2826,9 +2948,17 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         raise HTTPException(401, "Facilitator not found")
     role = get_role(fac)
     allowed_tabs = get_allowed_tabs(fac)
+    # F-22: a refreshed token must keep the signed master-bypass claim of the
+    # token it replaces, otherwise an admin impersonation session would be
+    # locked into the password-change flow on its first refresh.
+    _mb = False
+    try:
+        _mb = bool(decode_facilitator_token(request.cookies.get(COOKIE_NAME, "")).get("mb"))
+    except Exception:
+        _mb = False
     try:
         token = create_facilitator_token(
-            fac_id, role, token_version=get_token_version(fac_id),
+            fac_id, role, token_version=get_token_version(fac_id), master_bypass=_mb,
         )
         set_session_cookie(response, token, facilitator_id=fac_id)
     except Exception:
@@ -2913,7 +3043,7 @@ async def change_master_password(request: Request, body: dict = Body(...), _guar
     _audit("master_password_changed", actor=actor,
            details={"override_active": True},
            source_ip=(request.client.host if request.client else "unknown"))
-    print(f"[SECURITY] Master password rotated by {actor}")
+    _ar_log.warning(f"[SECURITY] Master password rotated by {actor}")
     return {
         "status": "success",
         "note": "Effective immediately on all master-bypass logins and persists across restarts (override supersedes .env).",
@@ -2932,7 +3062,7 @@ async def admin_reset_facilitator_password(fac_id: str, request: Request, _guard
     # Reset to the DETERMINISTIC default (same policy as creation, FAC-NNN@321)
     # and force a personal password on the next login. The facilitator already
     # knows the rule, so a lost-password reset needs no distribution step.
-    new_pw, _new_hash = make_facilitator_credentials(fac_id)
+    new_pw, _new_hash = await make_facilitator_credentials_async(fac_id)  # F-30
     fac["password"] = _new_hash
     fac["must_change_password"] = True
     _persist_facilitators()
@@ -3023,7 +3153,8 @@ async def disable_practice_mode(session_id: str, request: Request, _guard: None 
 
 
 @admin_router.get("/sessions/{session_id}/practice-mode", summary="Get practice mode status")
-async def get_practice_mode(session_id: str):
+async def get_practice_mode(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     return {"practice_mode": _practice_mode.get(session_id, False)}
 
 
@@ -3235,10 +3366,10 @@ async def _cohort_current_round(session_id: str) -> int:
     round — 1, forever — no matter how far the class has played. Anything
     reasoning about "what round is this cohort on" must aggregate the children.
 
-    Children are resolved through `fetch_all_sessions_raw()`, the parity API
-    that behaves identically in memory and Postgres mode, rather than router's
-    process-local `_session_players` map — which is empty in any worker that
-    did not personally handle the joins.
+    Children are resolved through `fetch_child_session_ids()` (F-28: an indexed
+    parity API on both stores) rather than router's process-local
+    `_session_players` map — which is empty in any worker that did not
+    personally handle the joins.
 
     Falls back to the session's own round (solo / non-cohort play), then to 1.
     Every lookup is defensive: a pacing change must never fail because a round
@@ -3246,18 +3377,10 @@ async def _cohort_current_round(session_id: str) -> int:
     """
     rounds: list[int] = []
     try:
-        for s in (await db.fetch_all_sessions_raw() or []):
-            if s.get("parent_cohort_id") != session_id:
-                continue
-            child = s.get("session_id")
-            if not child:
-                continue
-            try:
-                r = await db.fetch_latest_round(child)
-            except Exception:
-                continue
-            if r:
-                rounds.append(int(r))
+        # F-28: indexed child lookup + one batched latest-round query.
+        _children = await db.fetch_child_session_ids(session_id)
+        if _children:
+            rounds = list((await db.fetch_latest_rounds(_children)).values())
     except Exception as exc:
         _ar_log.warning(f"[PACING] child-round scan failed for {session_id}: {exc}")
 
@@ -3399,11 +3522,11 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
             "message": "Time expired — your turn was auto-committed with default choices.",
         })
 
-        print(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
+        _ar_log.info(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
         return True
 
     except Exception as exc:
-        print(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
+        _ar_log.warning(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
         return False
 
 
@@ -3443,10 +3566,10 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
                     if success:
                         auto_committed_count += 1
             except Exception as exc:
-                print(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
+                _ar_log.warning(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
 
         if auto_committed_count > 0:
-            print(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
+            _ar_log.info(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
 
         # ── Now unlock next round ────────────────────────────────
         pacing["unlocked_round"] = current_unlocked + 1
@@ -3500,13 +3623,14 @@ async def _multi_round_unlock_task(session_id: str, round_number: int, delay_sec
             "unlocked_round": round_number,
             "mode": "timed",
         })
-        print(f"[SCHEDULED] Round {round_number} unlocked for session {session_id[:8]}…")
+        _ar_log.info(f"[SCHEDULED] Round {round_number} unlocked for session {session_id[:8]}…")
     except asyncio.CancelledError:
         pass
 
 
 @admin_router.get("/sessions/{session_id}/pacing", summary="Get round pacing config")
-async def get_pacing(session_id: str):
+async def get_pacing(session_id: str, request: Request):
+    await _assert_player_or_facilitator_can_view(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     pacing = _get_pacing(session_id)
     return {
         "mode": pacing["mode"],
@@ -3589,13 +3713,14 @@ async def get_esg_profile_weights(_guard: None = Depends(require_sim_manager)):
 
 @admin_router.post("/esg-profile-weights", summary="Set ESG Leadership Profile signal weights")
 async def set_esg_profile_weights(body: EsgWeightsRequest, request: Request,
-                                  _guard: None = Depends(require_sim_manager)):
-    """Run-managing facilitators (base and up) tune the ESG assessment rubric —
-    the weight each performance signal carries in the five ESG dimensions.
-    Moved to the facilitator dashboard: any facilitator may edit; project_admin
-    (provisioning-only charter) is rejected by require_sim_manager. Global
-    default rubric; unknown keys are dropped, values coerced to numbers, and
-    blend shares clamped to [0, 1]."""
+                                  _guard: None = Depends(require_super_admin)):
+    """Super-admin only (F-24, launch audit 2026-09-01): this rubric lives in
+    `_god_mode_settings` and is PLATFORM-WIDE — every cohort's end-of-game ESG
+    radar is scored with it. Letting any run-managing facilitator rewrite it
+    meant one facilitator could silently change how thirty other cohorts were
+    graded. Reading stays open to sim managers (they need to explain the
+    scoring); writing is an administrator act. Unknown keys are dropped, values
+    coerced to numbers, and blend shares clamped to [0, 1]."""
     caller = get_fac_role(request)
     clean = _sanitize_esg_weights(body.weights)
     _god_mode_settings["esg_profile_weights"] = clean
@@ -3716,7 +3841,7 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
                     )
                     pacing["_timer_tasks"].append(task)
                 except Exception as exc:
-                    print(f"[PACING] Could not schedule round {round_number}: {exc}")
+                    _ar_log.warning(f"[PACING] Could not schedule round {round_number}: {exc}")
             # Set next_unlock_at to the first future datetime in the schedule
             first_future = next(
                 (s for s in body.schedule if s), None
@@ -3769,11 +3894,44 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
 
 
 @admin_router.post("/sessions/{session_id}/pacing/unlock", summary="Manually unlock next round")
-async def unlock_next_round(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
+async def unlock_next_round(session_id: str, request: Request, body: dict | None = Body(None),
+                            _guard: None = Depends(require_sim_manager)):
+    """Open the next round for a manually paced cohort.
+
+    F-34 (launch audit 2026-09-01): this was a blind `unlocked_round += 1` —
+    no cap at the last round, and a double-click or a retried request opened
+    two rounds. Now:
+      • `{"target_round": N}` (what the console sends) is IDEMPOTENT: it opens
+        rounds up to N and a repeat is a no-op — the response says so with
+        `"already_unlocked": true`;
+      • a bare call keeps the increment (older clients, tests) but never
+        passes SIM_ROUNDS;
+      • nothing is ever re-locked by this endpoint (relock is its own action).
+    """
     await _assert_session_ownership(request, session_id)
     pacing = _get_pacing(session_id)
-    pacing["unlocked_round"] = pacing["unlocked_round"] + 1
-    mark_pacing_dirty(session_id)  # Fix #5: share the unlock across workers + snapshot
+    _current = int(pacing.get("unlocked_round") or 1)
+    _target = None
+    if isinstance(body, dict) and body.get("target_round") is not None:
+        try:
+            _target = int(body["target_round"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=422, detail="target_round must be an integer.")
+        if _target < 1 or _target > SIM_ROUNDS:
+            raise HTTPException(status_code=422, detail=f"target_round must be between 1 and {SIM_ROUNDS}.")
+    already = False
+    if _target is not None:
+        if _target <= _current:
+            already = True                       # idempotent repeat / retry
+        else:
+            pacing["unlocked_round"] = _target
+    else:
+        if _current >= SIM_ROUNDS:
+            already = True                       # nothing beyond the last round
+        else:
+            pacing["unlocked_round"] = _current + 1
+    if not already:
+        mark_pacing_dirty(session_id)  # Fix #5: share the unlock across workers + snapshot
 
     # Broadcast to players
     await manager.push_to_session(session_id, {
@@ -3791,6 +3949,8 @@ async def unlock_next_round(session_id: str, request: Request, _guard: None = De
     return {
         "unlocked_round": pacing["unlocked_round"],
         "mode": pacing["mode"],
+        "already_unlocked": already,   # F-34: repeat / at-cap calls change nothing
+        "max_round": SIM_ROUNDS,
     }
 
 
@@ -3816,12 +3976,9 @@ async def relock_round(session_id: str, request: Request, _guard: None = Depends
     # Floor: highest committed round across the cohort's player sub-sessions.
     highest_committed = 0
     try:
-        all_sessions = await db.fetch_all_sessions_raw()
-        for s in all_sessions:
-            if s.get("parent_cohort_id") == session_id and s.get("player_id"):
-                r = await db.fetch_latest_round(s.get("session_id"))
-                if r is not None:
-                    highest_committed = max(highest_committed, r)
+        _children = [s.get("session_id") for s in await db.get_child_sessions(session_id) if s.get("player_id")]  # F-28
+        for r in (await db.fetch_latest_rounds(_children)).values():
+            highest_committed = max(highest_committed, int(r))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Could not verify player progress: {exc}")
 
@@ -3856,6 +4013,46 @@ async def relock_round(session_id: str, request: Request, _guard: None = Depends
 
 # _player_registry imported from admin_shared
 _next_player_id: int = 1
+_next_player_id_seeded: bool = False
+
+
+async def _mint_sequential_player_id(prefix: str = "MUR") -> str:
+    """F-40 (launch audit 2026-09-01): the bulk-upload and induct paths issue
+    sequential `MUR-NNN` ids from `_next_player_id` — an in-process counter that
+    used to restart at 1 on every deploy, so every cohort rostered after a
+    restart re-issued MUR-001, MUR-002, … and collided with earlier cohorts.
+    Login resolves ids platform-wide and default passwords derive from the id,
+    so a colliding team could sign into ANOTHER cohort's game.
+
+    The counter is now seeded once per process from every id the store has
+    ever issued, and each candidate is still checked against the store before
+    it is handed out (multi-worker safe: two workers may race, but neither can
+    hand out an id the other has already persisted)."""
+    global _next_player_id, _next_player_id_seeded
+    import re as _re
+    _num_re = _re.compile(r"^(?:MUR-|P)(\d+)$")   # MUR-017 (roster paths) and P017 (/players/register)
+    if not _next_player_id_seeded:
+        try:
+            _existing = set(await db.list_all_player_ids())
+            _existing.update(p.get("player_id") for p in _player_registry if p.get("player_id"))
+            _nums = [int(m.group(1)) for x in _existing
+                     if isinstance(x, str) and (m := _num_re.match(x))]
+            if _nums:
+                _next_player_id = max(_next_player_id, max(_nums) + 1)
+        except Exception:
+            pass  # fall through: the per-candidate check below still guarantees uniqueness
+        _next_player_id_seeded = True
+    for _ in range(100_000):
+        n = _next_player_id
+        _next_player_id += 1
+        pid = f"P{n:03d}" if prefix == "P" else f"MUR-{n:03d}"
+        try:
+            in_use = await db.player_id_in_use(pid)
+        except Exception:
+            in_use = False
+        if not in_use and not any(p.get("player_id") == pid for p in _player_registry):
+            return pid
+    raise HTTPException(status_code=500, detail="Could not allocate a unique player id.")
 
 # _session_interventions imported from admin_shared
 
@@ -3866,8 +4063,9 @@ class SessionInterventionsRequest(BaseModel):
     swipe_rounds: dict[str, Optional[int]] = {}      # {swipe_id: round_number or null}
 
 @admin_router.get("/{session_id}/interventions", summary="Get permitted interventions for a session")
-async def get_session_interventions(session_id: str):
+async def get_session_interventions(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     # If not cached in-memory, try to recover from persisted global_state
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     if session_id not in _session_interventions:
         try:
             latest = await db.fetch_latest_state(session_id)
@@ -3945,7 +4143,8 @@ class DecadePlanRequest(BaseModel):
     decade_forward_plan: str
 
 @admin_router.post("/{session_id}/decade-plan", summary="Save boardroom choice and decade forward plan")
-async def save_decade_plan(session_id: str, req: DecadePlanRequest, _guard: None = Depends(require_sim_manager)):
+async def save_decade_plan(session_id: str, request: Request, req: DecadePlanRequest, _guard: None = Depends(require_sim_manager)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     ok = await db.save_decade_plan(session_id, req.boardroom_choice, req.decade_forward_plan)
     if not ok:
         from fastapi import HTTPException
@@ -3953,7 +4152,8 @@ async def save_decade_plan(session_id: str, req: DecadePlanRequest, _guard: None
     return {"status": "saved", "boardroom_choice": req.boardroom_choice}
 
 @admin_router.get("/{session_id}/decade-plan", summary="Get decade forward plan")
-async def get_decade_plan(session_id: str, _guard: None = Depends(require_facilitator)):
+async def get_decade_plan(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     result = await db.get_decade_plan(session_id)
     if result is None:
         from fastapi import HTTPException
@@ -3961,8 +4161,9 @@ async def get_decade_plan(session_id: str, _guard: None = Depends(require_facili
     return result
 
 
-@admin_router.get("/players", summary="List all registered players")
-async def list_players(_guard: None = Depends(require_facilitator)):
+@admin_router.get("/players", summary="List registered players visible to the caller")
+async def list_players(request: Request, role: str = Depends(get_fac_role),
+                       _guard: None = Depends(require_facilitator)):
     global _player_registry
     # If registry is empty but sessions have registered_players, rebuild it
     if not _player_registry:
@@ -3974,12 +4175,28 @@ async def list_players(_guard: None = Depends(require_facilitator)):
                     
     all_sessions_now = await db.fetch_all_sessions()
     active_ids = {s["session_id"] for s in all_sessions_now}
+
+    # F-20 (launch audit 2026-09-01): this returned EVERY cohort's roster —
+    # revealable initial passwords included — to any facilitator. Scope to the
+    # cohorts the caller owns or observes; admins keep the platform view.
+    # Credentials travel only on rows the caller owns.
+    from auth_jwt import get_facilitator_from_request
+    caller_id = get_facilitator_from_request(request) or ""
+    caller_is_admin = is_admin_role(role) or role == "god_mode"
+    owned_ids = {s["session_id"] for s in all_sessions_now if s.get("facilitator_id") == caller_id}
+    visible_ids = owned_ids | {s["session_id"] for s in all_sessions_now if caller_id in session_observers(s)}
     
     active_players = []
     for p in _player_registry:
         if not p.get("deleted_at"):
+            p_sid = p.get("session_id")
+            if not caller_is_admin and p_sid not in visible_ids:
+                continue
             p_dict = dict(p)
             p_dict.pop("password", None)   # H-2: never expose bcrypt hashes to callers
+            if not caller_is_admin and p_sid not in owned_ids:
+                p_dict.pop("plaintext_password", None)
+                p_dict.pop("temp_password", None)
             p_dict["is_orphan"] = p_dict.get("session_id") not in active_ids
             # ── Resolve display name from multiple sources ──
             # Priority: name (from induct/login) → username (from set-username) → player_name
@@ -3991,7 +4208,8 @@ async def list_players(_guard: None = Depends(require_facilitator)):
 
 
 @admin_router.put("/{session_id}/public-status", summary="Toggle session public visibility")
-async def toggle_public_status(session_id: str, req: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def toggle_public_status(session_id: str, request: Request, req: dict = Body(...), _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     is_public = req.get("is_public", False)
     success = await db.set_session_public(session_id, is_public)
     if not success:
@@ -4003,7 +4221,7 @@ async def toggle_public_status(session_id: str, req: dict = Body(...), _guard: N
 
 @admin_router.patch("/sessions/{session_id}/metadata", summary="Edit cohort metadata (pre-game only)")
 async def patch_session_metadata(
-    session_id: str,
+    session_id: str, request: Request,
     body: dict = Body(...),
     _guard: None = Depends(require_lead_facilitator),
 ):
@@ -4011,6 +4229,7 @@ async def patch_session_metadata(
     Allows lead_facilitator / super_admin to update a cohort's core metadata
     before the game has begun (round == 1 AND no players inducted).
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     # ── Guard: only allow edits before the game starts ──────────────
     from database_memory import _sessions
     session = _sessions.get(session_id)
@@ -4115,16 +4334,14 @@ async def revert_materiality_dictionary(
 
 @admin_router.post("/players/register", summary="Register a new player")
 async def register_player(req: PlayerRegisterRequest, _guard: None = Depends(require_sim_manager)):
-    global _next_player_id
     player = {
-        "player_id": f"P{_next_player_id:03d}",
+        "player_id": await _mint_sequential_player_id(prefix="P"),  # F-40: platform-unique
         "player_name": req.player_name,
         "team_name": req.team_name,
         "session_id": None,
         "registered_at": datetime.now(timezone.utc).isoformat(),
         "status": "waiting",
     }
-    _next_player_id += 1
     _player_registry.append(player)
     # Broadcast to admin
     await manager.broadcast_admin({
@@ -4138,8 +4355,6 @@ _NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "ha
 
 @admin_router.post("/players/induct", summary="Induct a player directly into a session")
 async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_sim_manager)):
-    global _next_player_id
-
     # Enforce the per-cohort roster cap (single resolver, clamp-on-read).
     from player_capacity import resolve_max_players, capacity_error
     _cap = resolve_max_players(get_effective_settings(req.session_id))
@@ -4159,15 +4374,14 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
             detail=f"A player named '{req.name}' is already registered in this cohort. Please use a different name."
         )
     
-    # Generate MUR-XXX ID
-    generated_id = f"MUR-{_next_player_id:03d}"
-    _next_player_id += 1
+    # Generate MUR-NNN ID — platform-unique (F-40)
+    generated_id = await _mint_sequential_player_id()
 
     # DETERMINISTIC default MUR-NNN@123 (policy in default_credentials).
     # The facilitator tells the room the rule instead of reading 20 distinct
     # strings; must_change_password forces a personal password on first login.
     # plaintext_password still surfaces it once for a student who forgets.
-    generated_password, generated_password_hash = make_player_credentials(generated_id)
+    generated_password, generated_password_hash = await make_player_credentials_async(generated_id)  # F-30
 
     # Fetch cohort_name from session so login response can return it
     _cohort_name = ""
@@ -4577,7 +4791,7 @@ async def set_team_seats(
     if body.rotate_code or not player.get("team_view_password"):
         # Same credential factory the roster uses, keyed on the VIEW code so a
         # team's observer password is never equal to its driver password.
-        plaintext, plaintext_hash = make_player_credentials(view_code)
+        plaintext, plaintext_hash = await make_player_credentials_async(view_code)  # F-30
         player["team_view_password"] = plaintext_hash
 
     player["team_view_code"] = view_code
@@ -4667,10 +4881,11 @@ async def remove_player(player_id: str, _guard: None = Depends(require_sim_manag
 
 @admin_router.delete("/players", summary="Clear all registered players")
 async def clear_all_players(_guard: None = Depends(require_super_admin)):
-    global _player_registry, _next_player_id
+    global _player_registry, _next_player_id, _next_player_id_seeded
     count = len(_player_registry)
     _player_registry[:] = []
     _next_player_id = 1
+    _next_player_id_seeded = False  # F-40: re-seed from the store on the next mint
     await manager.broadcast_admin({"type": "players_cleared"})
     return {"status": "cleared", "players_removed": count}
 
@@ -4809,6 +5024,7 @@ async def delete_session(
       super_admin / god_mode: may delete any cohort.
       lead_facilitator: may only delete cohorts they own.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     # Lead facilitators may only delete their own cohorts
     fac_role = get_fac_role(request) if request else "super_admin"
     if ROLE_HIERARCHY.get(fac_role, 0) < ROLE_HIERARCHY.get("super_admin", 3):
@@ -4859,7 +5075,7 @@ async def set_player_password(body: dict = Body(...), _guard: None = Depends(req
         raise HTTPException(400, "player_id and password are required")
     
     player = next((p for p in _player_registry if p["player_id"] == player_id), None)
-    hashed = hash_password(password)  # L-4: always store bcrypt hash
+    hashed = await hash_password_async(password)  # L-4: always store bcrypt hash; F-30
     if player:
         player["password"] = hashed
     else:
@@ -4908,7 +5124,7 @@ async def reset_player_password(player_id: str, _guard: None = Depends(require_s
 
     # Reset to the DETERMINISTIC default MUR-NNN@123 (same policy as creation);
     # force a personal password on the next login.
-    new_plaintext, new_hash = make_player_credentials(player["player_id"])
+    new_plaintext, new_hash = await make_player_credentials_async(player["player_id"])  # F-30
     player["password"] = new_hash
     player["must_change_password"] = True
 
@@ -5115,15 +5331,39 @@ def _apply_force_strike(
     "/sessions",
     summary="List all active sessions for leaderboard",
 )
-async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
-    """Returns all sessions with their latest state for the leaderboard."""
+async def list_sessions(request: Request, facilitator_id: Optional[str] = None,
+                        role: str = Depends(get_fac_role), _guard: None = Depends(require_facilitator)):
+    """Returns the sessions the CALLER may see, with their latest state.
+
+    F-20 (launch audit 2026-09-01): scoping used to depend on an OPTIONAL
+    `facilitator_id` query parameter supplied by the client — omit it and every
+    cohort on the platform came back, roster records (bcrypt hashes AND the
+    revealable initial password) included. The scope is now derived from the
+    signed cookie: admins (super_admin / god_mode) see everything and may still
+    narrow with `facilitator_id`; everyone else sees only the cohorts they own
+    or observe, whatever the query string says. Password hashes never leave
+    this endpoint; the revealable initial credential is kept only on rows the
+    caller owns (the roster reveal flow on the facilitator's own cohorts).
+    """
     sessions = await db.fetch_all_sessions()
 
-    if facilitator_id:
-        # CO-FAC-1 (UX audit #22): a facilitator's list now includes cohorts
-        # they OWN plus cohorts they were added to as a co-facilitator/TA.
-        # Read-only — every write path still gates on owns_session, and the
-        # rows carry is_observed so the UI can label them.
+    from auth_jwt import get_facilitator_from_request
+    caller_id = get_facilitator_from_request(request) or ""
+    caller_is_admin = is_admin_role(role) or role == "god_mode"
+
+    if not caller_is_admin:
+        # Non-admin: the token decides the scope; the query parameter cannot widen it.
+        sessions = [
+            s for s in sessions
+            if s.get("facilitator_id") == caller_id
+            or caller_id in session_observers(s)
+        ]
+        for s in sessions:
+            if s.get("facilitator_id") != caller_id:
+                s["is_observed"] = True
+    elif facilitator_id:
+        # CO-FAC-1 (UX audit #22): an admin narrowing to one facilitator's view —
+        # cohorts they OWN plus cohorts they observe as a co-facilitator/TA.
         sessions = [
             s for s in sessions
             if s.get("facilitator_id") == facilitator_id
@@ -5132,6 +5372,19 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
         for s in sessions:
             if s.get("facilitator_id") != facilitator_id:
                 s["is_observed"] = True
+
+    # Credential hygiene on the roster records carried by each row.
+    for s in sessions:
+        owner_row = caller_is_admin or s.get("facilitator_id") == caller_id
+        cleaned = []
+        for rp in (s.get("registered_players") or []):
+            rp = dict(rp)
+            rp.pop("password", None)              # never ship a hash
+            if not owner_row:                     # observers: no credentials at all
+                rp.pop("plaintext_password", None)
+                rp.pop("temp_password", None)
+            cleaned.append(rp)
+        s["registered_players"] = cleaned
 
     # Enrich each cohort with its EFFECTIVE climate settings (global default +
     # any per-cohort override) so UI surfaces like the Cohort Summary hover can
@@ -5160,7 +5413,7 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
     "/{session_id}/generate-player",
     summary="Generate a new allowed player ID and password",
 )
-async def generate_player_id(session_id: str, _guard: None = Depends(require_sim_manager)):
+async def generate_player_id(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
     """Mint one player id (and its default credential) for a cohort.
 
     RBAC-F6 — the cohort SHELL / cohort ROSTER seam, deliberate and worth
@@ -5178,6 +5431,7 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
     pre-start window patch_session_metadata already enforces. Never for a live
     run.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     # Enforce the per-cohort roster cap at ID generation time.
     from player_capacity import resolve_max_players, capacity_error
     sess_check = await db.get_session_info(session_id)
@@ -5194,7 +5448,7 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
     
     # DETERMINISTIC default MUR-NNN@123 (policy in default_credentials);
     # must_change_password forces a personal password on first login.
-    generated_password, _generated_password_hash = make_player_credentials(player_id)
+    generated_password, _generated_password_hash = await make_player_credentials_async(player_id)  # F-30
 
 
     player_entry = {
@@ -5210,7 +5464,7 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
         "industry_vertical": "",
         "region_id": "",
         "session_id": session_id,
-        "password": hash_password(generated_password),  # L-4: store bcrypt hash
+        "password": _generated_password_hash,  # L-4: store bcrypt hash (computed once above)
         "plaintext_password": generated_password,  # revealable temp credential; erased on personal change
         "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -5254,7 +5508,6 @@ async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dic
     Capacity + ownership are enforced by the CALLER before this runs, so the
     endpoint boundary stays all-or-nothing.
     """
-    global _next_player_id
     _cohort_name = ""
     try:
         _sess_info = await db.get_session_info(session_id)
@@ -5266,10 +5519,9 @@ async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dic
     created: list[dict] = []
     new_records: list[dict] = []
     for p in players:
-        pid = f"MUR-{_next_player_id:03d}"
-        _next_player_id += 1
+        pid = await _mint_sequential_player_id()  # F-40: platform-unique
         # DETERMINISTIC default MUR-NNN@123 per player; hash after id is fixed.
-        temp, temp_hash = make_player_credentials(pid)
+        temp, temp_hash = await make_player_credentials_async(pid)  # F-30: off-loop bcrypt
         player = {
             "player_id": pid,
             "name": p.get("name", ""),
@@ -5421,10 +5673,11 @@ async def _cohort_roster_shape(session_id: str):
     "/{session_id}/players/roster-shape",
     summary="The roster shape for one cohort — which player columns exist, and their choices",
 )
-async def players_roster_shape(session_id: str, _guard: None = Depends(require_facilitator)):
+async def players_roster_shape(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Lets the upload modal describe THIS cohort instead of describing rosters
     in general. Without it the modal has to guess at the mode, and a modal that
     guesses will eventually promise a column the template does not ship."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from player_capacity import resolve_max_players
     _sess, shape = await _cohort_roster_shape(session_id)
     _cap = resolve_max_players(get_effective_settings(session_id))
@@ -5444,7 +5697,7 @@ async def players_roster_shape(session_id: str, _guard: None = Depends(require_f
     summary="Download the player roster .xlsx template shaped for ONE cohort",
 )
 async def players_bulk_template_for_cohort(
-    session_id: str, _guard: None = Depends(require_facilitator),
+    session_id: str, request: Request, _guard: None = Depends(require_facilitator),
 ):
     """The template a facilitator should actually use.
 
@@ -5453,13 +5706,14 @@ async def players_bulk_template_for_cohort(
     exactly the values its own upload accepts. Both come from the cohort's
     RosterShape, so the file cannot fail the endpoint that produced it.
     """
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     import os, tempfile
     from fastapi.responses import FileResponse
     from player_bulk_excel import build_player_template
     sess, shape = await _cohort_roster_shape(session_id)
     fd, path = tempfile.mkstemp(suffix=".xlsx", prefix="player_template_")
     os.close(fd)
-    build_player_template(path, shape)
+    await asyncio.to_thread(build_player_template, path, shape)  # F-30: openpyxl off-loop
     slug = _filename_slug(sess.get("cohort_name") or session_id)
     return FileResponse(
         path,
@@ -5487,7 +5741,7 @@ async def players_bulk_template(_guard: None = Depends(require_facilitator)):
     from player_bulk_excel import build_player_template
     fd, path = tempfile.mkstemp(suffix=".xlsx", prefix="player_template_")
     os.close(fd)
-    build_player_template(path)
+    await asyncio.to_thread(build_player_template, path)  # F-30: openpyxl off-loop
     return FileResponse(
         path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -5500,7 +5754,7 @@ async def players_bulk_template(_guard: None = Depends(require_facilitator)):
     summary="Validate a player roster sheet WITHOUT creating anything",
 )
 async def players_bulk_preview(
-    session_id: str,
+    session_id: str, request: Request,
     file: UploadFile = File(...),
     _guard: None = Depends(require_sim_manager),
 ):
@@ -5515,12 +5769,13 @@ async def players_bulk_preview(
     effect they cannot see. `shape` rides along so the modal renders exactly the
     columns this cohort has.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from player_bulk_excel import parse_player_sheet, BulkPlayerError
     _sess, cap, remaining = await _cohort_remaining_capacity(session_id)
     _sess2, shape = await _cohort_roster_shape(session_id)
     raw = await file.read()
     try:
-        players = parse_player_sheet(raw, limit=remaining, shape=shape)
+        players = await asyncio.to_thread(parse_player_sheet, raw, limit=remaining, shape=shape)  # F-30
     except BulkPlayerError as e:
         return {"ok": False, "errors": e.errors, "total": 0,
                 "remaining": remaining, "max_players": cap,
@@ -5545,7 +5800,7 @@ async def players_bulk_preview(
     summary="Create players in one cohort from an .xlsx roster (all-or-nothing)",
 )
 async def players_bulk_upload(
-    session_id: str,
+    session_id: str, request: Request,
     file: UploadFile = File(...),
     _guard: None = Depends(require_sim_manager),
 ):
@@ -5558,12 +5813,13 @@ async def players_bulk_upload(
     request body would let a caller ask for the single-business contract on a
     conglomerate cohort and get per-player business units after all.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from player_bulk_excel import parse_player_sheet, BulkPlayerError
     _sess, cap, remaining = await _cohort_remaining_capacity(session_id)
     _sess2, shape = await _cohort_roster_shape(session_id)
     raw = await file.read()
     try:
-        players = parse_player_sheet(raw, limit=remaining, shape=shape)
+        players = await asyncio.to_thread(parse_player_sheet, raw, limit=remaining, shape=shape)  # F-30
     except BulkPlayerError as e:
         raise HTTPException(status_code=400, detail=str(e))
     created = await _create_players_bulk(session_id, players)
@@ -5789,13 +6045,22 @@ _ROSTER_PUBLIC_FIELDS = (
     "/leaderboard",
     summary="Get leaderboard data for all active sessions",
 )
-async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
+async def get_leaderboard(request: Request, facilitator_id: Optional[str] = None,
+                          role: str = Depends(get_fac_role), _guard: None = Depends(require_facilitator)):
     """
     Returns computed leaderboard metrics for each player session:
     terminal value projection, total cash, synergy, risk heatmap,
     talent flight risk, and individual player scores.
+
+    F-20 (launch audit 2026-09-01): scope comes from the signed cookie. Admins
+    see every cohort (and may narrow with `facilitator_id`); everyone else sees
+    only the cohorts they own or observe, and the roster's revealable initial
+    credential travels only on cohorts they OWN.
     """
     from player_capacity import resolve_max_players
+    from auth_jwt import get_facilitator_from_request
+    _caller_id = get_facilitator_from_request(request) or ""
+    _caller_is_admin = is_admin_role(role) or role == "god_mode"
     sessions = await db.fetch_all_sessions()
     leaderboard = []
 
@@ -5830,8 +6095,12 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
         # unless they have no parent (legacy solo sessions)
         player_id = sess.get("player_id")
 
-        if facilitator_id and sess.get("facilitator_id") != facilitator_id:
+        if _caller_is_admin:
+            if facilitator_id and sess.get("facilitator_id") != facilitator_id:
+                continue
+        elif not (sess.get("facilitator_id") == _caller_id or _caller_id in session_observers(sess)):
             continue
+        _owner_row = _caller_is_admin or sess.get("facilitator_id") == _caller_id
 
         gs = latest["global_state"]
         bus = latest["bu_states"]
@@ -5926,6 +6195,11 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             "decision_paradigm": _get_session_paradigm(sid),
             "round_number": latest["round_number"],
             "terminal_value": terminal_value,
+            # F-17: the multiple this team is currently valued at (finale value
+            # once played, else this round's server preview) so the trading
+            # floor prices the NPC rival with the SAME multiple family.
+            "exit_multiple": (gs.get("active_event_flags", {}) or {}).get("exit_multiple")
+                             or ((gs.get("active_event_flags", {}) or {}).get("valuation_preview") or {}).get("exit_multiple"),
             "total_cash": gs.get("corporate_treasury", 0),
             "group_synergy": synergy,
             "group_reputation": gs.get("group_reputation", 50),
@@ -5982,7 +6256,10 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             # persisted by an older build. Mirrors the resolver the two capacity
             # enforcement sites (generate_player_id / induct_player) already use.
             "max_players": resolve_max_players(get_effective_settings(sid)),
-            "registered_players": [_roster_view(rp) for rp in (sess.get("registered_players") or [])],
+            "registered_players": [
+                (_roster_view(rp) if _owner_row else {**_roster_view(rp), "temp_password": ""})
+                for rp in (sess.get("registered_players") or [])
+            ],
             "simulation_mode": sess.get("simulation_mode", "conglomerate"),
             "industry_vertical": sess.get("industry_vertical", ""),
             "region_id": sess.get("region_id", ""),
@@ -6189,7 +6466,7 @@ async def get_war_map(request: Request, facilitator_id: Optional[str] = None,
     "/session-report/{session_id}",
     summary="Full performance analytics for a single session",
 )
-async def get_session_report(session_id: str, _guard: None = Depends(require_facilitator)):
+async def get_session_report(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """
     Returns a comprehensive analytics report for a session:
     - Final KPIs (treasury, reputation, CO2, SLO, NCD, synergy, M_R)
@@ -6199,6 +6476,7 @@ async def get_session_report(session_id: str, _guard: None = Depends(require_fac
     - Round-by-round KPI history for sparklines / trend analysis
     - Archetype classification and ending pathway
     """
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from fastapi import HTTPException  # noqa (local import — avoids circular at module level)
 
     session_info = await db.get_session_info(session_id)
@@ -6635,6 +6913,7 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
     WOW-4E: Pass `rehearsal: true` in the body to preview the event on the
     facilitator's screen only — NO game state changes, NO student broadcast.
     """
+    await _assert_session_ownership(request, cohort_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     # Per-facilitator capability check (god_mode always allowed).
     _require_console_capability(request, "shockwave_enabled", "Shockwave")
 
@@ -6655,8 +6934,7 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
         _audit("shockwave_rehearsal", details={"cohort_id": cohort_id, "event_id": event_id})
         return {"status": "rehearsal", "event_id": event_id, "event": ev, "message": "Rehearsal only — students NOT affected"}
 
-    all_sessions = await db.fetch_all_sessions()
-    children = [s["session_id"] for s in all_sessions if s.get("parent_cohort_id") == cohort_id]
+    children = await db.fetch_child_session_ids(cohort_id)   # F-28: indexed
     applied = 0
     for sid in children:
         cur = await db.fetch_latest_state(sid)
@@ -6754,13 +7032,10 @@ async def inject_message(session_id: str, body: MessageInjectRequest, request: R
     _session_messages[session_id].append(message)
 
     # Also propagate to player sub-sessions so individual player polling picks it up
-    all_sessions = await db.fetch_all_sessions()
-    for s in all_sessions:
-        if s.get("parent_cohort_id") == session_id:
-            child_id = s["session_id"]
-            if child_id not in _session_messages:
-                _session_messages[child_id] = []
-            _session_messages[child_id].append(message)
+    for child_id in await db.fetch_child_session_ids(session_id):   # F-28: indexed
+        if child_id not in _session_messages:
+            _session_messages[child_id] = []
+        _session_messages[child_id].append(message)
 
     # Push to player session via WebSocket
     await manager.push_to_session(session_id, {
@@ -7007,7 +7282,7 @@ async def add_bu_category(body: dict = Body(...), _guard: None = Depends(require
     if not label:
         raise HTTPException(400, "'label' is required")
     entry = mat_db.register_bu(bu_id, label, icon)
-    print(f"[god-mode] BU category registered: {bu_id} ({label})")
+    _ar_log.info(f"[god-mode] BU category registered: {bu_id} ({label})")
     return {"status": "ok", "category": entry}
 
 
@@ -7020,7 +7295,7 @@ async def delete_bu_category(bu_id: str, _guard: None = Depends(require_super_ad
         raise HTTPException(400, str(e))
     if not removed:
         raise HTTPException(404, f"Custom BU category '{bu_id}' not found")
-    print(f"[god-mode] BU category removed: {bu_id}")
+    _ar_log.info(f"[god-mode] BU category removed: {bu_id}")
     return {"status": "deleted", "bu_id": bu_id}
 
 
@@ -7034,8 +7309,9 @@ async def delete_bu_category(bu_id: str, _guard: None = Depends(require_super_ad
     "/{session_id}/bu-composition",
     summary="Get the active BU composition for a session",
 )
-async def get_bu_composition(session_id: str):
+async def get_bu_composition(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Returns the current BU lineup with any active substitutions."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from bu_profiles import BU_PROFILES, DEFAULT_SLOTS, SLOT_FIT_MAP, get_active_bus
 
     current = await db.fetch_latest_state(session_id)
@@ -7095,13 +7371,14 @@ async def get_bu_composition(session_id: str):
     "/{session_id}/bu-composition",
     summary="Set BU composition (swap verticals)",
 )
-async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def set_bu_composition(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """
     Swap default BUs with industry vertical alternatives.
     Must be called before Round 1 is committed.
 
     Body: {"substitutions": {"pharma": "oil_gas", "software": "technology"}}
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from bu_profiles import (
         BU_PROFILES, DEFAULT_SLOTS, validate_substitution,
         get_active_bus, build_bu_states,
@@ -7159,7 +7436,7 @@ async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: No
 
     active_bus = get_active_bus(substitutions)
     labels = [BU_PROFILES.get(b, {}).get("label", b) for b in active_bus]
-    print(f"[god-mode] BU composition updated for {session_id} + {len(children)} children: {labels}")
+    _ar_log.info(f"[god-mode] BU composition updated for {session_id} + {len(children)} children: {labels}")
 
     return {
         "status": "ok",
@@ -7400,8 +7677,9 @@ async def download_materiality_excel(
     "/{session_id}/r2-bu-selection",
     summary="Get the randomly selected BU for Round 2 materiality matrix"
 )
-async def get_r2_bu_selection(session_id: str):
+async def get_r2_bu_selection(session_id: str, request: Request):
     """Returns the BU selected for Round 2 materiality analysis (Strategic Pillars mode)."""
+    await _assert_player_or_facilitator_can_view(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from bu_profiles import BU_PROFILES, get_active_bus
 
     current = await db.fetch_latest_state(session_id)
@@ -7602,7 +7880,7 @@ async def upload_stakeholder_excel(
             pass
 
     ids = [s["id"] for s in stakeholders]
-    print(f"[god-mode] Stakeholder Excel uploaded for '{config_id}': {len(ids)} stakeholders")
+    _ar_log.info(f"[god-mode] Stakeholder Excel uploaded for '{config_id}': {len(ids)} stakeholders")
     return {
         "status": "ok",
         "config_id": config_id,
@@ -8144,11 +8422,12 @@ async def apply_stakeholder_master(
     "/{session_id}/audit-trail",
     summary="Get the decision audit trail for a cohort",
 )
-async def get_audit_trail(session_id: str, _guard: None = Depends(require_facilitator)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
+async def get_audit_trail(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
     """
     Returns all decisions made by players in this cohort,
     including child player sessions. Grouped by round.
     """
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     decisions = await db.get_decision_log(session_id)
 
     # Group by round
@@ -8377,8 +8656,9 @@ async def get_debrief(session_id: str, request: Request,
     "/{session_id}/player-sessions",
     summary="List all player sub-sessions for a cohort",
 )
-async def get_player_sessions(session_id: str, _guard: None = Depends(require_facilitator)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
+async def get_player_sessions(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
     """Returns all child player sessions under a parent cohort."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     children = await db.get_child_sessions(session_id)
     # Enrich with current round info
     enriched = []
@@ -8423,10 +8703,11 @@ async def impersonate_player(player_session_id: str, _guard: None = Depends(requ
     summary="Reset (delete) a single session",
     status_code=status.HTTP_200_OK,
 )
-async def reset_session(session_id: str, _guard: None = Depends(require_super_admin)):
+async def reset_session(session_id: str, request: Request, _guard: None = Depends(require_super_admin)):
     """Deletes a session and all its round data. Cannot be undone.
     - If the session is a cohort template, cascade-deletes all player sessions under it.
     - If the session is a player session, removes it from the parent cohort's player list."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from router import _session_players
     session_info = await db.get_session_info(session_id)
 
@@ -9185,9 +9466,7 @@ async def undo_round(
     await _assert_session_ownership(request, session_id)
     targets = [session_id]
     if cohort_wide:
-        all_sessions = await db.fetch_all_sessions()
-        children = [s["session_id"] for s in all_sessions if s.get("parent_cohort_id") == session_id]
-        targets.extend(children)
+        targets.extend(await db.fetch_child_session_ids(session_id))   # F-28: indexed
 
     last_res = None
 
@@ -9260,11 +9539,12 @@ class FacilitatorNoteRequest(BaseModel):
     "/{session_id}/notes",
     summary="List facilitator notes for a session",
 )
-async def list_notes(session_id: str, _guard: None = Depends(require_facilitator)):
+async def list_notes(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     # LOW-003: Guard added — notes may contain private facilitator observations
     # (round tactics, player struggles) not intended for public access.
     # Player-visible notes are pushed via WebSocket on creation; players do not
     # need to poll this endpoint.
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     return {"notes": _facilitator_notes.get(session_id, [])}
 
 
@@ -9278,6 +9558,7 @@ async def add_note(
     request: Request,
     _guard: None = Depends(require_sim_manager),
 ):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from auth_jwt import get_facilitator_from_request
     global _next_note_id
     author = get_facilitator_from_request(request) or "unknown"
@@ -9315,6 +9596,7 @@ async def delete_note(
     # GOD-009: Only the note's author or a super_admin may delete a note.
     # This prevents one of 30 facilitators from silently erasing a colleague's
     # teaching annotations.
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from auth_jwt import get_facilitator_from_request
     caller = get_facilitator_from_request(request) or ""
     caller_role = get_fac_role(request)
@@ -9378,7 +9660,8 @@ async def list_bonuses(session_id: str, request: Request,
     "/{session_id}/bonuses",
     summary="Award a bonus to a player",
 )
-async def award_bonus(session_id: str, req: StudentBonusRequest, _guard: None = Depends(require_sim_manager)):
+async def award_bonus(session_id: str, request: Request, req: StudentBonusRequest, _guard: None = Depends(require_sim_manager)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     global _next_bonus_id
     badge_info = BADGE_PRESETS.get(req.badge) if req.badge else None
     bonus = {
@@ -9406,7 +9689,8 @@ async def award_bonus(session_id: str, req: StudentBonusRequest, _guard: None = 
     "/{session_id}/bonuses/{bonus_id}",
     summary="Revoke a bonus",
 )
-async def revoke_bonus(session_id: str, bonus_id: str, _guard: None = Depends(require_sim_manager)):
+async def revoke_bonus(session_id: str, request: Request, bonus_id: str, _guard: None = Depends(require_sim_manager)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     bonuses = _student_bonuses.get(session_id, [])
     before = len(bonuses)
     _student_bonuses[session_id] = [b for b in bonuses if b["bonus_id"] != bonus_id]
@@ -9470,7 +9754,7 @@ async def list_peer_evaluations(session_id: str, request: Request,
     summary="Submit a peer evaluation",
 )
 async def submit_peer_evaluation(
-    session_id: str,
+    session_id: str, request: Request,
     req: PeerEvaluationRequest,
     # QA-2026-07-16 #2: was completely unguarded — anyone holding a session id
     # could submit evaluations that feed grading. The only frontend caller is
@@ -9478,6 +9762,7 @@ async def submit_peer_evaluation(
     # gate it like its sibling DELETE endpoint below.
     _guard: None = Depends(require_sim_manager),
 ):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     global _next_eval_id
     # Validate scores 1-5
     for field in ["contribution", "communication", "leadership"]:
@@ -9504,7 +9789,8 @@ async def submit_peer_evaluation(
     "/{session_id}/peer-evaluations/{eval_id}",
     summary="Delete a peer evaluation",
 )
-async def delete_peer_evaluation(session_id: str, eval_id: str, _guard: None = Depends(require_sim_manager)):
+async def delete_peer_evaluation(session_id: str, request: Request, eval_id: str, _guard: None = Depends(require_sim_manager)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     evals = _peer_evaluations.get(session_id, [])
     before = len(evals)
     _peer_evaluations[session_id] = [e for e in evals if e["eval_id"] != eval_id]
@@ -9687,9 +9973,10 @@ def _get_brsr_controller():
     "/{session_id}/brsr/status",
     summary="Get BRSR NGRBC track status for a session (Facilitator Monitor)",
 )
-async def get_brsr_status(session_id: str, _guard: None = Depends(require_facilitator)):
+async def get_brsr_status(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     # SECURITY-HIGH-001: Session track status is facilitator-only information.
     """Returns the full BRSR facilitator monitor payload for one session."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     session = await db.get_session(session_id)
     if not session:
         raise HTTPException(404, f"Session {session_id} not found")
@@ -9706,9 +9993,10 @@ async def get_brsr_status(session_id: str, _guard: None = Depends(require_facili
     "/{session_id}/brsr/prerequisites",
     summary="Check BRSR track prerequisite eligibility for a session",
 )
-async def check_brsr_prereqs(session_id: str, _guard: None = Depends(require_facilitator)):
+async def check_brsr_prereqs(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     # SECURITY-HIGH-001: Prerequisite eligibility is facilitator-only information.
     """Returns eligibility, met/missing prerequisites, and god-mode override status."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     session = await db.get_session(session_id)
     if not session:
         raise HTTPException(404, f"Session {session_id} not found")
@@ -9732,7 +10020,7 @@ class BRSRRoundRequest(BaseModel):
     summary="Process a BRSR round decision (Facilitator-controlled)",
 )
 async def process_brsr_decision(
-    session_id: str,
+    session_id: str, request: Request,
     req: BRSRRoundRequest,
     # QA-2026-07-16 #2: the docstring says "Facilitator-controlled" but the
     # route was unguarded — any caller could apply BRSR consequences to a
@@ -9744,6 +10032,7 @@ async def process_brsr_decision(
     Applies all BRSR consequences to BU states, global_state, and flags.
     Finalises the track automatically after round 5.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     if req.brsr_round < 1 or req.brsr_round > 5:
         raise HTTPException(400, "brsr_round must be 1–5")
     if req.choice not in ("option_a", "option_b", "option_c"):
@@ -10025,6 +10314,7 @@ async def finale_ring_bell(cohort_id: str, request: Request, _guard: None = Depe
     and reveals the final ranking. Presentation-only: touches no game state.
     Gated by the caller's per-profile `trading_floor_enabled` capability
     (set at facilitator setup, mirroring the Shockwave gate)."""
+    await _assert_session_ownership(request, cohort_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     _require_console_capability(request, "trading_floor_enabled", "Trading Floor")
     payload = {
         "type": "market_close",
@@ -10049,11 +10339,13 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
     Returns the script plus base64 MP3; audio_b64 is null when synthesis
     is unavailable (no key / API error) and the console falls back to a
     chyron-only bulletin."""
+    await _assert_session_ownership(request, cohort_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     _require_console_capability(request, "situation_room_enabled", "Situation Room")
 
     # Parity API: read sessions + round history via db.* (direct _sessions /
-    # _global_states reads return {} under Postgres).
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    # _global_states reads return {} under Postgres). F-28: cohort-scoped —
+    # the cohort shell plus its children, not every session on the platform.
+    all_sessions = await _cohort_scoped_sessions(cohort_id)
     has_children = any(s.get("parent_cohort_id") == cohort_id for s in all_sessions.values())
 
     teams = []
@@ -10568,7 +10860,7 @@ async def get_scenario_presets():
 
 
 @admin_router.put("/cohort/{session_id}/pedagogical-settings", summary="Save per-cohort pedagogical settings")
-async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def save_cohort_pedagogical_settings(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store experience level, difficulty tier, and pedagogical toggles per-cohort.
 
     BUG-2026-07-20: this wrote ONLY into database_memory._sessions and called
@@ -10581,6 +10873,7 @@ async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(..
     stores) as well as the in-process dict, so the value survives and is
     readable by the same API that serves it to the cockpit.
     """
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from database_memory import _sessions as _dm_sessions
     session = _dm_sessions.get(session_id)
     if session is None:
@@ -10649,16 +10942,20 @@ async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(..
 
 
 @admin_router.put("/cohort/{session_id}/pacing", summary="Save per-cohort round pacing settings")
-async def save_cohort_pacing(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def save_cohort_pacing(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store pacing mode and max unlocked round per-cohort.
     Once a facilitator sets pacing, God Mode cannot override it."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     session = await db.get_session_info(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
 
-    # Track who is setting pacing
-    set_by = body.get("facilitator_id", "")
-    source = body.get("source", "facilitator")  # "facilitator" or "god_mode"
+    # Track who is setting pacing — from the signed identity, not the body
+    # (F-21: the body used to name any facilitator and could claim "god_mode").
+    from auth_jwt import get_facilitator_from_request as _gfr
+    set_by = _gfr(request) or body.get("facilitator_id", "")
+    _caller_role = get_fac_role(request)
+    source = "god_mode" if (is_admin_role(_caller_role) or _caller_role == "god_mode") else "facilitator"
 
     # Protection: If a facilitator already set pacing, god-mode cannot override
     if source == "god_mode" and is_pacing_set_by_facilitator(session_id):
@@ -10773,8 +11070,9 @@ _COMPLEXITY_EVENT_LABELS = {
 
 
 @admin_router.get("/complexity-events/{session_id}", summary="Get complexity engine events for a session")
-async def get_complexity_events(session_id: str):
+async def get_complexity_events(session_id: str, request: Request):
     """Surface the 16 engine events from a session's latest state as human-readable cards."""
+    await _assert_player_or_facilitator_can_view(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     # Parity API: fetch_round_history reads the round history under BOTH the
     # memory and Postgres stores; a direct _global_states read returns {} under
     # Postgres. Each item is {round_number, global_state:{active_event_flags,…}}.
@@ -10986,8 +11284,9 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.post("/sessions/{session_id}/clone", summary="Clone a session for what-if scenarios")
-async def clone_session(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def clone_session(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Deep-clone a cohort's current state into a new session."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     import copy
     from admin_shared import _in_memory_backend_active
     # Cloning deep-copies round/BU state by writing into the in-memory dicts. That
@@ -11204,8 +11503,9 @@ def check_auto_pause_triggers(session_id: str, events: dict, global_state: dict)
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/decision-history/{session_id}", summary="Full decision timeline for a session")
-async def get_decision_history(session_id: str, _guard: None = Depends(require_facilitator)):
+async def get_decision_history(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Reconstruct the complete decision history with state snapshots."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     # Parity API: read rounds and decisions via db.* so the timeline populates
     # under Postgres (direct _global_states/_bu_states/_decision_log → {}/[] there).
     rounds = await db.fetch_round_history(session_id)
@@ -11280,7 +11580,8 @@ async def get_annotations(session_id: str, request: Request,
 
 
 @admin_router.post("/annotations/{session_id}", summary="Add an annotation")
-async def add_annotation(session_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
+async def add_annotation(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     if session_id not in _annotations:
         _annotations[session_id] = []
     annotation = {
@@ -11297,15 +11598,17 @@ async def add_annotation(session_id: str, body: dict = Body(...), _guard: None =
 
 
 @admin_router.delete("/annotations/{session_id}/{annotation_id}", summary="Delete an annotation")
-async def delete_annotation(session_id: str, annotation_id: str, _guard: None = Depends(require_sim_manager)):
+async def delete_annotation(session_id: str, request: Request, annotation_id: str, _guard: None = Depends(require_sim_manager)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     if session_id in _annotations:
         _annotations[session_id] = [a for a in _annotations[session_id] if a["id"] != annotation_id]
     return {"deleted": annotation_id}
 
 
 @admin_router.put("/annotations/{session_id}/visibility", summary="Toggle student visibility of annotations")
-async def set_annotations_visibility(session_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
+async def set_annotations_visibility(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """Enable or disable student visibility of facilitator annotations for a cohort."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     sess = await db.get_session_info(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
@@ -11461,8 +11764,10 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
     """
     await _assert_session_ownership(request, cohort_id)
     # Parity API: sessions + round history via db.* (direct _sessions /
-    # _global_states / _bu_states reads return {} under Postgres).
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    # _global_states / _bu_states reads return {} under Postgres). F-28:
+    # cohort-scoped (shell + children) instead of a whole-platform scan on
+    # every pulse poll.
+    all_sessions = await _cohort_scoped_sessions(cohort_id)
 
     teams = []
     for sid, sess in all_sessions.items():
@@ -11595,11 +11900,12 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
 
 
 @admin_router.post("/cohort-pulse/{cohort_id}/visibility", summary="Set player-visibility of the CohortPulse heatmap")
-async def set_cohort_pulse_visibility(cohort_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
+async def set_cohort_pulse_visibility(cohort_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """
     Persists whether the CohortPulse KPI heatmap is visible to players.
     Called by the CohortPulse.js toggle switch.
     """
+    await _assert_session_ownership(request, cohort_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     sess = await db.get_session_info(cohort_id)
     if not sess:
         raise HTTPException(status_code=404, detail=f"Cohort '{cohort_id}' not found.")
@@ -11937,7 +12243,7 @@ async def turnaround_state(session_id: str, request: Request,
 
 @admin_router.put("/cohorts/{session_id}/side-tracks", summary="Assign side tracks to a cohort (Facilitator)")
 async def assign_cohort_side_tracks(
-    session_id: str,
+    session_id: str, request: Request,
     body: dict = Body(...),
     caller_role: str = Depends(get_fac_role),
     _guard: None = Depends(require_facilitator),
@@ -11955,6 +12261,7 @@ async def assign_cohort_side_tracks(
       OR that have been explicitly granted to their facilitator account.
 
     Includes timing configuration (unlock_after_round)."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     sess = await db.get_session_info(session_id)
     if not sess:
         raise HTTPException(404, "Session not found")
@@ -12064,8 +12371,9 @@ async def assign_cohort_side_tracks(
 
 
 @admin_router.get("/cohorts/{session_id}/side-tracks", summary="Get side track status for a cohort")
-async def get_cohort_side_tracks(session_id: str):
+async def get_cohort_side_tracks(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Returns the assigned side tracks, their progress, and timing for a cohort."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from database_memory import _sessions
 
     sess = _sessions.get(session_id)
@@ -12119,8 +12427,9 @@ async def get_flag_dependencies(session_id: str | None = None):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.post("/what-if/{session_id}", summary="What-If M_R replay with flag overrides")
-async def what_if_replay(session_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
+async def what_if_replay(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """STRAT-003: Replay R10 terminal valuation with modified flags."""
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from terminal_valuation import what_if_terminal
     latest = await db.fetch_latest_state(session_id)
     if not latest:
@@ -12690,10 +12999,11 @@ async def reorder_pillar_areas(
     summary="Generate a framework-aligned ESG report for a session",
 )
 async def get_regional_esg_report(
-    session_id: str,
+    session_id: str, request: Request,
     _guard: None = Depends(require_facilitator),
 ):
     """Generate a region-appropriate ESG report shell based on session metadata."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01): cross-cohort access
     from regional_reporting import generate_regional_report
     from datetime import datetime, timezone
 

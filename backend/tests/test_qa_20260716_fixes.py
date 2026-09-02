@@ -96,9 +96,15 @@ def test_mod4_crisis_choices_bound_to_session_owner():
 
     body = {"choices": {"bu_legacy": "eat"}, "effective_fee": 95}
 
+    from conftest import player_token_headers
+    # F-22: a token scoped to another session is refused …
     r_wrong = client.post(f"/api/admin/sessions/{sub}/mod4-crisis-choices",
-                          json=body, headers={"X-Player-Id": "MUR-EVIL"})
+                          json=body, headers=player_token_headers("00000000-0000-0000-0000-000000000000", "MUR-EVIL"))
     assert r_wrong.status_code == 403
+    # … a bare header is no credential at all …
+    r_hdr = client.post(f"/api/admin/sessions/{sub}/mod4-crisis-choices",
+                        json=body, headers={"X-Player-Id": "MUR-EVIL"})
+    assert r_hdr.status_code == 401
 
     r_anon = client.post(f"/api/admin/sessions/{sub}/mod4-crisis-choices", json=body)
     assert r_anon.status_code == 403
@@ -106,7 +112,7 @@ def test_mod4_crisis_choices_bound_to_session_owner():
     # Real owner clears the OWNERSHIP gate (later validation may still reject
     # the payload, but never with the ownership message).
     r_owner = client.post(f"/api/admin/sessions/{sub}/mod4-crisis-choices",
-                          json=body, headers={"X-Player-Id": pid})
+                          json=body, headers=player_token_headers(sub, pid))
     if r_owner.status_code == 403:
         assert "owner" not in r_owner.json().get("detail", "").lower()
 

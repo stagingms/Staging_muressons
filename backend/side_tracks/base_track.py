@@ -213,6 +213,12 @@ class BaseSideTrack(ABC):
 
     # ── Engine Hooks ────────────────────────────────────────────
 
+    # F-07 (launch audit 2026-09-01): the crisis severity a side-track round
+    # starts from. The cockpit used to send 40 on every side-track commit; the
+    # server now supplies it (a track may override the attribute, and its
+    # pre_tick may still adjust the value).
+    base_crisis_severity: float = 40.0
+
     def pre_tick(
         self,
         round_number: int,

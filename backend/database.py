@@ -241,6 +241,19 @@ async def get_pool() -> asyncpg.Pool:
         # Ensure metadata column exists (for DBs created by older init.sql without it)
         async with _pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
             await conn.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
+            # F-28 (launch audit 2026-09-01): parent_cohort_id and player_id live
+            # in the JSONB. Sibling lookups (leaderboard, peer trends, pacing
+            # round probe, shockwave, cohort undo) used to fetch EVERY session on
+            # the platform and filter in Python — work that grew with platform
+            # history, not cohort size. Expression indexes let the store answer
+            # "children of cohort X" / "session of player P" directly; the write
+            # path is untouched (no dual-write, no backfill).
+            await conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sessions_parent_cohort "
+                "ON sessions ((metadata->>'parent_cohort_id'));")
+            await conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sessions_player_id "
+                "ON sessions ((metadata->>'player_id'));")
 
         # ── TEAM-3 (UX audit #7, 2026-08-02): team_consensus becomes nullable ──
         # The client used to hardcode 'majority' on every commit, so the audit
@@ -899,25 +912,39 @@ async def get_decision_log(session_id: str) -> list[dict]:
 
 
 async def get_child_sessions(parent_id: str) -> list[dict]:
-    """Return all child sessions for a parent session (facilitator views)."""
+    """Return all child sessions for a parent session (facilitator views).
+    F-28: an indexed lookup on metadata->>'parent_cohort_id' — the table is no
+    longer scanned and filtered in Python."""
     pool = await get_pool()
     async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch(
-            "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions"
+            "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions "
+            "WHERE metadata->>'parent_cohort_id' = $1",
+            str(parent_id),
         )
         res = []
         for row in rows:
-            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
-            if metadata.get("parent_cohort_id") == parent_id:
-                sess = {
-                    "session_id": str(row["session_id"]),
-                    "cohort_name": row["cohort_name"],
-                    "facilitator_id": row["facilitator_id"],
-                    "start_time": row["start_time"],
-                }
-                sess.update(metadata)
-                res.append(sess)
+            metadata = _loads_meta(row["metadata"])
+            sess = {
+                "session_id": str(row["session_id"]),
+                "cohort_name": row["cohort_name"],
+                "facilitator_id": row["facilitator_id"],
+                "start_time": row["start_time"],
+            }
+            sess.update(metadata)
+            res.append(sess)
         return res
+
+
+async def fetch_child_session_ids(parent_id: str) -> list[str]:
+    """F-28: just the ids of a cohort's player sub-sessions (indexed)."""
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        rows = await conn.fetch(
+            "SELECT session_id FROM sessions WHERE metadata->>'parent_cohort_id' = $1",
+            str(parent_id),
+        )
+    return [str(r["session_id"]) for r in rows]
 
 
 async def fetch_latest_state(session_id: str) -> Optional[dict]:
@@ -1034,47 +1061,110 @@ async def fetch_latest_round(session_id: str) -> Optional[int]:
     return int(rn) if rn is not None else None
 
 
-async def fetch_round_history(session_id: str) -> list[dict]:
-    """Return all rounds for a session (for the dashboard history)."""
+async def fetch_latest_rounds(session_ids: list[str]) -> dict[str, int]:
+    """F-27: latest round for MANY sessions in ONE indexed query. The dashboard
+    poll used to issue fetch_latest_round once per sibling, twice (commit badge
+    and free-advance status) — 10 round-trips per poll for a 5-team cohort."""
+    ids = []
+    for sid in session_ids:
+        try:
+            ids.append(uuid.UUID(str(sid)))
+        except (ValueError, TypeError, AttributeError):
+            continue
+    if not ids:
+        return {}
     pool = await get_pool()
     async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
-        rounds = await conn.fetch(
+        rows = await conn.fetch(
             """
-            SELECT state_id, round_number, corporate_treasury,
-                   group_reputation, synergy_multiplier, cost_of_capital,
-                   active_event_flags
+            SELECT session_id, MAX(round_number) AS rn
             FROM global_round_states
-            WHERE session_id = $1
-            ORDER BY round_number
+            WHERE session_id = ANY($1::uuid[])
+            GROUP BY session_id
             """,
-            uuid.UUID(session_id),
+            ids,
         )
+    return {str(r["session_id"]): int(r["rn"]) for r in rows if r["rn"] is not None}
+
+
+async def fetch_round_history(session_id: str, since_round: int | None = None) -> list[dict]:
+    """Return the rounds of a session (for the dashboard history), oldest first.
+
+    F-27 (launch audit 2026-09-01): two changes for the 5-second dashboard poll.
+      * `since_round` is pushed into SQL (rounds >= N) instead of fetching the
+        whole game and filtering in Python — the poller only ever needs the
+        newest round or two.
+      * The BU rows and decision rows for ALL selected rounds are fetched in
+        one query each (`= ANY($1)`), so a dashboard costs 3 round-trips
+        regardless of how many rounds have been played, not 1 + 2×rounds
+        (21 at R10, ×150 teams polling).
+    """
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        _sid = uuid.UUID(session_id)
+        if since_round is None:
+            rounds = await conn.fetch(
+                """
+                SELECT state_id, round_number, corporate_treasury,
+                       group_reputation, synergy_multiplier, cost_of_capital,
+                       active_event_flags
+                FROM global_round_states
+                WHERE session_id = $1
+                ORDER BY round_number
+                """,
+                _sid,
+            )
+        else:
+            rounds = await conn.fetch(
+                """
+                SELECT state_id, round_number, corporate_treasury,
+                       group_reputation, synergy_multiplier, cost_of_capital,
+                       active_event_flags
+                FROM global_round_states
+                WHERE session_id = $1 AND round_number >= $2
+                ORDER BY round_number
+                """,
+                _sid, int(since_round),
+            )
+        if not rounds:
+            return []
+
+        state_ids = [grs["state_id"] for grs in rounds]
+        min_round = min(int(grs["round_number"]) for grs in rounds)
+        bu_rows = await conn.fetch(
+            """
+            SELECT global_state_id, bu_id, revenue_base, opex_base,
+                   natural_capital_debt, social_license_score,
+                   reputation_score, governance_risk_score,
+                   water_dependency, carbon_intensity,
+                   risk_factors
+            FROM bu_round_states
+            WHERE global_state_id = ANY($1::uuid[])
+            ORDER BY bu_id
+            """,
+            state_ids,
+        )
+        dec_rows = await conn.fetch(
+            """
+            SELECT round_number, bu_id, decision_node_id, choice_selected, capex_allocated,
+                   time_to_decision_seconds, team_consensus, metadata
+            FROM decision_audit_log
+            WHERE session_id = $1 AND round_number >= $2
+            """,
+            _sid, min_round,
+        )
+        bus_by_state: dict = {}
+        for row in bu_rows:
+            bus_by_state.setdefault(row["global_state_id"], []).append(row)
+        decs_by_round: dict = {}
+        for row in dec_rows:
+            decs_by_round.setdefault(int(row["round_number"]), []).append(row)
 
         history = []
         for grs in rounds:
-            bus = await conn.fetch(
-                """
-                SELECT bu_id, revenue_base, opex_base,
-                       natural_capital_debt, social_license_score,
-                       reputation_score, governance_risk_score,
-                       water_dependency, carbon_intensity,
-                       risk_factors
-                FROM bu_round_states
-                WHERE global_state_id = $1
-                ORDER BY bu_id
-                """,
-                grs["state_id"],
-            )
-            decs = await conn.fetch(
-                """
-                SELECT bu_id, decision_node_id, choice_selected, capex_allocated,
-                       time_to_decision_seconds, team_consensus, metadata
-                FROM decision_audit_log
-                WHERE session_id = $1 AND round_number = $2
-                """,
-                uuid.UUID(session_id), grs["round_number"],
-            )
-            
+            bus = bus_by_state.get(grs["state_id"], [])
+            decs = decs_by_round.get(int(grs["round_number"]), [])
+
             flags = json.loads(grs["active_event_flags"]) if isinstance(grs["active_event_flags"], str) else (grs["active_event_flags"] or {})
             global_state = {
                 "corporate_treasury": float(grs["corporate_treasury"]),
@@ -1580,19 +1670,74 @@ async def set_session_public(session_id: str, is_public: bool) -> bool:
     return await _update_session_metadata(session_id, {"is_public": is_public})
 
 
+# F-40 (launch audit 2026-09-01, found while running the fixes on Postgres):
+# player ids were only unique WITHIN a cohort. `MUR-XXX` (17,576 values; now
+# four letters = 456,976, see config.PLAYER_ID_RANDOM_LETTERS) was
+# drawn per cohort and the bulk/induct paths used an in-process counter that
+# restarts at MUR-001 on every deploy — so two cohorts on one platform could and
+# did hold the same id. Login resolves a player id GLOBALLY, and the default
+# password is derived from the id, so the second team to sign in with a
+# colliding id landed in the first team's game (or was told its password was
+# wrong once that team had personalised theirs). Every mint now checks the
+# whole platform, deleted cohorts included, so an id is never reissued.
+_PLAYER_ID_IN_USE_SQL = """
+    SELECT 1 FROM sessions
+    WHERE metadata->>'player_id' = $1
+       OR (metadata->'allowed_player_ids') ? $1
+       OR (metadata->'registered_players') @> jsonb_build_array(jsonb_build_object('player_id', $1::text))
+    LIMIT 1
+"""
+
+
+async def player_id_in_use(player_id: str) -> bool:
+    """True if ANY session on the platform (any cohort, any sub-session, deleted
+    or not) has issued or is using this player id."""
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        row = await conn.fetchrow(_PLAYER_ID_IN_USE_SQL, str(player_id))
+    return row is not None
+
+
+async def list_all_player_ids() -> set[str]:
+    """Every player id ever issued on the platform (see player_id_in_use)."""
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        rows = await conn.fetch("SELECT metadata FROM sessions")
+    out: set[str] = set()
+    for row in rows:
+        meta = _loads_meta(row["metadata"])
+        if meta.get("player_id"):
+            out.add(str(meta["player_id"]))
+        for pid in meta.get("allowed_player_ids") or []:
+            out.add(str(pid))
+        for rp in meta.get("registered_players") or []:
+            if isinstance(rp, dict) and rp.get("player_id"):
+                out.add(str(rp["player_id"]))
+    return out
+
+
+_PLAYER_ID_MINT_ATTEMPTS = 2000
+
+
 async def generate_player_id(session_id: str) -> Optional[str]:
-    """Generate and register a unique player ID for the session."""
+    """Generate and register a player ID for the session that is unique across
+    the WHOLE platform (F-40), not just within this cohort."""
     import random
     import string
     info = await get_session_info(session_id)
     if not info:
         return None
     allowed = info.get("allowed_player_ids", [])
-    while True:
-        letters = ''.join(random.choices(string.ascii_uppercase, k=3))
+    from config import PLAYER_ID_RANDOM_LETTERS
+    for _ in range(_PLAYER_ID_MINT_ATTEMPTS):
+        letters = ''.join(random.choices(string.ascii_uppercase, k=PLAYER_ID_RANDOM_LETTERS))
         pid = f"MUR-{letters}"
-        if pid not in allowed:
+        if pid in allowed:
+            continue
+        if not await player_id_in_use(pid):
             break
+    else:  # pragma: no cover — id space effectively exhausted
+        raise RuntimeError("Could not allocate a platform-unique player id; raise PLAYER_ID_RANDOM_LETTERS.")
     allowed.append(pid)
     await _update_session_metadata(session_id, {"allowed_player_ids": allowed})
     return pid
@@ -1908,3 +2053,11 @@ async def fetch_sessions_by_facilitator(facilitator_id: str) -> list[dict]:
             sess.update(metadata)
             res.append(sess)
         return res
+
+
+def flush_snapshot() -> None:
+    """Backend-parity no-op (F-29). The memory store debounces its JSON
+    snapshot and flushes it at shutdown; Postgres commits every write as it
+    happens, so there is nothing pending to flush. Present so `db.flush_snapshot()`
+    is callable on either backend (test_backend_parity_surface)."""
+    return None

@@ -105,6 +105,15 @@ def _login(client, fac_id, pw="test-master-pw"):
                        json={"facilitator_id": fac_id, "password": pw})
 
 
+def _personalise(client, fid, default_pw):
+    """F-22 (launch audit 2026-09-01): the id-derived initial password may only be
+    used to set a personal one; every other admin call is refused until then.
+    Rotates it and leaves the client signed in under the new password."""
+    from conftest import rotate_facilitator_password
+    _clear()
+    rotate_facilitator_password(client, fid, default_pw)
+
+
 def _make_facilitator(client, role):
     """god_mode provisions a real registry facilitator of the given role."""
     assert _login(client, "god_mode").status_code == 200
@@ -120,7 +129,7 @@ def test_base_facilitator_is_refused_by_the_api_when_the_switch_is_off(client, s
     """The hole this closes: the UI hid the button, the API allowed it anyway."""
     from default_credentials import default_facilitator_password
     fid = _make_facilitator(client, "facilitator")
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
 
     switch(False)
     r = client.post("/api/simulations/start",
@@ -135,7 +144,7 @@ def test_base_facilitator_is_refused_by_the_api_when_the_switch_is_off(client, s
 def test_base_facilitator_may_create_when_the_switch_is_on(client, switch):
     from default_credentials import default_facilitator_password
     fid = _make_facilitator(client, "facilitator")
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
     switch(True)
     r = client.post("/api/simulations/start",
                     json={"cohort_name": "P2-Allowed", "facilitator_id": fid})
@@ -147,7 +156,7 @@ def test_lead_facilitator_is_never_blocked_by_the_switch(client, switch):
     silently locking out the very role that runs workshops."""
     from default_credentials import default_facilitator_password
     fid = _make_facilitator(client, "lead_facilitator")
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
     switch(False)
     r = client.post("/api/simulations/start",
                     json={"cohort_name": "P2-Lead", "facilitator_id": fid})
@@ -159,7 +168,7 @@ def test_resuming_an_existing_cohort_is_not_gated(client, switch):
     otherwise flipping the switch would strand a running workshop."""
     from default_credentials import default_facilitator_password
     fid = _make_facilitator(client, "facilitator")
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
     switch(True)
     first = client.post("/api/simulations/start",
                         json={"cohort_name": "P2-Resume", "facilitator_id": fid})
@@ -195,7 +204,7 @@ def test_quota_denial_is_reported_distinctly_from_policy_denial(client, switch):
     limit', sending an administrator to look at the wrong setting."""
     from default_credentials import default_facilitator_password
     fid = _make_facilitator(client, "facilitator")
-    assert _login(client, fid, default_facilitator_password(fid)).status_code == 200
+    _personalise(client, fid, default_facilitator_password(fid))
     switch(False)
     r = client.post("/api/simulations/start",
                     json={"cohort_name": "P2-Msg", "facilitator_id": fid})

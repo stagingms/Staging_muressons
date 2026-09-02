@@ -46,6 +46,7 @@ export function buildReportModel({ roundNumber, commitResults, history, business
     natural_capital_debt: avgNCD,
     group_reputation: reputation,
     cost_of_capital: gs.cost_of_capital || 0.05,
+    exit_multiple: gs.active_event_flags?.valuation_preview?.exit_multiple ?? null,  // F-17
   });
 
   // Year-ago comparison: the snapshot two rounds earlier

@@ -18,11 +18,11 @@ import json
 from typing import Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Body, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body, Depends, Request
 from pydantic import BaseModel
 
 import database as db
-from admin_router import manager, require_super_admin, require_facilitator
+from admin_router import manager, require_super_admin, require_facilitator, _assert_session_ownership, _assert_session_visible, _assert_player_or_facilitator_can_view
 
 resources_router = APIRouter(prefix="/api/admin", tags=["Admin - Resources"])
 
@@ -452,8 +452,9 @@ async def upload_resource_file(file: UploadFile = File(...), _guard: None = Depe
 # â"€â"€ Per-Session Resource State â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 @resources_router.get("/sessions/{session_id}/resources", summary="Get resource state for a session")
-async def get_session_resources(session_id: str):
+async def get_session_resources(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Returns the master library annotated with unlock status for this session."""
+    await _assert_session_visible(request, session_id)  # F-21 (launch audit 2026-09-01)
     unlocked = _session_resource_state.get(session_id, [])
     unlocked_ids = {u["resource_id"] for u in unlocked}
 
@@ -471,7 +472,8 @@ async def get_session_resources(session_id: str):
 
 
 @resources_router.post("/sessions/{session_id}/resources/unlock", summary="Unlock resources for a session")
-async def unlock_session_resources(session_id: str, body: ResourceUnlockRequest, _guard: None = Depends(require_facilitator)):
+async def unlock_session_resources(session_id: str, request: Request, body: ResourceUnlockRequest, _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01)
     """Unlock specific resources for a session at a given round."""
     if session_id not in _session_resource_state:
         _session_resource_state[session_id] = []
@@ -504,7 +506,8 @@ async def unlock_session_resources(session_id: str, body: ResourceUnlockRequest,
 
 
 @resources_router.post("/sessions/{session_id}/resources/drop", summary="Strategic drop - reveal a resource mid-round")
-async def strategic_drop_resource(session_id: str, body: ResourceUnlockRequest, _guard: None = Depends(require_facilitator)):
+async def strategic_drop_resource(session_id: str, request: Request, body: ResourceUnlockRequest, _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01)
     """Drops resources mid-round as a 'breaking news' event. Marks them as strategic drops."""
     if session_id not in _session_resource_state:
         _session_resource_state[session_id] = []
@@ -541,7 +544,8 @@ async def strategic_drop_resource(session_id: str, body: ResourceUnlockRequest, 
 
 
 @resources_router.post("/sessions/{session_id}/resources/lock", summary="Re-lock a resource for a session")
-async def lock_session_resource(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def lock_session_resource(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01)
     """Re-lock a mistakenly unlocked resource."""
     resource_id = body.get("resource_id")
     if not resource_id:
@@ -697,13 +701,15 @@ _quiz_enabled = {}  # session_id â†' enabled (default True)
 
 
 @resources_router.get("/quiz-enabled/{session_id}", summary="Check if quiz is enabled for a cohort")
-async def get_quiz_enabled(session_id: str):
+async def get_quiz_enabled(session_id: str, request: Request):
+    await _assert_player_or_facilitator_can_view(request, session_id)  # F-21 (launch audit 2026-09-01)
     enabled = _quiz_enabled.get(session_id, True)  # Default: enabled
     return {"session_id": session_id, "quiz_enabled": enabled}
 
 
 @resources_router.put("/quiz-enabled/{session_id}", summary="Enable or disable quiz for a cohort")
-async def set_quiz_enabled(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def set_quiz_enabled(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01)
     enabled = body.get("quiz_enabled", True)
     _quiz_enabled[session_id] = bool(enabled)
     return {"status": "updated", "session_id": session_id, "quiz_enabled": _quiz_enabled[session_id]}
@@ -715,13 +721,15 @@ _consultant_allowed = {}  # session_id â†' allowed (default True)
 
 
 @resources_router.get("/consultant-allowed/{session_id}", summary="Check if ESG consultant is allowed for a cohort")
-async def get_consultant_allowed(session_id: str):
+async def get_consultant_allowed(session_id: str, request: Request):
+    await _assert_player_or_facilitator_can_view(request, session_id)  # F-21 (launch audit 2026-09-01)
     allowed = _consultant_allowed.get(session_id, True)  # Default: allowed
     return {"session_id": session_id, "consultant_allowed": allowed}
 
 
 @resources_router.put("/consultant-allowed/{session_id}", summary="Enable or disable ESG consultant for a cohort")
-async def set_consultant_allowed(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def set_consultant_allowed(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)  # F-21 (launch audit 2026-09-01)
     allowed = body.get("consultant_allowed", True)
     _consultant_allowed[session_id] = bool(allowed)
     return {"status": "updated", "session_id": session_id, "consultant_allowed": _consultant_allowed[session_id]}

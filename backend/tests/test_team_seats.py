@@ -37,11 +37,24 @@ from fastapi import HTTPException  # noqa: E402
 
 
 class _FakeRequest:
-    """Minimal Request stand-in: the guard only reads headers + cookies."""
+    """Minimal Request stand-in: the guard reads headers, cookies and method.
 
-    def __init__(self, player_id=None):
-        self.headers = {"X-Player-Id": player_id} if player_id else {}
+    F-22 (launch audit 2026-09-01): identity is the signed player token, so the
+    stand-in mints one for the given player id, scoped to `session_id`. A
+    view code (MUR-004-VIEW) mints an OBSERVER token for the driver's session,
+    exactly as /player-login does."""
+
+    def __init__(self, player_id=None, session_id="s1", method="GET"):
         self.cookies = {}
+        self.method = method
+        self.headers = {}
+        if player_id:
+            from auth_jwt import create_player_token
+            observer = router._is_view_code(player_id)
+            self.headers = {
+                "X-Player-Id": player_id,
+                "Authorization": "Bearer " + create_player_token(session_id, player_id, observer=observer),
+            }
 
 
 # ── 1. View-code parsing ──────────────────────────────────────────────────
@@ -109,7 +122,8 @@ async def test_other_teams_view_code_is_refused(monkeypatch):
     monkeypatch.setattr(router.db, "get_session_info", _sess)
 
     with pytest.raises(HTTPException) as exc:
-        await router._assert_player_owns_session(_FakeRequest("MUR-009-VIEW"), "s1", allow_observer=True)
+        # A token minted for MUR-009's own session (s9) presented against s1.
+        await router._assert_player_owns_session(_FakeRequest("MUR-009-VIEW", session_id="s9"), "s1", allow_observer=True)
     assert exc.value.status_code == 403
     assert "not the owner" in exc.value.detail.lower()
 

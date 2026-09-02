@@ -2045,7 +2045,7 @@ add_table(doc,
 add_para(doc, "Safety documents created:", bold=True)
 safety_docs = [
     "SAFETY_MANIFEST.txt — logs every moved file: original path, archive destination, rationale (729 lines, 31 KB).",
-    "revert.py — run 'python revert.py' to restore all 139 files from /temp_archive/ to their original paths.",
+    "revert.py — restored the 139 files from the operator-local /temp_archive/; removed 2026-09-02 (audit F-38) once the refactor had shipped.",
     "DEPENDENCY_MAP.md — full layer-by-layer import-chain reference for ongoing development (18 KB, 411 lines).",
 ]
 for s in safety_docs:

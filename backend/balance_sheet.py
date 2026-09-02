@@ -215,6 +215,9 @@ def create_initial_balance_sheet(bus: list[dict]) -> dict[str, Any]:
         "non_current_liabilities": {
             "revolving_credit_facility": revolving_credit,
             "green_bonds_outstanding": 0.0,
+            # F-05: the CapEx term loan the engine carries (active_event_flags
+            # .capex_loan_balance) — synced from the engine each round.
+            "capex_term_loan": 0.0,
             "environmental_provisions": env_provisions_seed,
             "decommissioning_obligations": decommissioning_seed,
             "lease_liabilities": lease_liabilities,
@@ -416,6 +419,7 @@ def check_covenants(
     total_debt = (
         bs["non_current_liabilities"]["revolving_credit_facility"]
         + bs["non_current_liabilities"]["green_bonds_outstanding"]
+        + bs["non_current_liabilities"].get("capex_term_loan", 0.0)
         + bs["current_liabilities"]["short_term_debt"]
     )
     cash = bs["current_assets"]["cash_and_equivalents"]
@@ -733,6 +737,16 @@ def process_balance_sheet_tick(
         events.get("remediation_events", []),
     )
 
+    # F-05: the engine is the source of truth for the CapEx term loan; mirror
+    # its closing balance so leverage ratios and covenants see the debt that
+    # financed the PPE capitalised in Step 1. (setdefault: ledgers created
+    # before this line existed have no key yet.)
+    bs["non_current_liabilities"].setdefault("capex_term_loan", 0.0)
+    if "capex_loan_balance" in events:
+        bs["non_current_liabilities"]["capex_term_loan"] = round(
+            float(events.get("capex_loan_balance") or 0.0), 2
+        )
+
     # Green bonds tracking (issued by player decision, e.g. Round 3 Scope 3 option)
     if events.get("green_bond_issued"):
         bs["non_current_liabilities"]["green_bonds_outstanding"] += events.get(
@@ -772,10 +786,14 @@ def process_balance_sheet_tick(
         + bs["non_current_liabilities"]["green_bonds_outstanding"]
         + bs["current_liabilities"]["short_term_debt"]
     )
+    # F-05: the CapEx term loan's interest is already charged to treasury by the
+    # engine (loan_interest_payment) — add it to the income statement as paid,
+    # not re-priced at the WACC, so the statement and the waterfall agree.
+    _capex_loan_interest = round(float(events.get("loan_interest_payment", 0.0) or 0.0), 2)
 
     # FIX-11: interest computed with unified ESG-WACC; also includes decommissioning accretion
     interest_expense  = round(total_debt * _esg_wacc / 2, 2)  # 6-month period
-    interest_expense  = round(interest_expense + decomm_accretion, 2)  # FIX-12: accretion added
+    interest_expense  = round(interest_expense + decomm_accretion + _capex_loan_interest, 2)  # FIX-12 accretion; F-05 term loan
 
     taxable_income = gross_profit - interest_expense - total_depreciation - capex_expensed
     tax_charge     = round(max(0, taxable_income * EFFECTIVE_TAX_RATE), 2)

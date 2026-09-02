@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { playerIdHeader } from '../hooks/useSimulation';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const SEV_COLORS = { critical: '#ef4444', warning: '#f59e0b', info: '#3b82f6', success: '#22c55e' };
@@ -215,7 +216,7 @@ export default function ComplexityEventFeed({ sessionId }) {
     useEffect(() => {
         if (!sessionId) return;
         setLoading(true);
-        fetch(`${API}/api/admin/complexity-events/${sessionId}`, { credentials: 'include' })
+        fetch(`${API}/api/admin/complexity-events/${sessionId}`, { credentials: 'include', headers: { ...playerIdHeader() } })
             .then(r => r.json())
             .then(d => { setFeed(d.feed || []); setLoading(false); })
             .catch(() => setLoading(false));

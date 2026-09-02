@@ -25,9 +25,9 @@ import statistics
 from typing import Any, Optional
 
 from engine import process_tick
-from round_logic import pre_tick, post_tick, run_new_engines
+from round_logic import pre_tick, post_tick, run_new_engines, base_crisis_severity_for_round
 from round_configs import get_round_options, get_round_crisis
-from config import CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR
+from config import CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR, DEFAULT_IMITATION_DECAY_RATE
 
 # ── Bot strategies ───────────────────────────────────────────────────────────
 # capex_frac: share of the CSF pool the bot deploys each round (None = chaotic
@@ -158,8 +158,18 @@ def _run_one(initial_global: dict, initial_bus: list[dict], strategy_id: str,
         prev_rep = gs.get("group_reputation", 0) or 0
 
         # ── Production call chain (see _commit_turn_impl) ──
+        # F-07 (launch audit, 2026-09-02): the SAME server-derived engine
+        # parameters the router uses. This harness used to pass
+        # crisis_severity=40.0 into EVERY round — a permanent crisis production
+        # never had (the client sent 0; pre_tick overrides only the R4 crisis
+        # round). With the contagion dip that is ~31 reputation points a round,
+        # group reputation hit 0 by R4 and the talent premium ran at its maximum
+        # — so every balance-report trajectory measured a different game.
+        _server_crisis = base_crisis_severity_for_round(rnd)
+        _treasury_now = float(gs.get("corporate_treasury", 0) or 0)
+        _server_emergency = bool((_treasury_now * CSF_POOL_TREASURY_FRACTION) < CSF_POOL_FLOOR)
         pre = pre_tick(round_number=rnd, current_global=gs, current_bus=bus,
-                       decisions=decs, crisis_severity=40.0, force_override_cfo=False)
+                       decisions=decs, crisis_severity=_server_crisis, force_override_cfo=False)
         if "validation_error" in pre:
             # A gate refused the bot's plan (e.g. an industry-specific rule):
             # degrade to zero-capex and retry once, as a cautious human would.
@@ -167,13 +177,14 @@ def _run_one(initial_global: dict, initial_bus: list[dict], strategy_id: str,
                 d["capex_allocated"] = 1.0
                 d["investment_ratio"] = 0.0
             pre = pre_tick(round_number=rnd, current_global=gs, current_bus=bus,
-                           decisions=decs, crisis_severity=40.0, force_override_cfo=True)
-        severity = pre.get("crisis_severity", 40.0)
+                           decisions=decs, crisis_severity=_server_crisis, force_override_cfo=True)
+        severity = pre.get("crisis_severity", _server_crisis)
 
         tick = process_tick(
             current_global=gs, current_bus=bus, decisions=decs,
             dividends_paid=dividends, crisis_severity=severity,
-            imitation_decay_rate=0.05, decision_paradigm=paradigm,
+            imitation_decay_rate=DEFAULT_IMITATION_DECAY_RATE, decision_paradigm=paradigm,
+            emergency_credit_used=_server_emergency,
         )
         new_gs, new_bus, events = tick["global_state"], tick["bu_states"], tick["events"]
         events.update(pre.get("pre_events", {}))

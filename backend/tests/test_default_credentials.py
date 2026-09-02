@@ -170,5 +170,8 @@ def test_creation_and_reset_sites_route_through_the_policy_module():
     """Every credential mint in admin_router uses the shared helpers — a raw
     hash_password of an ad-hoc default would bypass the forced-change pairing."""
     src = (_BACKEND / "admin_router.py").read_text(encoding="utf-8")
-    assert src.count("make_player_credentials(") >= 3
-    assert src.count("make_facilitator_credentials(") >= 4
+    # F-30: request handlers use the async variants (bcrypt on the thread pool);
+    # both spellings route through default_credentials' policy.
+    assert src.count("make_player_credentials(") + src.count("make_player_credentials_async(") >= 3
+    assert src.count("make_facilitator_credentials(") + src.count("make_facilitator_credentials_async(") >= 4
+    assert src.count("make_player_credentials_async(") >= 3, "mints must not block the event loop (F-30)"

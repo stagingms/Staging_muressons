@@ -702,7 +702,9 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     const safeScore = sdgScore ?? 0;
                     const mSdg = 1.0 + (safeScore / 100.0) * 0.25;
                     const mR = d.regenerative_multiple || 1.0;
-                    const exitMultiple = d.exit_multiple || 12.0;
+                    // F-17: the finale payload always carries exit_multiple; the fallback is
+                    // the healthy-WACC Gordon value, not the retired fixed 12×.
+                    const exitMultiple = d.exit_multiple || d.dynamic_exit_multiple_detail?.exit_multiple || 17.0;
                     const ebitda = d.terminal_ebitda || d.terminal_value / (exitMultiple * mR * mSdg) || 0;
                     const vT = d.terminal_value || 0;
                     const sdgMrBonus = flags.sdg_mr_bonus || 0;

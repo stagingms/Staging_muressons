@@ -5,7 +5,7 @@ POLICY (set 2026-08-01, by request)
 Every account is created with a DETERMINISTIC initial password derived from
 its own id, and is forced to replace it on first login:
 
-    player       MUR-XYZ   ->  "MUR-XYZ@123"
+    player       MUR-WXYZ  ->  "MUR-WXYZ@123"   (roster ids: MUR-017 -> "MUR-017@123")
     facilitator  FAC-007   ->  "FAC-007@321"
 
 The facilitator distributes these verbally/on a roster ("your password is your
@@ -76,3 +76,19 @@ def make_facilitator_credentials(facilitator_id: str) -> tuple[str, str]:
     """(plaintext, bcrypt_hash) for a new/reset FACILITATOR."""
     plaintext = default_facilitator_password(facilitator_id)
     return plaintext, hash_password(plaintext)
+
+
+# F-30 (launch audit 2026-09-01): async variants for request handlers — the
+# bcrypt hash runs on the thread pool, not the event loop (a 20-player bulk
+# upload used to pin the loop for ~4 s at cost 12).
+import asyncio as _asyncio
+
+
+async def make_player_credentials_async(player_id: str) -> tuple[str, str]:
+    plaintext = default_player_password(player_id)
+    return plaintext, await _asyncio.to_thread(hash_password, plaintext)
+
+
+async def make_facilitator_credentials_async(facilitator_id: str) -> tuple[str, str]:
+    plaintext = default_facilitator_password(facilitator_id)
+    return plaintext, await _asyncio.to_thread(hash_password, plaintext)

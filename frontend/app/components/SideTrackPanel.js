@@ -77,7 +77,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decisions: [{ bu_id: 'all', choice_selected: selectedOption, investment_ratio: 0.2, capex_allocated: 1000000 }],
-          crisis_severity: 40, dividends_paid: 0, imitation_decay_rate: 0.05,
+          dividends_paid: 0,  // F-07: crisis severity / decay are server-derived
         }),
       });
       if (!res.ok) throw new Error(await res.text());

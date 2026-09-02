@@ -90,8 +90,85 @@ def _datetime_deserializer(obj):
     return obj
 
 
+# F-15: the BU keys fetch_latest_state / fetch_round_history serialise
+# explicitly. Every OTHER key on a stored BU dict is passed through verbatim,
+# mirroring database.py's risk_factors pack/unpack, so the two stores expose
+# the same BU shape to the engine.
+_BU_EXPLICIT_READ_KEYS: frozenset[str] = frozenset({
+    "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+    "social_license_score", "reputation_score", "governance_risk_score",
+    "water_dependency", "carbon_intensity", "staff_burnout_index",
+    "bed_capacity_utilization", "patient_outcomes_score", "basic_needs",
+    "human_capital", "sustainable_growth", "planet", "governance",
+    "partnerships", "population", "migration_pressure",
+    "institutional_leakage_multiplier", "sanitation_miracle_bonus",
+    "risk_factors",
+})
+
+
+# ── F-29 (launch audit 2026-09-01): debounced, off-loop snapshot writes ──────
+# _persist() used to serialise the ENTIRE store to JSON and write it to disk,
+# synchronously on the event loop, on every one of its 13 call sites — a
+# 40-team memory-mode workshop measured ~1 commit/s because each commit paid
+# for several full snapshots. Now a call marks the store dirty and schedules
+# ONE write after a quiet window (MURESSONS_SNAPSHOT_DEBOUNCE_MS, default 500;
+# 0 = immediate, which the test suite uses). The JSON is still encoded on the
+# loop (the dicts are only ever mutated there, so no concurrent-mutation
+# hazard), but the file write happens in a worker thread. flush_snapshot()
+# forces a write (called at shutdown).
+import os as _os
+
+_SNAPSHOT_DEBOUNCE_S = max(0.0, float(_os.getenv("MURESSONS_SNAPSHOT_DEBOUNCE_MS", "500")) / 1000.0)
+_snapshot_dirty = False
+_snapshot_timer = None          # asyncio.TimerHandle while a write is scheduled
+_snapshot_stats = {"requested": 0, "written": 0}
+
+
 def _persist():
+    """Request a snapshot. Coalesced: many calls inside the debounce window
+    produce one write. Falls back to an immediate write when there is no
+    running event loop (sync callers, tests) or the debounce is 0."""
+    global _snapshot_dirty, _snapshot_timer
+    _snapshot_stats["requested"] += 1
+    _snapshot_dirty = True
+    if _SNAPSHOT_DEBOUNCE_S <= 0:
+        _write_snapshot_now()
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        _write_snapshot_now()
+        return
+    if _snapshot_timer is not None:
+        return                      # a write is already scheduled — coalesce
+    _snapshot_timer = loop.call_later(_SNAPSHOT_DEBOUNCE_S, _scheduled_snapshot_write)
+
+
+def _scheduled_snapshot_write() -> None:
+    global _snapshot_timer
+    _snapshot_timer = None
+    if _snapshot_dirty:
+        _write_snapshot_now()
+
+
+def flush_snapshot() -> None:
+    """Write immediately if anything is pending (shutdown / tests)."""
+    global _snapshot_timer
+    if _snapshot_timer is not None:
+        try:
+            _snapshot_timer.cancel()
+        except Exception:
+            pass
+        _snapshot_timer = None
+    if _snapshot_dirty:
+        _write_snapshot_now()
+
+
+def _write_snapshot_now():
     """Save all in-memory stores to disk as a JSON snapshot."""
+    global _snapshot_dirty
+    _snapshot_dirty = False
+    _snapshot_stats["written"] += 1
     with _save_lock:
         try:
             # FIX BUG-6: Copy-on-write snapshot — prevent dict mutation during iteration
@@ -132,29 +209,54 @@ def _persist():
                 "cohort_templates": _cohort_templates_snap,
             }
             _SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(snapshot, f, default=_datetime_serializer, ensure_ascii=False)
+            # Encode on the calling thread (state is consistent here); the disk
+            # work below is handed to a worker thread when a loop is running.
+            payload = json.dumps(snapshot, default=_datetime_serializer, ensure_ascii=False).encode("utf-8")
 
-            # RES-1: rotate the current last-known-good snapshot into a rolling
-            # backup BEFORE overwriting it, so a future unreadable primary can be
-            # recovered from _BACKUP_PATH instead of silently losing all state.
-            try:
-                if _SNAPSHOT_PATH.exists():
-                    import shutil
-                    shutil.copy2(_SNAPSHOT_PATH, _BACKUP_PATH)
-            except Exception as _bak_err:
-                print(f"[persistence] Backup rotation skipped: {_bak_err}")
-
-            import time
-            for _ in range(5):
+            def _write_to_disk(_payload=payload):
+                tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
+                with open(tmp_path, "wb") as f:
+                    f.write(_payload)
+                # RES-1: rotate the current last-known-good snapshot into a rolling
+                # backup BEFORE overwriting it, so a future unreadable primary can be
+                # recovered from _BACKUP_PATH instead of silently losing all state.
                 try:
-                    tmp_path.replace(_SNAPSHOT_PATH)  # atomic rename
-                    break
-                except OSError:
-                    time.sleep(0.05)
+                    if _SNAPSHOT_PATH.exists():
+                        import shutil
+                        shutil.copy2(_SNAPSHOT_PATH, _BACKUP_PATH)
+                except Exception as _bak_err:
+                    print(f"[persistence] Backup rotation skipped: {_bak_err}")
+                import time
+                for _ in range(5):
+                    try:
+                        tmp_path.replace(_SNAPSHOT_PATH)  # atomic rename
+                        break
+                    except OSError:
+                        time.sleep(0.05)
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop is not None and _SNAPSHOT_DEBOUNCE_S > 0:
+                def _bg():
+                    try:
+                        _write_to_disk()
+                    except Exception as exc:  # report from the worker thread too
+                        try:
+                            from admin_shared import record_persistence_failure
+                            record_persistence_failure("memory_snapshot", exc, str(_SNAPSHOT_PATH))
+                        except Exception:
+                            print(f"[persistence] Failed to save snapshot: {exc}")
+                loop.run_in_executor(None, _bg)
+            else:
+                _write_to_disk()
         except Exception as e:
-            print(f"[persistence] Failed to save snapshot: {e}")
+            try:
+                from admin_shared import record_persistence_failure
+                record_persistence_failure("memory_snapshot", e, str(_SNAPSHOT_PATH))
+            except Exception:  # pragma: no cover — admin_shared not importable
+                print(f"[persistence] Failed to save snapshot: {e}")
 
 
 def _apply_snapshot(snapshot: dict) -> int:
@@ -772,18 +874,52 @@ async def update_session_metadata(session_id: str, updates: dict) -> bool:
     return True
 
 
+def _player_id_in_use_sync(player_id: str) -> bool:
+    for sess in list(_sessions.values()):
+        if sess.get("player_id") == player_id:
+            return True
+        if player_id in (sess.get("allowed_player_ids") or []):
+            return True
+        for rp in sess.get("registered_players") or []:
+            if isinstance(rp, dict) and rp.get("player_id") == player_id:
+                return True
+    return False
+
+
+async def player_id_in_use(player_id: str) -> bool:
+    """F-40: parity with database.player_id_in_use — any session, any cohort."""
+    return _player_id_in_use_sync(str(player_id))
+
+
+async def list_all_player_ids() -> set[str]:
+    out: set[str] = set()
+    for sess in list(_sessions.values()):
+        if sess.get("player_id"):
+            out.add(str(sess["player_id"]))
+        for pid in sess.get("allowed_player_ids") or []:
+            out.add(str(pid))
+        for rp in sess.get("registered_players") or []:
+            if isinstance(rp, dict) and rp.get("player_id"):
+                out.add(str(rp["player_id"]))
+    return out
+
+
 async def generate_player_id(session_id: str) -> Optional[str]:
+    """F-40: the id is unique across the whole platform, not just this cohort."""
     import random
     import string
     session = _sessions.get(session_id)
     if not session: return None
     
     allowed = session.setdefault("allowed_player_ids", [])
-    while True:
-        letters = ''.join(random.choices(string.ascii_uppercase, k=3))
+    from config import PLAYER_ID_RANDOM_LETTERS
+    for _ in range(2000):
+        letters = ''.join(random.choices(string.ascii_uppercase, k=PLAYER_ID_RANDOM_LETTERS))
         pid = f"MUR-{letters}"
-        if pid not in allowed:
+        if pid not in allowed and not _player_id_in_use_sync(pid):
             break
+    else:  # pragma: no cover
+        raise RuntimeError("Could not allocate a platform-unique player id; raise PLAYER_ID_RANDOM_LETTERS.")
             
     allowed.append(pid)
     _persist()
@@ -880,6 +1016,15 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
                 "institutional_leakage_multiplier": float(bu.get("institutional_leakage_multiplier", 1.0)),
                 "sanitation_miracle_bonus": float(bu.get("sanitation_miracle_bonus", 1.0)),
                 "risk_factors": bu.get("risk_factors") or {},
+                # F-15 (launch audit 2026-09-01): PARITY with database.py. Postgres
+                # packs every engine-written BU key it has no column for into
+                # risk_factors and unpacks it on read, so fields such as
+                # scope_1_ci / scope_2_ci / scope_3_ci, absolute_emissions,
+                # supplier_defection_active and green_premium_squeeze survive
+                # the round boundary in production. This store silently
+                # dropped them, so mechanics that read them next round (the
+                # CBAM levy) fired ONLY in production and never in any test.
+                **{k: v for k, v in bu.items() if k not in _BU_EXPLICIT_READ_KEYS},
             }
             for bu in bus
         ],
@@ -905,14 +1050,28 @@ async def fetch_latest_round(session_id: str) -> Optional[int]:
     return int(rn) if rn is not None else None
 
 
-async def fetch_round_history(session_id: str) -> list[dict]:
+async def fetch_latest_rounds(session_ids: list[str]) -> dict[str, int]:
+    """F-27: latest round for MANY sessions in one call (the cohort sibling
+    scan the dashboard poll performs). Sessions with no rounds are omitted."""
+    out: dict[str, int] = {}
+    for sid in session_ids:
+        rounds = _global_states.get(sid, [])
+        if rounds and rounds[-1].get("round_number") is not None:
+            out[sid] = int(rounds[-1]["round_number"])
+    return out
+
+
+async def fetch_round_history(session_id: str, since_round: int | None = None) -> list[dict]:
     """
-    Return all rounds for a session (for the dashboard history).
+    Return the rounds of a session (for the dashboard history), oldest first.
+    F-27: `since_round` keeps only rounds >= N — same contract as database.py.
     """
     rounds = _global_states.get(session_id, [])
     history = []
     for grs in rounds:
         rn = grs.get("round_number", 1)
+        if since_round is not None and rn < since_round:
+            continue
         bus = _bu_states.get(session_id, {}).get(rn, [])
         # Defensive .get()s — legacy/minimal rows and test fixtures may omit
         # fields; a read API should degrade to defaults, not raise.
@@ -948,6 +1107,8 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                     "water_dependency": float(bu.get("water_dependency", 0)),
                     "carbon_intensity": float(bu.get("carbon_intensity", 0)),
                     "risk_factors": bu.get("risk_factors") or {},
+                    # F-15: same parity rule as fetch_latest_state.
+                    **{k: v for k, v in bu.items() if k not in _BU_EXPLICIT_READ_KEYS},
                 }
                 for bu in bus
             ],
@@ -1234,17 +1395,23 @@ async def fetch_all_sessions() -> list[dict]:
 
 
 async def get_child_sessions(parent_id: str) -> list[dict]:
-    """Return all child player sessions for a given parent cohort session."""
+    """Return all child player sessions for a given parent cohort session.
+    Parity with database.get_child_sessions: the full session record."""
     children = []
     for sid, sess in list(_sessions.items()):
         if sess.get("parent_cohort_id") == parent_id:
-            children.append({
-                "session_id": sid,
-                "player_id": sess.get("player_id", "unknown"),
-                "cohort_name": sess.get("cohort_name", ""),
-                "parent_cohort_id": parent_id,
-            })
+            rec = dict(sess)
+            rec.setdefault("session_id", sid)
+            rec.setdefault("player_id", sess.get("player_id", "unknown"))
+            rec.setdefault("cohort_name", sess.get("cohort_name", ""))
+            rec["parent_cohort_id"] = parent_id
+            children.append(rec)
     return children
+
+
+async def fetch_child_session_ids(parent_id: str) -> list[str]:
+    """F-28 parity: ids of a cohort's player sub-sessions."""
+    return [sid for sid, sess in list(_sessions.items()) if sess.get("parent_cohort_id") == parent_id]
 
 
 async def update_latest_global_state(

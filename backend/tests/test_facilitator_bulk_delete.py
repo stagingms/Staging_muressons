@@ -139,6 +139,8 @@ def test_caller_cannot_bulk_delete_own_account():
     admin_id, admin_pw = _create(gm, "BulkSelfAdmin", role="super_admin")
     victim_id, _ = _create(gm, "BulkSelfVictim")
 
+    from conftest import rotate_facilitator_password  # F-22: initial password → personal
+    admin_pw = rotate_facilitator_password(client, admin_id, admin_pw)
     admin_cookies = _cookies({"facilitator_id": admin_id, "password": admin_pw})
     r = _bulk_delete(admin_cookies, [admin_id, victim_id])
     assert r.status_code == 200, r.text

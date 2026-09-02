@@ -1,7 +1,11 @@
 # Test-only dependencies (not needed at runtime).
 # CI installs requirements.txt + this file before running pytest.
 -r requirements.txt
-pytest==8.3.4
+# F-37 (launch audit 2026-09-01): pytest-asyncio 1.4.0 requires pytest>=8.4,<10.
+# The previous pin (8.3.4) made `pip install -r requirements-dev.txt` fail on the
+# resolver, so BOTH backend CI jobs died at the install step and no test had
+# actually run in CI since the pin landed.
+pytest==8.4.2
 # The async test files (team_seats, scope_seeding_parity, backend parity) are
 # silently un-runnable without this — a fresh environment then reports 11
 # "permanent failures" that look like broken code (they misled the 2026-08-31

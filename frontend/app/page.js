@@ -416,13 +416,6 @@ export default function CockpitPage() {
     [globalState?.corporate_treasury]
   );
 
-  // Auto-detect when emergency credit line is active (treasury × 20% < ₹5M floor)
-  const emergencyCreditActive = useMemo(() => {
-    const treasury = globalState?.corporate_treasury;
-    if (treasury == null) return false;  // state not yet loaded — treat as normal
-    return treasury * 0.20 < 5_000_000;
-  }, [globalState?.corporate_treasury]);
-
   // ── Decision modal state ──────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
   const [decisionChoice, setDecisionChoice] = useState(null);
@@ -655,7 +648,7 @@ export default function CockpitPage() {
     // to the loading state (which would remount and restart the exercise).
     if (r2LoadedRoundRef.current === roundNumber) { setR2BuLoaded(true); return; }
     setR2BuLoaded(false);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/${sim.sessionId}/r2-bu-selection`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/${sim.sessionId}/r2-bu-selection`, { headers: { ...playerIdHeader() } })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setR2BuSelection(data); r2LoadedRoundRef.current = roundNumber; setR2BuLoaded(true); })
       .catch(() => { r2LoadedRoundRef.current = roundNumber; setR2BuLoaded(true); });
@@ -816,12 +809,12 @@ export default function CockpitPage() {
     }));
 
     try {
+      // F-07: crisis severity, imitation decay and the emergency-credit flag
+      // are derived by the server from the round config and its own treasury
+      // figure — the client no longer sends engine parameters.
       await sim.commitTurn({
         dividends_paid: 0,
-        crisis_severity: 0,
-        imitation_decay_rate: 0.05,
         decisions,
-        emergency_credit_used: emergencyCreditActive,
       });
       soundManager.commit();
       // NOTE: allocations, decisionChoice, and pillarSelections are now
@@ -838,7 +831,7 @@ export default function CockpitPage() {
         setShowOverrideModal(true);
       }
     }
-  }, [sim, businessUnits, allocations, csfPool, decisionChoice, roundNumber, emergencyCreditActive]);
+  }, [sim, businessUnits, allocations, csfPool, decisionChoice, roundNumber]);
 
   const handleSaveDecisions = useCallback(async () => {
     if (!sim.sessionId) return;
@@ -917,8 +910,6 @@ export default function CockpitPage() {
     try {
       await sim.commitTurn({
         dividends_paid: 0,
-        crisis_severity: 0,
-        imitation_decay_rate: 0.05,
         decisions: pendingDecisions,
         force_override_cfo: true, // <-- Trigger explicit override!
       });

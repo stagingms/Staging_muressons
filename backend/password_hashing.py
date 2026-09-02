@@ -111,3 +111,32 @@ def maybe_upgrade_password(plaintext: str, stored: str) -> str | None:
     if _is_hashed(stored):
         return None  # Already hashed
     return hash_password(plaintext)
+
+
+# ── F-30 (launch audit 2026-09-01): async wrappers ───────────────────────────
+# bcrypt at cost 12 takes ~180 ms per hash/verify and used to run INSIDE async
+# request handlers, i.e. on the single event loop: a "everyone log in now"
+# moment for 100 students serialised ~20 s of CPU during which no poll, commit
+# or WebSocket frame was served. bcrypt releases the GIL while it works, so
+# running it on the default thread pool keeps the loop free and lets several
+# verifications proceed in parallel. Request handlers use these; the sync
+# functions above stay for scripts, tests and non-async code.
+import asyncio as _asyncio
+
+
+async def hash_password_async(plaintext: str) -> str:
+    return await _asyncio.to_thread(hash_password, plaintext)
+
+
+async def verify_password_async(plaintext: str, stored: str) -> bool:
+    if not stored:
+        return False
+    if not _is_hashed(stored):
+        return verify_password(plaintext, stored)   # constant-time compare, no CPU to offload
+    return await _asyncio.to_thread(verify_password, plaintext, stored)
+
+
+async def maybe_upgrade_password_async(plaintext: str, stored: str):
+    if not stored or _is_hashed(stored):
+        return None                                  # nothing to upgrade
+    return await _asyncio.to_thread(hash_password, plaintext)

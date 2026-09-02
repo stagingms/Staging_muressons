@@ -366,6 +366,15 @@ class RoundLedger:
     loan_interest: float
     emergency_credit_interest: float
     negative_treasury_interest: float
+    # F-05 (launch audit 2026-09-01): CapEx now leaves the treasury — the
+    # allowance tranche as cash this round, the excess as a term loan repaid
+    # straight-line over the remaining rounds. Both are engine events.
+    capex_equity_funded: float = 0.0
+    capex_loan_repayment: float = 0.0
+    # F-04b (launch audit 2026-09-02): per-round flow penalties assessed after
+    # gross profit was banked are charged to treasury directly (signed; negative
+    # = money left). Read from the engine's own event.
+    post_csf_flows: float = 0.0
     # BU-level snapshots
     bu_revenues: dict[str, float] = field(default_factory=dict)
     bu_opex: dict[str, float] = field(default_factory=dict)
@@ -504,6 +513,9 @@ def run_deterministic_simulation(
         emergency_interest = events.get("emergency_credit_interest", 0.0)
         neg_treasury_interest = events.get("negative_treasury_interest_applied", 0.0)
         total_capex = sum(d.get("capex_allocated", 0) for d in decisions)
+        capex_equity = float(events.get("capex_equity_funded", 0.0) or 0.0)
+        capex_repay = float(events.get("capex_loan_repayment", 0.0) or 0.0)
+        post_csf_flows = float(events.get("post_csf_flow_adjustments_cash", 0.0) or 0.0)
 
         ledgers.append(RoundLedger(
             round_number=rnd,
@@ -522,6 +534,9 @@ def run_deterministic_simulation(
             loan_interest=loan_interest,
             emergency_credit_interest=emergency_interest,
             negative_treasury_interest=neg_treasury_interest,
+            capex_equity_funded=capex_equity,
+            capex_loan_repayment=capex_repay,
+            post_csf_flows=post_csf_flows,
             bu_revenues={bu["bu_id"]: bu["revenue_base"] for bu in new_bus},
             bu_opex={bu["bu_id"]: bu["opex_base"] for bu in new_bus},
             bu_carbon_intensities={

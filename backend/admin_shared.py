@@ -108,10 +108,9 @@ ROLE_ALLOWED_TABS = {
         "scorecard_evaluator", "bonuses", "peer_eval", "reports",
         "notes", "annotations", "teaching_journal", "technical_glossary",
         "intervention_config",
-        # ESG Leadership Profile rubric editor — moved to the base facilitator
-        # dashboard (all run-managing facilitators tune the rubric; project_admin
-        # never sees it because its tab set is fixed, not cumulative).
-        "esg_weights",
+        # "esg_weights" (the ESG Leadership Profile rubric editor) is NOT here
+        # since F-24 (launch audit 2026-09-01): the rubric is platform-wide, so
+        # only super_admin ("*") / god_mode may edit it.
         # DN-1 (UX audit §9): auto-assembled debrief narrative — divergence
         # round, per-player turning points, predicted-vs-actual. Base
         # facilitator tier: it is read-only over completed rounds.
@@ -1115,6 +1114,32 @@ def project_effective(session_id: str | None, role: str) -> dict:
 # (MURESSONS_DATA_DIR) can hold it -- otherwise every redeploy wipes all
 # facilitator accounts created in production. Default is unchanged (<repo>/db).
 from runtime_paths import data_file as _data_file
+
+# F-36 (launch audit 2026-09-01): a JSON persistence write that fails used to
+# print() and continue, so a full or unmounted volume lost facilitator
+# registry / token-version / ban / snapshot writes with every HTTP call still
+# returning 200. Every writer now reports here; /api/health exposes the
+# register and, under ?strict=1, reports "degraded" while it is non-empty.
+_PERSISTENCE_FAILURES: dict = {"count": 0, "last": None}
+_persistence_log = logging.getLogger("muressons.persistence")
+
+
+def record_persistence_failure(store: str, exc: BaseException, path: str = "") -> None:
+    _PERSISTENCE_FAILURES["count"] += 1
+    _PERSISTENCE_FAILURES["last"] = {
+        "store": store,
+        "path": path,
+        "error": f"{type(exc).__name__}: {exc}"[:300],
+        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    _persistence_log.error("[PERSISTENCE-FAILURE] %s could not be written (%s): %s",
+                           store, path or "-", exc, exc_info=exc)
+
+
+def persistence_health() -> dict:
+    return {"failures": _PERSISTENCE_FAILURES["count"], "last": _PERSISTENCE_FAILURES["last"]}
+
+
 _FAC_REGISTRY_PATH = str(_data_file("facilitator_registry.json"))
 
 # ── SEC-1: Token version store (session revocation kill-switch) ──
@@ -1149,7 +1174,7 @@ def _save_token_versions() -> None:
         with open(_TOKEN_VERSION_PATH, "w", encoding="utf-8") as fh:
             json.dump(_token_versions, fh, indent=2)
     except Exception as exc:
-        print(f"[SEC-1] Failed to persist token versions: {exc}")
+        record_persistence_failure("token_versions", exc, _TOKEN_VERSION_PATH)
 
 
 def get_token_version(facilitator_id: str) -> int:
@@ -1207,7 +1232,7 @@ def _persist_virtual_profiles() -> None:
             json.dump(_virtual_account_profiles, fh, ensure_ascii=False, indent=2)
         os.replace(tmp_path, _VIRTUAL_PROFILES_PATH)
     except Exception as exc:
-        print(f"[virtual-profiles] Failed to persist: {exc}")
+        record_persistence_failure("virtual_profiles", exc, _VIRTUAL_PROFILES_PATH)
 
 
 def is_virtual_facilitator(facilitator_id: str) -> bool:
@@ -1356,7 +1381,7 @@ def _persist_facilitators():
             json.dump(_facilitator_registry, f, ensure_ascii=False, indent=2)
         os.replace(tmp_path, _FAC_REGISTRY_PATH)
     except Exception as e:
-        print(f"[persistence] Failed to save facilitator registry: {e}")
+        record_persistence_failure("facilitator_registry", e, _FAC_REGISTRY_PATH)
 
 
 _facilitator_registry = _load_facilitator_registry()

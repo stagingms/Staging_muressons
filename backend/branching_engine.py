@@ -273,65 +273,7 @@ def calc_adaptive_crisis_severity(
 #  EXTENDED HORIZON MODE (SI-3)
 # ═══════════════════════════════════════════════════════════════
 
-EXTENDED_ROUNDS = {
-    11: {
-        "title": "Year 5 Q3: Green Bond Maturity",
-        "theme": "Financial sustainability of the transition",
-        "crisis": "Green bonds issued in R3 are maturing. Can you refinance at favourable rates?",
-    },
-    12: {
-        "title": "Year 5 Q4: Biodiversity Reckoning",
-        "theme": "TNFD compliance deadline",
-        "crisis": "TNFD disclosure is now mandatory. Your biodiversity track record determines compliance.",
-    },
-    13: {
-        "title": "Year 4 Q1: Supply Chain Disruption",
-        "theme": "Cascading supply chain failure",
-        "crisis": "A major supplier fails. How resilient is your supply chain network?",
-    },
-    14: {
-        "title": "Year 4 Q2: Carbon Border Adjustment",
-        "theme": "CBAM enforcement begins",
-        "crisis": "EU Carbon Border Adjustment Mechanism applies to all imports. Trade costs spike.",
-    },
-    15: {
-        "title": "Year 4 Q3: AI Disruption Wave",
-        "theme": "Generative AI transforms operations",
-        "crisis": "AI automation threatens 30% of workforce roles. How do you manage the transition?",
-    },
-    16: {
-        "title": "Year 4 Q4: Community Water Crisis",
-        "theme": "Physical climate impact on operations",
-        "crisis": "Drought conditions in 3 operational regions. Water rationing imposed.",
-    },
-    17: {
-        "title": "Year 5 Q1: Shareholder Revolution",
-        "theme": "Governance transformation",
-        "crisis": "New shareholder coalition demands complete board overhaul.",
-    },
-    18: {
-        "title": "Year 5 Q2: Industry Coalition",
-        "theme": "Collective action challenge",
-        "crisis": "Industry peers propose a collective decarbonisation pact. Join or go alone?",
-    },
-    19: {
-        "title": "Year 5 Q3: Legacy Decision",
-        "theme": "Long-term strategic positioning",
-        "crisis": "Define the company's 2030 purpose statement and binding commitments.",
-    },
-    20: {
-        "title": "Year 5 Q4: Final Valuation",
-        "theme": "5-year terminal assessment",
-        "crisis": "Complete 5-year valuation with extended impact assessment.",
-    },
-}
-
-
-def get_extended_round_config(round_number: int) -> dict | None:
-    """Return configuration for extended horizon rounds (11-20)."""
-    return EXTENDED_ROUNDS.get(round_number)
-
-
-def is_extended_mode_available(gs: dict) -> bool:
-    """Check if extended horizon mode has been activated."""
-    return gs.get("extended_horizon_mode", False)
+# Extended Horizon (rounds 11–20) content lived here until F-32 (launch audit
+# 2026-09-01) retired the feature: it could never be played (commit cap, DB
+# CHECK constraint, cockpit game-over logic). The recovery-round content in
+# turnaround_engine.py is the surviving sibling.

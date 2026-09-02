@@ -118,12 +118,15 @@ class TestCSF:
 
 class TestContagion:
     def test_no_crisis(self):
-        """Zero crisis severity still applies baseline sigmoid offset."""
+        """F-01 (launch audit 2026-09-01): zero crisis severity applies NO drop.
+
+        The raw sigmoid at severity 0 is ≈0.119, which used to shave ~5.9 points
+        off group reputation every tick with no crisis at all; the drop is now
+        normalised to the severity-0 baseline so the group figure is exactly
+        the BU average when nothing is wrong."""
         result = calc_contagion(SEED_BUS, crisis_severity=0)
         avg = (52 + 50 + 53 + 58) / 4
-        # Sigmoid at severity=0: input = (0-30)/15 = -2.0 → sigmoid ≈ 0.119
-        # result ≈ avg - 50 * 0.119 ≈ 47.3
-        assert 40.0 < result < avg
+        assert abs(result - avg) < 1e-9
 
     def test_with_crisis(self):
         result = calc_contagion(SEED_BUS, crisis_severity=50)
@@ -146,20 +149,28 @@ class TestSynergy:
         assert result == 10_000_000
 
     def test_full_investment_diminishing(self):
-        # With sqrt scaling: effective_ratio = sqrt(1.0) * 0.7 = 0.7
-        # factor = 1.0 - 0.7 = 0.3
+        # F-06: captured = min(1, sqrt(1.0) * 0.7 * 1.0) = 0.7 of the 6% ceiling
+        # factor = 1 - 0.06 * 0.7 = 0.958  (was 0.30: -70% of OPEX in ONE round)
         result = calc_synergy_opex(10_000_000, 1.0, 1.0)
-        assert result == 3_000_000  # 30% remains due to diminishing returns
+        assert result == 9_580_000
 
     def test_partial_diminishing(self):
-        # sqrt(0.25) * 0.7 = 0.5 * 0.7 = 0.35
-        # factor = 1.0 - 0.35 = 0.65
+        # sqrt(0.25) * 0.7 = 0.35 of the ceiling → factor = 1 - 0.06 * 0.35 = 0.979
         result = calc_synergy_opex(10_000_000, 0.25, 1.0)
-        assert result == 6_500_000
+        assert result == 9_790_000
 
     def test_clamp_ratio(self):
         result = calc_synergy_opex(10_000_000, 1.5, 1.0)
-        assert result == 3_000_000  # clamped to 1.0, same as full investment
+        assert result == 9_580_000  # clamped to 1.0, same as full investment
+
+    def test_per_round_reduction_never_exceeds_ceiling(self):
+        """F-06: whatever the ratio and synergy multiplier, one round removes at
+        most SYNERGY_MAX_REDUCTION_PER_ROUND of OPEX."""
+        from config import SYNERGY_MAX_REDUCTION_PER_ROUND
+        for ratio in (0.1, 0.5, 1.0, 5.0):
+            for syn in (0.5, 1.0, 1.5, 3.0):
+                res = calc_synergy_opex(10_000_000, ratio, syn)
+                assert res >= 10_000_000 * (1 - SYNERGY_MAX_REDUCTION_PER_ROUND) - 0.01
 
     def test_diminishing_returns_curve(self):
         """First 25% of investment captures more savings than last 25%."""
@@ -330,10 +341,15 @@ class TestDiminishingReturns:
         base = 10_000_000
         # 0% → 0 savings
         assert calc_synergy_opex(base, 0.0, 1.0) == base
-        # 4% → sqrt(0.04)*0.7 = 0.2*0.7 = 0.14 → factor 0.86
-        assert calc_synergy_opex(base, 0.04, 1.0) == round(base * 0.86, 2)
-        # 16% → sqrt(0.16)*0.7 = 0.4*0.7 = 0.28 → factor 0.72
-        assert calc_synergy_opex(base, 0.16, 1.0) == round(base * 0.72, 2)
+        # F-06: the sqrt curve gives the FRACTION of the 6% per-round ceiling.
+        # 4% → sqrt(0.04)*0.7 = 0.14 of the ceiling → factor 1 − 0.06×0.14 = 0.9916
+        assert calc_synergy_opex(base, 0.04, 1.0) == round(base * (1 - 0.06 * 0.14), 2)
+        # 16% → sqrt(0.16)*0.7 = 0.28 of the ceiling → factor 0.9832
+        assert calc_synergy_opex(base, 0.16, 1.0) == round(base * (1 - 0.06 * 0.28), 2)
+        # doubling the sqrt-ratio doubles the saving (still a sqrt curve)
+        s1 = base - calc_synergy_opex(base, 0.04, 1.0)
+        s2 = base - calc_synergy_opex(base, 0.16, 1.0)
+        assert abs(s2 - 2 * s1) < 1.0
 
     def test_synergy_multiplier_interaction(self):
         """Higher synergy_multiplier amplifies even diminished returns."""

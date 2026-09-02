@@ -68,8 +68,12 @@ _INTENTIONALLY_PUBLIC = {
 
 # ── THE RATCHET ────────────────────────────────────────────────────────────
 # Measured 2026-08-02. LOWER THESE as routes are fixed. Never raise them.
-_MAX_UNGUARDED = 65     # routes with no Depends(require_*), excluding the public set
-_MAX_UNTENANTED = 68    # session/cohort-scoped routes with no _assert_session_ownership
+_MAX_UNGUARDED = 58     # routes with no Depends(require_*), excluding the public set
+# Launch audit 2026-09-01 (F-21): every session/cohort-scoped admin route now
+# carries an ownership (write) or visibility (read) assertion. The counter below
+# recognises the four tenancy helpers; the single residue is the player
+# WebSocket, which verifies a signed session ticket inline (see the public set).
+_MAX_UNTENANTED = 1     # session/cohort-scoped routes with no ownership/visibility assertion
 
 # Routes fixed on 2026-08-02 because they served PII or assessment data with no
 # check whatsoever. Named individually so a future refactor cannot quietly undo
@@ -109,10 +113,14 @@ def _unguarded():
             if "Depends(require_" not in r[4] and r[2] not in _INTENTIONALLY_PUBLIC]
 
 
+_OWNERSHIP_MARKERS = ("_assert_session_ownership", "_assert_session_visible",
+                      "_assert_player_or_facilitator_can_view", "_assert_player_owns_session")
+
+
 def _untenanted():
     return [r for r in _routes()
             if ("{session_id}" in r[2] or "{cohort_id}" in r[2])
-            and "_assert_session_ownership" not in r[5]]
+            and not any(m in r[5] for m in _OWNERSHIP_MARKERS)]
 
 
 def _fmt(rows):

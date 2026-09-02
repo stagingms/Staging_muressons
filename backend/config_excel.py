@@ -60,9 +60,9 @@ _DESCRIPTIONS: dict[tuple[str, str, str], tuple[str, str]] = {
     ("financial_parameters", "", "wacc_lender_threshold"):          ("%",         "ESG-WACC threshold above which lenders tighten covenants"),
 
     # ── ncd_parameters ──
-    ("ncd_parameters", "", "hard_cap"):                             ("units",     "Absolute hard cap on Natural Capital Debt per BU"),
-    ("ncd_parameters", "", "warn_threshold"):                       ("units",     "50%-of-cap warning — triggers credit downgrade narrative"),
-    ("ncd_parameters", "", "opex_scaling_factor"):                  ("$/unit",    "Converts NCD units to OPEX penalty (× hostility multiplier)"),
+    ("ncd_parameters", "", "hard_cap"):                             ("index",     "Absolute hard cap on Natural Capital Debt per BU (index units; F-10)"),
+    ("ncd_parameters", "", "warn_threshold"):                       ("index",     "Warning threshold — triggers credit downgrade narrative (index units; F-10)"),
+    ("ncd_parameters", "", "opex_penalty_per_unit"):                ("$/unit",    "F-10: $ of Advanced-Climate OPEX penalty per NCD index unit (× hostility multiplier)"),
     ("ncd_parameters", "", "provision_per_unit"):                   ("$/unit",    "Balance sheet environmental provision per unit of avg NCD"),
     ("ncd_parameters", "", "event_provision"):                      ("$",         "Fixed provision added per active remediation event (IAS 37)"),
 
@@ -86,6 +86,7 @@ _DESCRIPTIONS: dict[tuple[str, str, str], tuple[str, str]] = {
 
     # ── engine_parameters.synergy ──
     ("engine_parameters", "synergy", "dampening_factor"):           ("factor",    "Diminishing returns dampening on synergy OPEX savings"),
+    ("engine_parameters", "synergy", "max_reduction_per_round"):    ("fraction",  "F-06: hard ceiling on the synergy OPEX reduction per round (default 0.06)"),
     # ── engine_parameters.natural_capital ──
     ("engine_parameters", "natural_capital", "interest_coefficient"): ("rate/unit", "NCD interest rate surcharge coefficient per unit NCD"),
     # ── engine_parameters.natural_decay ──

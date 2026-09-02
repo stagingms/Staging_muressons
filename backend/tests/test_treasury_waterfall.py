@@ -107,13 +107,28 @@ _ROUNDS = 10
 # compound into the BU base and revenue gains inflation pass-through, so every
 # trajectory deliberately changed. Verified bit-identical across two fresh
 # processes before pinning.
+# Rebaselined 2026-09-01 (launch audit F-01/F-02): the contagion sigmoid is
+# normalised so severity 0 no longer shaves ~5.9 reputation points per tick, and
+# water_dependency is passed to the ESG-WACC as the 0-1 fraction it expects
+# (WACC was pinned at the 20% cap). Only the two multi_toggles trajectories
+# moved — legacy_abc treasury never touches either quantity (NCD interest is a
+# BU stock, not a treasury flow). Bit-identical across two fresh processes.
+# Rebaselined 2026-09-02 (launch audit phase 3: F-04/F-04b, F-05, F-06, F-08,
+# F-09, F-10, F-13). Every trajectory moved, deliberately: CapEx now debits
+# treasury (allowance tranche in cash, excess as an amortising term loan);
+# the per-round synergy OPEX reduction is capped; four more flow penalties
+# became transients AND, with F-04b, every transient recorded after gross
+# profit is banked now charges treasury this round (before, the talent
+# premium, NCD penalty, defection and squeeze reached no cash at all —
+# multi_toggles and legacy_abc had converged to the same fingerprint). Bit-
+# identical across two fresh processes before pinning.
 _EXPECTED_RUNNER_FINGERPRINTS = {
-    ("DEFAULT_4_BU", "legacy_abc"): "48b6975e38cde67b",
-    ("DEFAULT_4_BU", "multi_toggles"): "88ac674737be5123",
-    ("SINGLE_BU_PHARMA", "legacy_abc"): "ccd7bc80f0c01346",
-    ("SINGLE_BU_PHARMA", "multi_toggles"): "8a1eab1a44b60d14",
-    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "7bcc452bca48f8a9",
-    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "5f09a1b0ab8b8948",
+    ("DEFAULT_4_BU", "legacy_abc"): "7745ac4417107d63",
+    ("DEFAULT_4_BU", "multi_toggles"): "36bab75ce5502265",
+    ("SINGLE_BU_PHARMA", "legacy_abc"): "69638e2fb3940542",
+    ("SINGLE_BU_PHARMA", "multi_toggles"): "7c80369f74371601",
+    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "271bed043fb4e270",
+    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "44dc0fced1a012b7",
 }
 
 _CASES = [
@@ -133,21 +148,22 @@ def _residual(ledger) -> float:
     arrived from a path nobody is tracking. Negative: money left through one.
     """
     # DEEP-8 lead CLAIMED (2026-08-31): `- ledger.total_capex` used to sit in
-    # this formula, and SINGLE_BU_PHARMA/legacy's residual equalled it to the
-    # cent — because CapEx principal is, BY DESIGN, not a treasury outflow in
-    # this engine. engine.py's treasury line is exactly
-    #     new_treasury = base_treasury + csf - total_interest
-    # (see "Free capital allowance"): allocation up to FREE_CSF_PCT x treasury
-    # is financed from gross profit, the excess becomes loan principal that is
-    # serviced with INTEREST ONLY, and the principal itself never debits
-    # treasury. The ledger was subtracting a term the engine never charges.
-    # total_capex stays recorded on the RoundLedger (it drives the loan-
-    # interest term and is useful diagnostics) — it just is not a waterfall
-    # outflow. Whether interest-only CapEx is the right ECONOMIC model is a
-    # design question for the model card (roadmap W4), not an accounting one.
+    # this formula because CapEx principal was, by design, not a treasury
+    # outflow — `new_treasury = base + csf − interest`.
+    # F-05 (launch audit 2026-09-01) changed the design: the allowance tranche
+    # (≤ FREE_CSF_PCT × treasury) is paid in cash this round and the excess is
+    # a term loan repaid over the remaining rounds, so two evented terms join
+    # the law — capex_equity_funded and capex_loan_repayment. total_capex
+    # itself is still not a term (the loan-funded part is cash-neutral when
+    # drawn); the new terms are exactly what the engine debits.
     expected = (
         ledger.treasury_start
         + ledger.csf
+        - ledger.capex_equity_funded       # F-05: cash-funded CapEx tranche
+        - ledger.capex_loan_repayment      # F-05: scheduled term-loan principal
+        + ledger.post_csf_flows            # F-04b (2026-09-02): flow penalties assessed
+                                           # after CSF was banked (talent premium, NCD
+                                           # OPEX, defection, squeeze), signed, evented
         + ledger.option_treasury           # DEEP-8 term 2 (2026-08-31): post-tick
                                            # option charges/gains, signed — the
                                            # second exact-valued residual claimed

@@ -282,9 +282,12 @@ class JourneyResponseRequest(BaseModel):
 
 class CommitTurnRequest(BaseModel):
     dividends_paid: float = Field(0.0, ge=0.0)
-    # TECH-1: DEPRECATED — the server now derives crisis severity from the
-    # round config (+ pre_tick modifiers). Any value sent here is ignored and
-    # logged. Retained only for backward compatibility with older clients.
+    # F-07 (launch audit 2026-09-01): IGNORED. The server derives crisis
+    # severity from the round config (+ pre_tick history modifiers) and the
+    # imitation decay rate from config.DEFAULT_IMITATION_DECAY_RATE. TECH-1
+    # claimed this since 2026-08 but only round 4 was actually overridden; the
+    # fields are kept so older clients keep validating, and a non-default value
+    # is logged, never applied.
     crisis_severity: float = Field(0.0, ge=0.0, le=100.0)
     imitation_decay_rate: float = Field(0.05, ge=0.0, le=1.0)
     # audit #4: bound the list so a crafted request can't submit an arbitrarily
@@ -295,7 +298,9 @@ class CommitTurnRequest(BaseModel):
     force_override_cfo: bool = False
     # ITEM 1: Optimistic locking — client sends expected round
     expected_round: Optional[int] = None
-    # Emergency credit line: +$1M at prevailing rate + 2%
+    # Emergency credit line: +$1M at prevailing rate + 2%. F-07: IGNORED — the
+    # server applies the same rule the cockpit used (20% CSF allowance below
+    # the $5M floor) from its own treasury figure.
     emergency_credit_used: bool = False
     # SPEC F5 — optional dialogic engagement action for this round, e.g.
     # {"type":"public_pledge","npc_id":"community_leader",

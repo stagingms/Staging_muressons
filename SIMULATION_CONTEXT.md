@@ -74,14 +74,14 @@ Muressons is a conglomerate with **4 active BU slots**. Each slot can be filled 
 
 ### Default 4-Slot Lineup
 
-| BU | Icon | Revenue (USD) | OPEX (USD) | Carbon Intensity (tCO₂e/\$M rev) | Water Dependency | Natural Capital Debt | Governance Risk |
-|---|---|---|---|---|---|---|---|
-| **Pharma** | 💊 | $18,000,000 | $12,000,000 | 35 | 82 | 120 | 15 |
-| **Electronics** | ⚡ | $16,500,000 | $11,500,000 | 72 | 58 | 200 | 20 |
-| **Consumer Goods** | 🛒 | $10,500,000 | $7,500,000 | 48 | 65 | 150 | 10 |
-| **Software** | 💻 | $8,500,000 | $5,500,000 | 12 | 12 | 30 | 25 |
+| BU | Icon | Revenue (USD) | OPEX (USD) | Carbon Intensity (tCO₂e/\$M rev) | Water Dependency | Natural Capital Debt | Governance Risk | Social Licence | Reputation |
+|---|---|---|---|---|---|---|---|---|---|
+| **Pharma** | 💊 | $18,000,000 | $11,500,000 | 45 | 82 | 0 | 15 | 55 | 52 |
+| **Electronics** | ⚡ | $16,500,000 | $10,800,000 | 72 | 58 | 0 | 20 | 48 | 50 |
+| **Consumer Goods** | 🛒 | $10,500,000 | $7,800,000 | 38 | 65 | 0 | 10 | 52 | 53 |
+| **Software** | 💻 | $8,500,000 | $4,200,000 | 28 | 12 | 0 | 8 | 60 | 58 |
 
-**All BUs start with:**  Social Licence Score = 50 · Reputation Score = 55 · Burnout Index = 10 · VRIO Advantage = 0.80
+*(Values are `db/seed_round1.json` as shipped — corrected 2026-09-02, launch audit F-18; the table used to quote an older seed with CI 35/48/12, OPEX 12/11.5/7.5/5.5M and NCD 120/200/150/30. NCD starts at 0 and is an index that grows with neglect — see MODEL_CARD §2.3.)*
 
 ### Key BU Mechanics
 - **Electronics** is the `blindspot` BU — Round 1 audit decisions determine whether `electronics_blindspot` flag is set, which doubles crisis severity in Round 4.
@@ -777,7 +777,7 @@ To enable fair comparison across sessions with different pathways, M_R is normal
 
 ### Round 9: Strike Probability
 - Triggered if Social Licence is low and `immediate_closure` flag is set.
-- Strike probability override: 75% chance of strike zeroing revenue for that round.
+- Strike probability override: 50% base chance (`round_configs.py` `strike_probability_override: 0.50`; burnout adds up to +20 pts, cap 95%) of a strike zeroing revenue for that round. *(Corrected 2026-09-02 — the text said 75%.)*
 
 ### Greenwashing Engine
 - Activates when a player selects a "green" option (A or C) without backing it with ≥ 15% investment ratio.
@@ -878,7 +878,7 @@ All 30 registered modules live primarily in `backend/engine.py` and satellite fi
 | 3 | Contagion Engine | `Rep = Avg_Rep − 50 × sigmoid((severity − 30) / 15)` | Crisis rounds |
 | 4 | Synergy Engine | `New_OPEX = Old_OPEX × (1 − sqrt(ratio) × 0.7 × Synergy)` | When invested |
 | 5 | Natural Capital Cost of Debt | `rate = base_rate + NCD × 0.0001` | Every round |
-| 6 | VRIO Decay | 2% decay per round unless reinvested | Every round |
+| 6 | VRIO Decay | 5% imitation decay per round (`DEFAULT_IMITATION_DECAY_RATE`, server-applied since F-07), scaled down by the round's investment ratio (floor 20% of the rate) | Every round |
 | 7 | Burnout Accumulation | Natural drift +6/round; OPEX quadratic penalty > 20 | Every round |
 | 8 | Workforce Readiness | ±8–16 per round; penalty < 40; bonus > 75 | Every round |
 | 9 | Talent Brain-Drain | Attrition from high burnout + low readiness | Every round |

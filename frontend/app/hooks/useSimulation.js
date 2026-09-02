@@ -8,17 +8,45 @@ import { useState, useEffect, useCallback, useRef } from 'react';
  */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
-// SEC-3: attach the player's own id so the backend can bind each game
-// request to its session owner. Header-less requests still work; this only
-// scopes a player to their OWN session and never blocks facilitators.
+// SEC-3 / F-22: attach the player's identity to every game request.
+//   • X-Player-Id  — the team's player id (display / legacy; not a credential).
+//   • Authorization: Bearer <player_token> — the signed, session-scoped token
+//     minted by /player-login. Since the 2026-09-01 launch audit an OWNED
+//     session refuses requests without it (401, code player_token_required),
+//     so a forged header can no longer read or commit for another team.
+// Header-less requests still work for solo sessions and never block facilitators.
 export function playerIdHeader() {
     try {
-        const pid = typeof window !== 'undefined'
-            ? window.localStorage.getItem('muressons_playerId')
-            : null;
-        return pid ? { 'X-Player-Id': pid } : {};
+        if (typeof window === 'undefined') return {};
+        const pid = window.localStorage.getItem('muressons_playerId');
+        const tok = window.localStorage.getItem('muressons_player_token');
+        const h = {};
+        if (pid) h['X-Player-Id'] = pid;
+        if (tok) h['Authorization'] = `Bearer ${tok}`;
+        return h;
     } catch (e) {
         return {};
+    }
+}
+
+// F-22: a 401 carrying code=player_token_required means the token expired (or
+// the client pre-dates tokens). Clear the stale identity so the login screen
+// comes back instead of a frozen board. Returns true when it acted.
+export function handlePlayerAuthFailure(res, data) {
+    try {
+        if (res?.status !== 401) return false;
+        const code = data?.detail?.code || data?.code;
+        if (code !== 'player_token_required') return false;
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('muressons_player_token');
+            localStorage.removeItem('muressons_session_id');
+            localStorage.removeItem('muressons_playerId');
+            localStorage.removeItem('muressons_is_observer');
+            window.location.reload();
+        }
+        return true;
+    } catch (e) {
+        return false;
     }
 }
 
@@ -70,6 +98,16 @@ export default function useSimulation() {
     // the server for only newer history (?since_round=) instead of re-sending
     // the whole game each time.
     const _highestRoundRef = useRef(1);
+
+    // F-27 (launch audit 2026-09-01): merge a partial history (rounds newer than
+    // what we hold) into the one already in state — by round_number, newest
+    // server copy wins — so the poller can stop re-downloading the whole game
+    // (~1 MB by round 10, every 5 s, per cockpit) and fetch only what changed.
+    const mergeHistory = useCallback((prev, incoming) => {
+        const byRound = new Map((prev || []).map((h) => [h.round_number, h]));
+        for (const h of incoming || []) byRound.set(h.round_number, h);
+        return [...byRound.values()].sort((a, b) => a.round_number - b.round_number);
+    }, []);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -247,8 +285,14 @@ export default function useSimulation() {
                     `${API_BASE}/api/simulations/${id}/dashboard${_qs}`,
                     { headers: { ...playerIdHeader() } }
                 );
-                if (!res.ok)
+                if (!res.ok) {
+                    // F-22: an expired/absent player token sends us back to login.
+                    if (res.status === 401) {
+                        const errData = await res.json().catch(() => ({}));
+                        if (handlePlayerAuthFailure(res, errData)) return null;
+                    }
                     throw new Error(`Dashboard fetch failed: ${res.status}`);
+                }
                 const data = await res.json();
 
                 // audit #11: mark the connection healthy on every good fetch.
@@ -335,6 +379,7 @@ export default function useSimulation() {
             setSessionId(playerSessionId);
             if (typeof window !== 'undefined') {
                 localStorage.setItem('muressons_session_id', playerSessionId);
+                if (joinData.player_token) localStorage.setItem('muressons_player_token', joinData.player_token);
             }
             const dashData = await fetchDashboard(playerSessionId);
             // If game is already over (round > 10), don't fetch round config
@@ -378,6 +423,12 @@ export default function useSimulation() {
                     localStorage.setItem('muressons_ws_ticket', loginData.ws_ticket);
                 } else {
                     localStorage.removeItem('muressons_ws_ticket');
+                }
+                // F-22: the HTTP credential — sent by playerIdHeader() on every request.
+                if (loginData.player_token) {
+                    localStorage.setItem('muressons_player_token', loginData.player_token);
+                } else {
+                    localStorage.removeItem('muressons_player_token');
                 }
             }
             // Flag if first-login password change is required
@@ -432,12 +483,14 @@ export default function useSimulation() {
                             carbon_cost: 45_750,
                             carbon_tax_per_ton: 250,
                             regenerative_multiple: 1.35,
+                            // demo figures shaped like the live calculate_mr breakdown (F-16)
                             mr_breakdown: {
                                 base: 1.0,
-                                synergy_bonus: 0.3,
-                                resilience_bonus: 0.0,
-                                truth_premium: 0,
-                                instability_discount: -0.4,
+                                materiality_governance: 0.10,
+                                synergy_bonus: 0.15,
+                                resilience_bonus: 0.20,
+                                truth_premium: 0.15,
+                                instability_discount: -0.25,
                             },
                             terminal_value: 230_850_000,
                             exit_multiple: 12.0,
@@ -495,22 +548,37 @@ export default function useSimulation() {
                     }
                     // Handle round-locked (403) specially
                     if (res.status === 403) {
+                        // F-22: the server refuses to advance a team still on its
+                        // initial password. Re-open the change-password flow
+                        // rather than telling the player the round is locked.
+                        const denied = await res.json().catch(() => ({}));
+                        if (denied?.detail?.code === 'password_change_required') {
+                            setMustChangePassword(true);
+                            setLoading(false);
+                            return null;
+                        }
                         setRoundLocked(true);
                         setLoading(false);
                         return null;
                     }
-                    // Handle rate-limit (429) — auto-retry after cooldown (max 2 retries)
-                    if (res.status === 429) {
+                    // Handle rate-limit (429) and a busy server (503: F-26 commit
+                    // gate queue full / pool exhausted) — both mean "nothing was
+                    // lost, try again shortly": auto-retry after the cooldown the
+                    // server suggests (Retry-After, default 5s), max 2 retries.
+                    if (res.status === 429 || res.status === 503) {
                         const retryCount = payload._retryCount || 0;
+                        const retryAfterS = Math.min(30, Math.max(1, Number(res.headers.get('Retry-After')) || 5));
                         if (retryCount < 2) {
-                            console.warn(`[commitTurn] Rate limited — retry ${retryCount + 1}/2 in 5s`);
+                            console.warn(`[commitTurn] ${res.status === 503 ? 'Server busy' : 'Rate limited'} — retry ${retryCount + 1}/2 in ${retryAfterS}s`);
                             commitInProgressRef.current = false;
                             setLoading(false);
-                            await new Promise(r => setTimeout(r, 5200));
+                            await new Promise(r => setTimeout(r, retryAfterS * 1000 + 200));
                             return commitTurn({ ...payload, _retryCount: retryCount + 1 });
                         }
-                        console.error('[commitTurn] Rate limited — max retries exceeded');
-                        throw new Error('Rate limited. Please wait a few seconds and try again.');
+                        console.error(`[commitTurn] ${res.status} — max retries exceeded`);
+                        throw new Error(res.status === 503
+                            ? 'The server is busy processing other teams\' commits. Your decisions are still on screen — please submit again in a moment.'
+                            : 'Rate limited. Please wait a few seconds and try again.');
                     }
                     const body = await res.json().catch(() => ({}));
                     const detail = typeof body.detail === 'string' ? body.detail
@@ -664,11 +732,21 @@ export default function useSimulation() {
 
         const poll = async () => {
             try {
+                // F-27: ask only for rounds we do not hold yet. The latest
+                // global_state + business_units always come back (that is what
+                // the badges and the round-advance check read); `history` is
+                // empty unless the server has moved on, in which case it holds
+                // exactly the new round(s) and is merged into state below.
+                const sinceRound = Math.max(1, (_highestRoundRef.current || 1) + 1);
                 const res = await fetch(
-                    `${API_BASE}/api/simulations/${sessionId}/dashboard`,
+                    `${API_BASE}/api/simulations/${sessionId}/dashboard?since_round=${sinceRound}`,
                     { headers: { ...playerIdHeader() } }
                 );
                 if (!res.ok) {                       // CONN-1: 5xx is a failure, not a no-op
+                    if (res.status === 401) {        // F-22: token expired → back to login
+                        const errData = await res.json().catch(() => ({}));
+                        if (handlePlayerAuthFailure(res, errData)) return;
+                    }
                     _pollFailuresRef.current += 1;
                     if (_pollFailuresRef.current >= 2) setConnectionState('stale');
                     return;
@@ -691,7 +769,20 @@ export default function useSimulation() {
                     setRoundNumber(data.current_round);
                     setGlobalState(data.global_state);
                     setBusinessUnits(data.business_units);
-                    setHistory(data.history || []);
+                    // F-27: partial history → merge, never replace. If we somehow
+                    // hold nothing older (state lost), fall back to one full fetch.
+                    if (Array.isArray(data.history) && data.history.length >= data.current_round) {
+                        setHistory(data.history);
+                    } else {
+                        setHistory((prev) => {
+                            if (!prev || prev.length === 0) {
+                                fetchDashboard(sessionId).catch(() => {});
+                                return data.history || [];
+                            }
+                            return mergeHistory(prev, data.history);
+                        });
+                    }
+                    _highestRoundRef.current = Math.max(_highestRoundRef.current, data.current_round);
                     setRoundChanged(true);
 
                     // Only show "Time expired" banner if the backend actually auto-committed
@@ -733,7 +824,7 @@ export default function useSimulation() {
 
         const interval = setInterval(poll, 5_000);
         return () => { cancelled = true; clearInterval(interval); };
-    }, [sessionId, roundNumber, gameOver, commitResults, fetchRoundConfig]);
+    }, [sessionId, roundNumber, gameOver, commitResults, fetchRoundConfig, fetchDashboard, mergeHistory]);
 
     // ── Resume Session from Storage ───────────────────────────
     const resumeSession = useCallback(async (sid) => {
@@ -774,6 +865,8 @@ export default function useSimulation() {
             localStorage.removeItem('muressons_username');
             localStorage.removeItem('muressons_playerId');
             localStorage.removeItem('muressons_is_solo');
+            localStorage.removeItem('muressons_player_token');
+            localStorage.removeItem('muressons_ws_ticket');
         }
         // Reset all state to initial values
         setSessionId(null);

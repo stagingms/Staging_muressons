@@ -29,9 +29,14 @@ _PA = {"facilitator_id": "project_admin", "password": "simadmin2026@"}
 _GOD = {"facilitator_id": "god_mode", "password": "sim2026@iim"}
 
 
-def _set_username(user_id, username):
+def _set_username(user_id, username, cookies=None):
+    # F-24 (launch audit 2026-09-01): /set-username now requires the caller to be
+    # signed in — a facilitator may rename itself, admins/god_mode anyone.
+    if cookies is None:
+        cookies = client.post("/api/admin/facilitators/login", json=_GOD).cookies
     return client.post("/api/simulations/set-username",
-                       json={"user_id": user_id, "role": "facilitator", "username": username})
+                       json={"user_id": user_id, "role": "facilitator", "username": username},
+                       cookies=cookies)
 
 
 def _clear_virtual(*ids):
@@ -47,7 +52,7 @@ def test_project_admin_can_set_and_keep_username():
         assert login.status_code == 200, login.text
         assert login.json()["username"] == ""  # first login: no callsign yet
 
-        r = _set_username("project_admin", "Admin")
+        r = _set_username("project_admin", "Admin", cookies=login.cookies)
         assert r.status_code == 200, r.text
         assert r.json()["username"] == "Admin"
 
@@ -117,3 +122,25 @@ def test_unknown_non_virtual_facilitator_still_404s():
     r = _set_username("FAC-DOES-NOT-EXIST", "Ghost")
     assert r.status_code == 404
     assert "not found" in r.json()["detail"].lower()
+
+
+def test_set_username_requires_facilitator_auth_and_self_scope():
+    """F-24: anonymous callers are refused; a plain facilitator may rename only
+    itself (the endpoint used to be fully unauthenticated — anyone could rename
+    any account and probe which ids exist)."""
+    anon = client.post("/api/simulations/set-username",
+                       json={"user_id": "god_mode", "role": "facilitator", "username": "Pwned"})
+    assert anon.status_code == 401
+    gm = client.post("/api/admin/facilitators/login", json=_GOD).cookies
+    created = client.post("/api/admin/facilitators", json={"name": "F24 Probe", "role": "facilitator"}, cookies=gm)
+    assert created.status_code in (200, 201), created.text
+    fid, otp = created.json()["facilitator_id"], created.json()["one_time_password"]
+    from tests.conftest import rotate_facilitator_password
+    pw = rotate_facilitator_password(client, fid, otp)
+    fac_ck = client.post("/api/admin/facilitators/login", json={"facilitator_id": fid, "password": pw}).cookies
+    other = client.post("/api/simulations/set-username",
+                        json={"user_id": "god_mode", "role": "facilitator", "username": "Pwned"}, cookies=fac_ck)
+    assert other.status_code == 403, other.text
+    own = client.post("/api/simulations/set-username",
+                      json={"user_id": fid, "role": "facilitator", "username": f"Own-{fid}"}, cookies=fac_ck)
+    assert own.status_code == 200, own.text

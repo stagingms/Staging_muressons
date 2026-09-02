@@ -12,6 +12,8 @@ import math
 import random as _rng
 from rng_util import event_rng, event_seed  # GAME-4: deterministic per-cohort RNG
 from config import (
+    SIM_ROUNDS,
+    CSF_POOL_FLOOR,
     ECONOMIC_CARBON_PRICE_BASE,
     ECONOMIC_CARBON_PRICE_GROWTH,
     CONSTRAINT_MAX_CARBON_EMISSIONS,
@@ -30,7 +32,7 @@ from config import (
     # Layer-2 Config Isolation: NCD
     NCD_HARD_CAP,
     NCD_WARN_THRESHOLD,
-    NCD_OPEX_SCALING_FACTOR,
+    NCD_OPEX_PENALTY_PER_UNIT,
     # Layer-2 Config Isolation: Climate
     CLIMATE_LOSS_DAMAGE_LEVY_TIPPED,
     CLIMATE_LOSS_DAMAGE_LEVY_STRESSED,
@@ -39,7 +41,7 @@ from config import (
     CONTAGION_MIDPOINT,
     CONTAGION_STEEPNESS,
     # Layer-2 Config Isolation: Engine magic numbers
-    SYNERGY_DAMPENING_FACTOR, NCD_INTEREST_COEFFICIENT, NATURAL_DECAY_FACTOR,
+    SYNERGY_DAMPENING_FACTOR, SYNERGY_MAX_REDUCTION_PER_ROUND, NCD_INTEREST_COEFFICIENT, NATURAL_DECAY_FACTOR,
     NATURAL_DECAY_GROWTH_ABS_CAPEX, NATURAL_DECAY_MID_RATIO, NATURAL_DECAY_MID_GROWTH,
     GREENWASH_ABS_CAPEX_FLOOR,
     INFLATION_REVENUE_PASSTHROUGH,
@@ -166,15 +168,9 @@ def calc_revenue_weighted_avg_ci(bus: list[dict]) -> float:
     ) / total_rev
 
 
-def _calc_rw_avg_ci(bus: list[dict]) -> float:
-    """I3: Concise internal alias for revenue-weighted avg CI."""
-    total_rev = sum(bu.get("revenue_base", 0) for bu in bus)
-    if total_rev <= 0:
-        n = max(len(bus), 1)
-        return sum(bu.get("carbon_intensity", 0) for bu in bus) / n
-    return sum(
-        bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) for bu in bus
-    ) / total_rev
+# F-38 (launch audit 2026-09-01): the "concise internal alias" was a second,
+# byte-identical copy of the function above. One implementation, one name.
+_calc_rw_avg_ci = calc_revenue_weighted_avg_ci
 
 
 # ── CIDeltaResult: typed return value for the pure CI-delta helper ──
@@ -476,11 +472,87 @@ def calc_contagion(
         # For very large positive sigmoid_input → e^(-∞) → sigmoid → 1.0
         sigmoid_value = 0.0 if sigmoid_input < 0 else 1.0
 
-    rep_drop: float  = max_drop * sigmoid_value
+    # F-01 (launch audit 2026-09-01): the dip is NORMALISED so that zero severity
+    # means zero dip. The raw sigmoid is 0.119 at severity 0 (with the default
+    # midpoint 30 / steepness 15), which silently removed ~6 reputation points
+    # from every team every round — a constant haircut, not contagion. The
+    # normalised curve still saturates at max_drop and keeps the same shape:
+    #   dip(s) = max_drop × (σ(s) − σ(0)) / (1 − σ(0)),  dip(0) = 0.
+    baseline_input: float = (0.0 - midpoint) / safe_steepness
+    try:
+        baseline_sigmoid: float = 1.0 / (1.0 + math.exp(-baseline_input))
+    except OverflowError:
+        baseline_sigmoid = 0.0 if baseline_input < 0 else 1.0
+    if baseline_sigmoid >= 1.0:
+        normalised = 1.0
+    else:
+        normalised = max(0.0, (sigmoid_value - baseline_sigmoid) / (1.0 - baseline_sigmoid))
+
+    rep_drop: float  = max_drop * normalised
     group_rep: float = avg_rep - rep_drop
 
     # Floor at 0.0: reputation cannot go negative
     return round(max(0.0, min(100.0, group_rep)), 2)
+
+
+# ── 2b. Reputation is a BU-level STOCK (F-01, launch audit 2026-09-01) ────────
+# group_reputation is DERIVED every tick by calc_contagion from the BU
+# reputation_score values (their mean, minus the live-crisis dip). Before this
+# fix ~40 call sites across round_logic, the routers, side tracks, agents and
+# the regulatory sandbox wrote deltas straight onto gs["group_reputation"], and
+# the next tick's recompute discarded every one of them — option consequences,
+# facilitator shockwaves, R4 penalties and stakeholder-map results all lasted
+# exactly one round.
+#
+# Rather than rewrite every writer, the tick RECONCILES: the engine stamps the
+# group figure it derived (REPUTATION_DERIVED_KEY, carried in active_event_flags)
+# and, at the start of the next tick, any difference between the persisted
+# group_reputation and that stamp is the net of all between-tick writes. That
+# net delta is applied to every BU's reputation_score before contagion runs,
+# so it becomes part of the stock. Writers keep their existing contract
+# (mutate gs["group_reputation"]); the UI sees the change immediately; the
+# stock catches up at the next commit. On the very first tick (no stamp) the
+# seeded group_reputation is treated as authoritative, which also honours a
+# facilitator's group_reputation_start override.
+
+REPUTATION_DERIVED_KEY = "_group_rep_derived"
+# F-02: cost-of-capital base stock and derived stamp (see process_tick).
+COC_BASE_KEY = "base_cost_of_capital"
+COC_DERIVED_KEY = "_coc_derived"
+
+
+def reconcile_reputation_stock(current_global: dict, bus: list[dict]) -> float:
+    """Fold between-tick group_reputation writes into the BU reputation stock.
+
+    Mutates `bus` in place (reputation_score, clamped 0–100) and returns the
+    carry that was applied (0.0 when nothing changed)."""
+    if not bus:
+        return 0.0
+    flags = current_global.get("active_event_flags") or {}
+    persisted = current_global.get("group_reputation")
+    if persisted is None:
+        return 0.0
+    try:
+        persisted = float(persisted)
+    except (TypeError, ValueError):
+        return 0.0
+    stamp = flags.get(REPUTATION_DERIVED_KEY)
+    if stamp is None:
+        # First tick: the configured starting reputation is the truth; align the
+        # BU stock so its mean equals it (seed BUs average 53.25 vs seed 50).
+        reference = sum(float(b.get("reputation_score", 50.0) or 0.0) for b in bus) / len(bus)
+    else:
+        try:
+            reference = float(stamp)
+        except (TypeError, ValueError):
+            return 0.0
+    carry = round(persisted - reference, 4)
+    if abs(carry) < 0.005:
+        return 0.0
+    for b in bus:
+        cur = float(b.get("reputation_score", 50.0) or 0.0)
+        b["reputation_score"] = round(max(0.0, min(100.0, cur + carry)), 2)
+    return carry
 
 
 # ── 3. Synergy Engine (with Diminishing Returns) ────────────────
@@ -513,19 +585,22 @@ def calc_synergy_opex(
     synergy_multiplier: float,
 ) -> float:
     """
-    FEATURE 2 — Diminishing Returns:
-    Uses sqrt scaling so first dollars invested yield outsized returns,
-    while later dollars hit diminishing marginal efficiency.
+    FEATURE 2 — Diminishing Returns, bounded per round (F-06, launch audit
+    2026-09-01):
 
-    effective_ratio = sqrt(ratio) * 0.7
-    New_OPEX = Old_OPEX * (1 - (effective_ratio * Synergy_Multiplier))
+        captured   = min(1, sqrt(ratio) × dampening × synergy_multiplier)
+        New_OPEX   = Old_OPEX × (1 − SYNERGY_MAX_REDUCTION_PER_ROUND × captured)
+
+    The sqrt curve still makes the first dollars invested the most productive
+    ones, but the reduction is a fraction of a hard per-round ceiling (default
+    6%) instead of an unbounded multiplier: the previous form took −35% of OPEX
+    per round at a 25% ratio and compounded to the floor by round 4–5.
     Investment_Ratio is clamped to [0.0, 1.0].
     """
     # FIX VULN-002: Tighten investment_ratio clamp to [0.0, 1.0]
     ratio = max(0.0, min(1.0, investment_ratio))
-    # Diminishing returns: sqrt curve with 0.7 dampening
-    effective_ratio = math.sqrt(ratio) * SYNERGY_DAMPENING_FACTOR
-    factor = 1.0 - (effective_ratio * synergy_multiplier)
+    captured = max(0.0, min(1.0, math.sqrt(ratio) * SYNERGY_DAMPENING_FACTOR * max(0.0, synergy_multiplier)))
+    factor = 1.0 - SYNERGY_MAX_REDUCTION_PER_ROUND * captured
     # Prevent negative OPEX
     return max(0.0, round(old_opex * factor, 2))
 
@@ -1868,7 +1943,9 @@ _SDG_MAPPING = {
     3:  {"label": "Good Health",             "metric": "reputation_score",     "weight": 0.5, "threshold": 65},
     4:  {"label": "Quality Education",        "metric": "reputation_score",     "weight": 0.3, "threshold": 60},
     5:  {"label": "Gender Equality",          "metric": "social_license_score", "weight": 0.3, "threshold": 65},
-    6:  {"label": "Clean Water",             "metric": "water_dependency",     "weight": 1.0, "threshold": 0.4, "invert": True},
+    # F-10: water_dependency is on a 0–100 scale (seed 12–82); the thresholds
+    # were 0.4 / 0.3, so SDG 6 and 14 scored 0 for every reachable state.
+    6:  {"label": "Clean Water",             "metric": "water_dependency",     "weight": 1.0, "threshold": 40, "invert": True},
     7:  {"label": "Affordable Energy",        "metric": "carbon_intensity",     "weight": 0.5, "threshold": 30, "invert": True},
     8:  {"label": "Decent Work",             "metric": "social_license_score", "weight": 0.8, "threshold": 70},
     9:  {"label": "Industry & Innovation",    "metric": "revenue_base",        "weight": 0.3, "threshold": 15_000_000},
@@ -1876,7 +1953,7 @@ _SDG_MAPPING = {
     11: {"label": "Sustainable Cities",       "metric": "governance_risk_score","weight": 0.5, "threshold": 25, "invert": True},
     12: {"label": "Responsible Consumption",  "metric": "natural_capital_debt", "weight": 0.8, "threshold": 3000, "invert": True},
     13: {"label": "Climate Action",          "metric": "carbon_intensity",     "weight": 1.0, "threshold": 25, "invert": True},
-    14: {"label": "Life Below Water",         "metric": "water_dependency",     "weight": 0.6, "threshold": 0.3, "invert": True},
+    14: {"label": "Life Below Water",         "metric": "water_dependency",     "weight": 0.6, "threshold": 30, "invert": True},
     15: {"label": "Life on Land",            "metric": "natural_capital_debt", "weight": 0.7, "threshold": 2000, "invert": True},
     16: {"label": "Peace & Justice",         "metric": "governance_risk_score","weight": 0.8, "threshold": 20, "invert": True},
     17: {"label": "Partnerships",            "metric": "reputation_score",     "weight": 0.4, "threshold": 70},
@@ -2279,8 +2356,9 @@ def _process_pending_projects(
 #    6. _assemble_global_state — builds the final immutable output dict.
 #    7. process_tick           — thin orchestrator (~50 lines).
 #
-#  All computation is identical to the previous monolithic implementation.
-#  Only the structural grouping has changed.
+#  (The 2026-07 refactor into these stages was behaviour-preserving. The
+#  economics have changed several times since — see MODEL_CARD.md §5 for the
+#  dated rulings; the golden traces in tests/golden pin the current numbers.)
 # ═════════════════════════════════════════════════════════════════
 
 
@@ -2350,10 +2428,43 @@ class TickContext:
     # economy" of CALIBRATION_DIAGNOSIS_2026-09-01.md). Entries:
     # (bu_id, field, applied_delta) — reversal subtracts applied_delta.
     transient_flow_adjustments: list = field(default_factory=list)
+    # F-08: reputation each BU carried INTO the tick (post-reconciliation), so
+    # stakeholder fatigue can dampen this tick's recovery of the stock.
+    rep_at_tick_start:         dict = field(default_factory=dict)
+    # F-04b (launch audit 2026-09-02): set the moment the financial layer banks
+    # `new_treasury = base + CSF − ...`. A transient recorded AFTER that point
+    # has already missed this round's P&L, and its end-of-tick reversal means
+    # it never reaches next round's either — so without the cash pass-through
+    # below, every post-CSF flow penalty (talent retention premium, NCD OPEX
+    # penalty, supplier defection, green-premium squeeze) was narrative only.
+    csf_banked:                bool = False
+    post_csf_flow_cash:        float = 0.0   # signed treasury effect of post-CSF transients
 
     def record_transient(self, bu: dict, field_name: str, applied_delta: float) -> None:
-        if applied_delta:
-            self.transient_flow_adjustments.append((bu.get("bu_id"), field_name, applied_delta))
+        if not applied_delta:
+            return
+        self.transient_flow_adjustments.append((bu.get("bu_id"), field_name, applied_delta))
+        if self.csf_banked and field_name in ("revenue_base", "opex_base"):
+            # A revenue penalty (negative delta) is cash lost; an OPEX surcharge
+            # (positive delta) is cash spent. Evented + waterfalled at end of tick
+            # so the treasury ledger's conservation law still closes to zero.
+            cash = applied_delta if field_name == "revenue_base" else -applied_delta
+            self.new_treasury      = round(self.new_treasury + cash, 2)
+            self.post_csf_flow_cash = round(self.post_csf_flow_cash + cash, 2)
+
+    def scale_transients(self, field_name: str, factor: float) -> None:
+        """F-04 (launch audit 2026-09-01): when a MULTIPLICATIVE step (inflation)
+        is applied to a field AFTER additive transients were recorded on it, the
+        transient's footprint in the base is also multiplied. Scaling the recorded
+        deltas by the same factor keeps the end-of-tick additive reversal exact —
+        previously a residual `delta × inflation` (~0.2% of revenue per round)
+        leaked into the persistent base every round."""
+        if factor == 1.0 or not self.transient_flow_adjustments:
+            return
+        self.transient_flow_adjustments = [
+            (b, f, round(d * factor, 2) if f == field_name else d)
+            for (b, f, d) in self.transient_flow_adjustments
+        ]
 
     def record_waterfall(
         self,
@@ -2457,6 +2568,10 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
             if bu["bu_id"] == bu_id:
                 bu["opex_base"] = round(bu["opex_base"] + surcharge, 2)
                 ctx.events[f"supply_chain_contagion_{bu_id}"] = surcharge
+                # F-04: a surcharge that recurs while siblings' governance risk
+                # is high is a FLOW. Left in the base it compounded every round
+                # (extractive trace: OPEX $34M → $525M by R10, TV −$2.4B).
+                ctx.record_transient(bu, "opex_base", surcharge)
                 break
 
     # ── FEATURE 21: Macro Interest Rate Environment ─────────────
@@ -2493,6 +2608,10 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
         deferred_amt = dso["deferred_amount"]
         if deferred_amt > 0:
             bu["revenue_base"] = round(bu["revenue_base"] - deferred_amt, 2)
+            # F-04: the deferred cash is collected into TREASURY next round (the
+            # lag project below), so the revenue base must not also shrink for
+            # good — that double-charged a timing effect (~3.4%/round).
+            ctx.record_transient(bu, "revenue_base", -deferred_amt)
             total_deferred    += deferred_amt
             ctx.new_synergy_lag_projects.append({
                 "type":             "revenue_generation",
@@ -2553,6 +2672,7 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
         }
     for bu in ctx.new_bus:
         bu["opex_base"] = calc_inflation(bu["opex_base"], inflation_index)
+    ctx.scale_transients("opex_base", 1.0 + inflation_index)  # F-04: exact reversal
     # Ruling B (2026-09-01): nominal symmetry — revenue inflates at a
     # configurable fraction of cost inflation. Persistent by design (it is
     # growth of the base, exactly as the opex line above is).
@@ -2560,6 +2680,7 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
     if _rev_infl:
         for bu in ctx.new_bus:
             bu["revenue_base"] = round(bu["revenue_base"] * (1.0 + _rev_infl), 2)
+        ctx.scale_transients("revenue_base", 1.0 + _rev_infl)  # F-04
     ctx.events["revenue_inflation_applied"] = _rev_infl
     ctx.events["inflation_index_applied"] = inflation_index
     # Store inflation_index so _run_operational_layer can produce the drift event
@@ -2641,8 +2762,12 @@ def _run_financial_layer(ctx: TickContext) -> None:
         ctx.events["dividends_requested"]  = ctx.dividends_paid
         ctx.events["dividends_paid"]       = clamped_dividends
 
-    # Free capital allowance (FINANCIAL_FREE_CSF_PCT of starting treasury)
-    free_csf_limit = base_treasury * FINANCIAL_FREE_CSF_PCT
+    # Investment allowance (FINANCIAL_FREE_CSF_PCT of starting treasury). Never
+    # negative: a team with a negative treasury has no allowance and finances
+    # any CapEx entirely through the term loan (F-05). (Before F-05 a negative
+    # allowance was harmless because CapEx never touched treasury; now it
+    # would have CREDITED the treasury.)
+    free_csf_limit = max(0.0, base_treasury * FINANCIAL_FREE_CSF_PCT)
 
     # Advanced Climate Engine: Green Fund CapEx offset
     green_fund_balance     = current_global.get("green_transition_fund", 0.0)
@@ -2697,16 +2822,47 @@ def _run_financial_layer(ctx: TickContext) -> None:
             f"${overrun_amount:,.0f} to your capital expenditure."
         )
 
-    # FIX VULN-006: Cap total CAPEX at FINANCIAL_CAPEX_CAP_MULTIPLE × treasury
-    capex_cap = base_treasury * FINANCIAL_CAPEX_CAP_MULTIPLE
+    # FIX VULN-006: Cap total CAPEX at FINANCIAL_CAPEX_CAP_MULTIPLE × treasury.
+    # F-05: the cap is never negative — with a negative treasury it is the CSF
+    # pool floor (the emergency credit line the cockpit already offers), so an
+    # insolvent team can still make the minimum investment, loan-funded.
+    capex_cap = max(CSF_POOL_FLOOR, base_treasury * FINANCIAL_CAPEX_CAP_MULTIPLE)
     if total_capex_requested > capex_cap:
         total_capex_requested      = capex_cap
         ctx.events["capex_capped"]     = True
         ctx.events["capex_cap_limit"]  = capex_cap
 
-    # Loan / Emergency Credit
-    loan_interest_payment = 0.0
-    loan_principal        = max(0.0, total_capex_requested - free_csf_limit)
+    # ── CapEx financing (F-05, launch audit 2026-09-01) ─────────────────
+    # CapEx used to cost NOTHING but one round of 12% interest on the portion
+    # above the 20% allowance: `new_treasury = base + CSF − interest`, so a team
+    # that "invested" $10M watched its treasury RISE, while the balance sheet
+    # capitalised the same $10M into PPE. Now:
+    #   • the allowance tranche (≤ FINANCIAL_FREE_CSF_PCT × treasury) is paid
+    #     from treasury this round — cash leaves when you invest;
+    #   • the excess is drawn as a term loan carried in
+    #     active_event_flags.capex_loan_balance, charged interest on the
+    #     opening balance each round and repaid straight-line over the rounds
+    #     that remain (all of it by round 10), so leverage has a cost AND a
+    #     maturity, and the balance sheet shows the debt.
+    _flags_fin       = current_global.get("active_event_flags", {}) or {}
+    _round_no        = int(current_global.get("round_number", 1) or 1)
+    loan_interest_rate = _flags_fin.get("loan_interest_rate", FINANCIAL_DEFAULT_LOAN_RATE)
+    loan_opening     = round(max(0.0, float(_flags_fin.get("capex_loan_balance", 0.0) or 0.0)), 2)
+    equity_capex     = round(min(total_capex_requested, free_csf_limit), 2)
+    new_borrowing    = round(max(0.0, total_capex_requested - free_csf_limit), 2)
+    rounds_remaining = max(1, SIM_ROUNDS - _round_no + 1)
+    loan_repayment   = round(loan_opening / rounds_remaining, 2) if loan_opening > 0 else 0.0
+    if _round_no >= SIM_ROUNDS:
+        loan_repayment = loan_opening                      # bullet: nothing outlives the game
+    loan_interest_payment = round(loan_opening * loan_interest_rate, 2)
+    loan_closing     = round(max(0.0, loan_opening - loan_repayment) + new_borrowing, 2)
+    loan_principal   = new_borrowing                       # this round's draw (legacy event name)
+    ctx.events["capex_equity_funded"]  = equity_capex
+    ctx.events["capex_loan_drawn"]     = new_borrowing
+    ctx.events["capex_loan_opening"]   = loan_opening
+    ctx.events["capex_loan_repayment"] = loan_repayment
+    ctx.events["capex_loan_balance"]   = loan_closing     # persisted stock (flags)
+    ctx.events["capex_loan_rounds_remaining"] = max(0, rounds_remaining - 1)
 
     emergency_credit_interest = 0.0
     _EMERGENCY_CREDIT_AMOUNT  = FINANCIAL_EMERGENCY_CREDIT_AMOUNT
@@ -2719,15 +2875,14 @@ def _run_financial_layer(ctx: TickContext) -> None:
         ctx.events["emergency_credit_rate"]     = emergency_rate
         ctx.events["emergency_credit_interest"] = emergency_credit_interest
 
-    if loan_principal > 0:
-        loan_interest_rate    = current_global.get("active_event_flags", {}).get("loan_interest_rate", FINANCIAL_DEFAULT_LOAN_RATE)
-        loan_interest_payment = round(loan_principal * loan_interest_rate, 2)
+    if loan_principal > 0 or loan_opening > 0:
         ctx.events["loan_principal"]        = round(loan_principal, 2)
         ctx.events["loan_interest_rate"]    = loan_interest_rate
         ctx.events["loan_interest_payment"] = loan_interest_payment
 
     total_interest   = loan_interest_payment + emergency_credit_interest
-    ctx.new_treasury = round(base_treasury + csf - total_interest, 2)
+    ctx.new_treasury = round(base_treasury + csf - equity_capex - loan_repayment - total_interest, 2)
+    ctx.csf_banked   = True   # F-04b: later flow transients must debit treasury directly
 
     # ── REC-1: Waterfall entries for core treasury movement ─────
     ctx.record_waterfall(
@@ -2735,11 +2890,32 @@ def _run_financial_layer(ctx: TickContext) -> None:
         because="Revenue minus OPEX across all BUs, net of dividends paid.",
         counterfactual="Higher synergy investment would have reduced OPEX and increased CSF.",
     )
+    if equity_capex > 0:
+        ctx.record_waterfall(
+            "CapEx (cash-funded)", -equity_capex,
+            because=(f"${equity_capex:,.0f} of this round's CapEx was paid from treasury "
+                     f"(the {FINANCIAL_FREE_CSF_PCT*100:.0f}% investment allowance)."),
+            counterfactual="Investing less would have kept this cash in the treasury — and forgone the returns.",
+        )
+    if new_borrowing > 0:
+        # Cash-neutral this round (loan in, asset out) so it is not a waterfall
+        # line; the draw is disclosed through capex_loan_drawn / capex_loan_balance.
+        ctx.events["capex_loan_message"] = (
+            f"🏦 ${new_borrowing:,.0f} of CapEx above the {FINANCIAL_FREE_CSF_PCT*100:.0f}% allowance was "
+            f"financed by a term loan at {loan_interest_rate*100:.0f}%, repayable over the remaining rounds "
+            f"(balance now ${loan_closing:,.0f})."
+        )
+    if loan_repayment > 0:
+        ctx.record_waterfall(
+            "Loan Principal Repayment", -loan_repayment,
+            because=f"Scheduled repayment of the CapEx term loan (${loan_opening:,.0f} outstanding at the start of the round).",
+            counterfactual="Debt raised in earlier rounds has to be paid back before the game ends.",
+        )
     if loan_interest_payment > 0:
         ctx.record_waterfall(
             "Loan Interest", -loan_interest_payment,
-            because=f"You borrowed ${loan_principal:,.0f} at {loan_interest_rate*100:.0f}% to fund CapEx exceeding free CSF.",
-            counterfactual="If total CapEx stayed below CSF, no loan interest would be charged.",
+            because=f"Interest at {loan_interest_rate*100:.0f}% on the ${loan_opening:,.0f} CapEx loan outstanding.",
+            counterfactual="If total CapEx stayed inside the allowance, no loan interest would be charged.",
         )
     if emergency_credit_interest > 0:
         ctx.record_waterfall(
@@ -2755,6 +2931,7 @@ def _run_financial_layer(ctx: TickContext) -> None:
             if bu["bu_id"] == bu_id:
                 bu["opex_base"] = round(bu["opex_base"] + surcharge, 2)
                 ctx.events[f"talent_neglect_surcharge_{bu_id}"] = surcharge
+                ctx.record_transient(bu, "opex_base", surcharge)  # F-04: recurs while neglected; flow
                 break
 
     # ── 8. Pending Projects ─────────────────────────────────────
@@ -2837,6 +3014,9 @@ def _run_financial_layer(ctx: TickContext) -> None:
 
         new_opex, debt_hit = calc_technical_debt(bu["opex_base"], streak)
         if debt_hit:
+            # PERSISTENT BY DESIGN (F-04 review): deferred maintenance is a
+            # stock — each further round of zero investment adds to the base
+            # permanently; it is the one OPEX penalty that is meant to ratchet.
             bu["opex_base"] = new_opex
             ctx.events[f"technical_debt_penalty_{bu['bu_id']}"] = True
             ctx.events[f"technical_debt_streak_{bu['bu_id']}"]  = streak
@@ -2861,23 +3041,38 @@ def _run_financial_layer(ctx: TickContext) -> None:
         for bu_id, multiplier in lockin_penalties.items():
             ctx.events[f"lockin_synergy_penalty_{bu_id}"] = multiplier
 
-    # ── 2. Contagion Engine ──────────────────────────────────────
-    ctx.group_reputation = calc_contagion(ctx.new_bus, ctx.crisis_severity)
-
-    # ── FEATURE 7: Stakeholder Fatigue ──────────────────────────
+    # ── FEATURE 7: Stakeholder Fatigue (F-08, launch audit 2026-09-01) ──
+    # Trust recovers more slowly after every crisis. The old formulation
+    # compared the DERIVED group figure with the BU mean — but the derived
+    # figure is the mean minus a non-negative contagion dip, so the "recovery
+    # gap" was identically zero and the mechanic never fired (0 of 24 probe
+    # combinations). It now acts where recovery actually happens: on this
+    # tick's GAIN in each BU's reputation stock relative to what the BU
+    # carried into the tick. Losses are never dampened. Runs BEFORE contagion
+    # so the group figure is derived from the fatigued stock.
     crisis_count = current_global.get("active_event_flags", {}).get("crisis_count_lifetime", 0)
     if ctx.crisis_severity > 0:
         crisis_count += 1
     ctx.events["crisis_count_lifetime"] = crisis_count
-    if crisis_count > 0:
-        old_rep       = sum(bu["reputation_score"] for bu in ctx.new_bus) / max(len(ctx.new_bus), 1)
-        recovery_gap  = max(0, ctx.group_reputation - old_rep)
-        if recovery_gap > 0:
-            fatigued_recovery    = calc_stakeholder_fatigue(recovery_gap, crisis_count)
-            ctx.group_reputation = round(old_rep + fatigued_recovery, 2)
-            ctx.group_reputation = max(0.0, min(100.0, ctx.group_reputation))
+    if crisis_count > 0 and ctx.rep_at_tick_start:
+        _efficiency = round(1.0 / (1.0 + STAKEHOLDER_FATIGUE_FACTOR * crisis_count), 4)
+        _fatigue_total = 0.0
+        for bu in ctx.new_bus:
+            _start = ctx.rep_at_tick_start.get(bu.get("bu_id"))
+            if _start is None:
+                continue
+            _gain = bu["reputation_score"] - _start
+            if _gain > 0:
+                _kept = calc_stakeholder_fatigue(_gain, crisis_count)
+                bu["reputation_score"] = round(max(0.0, min(100.0, _start + _kept)), 2)
+                _fatigue_total += _gain - _kept
+        if _fatigue_total > 0:
             ctx.events["stakeholder_fatigue_applied"]    = True
-            ctx.events["stakeholder_fatigue_efficiency"] = round(1.0 / (1.0 + 0.3 * crisis_count), 4)
+            ctx.events["stakeholder_fatigue_efficiency"] = _efficiency
+            ctx.events["stakeholder_fatigue_forgone"]    = round(_fatigue_total, 2)
+
+    # ── 2. Contagion Engine ──────────────────────────────────────
+    ctx.group_reputation = calc_contagion(ctx.new_bus, ctx.crisis_severity)
 
     # ── 6. Talent Brain-Drain & Burnout ─────────────────────────
     for bu in ctx.new_bus:
@@ -3035,6 +3230,9 @@ def _run_financial_layer(ctx: TickContext) -> None:
             "severity": "high",
         })
         _rep_before_penalty   = ctx.group_reputation
+        # F-01: charge the BU stock too, or the penalty evaporates next tick.
+        for bu in ctx.new_bus:
+            bu["reputation_score"] = max(0.0, round(bu["reputation_score"] - EMISSIONS_BREACH_REP_PENALTY, 2))
         ctx.group_reputation  = max(0.0, round(ctx.group_reputation - EMISSIONS_BREACH_REP_PENALTY, 2))
         ctx.events["emissions_rep_penalty"] = {
             "rep_before": _rep_before_penalty,
@@ -3137,17 +3335,20 @@ def _run_operational_layer(ctx: TickContext) -> None:
         # High investment → active decarbonization (ESG CAPEX reduces emissions)
         # Low investment → emissions creep from deferred maintenance
         if _pre_aust_inv_op >= 0.25:
-            bu["carbon_intensity"] *= (1.0 - _pre_aust_inv_op * 0.10)  # up to -5%/round
+            bu["carbon_intensity"] *= (1.0 - _pre_aust_inv_op * 0.10)  # −2.5% at a 25% ratio … −10% at 100%
         elif _pre_aust_inv_op < 0.10:
             bu["carbon_intensity"] *= 1.02  # +2% emissions creep
 
-        # FIX-F: Option-driven emissions impact
-        _bu_dec_op = ctx.decision_map.get(bu["bu_id"], {})
-        _choice = _bu_dec_op.get("choice_selected", "")
-        if _choice == "option_a":
-            bu["carbon_intensity"] = max(0, bu["carbon_intensity"] - 3)  # Green tech
-        elif _choice == "option_c":
-            bu["carbon_intensity"] += 2  # Cost-cutting = dirtier ops
+        # F-09 (launch audit 2026-09-01): the positional "FIX-F" rule that
+        # gave EVERY option_a −3 CI and EVERY option_c +2 CI has been removed.
+        # Each option carries its own configured `carbon_intensity_delta`
+        # (round_configs → round_logic._apply_generic_option_impacts); the
+        # positional bonus contradicted those configs (R1-A "Surface-Level
+        # Scan" is +2 in config and received −3 here; R9-C "Community
+        # Investment Fund" was penalised as "dirtier ops") and drove a
+        # pharma/electronics conglomerate to 0.0 CI by round 10 — which also
+        # zeroed its R10 carbon tax. Same class of heuristic DEEP-6 removed
+        # from the greenwash check.
 
         bu["carbon_intensity"] = round(max(0.0, bu["carbon_intensity"]), 2)
 
@@ -3158,7 +3359,14 @@ def _run_operational_layer(ctx: TickContext) -> None:
         _avg_ci   = avg_ci
         _avg_gov  = sum(bu.get("governance_risk_score", 20) for bu in ctx.new_bus) / n_bu
         _avg_slo  = sum(bu.get("social_license_score", 50) for bu in ctx.new_bus) / n_bu
-        _avg_water = sum(bu.get("water_dependency", 0) for bu in ctx.new_bus) / n_bu
+        # F-02 (launch audit 2026-09-01): water_dependency is on a 0-100 scale but
+        # calc_esg_adjusted_wacc's biodiversity_dependency is a 0-1 fraction
+        # (nature_premium = dep × (1 − transparency/100) × 0.02). Passing the raw
+        # mean (seed 54.25) produced a +76-point "premium" that pinned WACC at
+        # the 20% cap from round 1 for every team — and, through the Gordon
+        # growth multiple, the 6× exit-multiple floor for every team.
+        _avg_water = max(0.0, min(1.0,
+            sum(bu.get("water_dependency", 0) for bu in ctx.new_bus) / n_bu / 100.0))
         _sct       = current_global.get("active_event_flags", {}).get("supply_chain_transparency", 30)
 
         esg_wacc, esg_wacc_diag = calc_esg_adjusted_wacc(
@@ -3185,6 +3393,7 @@ def _run_operational_layer(ctx: TickContext) -> None:
                 bu_opex  = bu.get("opex_base", 0)
                 penalty  = round(bu_opex * eb_opex_multiplier, 2)
                 bu["opex_base"] = round(bu_opex + penalty, 2)
+                ctx.record_transient(bu, "opex_base", penalty)  # F-04: recurs while the brand is weak; flow
                 eb_total_penalty += penalty
             ctx.events["employer_brand_opex_penalty"] = {
                 "multiplier":        eb_opex_multiplier,
@@ -3274,7 +3483,8 @@ def _run_operational_layer(ctx: TickContext) -> None:
 
         for bu in ctx.new_bus:
             ncd              = max(0, bu.get("natural_capital_debt", 0))
-            ncd_opex_penalty = round((ncd * NCD_OPEX_SCALING_FACTOR * hostility_multiplier) / 1_000_000, 2)
+            # F-10: $ per NCD index unit (was ncd × 50,000 / 1e6 = $0.05 per unit)
+            ncd_opex_penalty = round(ncd * NCD_OPEX_PENALTY_PER_UNIT * hostility_multiplier, 2)
             max_penalty      = bu.get("revenue_base", 0) * (0.75 if tipping_tier == "tipped" else 0.50)
             ncd_opex_penalty = min(ncd_opex_penalty, max_penalty)
             if ncd_opex_penalty > 0:
@@ -3311,7 +3521,9 @@ def _run_operational_layer(ctx: TickContext) -> None:
         sbti_aligned   = avg_ci <= sbti_target_ci
         per_bu_sbti    = {}
         for bu in ctx.new_bus:
-            bu_baseline_ci = bu.get("ci_baseline_r1", bu.get("carbon_intensity", 50.0))
+            # F-13: ci_baseline_r1 is stamped at tick start on first sight (see
+            # process_tick) — the BU's pre-decision CI, carried in the BU record.
+            bu_baseline_ci = float(bu.get("ci_baseline_r1") or bu.get("carbon_intensity", 50.0))
             bu_sbti_target = round(bu_baseline_ci * (1 - SBTI_ANNUAL_REDUCTION_RATE) ** (round_num - 1), 2)
             bu_aligned     = bu.get("carbon_intensity", 0) <= bu_sbti_target
             per_bu_sbti[bu["bu_id"]] = {
@@ -4015,8 +4227,14 @@ def _run_reporting_layer(ctx: TickContext) -> None:
         pillar_decisions = dec.get("pillar_decisions") or {}
         supply_chain_choice = pillar_decisions.get("supply_chain", "")
         if supply_chain_choice in ["audit_suppliers", "strict_mandates", "living_wage_mandate"] and inv_ratio < SUPPLIER_DEFECTION_INV_THRESHOLD:
+            # F-04: a shock that recurs while the mandate is unfunded is a flow;
+            # as a permanent multiplicative hit it compounded every round.
+            _sd_opex_before = bu["opex_base"]
+            _sd_rev_before  = bu["revenue_base"]
             bu["opex_base"]                  = round(bu["opex_base"] * SUPPLIER_DEFECTION_OPEX_MULT, 2)
             bu["revenue_base"]               = round(bu["revenue_base"] * SUPPLIER_DEFECTION_REV_MULT, 2)
+            ctx.record_transient(bu, "opex_base", bu["opex_base"] - _sd_opex_before)
+            ctx.record_transient(bu, "revenue_base", bu["revenue_base"] - _sd_rev_before)
             bu["supplier_defection_active"]  = True
             supplier_defections.append(bu_id)
         else:
@@ -4025,6 +4243,9 @@ def _run_reporting_layer(ctx: TickContext) -> None:
             penalty_pct  = (60 - bu["social_license_score"]) * 0.005
             penalty_val  = round(bu["revenue_base"] * penalty_pct, 2)
             bu["revenue_base"]        -= penalty_val
+            # F-04: at SLO 0 this was −30% of revenue PER ROUND, permanently —
+            # it is the market refusing a premium THIS round, not lost capacity.
+            ctx.record_transient(bu, "revenue_base", -penalty_val)
             bu["green_premium_squeeze"] = penalty_val
             green_premium_squeezes.append({"bu_id": bu_id, "penalty": penalty_val})
         else:
@@ -4119,8 +4340,14 @@ def _run_reporting_layer(ctx: TickContext) -> None:
                 for s in _updated_sh
             ]
             ctx.events["sentiment_history"] = _hist
-    except Exception:
-        pass  # Non-fatal: sentiment failure must never block the simulation tick
+    except Exception as _sent_exc:
+        # Non-fatal: sentiment failure must never block the simulation tick —
+        # but it is no longer silent (F-36): recorded on the round so the
+        # commit path raises the facilitator alert, and logged with traceback.
+        import logging as _lg
+        _lg.getLogger("muressons.engines").error("[ENGINE-FAILURE] Stakeholder sentiment failed: %s", _sent_exc, exc_info=True)
+        ctx.events.setdefault("engine_failures", []).append(
+            {"engine": "Stakeholder sentiment", "error": f"{type(_sent_exc).__name__}: {_sent_exc}"[:300]})
 
 
 # ── Final State Assembly ─────────────────────────────────────────
@@ -4246,7 +4473,7 @@ def process_tick(
     decisions: list[dict],
     dividends_paid: float = 0.0,
     crisis_severity: float = 0.0,
-    imitation_decay_rate: float = DEFAULT_IMITATION_DECAY_RATE,  # 6-month compounded: 1-(1-0.05)² ≈ 0.0975
+    imitation_decay_rate: float = DEFAULT_IMITATION_DECAY_RATE,  # F-07: config default (5%/round), server-applied
     decision_paradigm: str = "legacy_abc",
     emergency_credit_used: bool = False,
 ) -> dict[str, Any]:
@@ -4304,6 +4531,29 @@ def process_tick(
     # ── 3. Build TickContext ─────────────────────────────────────
     initial_treasury = current_global.get("corporate_treasury", 0.0)
 
+    # F-02: cost of capital is rebuilt each tick as BASE + macro-cycle LEVEL +
+    # ESG premia + surcharges (then the regulatory ratchet floor). It used to
+    # start from last tick's OUTPUT, so the per-regime macro modifier (a level,
+    # see _MACRO_RATE_CYCLES) was re-added every round and accumulated as a
+    # flow. The base is a persistent stock in active_event_flags: seeded from
+    # the session's starting cost_of_capital on the first tick, and absorbing
+    # any between-tick write to gs["cost_of_capital"] (tipping-point premium,
+    # black-swan rate spike, agent effects) via the same stamp-and-carry
+    # pattern as reputation (F-01).
+    _flags_in = current_global.get("active_event_flags", {}) or {}
+    _persisted_coc = float(current_global.get("cost_of_capital", 0.05) or 0.05)
+    _coc_base = _flags_in.get(COC_BASE_KEY)
+    _coc_stamp = _flags_in.get(COC_DERIVED_KEY)
+    if _coc_base is None:
+        _coc_base = _persisted_coc
+    else:
+        _coc_base = float(_coc_base)
+        if _coc_stamp is not None:
+            _coc_carry = round(_persisted_coc - float(_coc_stamp), 6)
+            if abs(_coc_carry) >= 0.00005:
+                _coc_base = round(_coc_base + _coc_carry, 6)
+    _coc_base = round(max(0.0, _coc_base), 6)
+
     ctx = TickContext(
         # Read-only inputs
         current_global         = current_global,
@@ -4328,7 +4578,7 @@ def process_tick(
         new_synergy            = current_global["synergy_multiplier"],
         new_green_fund_balance = current_global.get("green_transition_fund", 0.0),
         new_inflation_index    = current_global.get("inflation_index", 0.05),
-        corporate_cost_of_capital = current_global.get("cost_of_capital", 0.05),
+        corporate_cost_of_capital = _coc_base,
         group_reputation       = 0.0,
         # Project queues
         new_pending_projects     = [],
@@ -4341,6 +4591,21 @@ def process_tick(
     # ── 4. Run the four pipeline stages ─────────────────────────
     # FIX BUG-1A: Store pre-austerity investment ratio for floor calculations
     ctx.events["_pre_austerity_avg_invest"] = _pre_austerity_avg_invest
+    # F-01: fold every between-tick group_reputation write into the BU stock
+    # BEFORE contagion re-derives the group figure (see reconcile_reputation_stock).
+    _rep_carry = reconcile_reputation_stock(current_global, ctx.new_bus)
+    if _rep_carry:
+        ctx.events["reputation_carry_applied"] = _rep_carry
+    # F-08: the stock each BU carries into this tick (post-reconciliation).
+    ctx.rep_at_tick_start = {b.get("bu_id"): float(b.get("reputation_score", 50.0) or 0.0) for b in ctx.new_bus}
+    # F-13 (launch audit 2026-09-01): `ci_baseline_r1` was read by the per-BU
+    # SBTi pathway but never written, so the baseline was the CURRENT CI every
+    # round and every BU was "off track" from round 2 whatever it did. Stamp the
+    # pre-decision CI the first time a BU is seen; both stores persist extra BU
+    # keys (F-15), so it travels with the record.
+    for _b in ctx.new_bus:
+        if _b.get("ci_baseline_r1") is None:
+            _b["ci_baseline_r1"] = float(_b.get("carbon_intensity", 50.0) or 0.0)
     _run_stochastic_layer(ctx)
     _run_financial_layer(ctx)
     _run_operational_layer(ctx)
@@ -4362,6 +4627,57 @@ def process_tick(
             _key = f"{_bu_id}.{_fld}"
             _reversed_summary[_key] = round(_reversed_summary.get(_key, 0.0) - _delta, 2)
         ctx.events["transient_flow_adjustments_reversed"] = _reversed_summary
+    if ctx.post_csf_flow_cash:
+        # F-04b: the cash those post-CSF transients cost (or, rarely, returned)
+        # this round. Ledger term for test_treasury_waterfall's conservation law.
+        ctx.events["post_csf_flow_adjustments_cash"] = ctx.post_csf_flow_cash
+        ctx.record_waterfall(
+            "Flow surcharges after gross profit", ctx.post_csf_flow_cash,
+            because=("Per-round penalties assessed after gross profit was banked "
+                     "(talent retention premium, NCD OPEX penalty, supplier defection, "
+                     "green-premium squeeze) — charged to treasury this round only, "
+                     "not compounded into the BU base."),
+        )
+
+    # F-17 (launch audit 2026-09-01): ONE server-side valuation preview for
+    # every cockpit surface (round briefing, ticker, rival benchmark, reveal
+    # fallbacks). They used to each carry their own formula — 12× here, 17×
+    # there, a synergy×reputation "M_R proxy" — and disagreed with the R10
+    # computation and with each other. This is the same Gordon multiple and the
+    # same calculate_mr projection the finale uses, on this round's state.
+    try:
+        from terminal_valuation import calculate_dynamic_exit_multiple, calculate_mr
+        _n_bu = max(len(ctx.new_bus), 1)
+        _pv_wacc = float(ctx.corporate_cost_of_capital or 0.05)
+        _pv_multiple = calculate_dynamic_exit_multiple(wacc=_pv_wacc)["exit_multiple"]
+        _pv_flags = dict(current_global.get("active_event_flags", {}) or {})
+        _pv_flags.update({k: v for k, v in ctx.events.items() if not k.startswith("_")})
+        _pv_mr = calculate_mr(
+            _pv_flags,
+            sum(b.get("social_license_score", 50) for b in ctx.new_bus) / _n_bu,
+            sum(b.get("staff_burnout_index", 0) for b in ctx.new_bus) / _n_bu,
+            float(current_global.get("workforce_readiness", 50) or 50),
+            float(ctx.new_synergy or 0.0),
+            int(current_global.get("hr_investment_rounds", 0) or 0),
+        )["mr"]
+        _pv_ebitda = round(sum(b["revenue_base"] - b["opex_base"] for b in ctx.new_bus), 2)
+        ctx.events["valuation_preview"] = {
+            "wacc": round(_pv_wacc, 4),
+            "exit_multiple": _pv_multiple,
+            "mr_projection": round(float(_pv_mr), 4),
+            "ebitda": _pv_ebitda,
+            "ev_estimate": round(max(0.0, _pv_ebitda) * _pv_multiple * float(_pv_mr), 2),
+            "note": "Preview on this round's state — the finale recomputes with the Green Fund, M_SDG and pathway rules.",
+        }
+    except Exception:  # never let a preview break a tick
+        pass
+
+    # F-01: stamp the group figure the engine derived this tick so the next
+    # tick can tell engine-derived value from post-tick/admin/side-track writes.
+    ctx.events[REPUTATION_DERIVED_KEY] = ctx.group_reputation
+    # F-02: same for cost of capital (base stock + derived stamp).
+    ctx.events[COC_BASE_KEY] = _coc_base
+    ctx.events[COC_DERIVED_KEY] = ctx.corporate_cost_of_capital
 
     # ── 5. Assemble and return immutable output ──────────────────
     new_global = _assemble_global_state(ctx, initial_treasury)

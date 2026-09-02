@@ -69,8 +69,14 @@ def _save_persistent_bans() -> None:
         with open(_tmp, "w", encoding="utf-8") as _f:
             json.dump(_persistent_bans, _f)
         os.replace(_tmp, _RATE_BAN_FILE)
-    except Exception:
-        pass  # Non-fatal — in-memory bans still apply for this process lifetime
+    except Exception as exc:
+        # Non-fatal — in-memory bans still apply for this process lifetime — but
+        # recorded (F-36) so a full volume is visible in /api/health.
+        try:
+            from admin_shared import record_persistence_failure
+            record_persistence_failure("rate_bans", exc, _RATE_BAN_FILE)
+        except Exception:  # pragma: no cover
+            pass
 
 
 _load_persistent_bans()

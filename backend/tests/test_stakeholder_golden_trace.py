@@ -326,15 +326,19 @@ def test_toggles_default_off():
     # realism waves ship ON; only the F6 intel rail stays opt-in. This trace's
     # own harness still pins its toggles explicitly (see _BASE_TOGGLES above),
     # so the golden numbers are independent of these platform defaults.
+    # Updated 2026-09-02 (audit F-11, owner ruling): F2 continuous NPC pressure
+    # is back to OFF by default — with it ON the disciplined script could not
+    # reach the M_R >= 1.2 the MODEL_CARD promises. Facilitators opt in per
+    # cohort. See test_stakeholder_defaults.py for the same pin.
     for key in (
         "stakeholder_memory_enabled",
-        "stakeholder_slo_feedback_enabled",
         "stakeholder_engagement_enabled",
         "stakeholder_coalitions_enabled",
         "stakeholder_uncertainty_enabled",
     ):
         assert key in D, f"missing wave toggle: {key}"
         assert D[key] is True, f"wave toggle must default ON: {key}"
+    assert D["stakeholder_slo_feedback_enabled"] is False, "F2 pressure is opt-in (F-11)"
     assert D["stakeholder_intel_ui_enabled"] is False, "F6 rail stays opt-in"
 
 

@@ -19,6 +19,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import styles from './DecisionPressureTimer.module.css';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 function formatTime(seconds) {
   if (seconds <= 0) return '0:00';
@@ -45,7 +46,7 @@ export default function DecisionPressureTimer({ sessionId, roundNumber, isCommit
   // Poll pacing endpoint every 5s
   const fetchPacing = useCallback(() => {
     if (!sessionId) return;
-    fetch(`${API}/api/admin/sessions/${encodeURIComponent(sessionId)}/pacing`, { credentials: 'include' })
+    fetch(`${API}/api/admin/sessions/${encodeURIComponent(sessionId)}/pacing`, { credentials: 'include', headers: { ...playerIdHeader() } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d) return;

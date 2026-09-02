@@ -10,9 +10,21 @@ Contains:
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 teleprompter_router = APIRouter(prefix="/api/admin", tags=["Admin - Teleprompter"])
+
+
+def _get_fac_role(request: Request) -> str:
+    """Delegate to the canonical resolver (lazy import — admin_router imports
+    this module's router at load time, so a top-level import would be circular)."""
+    from admin_router import get_fac_role as _canonical
+    return _canonical(request)
+
+
+def require_facilitator(role: str = Depends(_get_fac_role)):
+    if role == "anonymous":
+        raise HTTPException(status_code=401, detail="Facilitator authentication required")
 
 
 _TELEPROMPTER_SCRIPTS = {
@@ -1045,8 +1057,12 @@ _AGENT_DEBRIEF_BANK = {
     "/teleprompter/agents/{session_id}",
     summary="Get live autonomous agent state + contextual debrief questions for a session",
 )
-async def get_agent_teleprompter(session_id: str):
+async def get_agent_teleprompter(request: Request, session_id: str, _guard: None = Depends(require_facilitator)):
     """Reads live agent state from a session and returns contextual debrief questions."""
+    # F-21 (launch audit 2026-09-01): cross-cohort access — this returned live
+    # per-team agent state for ANY session id with no credential at all.
+    from admin_router import _assert_session_visible
+    await _assert_session_visible(request, session_id)
     try:
         # Railway audit §1.1: read via the parity db API (works under both
         # stores) instead of the memory store's private dict.
