@@ -2587,6 +2587,20 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     current_bus = current["bu_states"]
     decisions_raw = [d.model_dump() for d in body.decisions]
 
+    # A negotiation room never outlives the round it was opened in: if the
+    # player committed without walking out, auto-close it here so the record
+    # resolves (resolution="round_committed") instead of leaking open into the
+    # next round. Concessions accepted this meeting were already applied and
+    # persisted by /negotiation/accept; this only closes the open room, and it
+    # travels through the tick via the active_event_flags "preserve history"
+    # merge below. No-op when no room is open.
+    try:
+        import negotiation as _negotiation
+        _negotiation.close_on_commit(current_global, current_round)
+    except Exception as _neg_close_exc:
+        _log.error("negotiation.close_on_commit failed for %s R%s: %s",
+                   session_id, current_round, _neg_close_exc, exc_info=True)
+
     # ── Determine decision paradigm (fall back to parent cohort) ──
     session_info = await db.get_session_info(session_id)
     paradigm = (session_info or {}).get("decision_paradigm", "legacy_abc")
@@ -3886,6 +3900,59 @@ async def say_in_negotiation_room(request: Request, session_id: str, body: Negot
         llm_reply = None
 
     result = negotiation.say(gs, bus, rn, body.text, llm_reply=llm_reply)
+    if "error" in result:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
+    await db.update_latest_global_state(session_id, gs, bus)
+    return result
+
+
+class NegotiationAcceptRequest(BaseModel):
+    concession_id: str
+
+
+@router.post("/{session_id}/negotiation/accept", summary="Accept a concession in the open negotiation room")
+async def accept_in_negotiation_room(request: Request, session_id: str, body: NegotiationAcceptRequest):
+    """Apply ONE whitelisted concession from the agent's live menu — the only
+    path that mutates state (treasury, reputation, governance/burnout, promises).
+    The frontend (NegotiationRoom.js) has always POSTed here; the route was
+    missing, so the Accept button 404'd and a paid-for meeting could never
+    conclude in a deal. Same ownership + capability gating as /open and /say,
+    re-checked per call so a revoke stops mid-negotiation."""
+    await _assert_player_owns_session(request, session_id)
+    import negotiation
+    await _require_negotiation_open(session_id)
+
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
+    gs, bus, rn = latest["global_state"], latest["bu_states"], latest["round_number"]
+
+    result = negotiation.accept_concession(gs, bus, rn, body.concession_id)
+    if "error" in result:
+        # no_open_room / unknown_concession / not_on_this_agents_menu /
+        # one_promised_concession_per_meeting / one_free_action_per_meeting → 400
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
+    await db.update_latest_global_state(session_id, gs, bus)
+    return result
+
+
+@router.post("/{session_id}/negotiation/walk-out", summary="Walk out of the open negotiation room")
+async def walk_out_of_negotiation_room(request: Request, session_id: str):
+    """Close the open room without a (further) deal. Any concessions already
+    accepted this meeting stand; walking out with zero deals is recorded as a
+    stonewall the agent remembers. The frontend's Walk-out button POSTs here;
+    the route was missing, so it 404'd and a room could only ever leak open
+    until the round committed."""
+    await _assert_player_owns_session(request, session_id)
+    import negotiation
+    await _require_negotiation_open(session_id)
+
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
+    gs, bus, rn = latest["global_state"], latest["bu_states"], latest["round_number"]
+
+    result = negotiation.walk_out(gs, rn)
     if "error" in result:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
     await db.update_latest_global_state(session_id, gs, bus)
