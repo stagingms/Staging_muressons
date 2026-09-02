@@ -128,7 +128,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
         <div className={styles.notStartedState}>
           <div className={styles.notStartedIcon}>📭</div>
           <div className={styles.notStartedTitle}>No Side Tracks Available</div>
-          <div className={styles.notStartedDesc}>Your facilitator hasn't assigned any side simulations yet. Check back later or ask your facilitator to enable side tracks for your cohort.</div>
+          <div className={styles.notStartedDesc}>Your facilitator hasn&apos;t assigned any side simulations yet. Check back later or ask your facilitator to enable side tracks for your cohort.</div>
           <button onClick={onClose} style={{
             marginTop: 20, padding: '10px 24px', borderRadius: 8, cursor: 'pointer',
             background: 'linear-gradient(135deg, #00e5c3, #0dd9b0)', color: '#0a0e1a',
@@ -493,7 +493,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                 {/* Dependency warnings */}
                 {rc.required_flag && !flags.includes(rc.required_flag) && (
                   <div className={styles.dependencyWarning}>
-                    ⚠️ This round's options are affected by prior choices. Some paths may be locked.
+                    ⚠️ This round&apos;s options are affected by prior choices. Some paths may be locked.
                   </div>
                 )}
 

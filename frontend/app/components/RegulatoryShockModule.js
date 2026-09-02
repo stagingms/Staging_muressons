@@ -234,7 +234,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                 </div>
                 <div style={{ padding: '1.75rem 2rem' }}>
                     <p style={{ fontSize: '0.92rem', lineHeight: 1.75, color: '#1e293b', margin: '0 0 1.25rem' }}>
-                        A major trading bloc representing <strong>40% of Muressons' revenue</strong> has implemented a strict{' '}
+                        A major trading bloc representing <strong>40% of Muressons&apos; revenue</strong> has implemented a strict{' '}
                         <strong>Carbon Border Adjustment Mechanism (CBAM)</strong> and simultaneously slashed free ETS allowances.
                     </p>
                     <div style={{

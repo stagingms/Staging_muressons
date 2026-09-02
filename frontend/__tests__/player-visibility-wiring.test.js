@@ -263,8 +263,15 @@ describe('briefing video configuration', () => {
   test('the URL keys are cohort-overridable, or the per-cohort POST is a no-op', () => {
     const shared = fs.readFileSync(
       path.join(ROOT, 'backend', 'admin_shared.py'), 'utf8');
-    const start = shared.indexOf('COHORT_OVERRIDABLE_KEYS');
-    const block = shared.slice(start, shared.indexOf('}', start));
+    // Anchor on the DEFINITION (`COHORT_OVERRIDABLE_KEYS: frozenset[str] =
+    // frozenset({ ... })`), not the first textual mention — the name also
+    // appears in a comment above the settings dict, and slicing from there to
+    // the next `}` stops inside another comment (`{standard, advanced_climate}`)
+    // long before the real set. The frozenset body is flat strings with no
+    // nested braces, so `})` is an unambiguous close.
+    const open = shared.indexOf('frozenset({',
+      shared.indexOf('COHORT_OVERRIDABLE_KEYS: frozenset'));
+    const block = shared.slice(open, shared.indexOf('})', open));
     expect(block).toMatch(/"briefing_video_base"/);
     expect(block).toMatch(/"briefing_videos"/);
   });

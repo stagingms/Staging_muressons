@@ -220,23 +220,11 @@ export default function RoundBriefing({
   // fail-open so the briefing renders in full when mounted standalone.
   isPlayerVisible = () => true,
 }) {
-  // ── Derive SimContext from live session data and resolve briefing ──────────
-  const tokenMap = deriveSimContext(businessUnits, sessionMeta);
-  const baseDictionary = isSDG ? SDG_BRIEFINGS : isHealthcare ? HEALTHCARE_BRIEFINGS : STANDARD_BRIEFINGS;
-  const b = resolveBriefing(baseDictionary[roundNumber], tokenMap);
-  if (!b) return null;
-
-  const isClimate = decisionParadigm === 'advanced_climate';
-
+  // ── Hooks first (react-hooks/rules-of-hooks) ───────────────────────────────
+  // Every hook must run on every render, in the same order, BEFORE the
+  // `if (!b) return null` early return below. None of these depend on the
+  // briefing resolving, so hoisting them above the guard is behaviour-neutral.
   const [recapOpen, setRecapOpen] = useState(false);
-  // Read | Watch choice — Watch appears only when the facilitator configured
-  // a video for this round (URL-only config; media is hosted externally).
-  // Resolved ONCE, so the Read | Watch control and the video pane below can
-  // never disagree. Two consequences worth stating: a cohort with the
-  // briefing_video switch off is read-only even where URLs are configured, and
-  // if the switch is turned off while a player is sitting in watch mode, the
-  // next poll drops them back to the written briefing rather than a blank frame.
-  const briefingEmbed = isPlayerVisible('briefing_video') ? toEmbed(briefingVideoUrl) : null;
   const [briefingMode, setBriefingMode] = useState('read');
   const [confirmLogout, setConfirmLogout] = useState(false);
   // Player briefing academic framing: OFF by default; facilitator can re-enable.
@@ -249,6 +237,23 @@ export default function RoundBriefing({
       .catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // ── Derive SimContext from live session data and resolve briefing ──────────
+  const tokenMap = deriveSimContext(businessUnits, sessionMeta);
+  const baseDictionary = isSDG ? SDG_BRIEFINGS : isHealthcare ? HEALTHCARE_BRIEFINGS : STANDARD_BRIEFINGS;
+  const b = resolveBriefing(baseDictionary[roundNumber], tokenMap);
+  if (!b) return null;
+
+  const isClimate = decisionParadigm === 'advanced_climate';
+
+  // Read | Watch choice — Watch appears only when the facilitator configured
+  // a video for this round (URL-only config; media is hosted externally).
+  // Resolved ONCE, so the Read | Watch control and the video pane below can
+  // never disagree. Two consequences worth stating: a cohort with the
+  // briefing_video switch off is read-only even where URLs are configured, and
+  // if the switch is turned off while a player is sitting in watch mode, the
+  // next poll drops them back to the written briefing rather than a blank frame.
+  const briefingEmbed = isPlayerVisible('briefing_video') ? toEmbed(briefingVideoUrl) : null;
 
   // Collect relevant butterfly hints
   const butterflyHints = (activeFlags || [])
