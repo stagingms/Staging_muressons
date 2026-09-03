@@ -123,21 +123,49 @@ _ROUNDS = 10
 # multi_toggles and legacy_abc had converged to the same fingerprint). Bit-
 # identical across two fresh processes before pinning.
 _EXPECTED_RUNNER_FINGERPRINTS = {
+    # The original six. UNCHANGED by B-5 — which is itself the evidence that
+    # the four ledger terms added on 2026-09-03 are 0.00 on these paradigms:
+    # the fingerprint payload includes _residual(), so a non-zero new term
+    # would have moved them.
     ("DEFAULT_4_BU", "legacy_abc"): "7745ac4417107d63",
     ("DEFAULT_4_BU", "multi_toggles"): "36bab75ce5502265",
     ("SINGLE_BU_PHARMA", "legacy_abc"): "69638e2fb3940542",
     ("SINGLE_BU_PHARMA", "multi_toggles"): "7c80369f74371601",
     ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "271bed043fb4e270",
     ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "44dc0fced1a012b7",
+    # B-5 (2026-09-03): nine NEW cases, not a rebaseline of anything. Each was
+    # computed twice in separate interpreters under different PYTHONHASHSEEDs
+    # and matched before being pinned.
+    ("DEFAULT_4_BU", "advanced_climate"): "75be7fc47171631e",
+    ("DEFAULT_4_BU", "un_sdg"): "7745ac4417107d63",
+    ("DEFAULT_4_BU", "healthcare"): "7745ac4417107d63",
+    ("SINGLE_BU_PHARMA", "advanced_climate"): "a71c27d694e132eb",
+    ("SINGLE_BU_PHARMA", "un_sdg"): "69638e2fb3940542",
+    ("SINGLE_BU_PHARMA", "healthcare"): "69638e2fb3940542",
+    ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "bc964e35c467b7c1",
+    ("VERTICAL_OIL_AND_GAS_SUB", "un_sdg"): "271bed043fb4e270",
+    ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "271bed043fb4e270",
 }
 
+# WORTH KNOWING, and not a defect this commit fixes: `un_sdg` and `healthcare`
+# fingerprint IDENTICALLY to `legacy_abc` on all three compositions. Their
+# distinct mechanics are not in the financial layer this runner exercises —
+# healthcare's own BU composition (hospitals/clinics) is not in
+# BU_COMPOSITION_FACTORIES at all, so it runs on the generic four. These pins
+# therefore prove those paradigms are STABLE, not that they are DISTINCT. A
+# separate harness is needed to cover what actually differs about them.
+
+# B-5 (2026-09-03): the law used to run on legacy_abc and multi_toggles only,
+# while paradigm_registry declares five. Running its own _residual over the
+# other three found advanced_climate breaking it by $1,813,896 over ten rounds
+# (worst round -$253,141.94) through the unledgered internal carbon fee. Every
+# DECLARED paradigm is covered now, so a paradigm-gated treasury path cannot
+# hide behind a case list again.
+_PARADIGMS = ["legacy_abc", "multi_toggles", "advanced_climate", "un_sdg", "healthcare"]
 _CASES = [
-    ("DEFAULT_4_BU", "legacy_abc"),
-    ("DEFAULT_4_BU", "multi_toggles"),
-    ("SINGLE_BU_PHARMA", "legacy_abc"),
-    ("SINGLE_BU_PHARMA", "multi_toggles"),
-    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"),
-    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"),
+    (comp, par)
+    for comp in ("DEFAULT_4_BU", "SINGLE_BU_PHARMA", "VERTICAL_OIL_AND_GAS_SUB")
+    for par in _PARADIGMS
 ]
 
 
@@ -188,6 +216,16 @@ def _residual(ledger) -> float:
         - ledger.cbam_surcharge
         - ledger.loss_damage_levy
         + ledger.deferred_revenue_collected
+        # B-5 (2026-09-03): four direct treasury movements that had no term
+        # here. The law closed at $0.00 on legacy_abc and multi_toggles only
+        # because those two paradigms never trigger them — it was a statement
+        # about two paradigms, not about the engine. The internal carbon fee is
+        # gated on advanced_climate and broke the law by $1,813,896 over ten
+        # rounds the moment the law was run against it.
+        - ledger.internal_carbon_fee
+        - ledger.carbon_offset_purchase
+        - ledger.carbon_retribution_levy
+        + ledger.emergency_bailout
     )
     return ledger.treasury_end - expected
 

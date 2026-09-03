@@ -375,6 +375,16 @@ class RoundLedger:
     # gross profit was banked are charged to treasury directly (signed; negative
     # = money left). Read from the engine's own event.
     post_csf_flows: float = 0.0
+    # B-5 (2026-09-03): four direct treasury movements that had NO ledger term,
+    # so the conservation law closed at $0.00 only because the two paradigms it
+    # ran on never triggered them. The internal carbon fee DOES fire — on
+    # advanced_climate, which the law was never run against — and broke it by
+    # $1,813,896 over ten rounds. Signed as charges (positive = money left),
+    # except the bailout which is a credit.
+    internal_carbon_fee: float = 0.0        # engine _run_operational_layer, advanced_climate
+    carbon_offset_purchase: float = 0.0     # engine _run_operational_layer, offset/forward market
+    carbon_retribution_levy: float = 0.0    # engine _run_operational_layer, un_sdg interlinkage
+    emergency_bailout: float = 0.0          # engine _run_reporting_layer, distress credit
     # BU-level snapshots
     bu_revenues: dict[str, float] = field(default_factory=dict)
     bu_opex: dict[str, float] = field(default_factory=dict)
@@ -516,6 +526,12 @@ def run_deterministic_simulation(
         capex_equity = float(events.get("capex_equity_funded", 0.0) or 0.0)
         capex_repay = float(events.get("capex_loan_repayment", 0.0) or 0.0)
         post_csf_flows = float(events.get("post_csf_flow_adjustments_cash", 0.0) or 0.0)
+        internal_carbon_fee = float(events.get("internal_carbon_fee_deducted", 0.0) or 0.0)
+        _offset_mkt = events.get("carbon_offset_market") or {}
+        carbon_offset_purchase = float(
+            (_offset_mkt.get("actual_cost_paid", 0.0) or 0.0) if isinstance(_offset_mkt, dict) else 0.0)
+        carbon_retribution_levy = float(events.get("carbon_retribution_penalty", 0.0) or 0.0)
+        emergency_bailout = float(events.get("bailout_applied", 0.0) or 0.0)
 
         ledgers.append(RoundLedger(
             round_number=rnd,
@@ -537,6 +553,10 @@ def run_deterministic_simulation(
             capex_equity_funded=capex_equity,
             capex_loan_repayment=capex_repay,
             post_csf_flows=post_csf_flows,
+            internal_carbon_fee=internal_carbon_fee,
+            carbon_offset_purchase=carbon_offset_purchase,
+            carbon_retribution_levy=carbon_retribution_levy,
+            emergency_bailout=emergency_bailout,
             bu_revenues={bu["bu_id"]: bu["revenue_base"] for bu in new_bus},
             bu_opex={bu["bu_id"]: bu["opex_base"] for bu in new_bus},
             bu_carbon_intensities={
