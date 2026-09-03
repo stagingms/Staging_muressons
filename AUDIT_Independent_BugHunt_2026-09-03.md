@@ -70,6 +70,12 @@ module-level `random.seed(` exists outside tests.
 
 ## B-2 · HIGH — transient OPEX surcharges leak permanently (F-04 reopened)
 
+> **FIXED 2026-09-03, commit `5cc0c2e`** — new `TickContext.rescale_bu_transients`, wired at
+> synergy and technical debt. Leak −$39,391.65 → −$0.01 (2dp rounding). NOT wired at
+> supplier defection: a multiplier that records its own full delta is already exact, and
+> doing so cost $50,350 of footprint until an existing test caught it. **Moves all 15
+> treasury fingerprints — held for sign-off, see `DELTA_combined_rebaseline_2026-09-03.md`.**
+
 The engine's own invariant (`TickContext.scale_transients`, `engine.py:2505`) is that a
 purely transient charge leaves **zero** permanent footprint. Reversal is additive
 (`engine.py:4681`: `_b[fld] = round(_b[fld] - _delta, 2)`), which is exact only if every
@@ -118,6 +124,11 @@ golden traces and the balance report, so it needs a written delta like the item-
 
 ## B-3 · HIGH — `planet_expendable` is charged twice, and it flips the archetype
 
+> **FIXED 2026-09-03, commit `fe7cf1e`.** Swing 0.40 → 0.20 as documented. A parametrized
+> test now sweeps all four pathway calculators × nine canon-owned flags; only the
+> planet_expendable cell was failing, confirming no other pair is double-billed. Moves no
+> baseline.
+
 `terminal_valuation.calculate_mr:238` applies `-0.20`. On the `climate_black_swan` ending,
 `round_logic._post_r10_grand_finale:2610` also feeds
 `ending_pathways.calc_climate_black_swan_mr` back in as `pathway_bonuses["pathway_mr_delta"]`,
@@ -149,6 +160,11 @@ lines 587-590 of `ending_pathways.py`. Add a test asserting the total swing for 
 ---
 
 ## B-4 · HIGH — a pinned, published M_R ceiling is unreachable (writer/reader key mismatch)
+
+> **FIXED 2026-09-03, commit `b1d0dd4`.** All three published ceilings now reconcile
+> exactly (1.930 / 2.020 / 1.980) and are pinned by a test. Also corrected the
+> max-achievable comment (2.03 → 2.02) and two what-if reads of keys nothing writes.
+> Moves no baseline.
 
 Work order §2.8 pins **"1.930 without JT scaling, 2.020 with"** as values that must not
 move. Executed:
@@ -191,6 +207,11 @@ published ceiling can never silently drift out of reach again.
 ---
 
 ## B-5 · MEDIUM-HIGH — the conservation law is not run on 3 of 5 paradigms, and one breaks
+
+> **FIXED 2026-09-03, commit `76ab0ec`.** Four ledger terms added, `_CASES` now covers all
+> five declared paradigms (15 cases). The six existing fingerprints are UNCHANGED, which
+> proves the new terms are 0.00 there; nine new ones were each computed twice under
+> different PYTHONHASHSEEDs before being pinned. Test-only.
 
 `tests/test_treasury_waterfall.py:134` `_CASES` covers `legacy_abc` and `multi_toggles`
 only. Running the test's **own** `_residual` over every paradigm the registry declares valid:
@@ -305,10 +326,10 @@ does nothing or stops everyone.
 |---|---|---|---|
 | B-1 | Global RNG reseed from a page load | **DONE** `fc1dff0` | No |
 | B-6 | `system_frozen` (at minimum) read from the global | **DONE** `fc1dff0` | No |
-| B-3 | `planet_expendable` charged twice | **Yes** | Yes — archetype |
-| B-2 | Transient OPEX leak | After, with a written delta | Yes — traces + balance |
-| B-4 | JT scaling dead / 2.020 unreachable | After, needs a ruling | Yes — textbook |
-| B-5 | Conservation law coverage | After | No (test-only) |
+| B-3 | `planet_expendable` charged twice | **DONE** `fe7cf1e` | No baseline moved |
+| B-2 | Transient OPEX leak | **DONE** `5cc0c2e` | Fingerprints + balance — held |
+| B-4 | JT scaling dead / 2.020 unreachable | **DONE** `b1d0dd4` | No baseline moved |
+| B-5 | Conservation law coverage | **DONE** `76ab0ec` | No (test-only) |
 
 B-1, B-6 and B-3 are all small, self-contained, and none of them moves a golden trace or a
 published number — B-3 changes an outcome, but toward the documented one. B-2 and B-4 are
