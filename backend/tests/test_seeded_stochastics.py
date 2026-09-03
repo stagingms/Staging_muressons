@@ -97,3 +97,150 @@ def test_unseeded_falls_back_to_module_rng_exactly():
     expected_first = round(random.random(), 4)
     _, e = _tick(5, "option_b", {}, module_seed=15)
     assert e["stochastic_roll"] == expected_first
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  No production code may reseed the PROCESS-GLOBAL rng (2026-09-03)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# router.get_peer_leaderboard and get_peer_trend_history did:
+#
+#     import random as _rng                       # the MODULE, not an instance
+#     _rng.seed(hash(session_id) & 0xFFFFFFFF)
+#
+# `random.seed()` reseeds the process-global Mersenne Twister — the same stream
+# org_politics.evaluate_csuite_support, supply_chain_network's disruption rolls
+# and engine's unseeded fallbacks draw from. Measured: a student in ONE cohort
+# opening the peer leaderboard changed another cohort's next three draws. With
+# thirty cohorts in one process that is silent cross-class contamination, and
+# because hash() is PYTHONHASHSEED-randomised it was not even reproducible.
+#
+# The rule is simple and mechanically checkable: production code seeds its OWN
+# Random instance (rng_util.event_rng for gameplay, rng_util.stable_rng for
+# cosmetic display draws) and never calls seed() on the module.
+
+_GLOBAL_SEED_ALLOWLIST: dict[str, str] = {
+    # "module.function": "reason it may reseed the global rng"
+    #
+    # All three are OFFLINE tooling: nothing under backend/ imports them outside
+    # tests (asserted below). Seeding the global rng is legitimate in a
+    # single-purpose script that owns its whole process. It stops being
+    # legitimate the moment the module is imported by the live app, which is
+    # what test_allow_listed_global_seeders_stay_out_of_production guards.
+    "dry_run._run_one":
+        "offline bot harness; seeds the global rng so engines that draw from it "
+        "are reproducible per (strategy, rep). WARNING: this module's own "
+        "docstring calls it the 'facilitator pre-flight simulator' — wiring it "
+        "to an endpoint would make this a live 30-cohort contamination bug. "
+        "Give it a local Random first.",
+    "validation_logic.run_traversal":
+        "offline decision-tree traversal tool; no production importer.",
+    "validation_logic.run_single":
+        "offline decision-tree traversal tool; no production importer.",
+}
+
+
+def _module_level_seed_calls():
+    """Every `random.seed(...)` / `<alias>.seed(...)` where the receiver is the
+    random MODULE, resolved by AST across backend/*.py (tests excluded)."""
+    import ast, os
+    backend = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    hits = []
+    for fn in sorted(f for f in os.listdir(backend) if f.endswith(".py")):
+        path = os.path.join(backend, fn)
+        try:
+            tree = ast.parse(open(path, encoding="utf-8", errors="replace").read())
+        except SyntaxError:
+            continue
+        # aliases bound to the random MODULE in this file
+        aliases = {"random"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for a in node.names:
+                    if a.name == "random":
+                        aliases.add(a.asname or "random")
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "seed"
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id in aliases):
+                owner = "?"
+                for f in ast.walk(tree):
+                    if (isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef))
+                            and f.lineno <= node.lineno <= f.end_lineno):
+                        owner = f.name
+                hits.append(f"{fn[:-3]}.{owner}:{node.lineno}")
+    return hits
+
+
+def test_no_production_code_reseeds_the_global_rng():
+    offenders = [h for h in _module_level_seed_calls()
+                 if h.rsplit(":", 1)[0] not in _GLOBAL_SEED_ALLOWLIST]
+    assert not offenders, (
+        f"these call seed() on the random MODULE, reseeding the process-global "
+        f"stream every cohort shares: {offenders}\n"
+        f"Use rng_util.event_rng (gameplay, keyed to the cohort seed) or "
+        f"rng_util.stable_rng (cosmetic, process-stable) and keep the instance "
+        f"local, or add an entry to _GLOBAL_SEED_ALLOWLIST with a reason."
+    )
+
+
+def test_stable_rng_is_isolated_reproducible_and_process_stable():
+    """The three properties the peer-leaderboard fix depends on."""
+    import random
+    from rng_util import stable_rng
+
+    # 1. isolated — drawing from it must not disturb the global stream
+    random.seed(11)
+    before = [random.random() for _ in range(3)]
+    random.seed(11)
+    r = stable_rng("some-other-cohort", 4, "peer_leaderboard")
+    [r.uniform(-1, 1), r.randint(-50, 50), r.choice(["a", "b"])]
+    after = [random.random() for _ in range(3)]
+    assert before == after, "stable_rng disturbed the global rng"
+
+    # 2. reproducible — the property the original hash() seed promised and broke
+    assert (stable_rng("s1", 3, "x").random()
+            == stable_rng("s1", 3, "x").random())
+    assert (stable_rng("s1", 3, "x").random()
+            != stable_rng("s2", 3, "x").random())
+
+    # 3. unambiguous — separator escaping, so ("a|b","c") cannot collide with ("a","b|c")
+    assert stable_rng("a|b", "c").random() != stable_rng("a", "b|c").random()
+
+
+def test_allow_listed_global_seeders_stay_out_of_production():
+    """The allow-list above is only safe while those modules are offline.
+
+    If someone wires dry_run to an endpoint — which its own docstring invites —
+    its `random.seed()` starts reseeding the stream every live cohort draws
+    from. This fails the moment any backend module imports one of them.
+    """
+    import ast, os
+    backend = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    offline = {name.split(".", 1)[0] for name in _GLOBAL_SEED_ALLOWLIST}
+    importers = []
+    for fn in sorted(f for f in os.listdir(backend) if f.endswith(".py")):
+        if fn[:-3] in offline:
+            continue
+        try:
+            tree = ast.parse(open(os.path.join(backend, fn), encoding="utf-8",
+                                  errors="replace").read())
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            mods = []
+            if isinstance(node, ast.Import):
+                mods = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                mods = [node.module]
+            for m in mods:
+                if m.split(".")[0] in offline:
+                    importers.append(f"{fn} imports {m} (line {node.lineno})")
+    assert not importers, (
+        f"a module allow-listed to reseed the global rng is now imported by "
+        f"production code: {importers}\n"
+        f"Give it a local Random instance (rng_util.event_rng / stable_rng) "
+        f"before wiring it up, or every live cohort shares its reseeds."
+    )

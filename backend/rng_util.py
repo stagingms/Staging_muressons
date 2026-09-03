@@ -56,6 +56,35 @@ def event_rng(flags: Optional[dict], round_number: int, event_name: str) -> rand
     return random.Random(seed) if seed is not None else random.Random()
 
 
+def stable_rng(*parts: object) -> random.Random:
+    """An INDEPENDENT, process-stable Random stream for non-gameplay display draws.
+
+    Exists because the peer-leaderboard endpoints used to do this:
+
+        import random as _rng
+        _rng.seed(hash(session_id) & 0xFFFFFFFF)
+
+    which is wrong twice over. `import random as _rng` binds the MODULE, so
+    `.seed()` reseeds the PROCESS-GLOBAL Mersenne Twister — the same stream
+    org_politics, supply_chain_network and engine's unseeded fallbacks draw
+    from. One cohort loading a page therefore changed another cohort's board
+    votes and supplier rolls (measured 2026-09-03). And `hash()` is
+    PYTHONHASHSEED-randomised, so the "consistent across refreshes" the comment
+    promised was false across every restart.
+
+    This returns a Random INSTANCE — it touches no global state — seeded by
+    SHA-256 so the same inputs give the same stream in every process, forever.
+    Separators are escaped, so ("a|b", "c") and ("a", "b|c") cannot collide.
+
+    Use this for anything cosmetic and reproducible (AI benchmark opponents,
+    illustrative trend lines). Gameplay draws belong on `event_rng`, which is
+    keyed to the cohort's own stochastic seed.
+    """
+    joined = "|".join(str(p).replace("%", "%25").replace("|", "%7C") for p in parts)
+    digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()
+    return random.Random(int(digest[:16], 16))
+
+
 def derive_cohort_seed(cohort_id: str) -> str:
     """The seed a cohort gets when nobody chose one (4.2, 2026-08-03).
 

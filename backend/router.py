@@ -2420,12 +2420,33 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     _prune_commit_maps(now)
 
     # ── Emergency Freeze guard ───────────────────────────────
-    from admin_shared import _god_mode_settings as _gms
-    if _gms.get("system_frozen", False):
+    # 2026-09-03: this read `_god_mode_settings["system_frozen"]` — the
+    # PROCESS-GLOBAL dict — even though `system_frozen` is in
+    # COHORT_OVERRIDABLE_KEYS and admin_router explicitly grants a
+    # lead_facilitator write access to it for cohorts they own. So a
+    # facilitator freezing their own cohort for a discussion got a 200, saw it
+    # applied on the settings screen, and their class kept committing; while a
+    # super-admin freeze stopped all thirty classes at once. This was the only
+    # enforcement point for the flag.
+    #
+    # EITHER freeze applies. A cohort override must be able to stop its own
+    # class, but it must NOT be able to escape a platform-wide maintenance
+    # freeze — so this is OR, not "the override wins". get_effective_settings
+    # walks a player sub-session up to its parent cohort, which is required
+    # here because `session_id` is the player's, not the cohort's.
+    from admin_shared import _god_mode_settings as _gms, get_effective_settings as _eff
+    _global_frozen = bool(_gms.get("system_frozen", False))
+    _cohort_settings_now = _eff(session_id)
+    _cohort_frozen = bool(_cohort_settings_now.get("system_frozen", False))
+    if _global_frozen or _cohort_frozen:
         commit_lock.release()
+        _scope = "System is currently frozen for maintenance" if _global_frozen \
+            else "This cohort is currently paused by your facilitator"
+        _msg = _cohort_settings_now.get("freeze_message") or ""
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="System is currently frozen for maintenance. Please wait for your facilitator to resume.",
+            detail=(f"{_scope}. Please wait for your facilitator to resume."
+                    + (f" — {_msg}" if _msg else "")),
         )
 
     # ── Fetch current state ──────────────────────────────────
@@ -5251,10 +5272,14 @@ async def get_peer_leaderboard(session_id: str, request: Request):
         player_bonus = gs.get("bonus_score", 0)
         player_name = session_info.get("player_name", "Your Team") if session_info else "Your Team"
 
-        import random as _rng
-        # Seed with session_id hash so AI players are consistent across refreshes
-        seed = hash(session_id) & 0xFFFFFFFF
-        _rng.seed(seed + player_round)
+        # An INSTANCE, not the module. `import random as _rng; _rng.seed(...)`
+        # reseeded the PROCESS-GLOBAL rng that org_politics, supply_chain_network
+        # and engine's unseeded fallbacks draw from, so one cohort opening this
+        # page changed another cohort's board votes and supplier rolls. The old
+        # hash() seed was PYTHONHASHSEED-randomised too, so the "consistent
+        # across refreshes" below was never true across a restart. It is now.
+        from rng_util import stable_rng
+        _rng = stable_rng(session_id, player_round, "peer_leaderboard")
 
         # Generate 3 AI benchmark players with varied strategies
         ai_profiles = [
@@ -5442,9 +5467,9 @@ async def get_peer_trend_history(session_id: str, request: Request):
         if not own_history:
             return {"available": False, "reason": "No history available", "rounds": []}
 
-        import random as _rng
-        seed = hash(session_id) & 0xFFFFFFFF
-        _rng.seed(seed)
+        # Instance, not the module — see get_peer_leaderboard above.
+        from rng_util import stable_rng
+        _rng = stable_rng(session_id, "peer_trend_history")
 
         # ── Independent AI archetype trajectories ──────────────────
         # Each profile defines absolute base values and per-round deltas
