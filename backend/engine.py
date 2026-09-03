@@ -1335,9 +1335,39 @@ def calc_macro_noise(round_number: int, seed: int | None = None) -> dict:
     Prevents players from reverse-engineering the deterministic math engine.
 
     Returns per-round noise deltas for inflation, carbon pricing, and strikes:
-    - inflation_noise: ±0.2% (±0.002 as decimal)
-    - carbon_price_noise: ±5% of baseline
-    - localized_strike_chance: 6% per round (random micro-disruption)
+    - inflation_noise:      ±MACRO_NOISE_INFLATION_BAND (config; ±0.4% shipped)
+                            → applied to inflation_index in _run_stochastic_layer
+    - carbon_price_noise_pct: ±MACRO_NOISE_CARBON_BAND (config; ±7% shipped)
+                            → DELIBERATELY UNCONSUMED, see the note below
+    - micro_strike_*:       MICRO_STRIKE_PROBABILITY per round (config; 6% shipped)
+                            → applied as an OPEX spike in _run_stochastic_layer
+
+    carbon_price_noise_pct REACHES NO PRICE (launch-readiness review 2026-09-03)
+    --------------------------------------------------------------------------
+    It is stored into events["macro_noise"] and read by nothing: not the shadow
+    carbon price in the terminal valuation, not the economic carbon fee, not the
+    CBAM levy, not the pathway overrides, and not the player UI (the frontend's
+    consequenceCatalog entry for macro_noise names inflation and micro-strikes
+    only, and its explain() ignores the value). Established by forcing this field
+    to +0.07 and -0.07 with the seed and every other returned field held
+    identical: across four strategies, ~800 numeric event fields per strategy per
+    ten-round game, ZERO fields differ, and terminal value, final treasury and
+    M_R are bit-identical. Note that a two-seed comparison canNOT establish this
+    — a seed change moves every rng stream at once, so carbon cost differs
+    between seeds whether or not this draw reaches a price.
+
+    Ruled 2026-09-03: leave it unconsumed for now; building the consumer (the
+    natural home is carbon_fee_per_ton in the R10/mid-game fee block) is a real
+    difficulty change that must be versioned with a written delta. Pinned by
+    tests/test_engine_invariants.py::ALLOWLISTED_UNCONSUMED_NOISE_FIELDS.
+
+    *** DO NOT DELETE THE DRAW TO "REMOVE DEAD CODE". ***
+    rng.uniform CONSUMES ENTROPY. Removing this one line shifts every subsequent
+    roll in this function: measured over ten rounds, the micro-strike outcome
+    changes in 8 of them (round 2 flips from a strike to no strike). Deleting it
+    would move the golden traces and the treasury fingerprints while looking like
+    a no-op cleanup. If the field is ever genuinely retired, keep the
+    rng.uniform() call and discard its value.
     """
     if seed is not None:
         rng = _rng.Random(seed)
@@ -1345,6 +1375,8 @@ def calc_macro_noise(round_number: int, seed: int | None = None) -> dict:
         rng = _rng
 
     inflation_noise = round(rng.uniform(-MACRO_NOISE_INFLATION_BAND, MACRO_NOISE_INFLATION_BAND), 4)
+    # Unconsumed by design (see docstring). Its position in the rng stream is
+    # load-bearing even though its value is not.
     carbon_price_pct = round(rng.uniform(-MACRO_NOISE_CARBON_BAND, MACRO_NOISE_CARBON_BAND), 4)
     # 6% chance of a localized micro-strike in any given 6-month round
     micro_strike = rng.random() < MICRO_STRIKE_PROBABILITY

@@ -408,3 +408,114 @@ def test_instability_discount_is_steerable():
         f"negative-licence consequences are not landing")
     assert flags_min.get("instability_discount_applied"), (
         "licence-minimising team must take the -0.40 Instability Discount")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Test 6 — every field calc_macro_noise returns is consumed, or allow-listed
+#           with a reason (launch-readiness review 2026-09-03)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# The same shape as ALLOWLISTED_UNAPPLIED above: a universal statement with a
+# named exception list, so an orphaned engine field is a reviewable diff rather
+# than something an audit rediscovers every quarter.
+#
+# carbon_price_noise_pct was written, stored into events, surfaced in the
+# pedagogical STOCHASTIC_ENGINES list and exposed as a facilitator tunable —
+# and read by nothing, for long enough that three separate audits re-reported
+# it. Establishing that took an isolating experiment (force the field to
+# +0.07 / -0.07 with everything else held identical: zero of ~800 numeric
+# event fields move, terminal value bit-identical), not a grep.
+
+ALLOWLISTED_UNCONSUMED_NOISE_FIELDS: dict[str, str] = {
+    "carbon_price_noise_pct":
+        "ruled 2026-09-03: reaches no price and no display. Building the "
+        "consumer (carbon_fee_per_ton) is a difficulty change that must be "
+        "versioned with a written delta, so it stays unconsumed until that "
+        "ruling. Remove this entry the moment a consumer is written. NOTE: "
+        "the rng.uniform draw itself must NOT be deleted — see test below.",
+
+    # Found by this test on its first run, 2026-09-03. The string is assembled
+    # every round ("Macro noise R3: inflation +0.36%, carbon -3.1%") and reaches
+    # no surface: the only reference outside the writer is a test asserting the
+    # key exists. The frontend renders macro_noise through
+    # consequenceCatalog.js's own explain(), which ignores the event value.
+    # It is therefore harmless today — but it is the sentence that would tell a
+    # player carbon prices moved 3.1% when no price moved, so it must not be
+    # wired to a surface until carbon_price_noise_pct has a consumer. Retire it
+    # or render it; do not leave it half-built once the carbon ruling lands.
+    "noise_message":
+        "ruled 2026-09-03: assembled but never rendered. Do NOT surface it "
+        "while carbon_price_noise_pct is unconsumed — its carbon clause would "
+        "be false. Revisit with the carbon-consumer ruling.",
+}
+
+
+def _macro_noise_field_names() -> list[str]:
+    """The keys calc_macro_noise's return dict is built from, by AST."""
+    import engine
+    src = open(os.path.join(_BACKEND_DIR, "engine.py"), encoding="utf-8").read()
+    fn = next(n for n in ast.walk(ast.parse(src))
+              if isinstance(n, ast.FunctionDef) and n.name == "calc_macro_noise")
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Return) and isinstance(node.value, ast.Dict):
+            return [k.value for k in node.value.keys
+                    if isinstance(k, ast.Constant) and isinstance(k.value, str)]
+    raise AssertionError("calc_macro_noise no longer returns a dict literal")
+
+
+def test_every_macro_noise_field_is_consumed_or_allow_listed():
+    """A noise field nobody reads is a facilitator tunable that changes nothing
+    and a player-facing number that is not true. Either wire it or declare it."""
+    src = open(os.path.join(_BACKEND_DIR, "engine.py"), encoding="utf-8").read()
+    fn_src_start = src.index("def calc_macro_noise(")
+    fn_src_end = src.index("\ndef ", fn_src_start)
+    outside = src[:fn_src_start] + src[fn_src_end:]     # everything but the writer
+
+    orphans = []
+    for name in _macro_noise_field_names():
+        if name in ALLOWLISTED_UNCONSUMED_NOISE_FIELDS:
+            continue
+        if f'"{name}"' not in outside and f"'{name}'" not in outside:
+            orphans.append(name)
+
+    assert not orphans, (
+        f"calc_macro_noise returns {orphans} and nothing outside the function "
+        f"reads them. Wire a consumer, or add each to "
+        f"ALLOWLISTED_UNCONSUMED_NOISE_FIELDS with a reason.\n"
+        f"Grep alone cannot confirm an orphan — force the field to both ends of "
+        f"its band with the seed and every other field held fixed, and compare "
+        f"the full event dict."
+    )
+
+
+def test_an_allow_listed_field_is_still_drawn_from_the_rng_stream():
+    """The trap in removing dead noise: rng.uniform CONSUMES ENTROPY.
+
+    Deleting the unconsumed carbon draw shifts every subsequent roll in
+    calc_macro_noise — measured over ten rounds, the micro-strike outcome
+    changes in 8 of them. That is a behavioural change wearing a cleanup's
+    clothes, and it would move the golden traces and treasury fingerprints.
+
+    This pins the stream: if a future edit removes or reorders a draw, these
+    values move and the failure names why.
+    """
+    from engine import calc_macro_noise
+    for name in ALLOWLISTED_UNCONSUMED_NOISE_FIELDS:
+        assert name in _macro_noise_field_names(), (
+            f"'{name}' is allow-listed as deliberately unconsumed but is no "
+            f"longer returned. If it was retired, KEEP its rng.uniform() call "
+            f"and discard the value, or every downstream roll shifts."
+        )
+    pinned = {
+        1:  (-0.0029, False, 2),
+        2:  (0.0036,  True,  0),
+        10: (0.0006,  False, 1),
+    }
+    for seed, expected in pinned.items():
+        d = calc_macro_noise(seed, seed=seed)
+        got = (d["inflation_noise"], d["micro_strike_triggered"], d["micro_strike_bu_idx"])
+        assert got == expected, (
+            f"macro-noise rng stream moved at seed {seed}: expected {expected}, got {got}.\n"
+            f"If a draw was added, removed or reordered in calc_macro_noise, every "
+            f"downstream roll shifts and the golden traces move with it."
+        )
