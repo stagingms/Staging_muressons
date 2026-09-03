@@ -12445,9 +12445,17 @@ async def what_if_replay(session_id: str, request: Request, body: dict = Body(..
     result = what_if_terminal(
         bus=bus, base_flags=flags, flag_overrides=overrides,
         avg_slo=avg_slo, avg_burnout=avg_burnout,
-        workforce_readiness=flags.get("workforce_readiness_score", 50),
+        # B-4 (2026-09-03): both of these read keys that NO writer ever sets, so
+        # what-if silently assumed readiness 50 (never awarding the Workforce
+        # Excellence ramp, up to 0.10 of M_R) and zero HR rounds. The live
+        # finale reads gs["workforce_readiness"] (round_logic:1631 writes it)
+        # and counts `hr_invested_r{N}` flags — same as _post_r10_grand_finale.
+        workforce_readiness=gs.get(
+            "workforce_readiness", flags.get("workforce_readiness", 50.0)),
         synergy_multiplier=gs.get("synergy_multiplier", 1.0),
-        hr_investment_rounds=flags.get("hr_roi_investment_rounds", 0),
+        hr_investment_rounds=sum(
+            1 for k, v in flags.items()
+            if isinstance(k, str) and k.startswith("hr_invested_r") and v is True),
         carbon_tax_per_ton=250.0, exit_multiple=12.0,
         green_fund_balance=gs.get("green_transition_fund", 0.0),
         is_advanced_climate=paradigm == "advanced_climate",

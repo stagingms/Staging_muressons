@@ -440,3 +440,76 @@ def test_planet_expendable_costs_exactly_its_documented_020():
     # the narrative explanation must survive the de-duplication
     assert extra_with.get("mr_shadow_board_planet_expendable") is True
     assert "mr_shadow_board_penalty_note" in extra_with
+
+
+# ═════════════════════════════════════════════════════════════════
+#  6. The published M_R ceilings are reachable (B-4, 2026-09-03)
+# ═════════════════════════════════════════════════════════════════
+#
+# The launch-readiness work order pins three ceilings as published material:
+# 1.930 without JT scaling, 2.020 with, 1.980 with the BRSR dividend.
+#
+# 2.020 was UNREACHABLE. Five readers count flags matching `hr_invested_r{N}`
+# to derive hr_investment_rounds; the only writer wrote a plain `hr_invested`
+# carrying no round, which matched none of them. A full ten-round game produced
+# 351 flag keys and not one `hr_invested_r*`. So hr_investment_rounds was
+# structurally always 0, jt_scaling was pinned at 1.0 forever, and the Just
+# Transition scaling mechanic was dead.
+
+def test_the_published_mr_ceilings_are_reachable():
+    """All three, exactly. A published ceiling nobody can reach is a defect in
+    the game, not just in the documentation."""
+    from terminal_valuation import calculate_mr
+    best = {"materiality_aligned": True, "synergy_unlock": True,
+            "ethical_ai_overhaul": True, "community_fund": True}
+    top = dict(avg_slo=90.0, avg_burnout=0.0, workforce_readiness=100.0,
+               synergy_multiplier=1.0)
+
+    assert calculate_mr(best, hr_investment_rounds=0, **top)["mr"] == pytest.approx(1.930)
+    assert calculate_mr(best, hr_investment_rounds=5, **top)["mr"] == pytest.approx(2.020)
+    assert calculate_mr({**best, "brsr_net_positive_dividend": 0.05},
+                        hr_investment_rounds=0, **top)["mr"] == pytest.approx(1.980)
+
+    # jt_scaling saturates at 1.5 (5 rounds); more HR rounds must not exceed it
+    assert calculate_mr(best, hr_investment_rounds=9, **top)["mr"] == pytest.approx(2.020)
+
+
+def test_hr_investment_writes_the_per_round_key_its_readers_count():
+    """The writer/reader contract. `hr_invested` alone cannot express 'how many
+    rounds', which is the documented mechanic — so the per-round key is the
+    one that has to exist."""
+    from round_logic import _apply_hr_mechanics
+    bus = [{"bu_id": b, "staff_burnout_index": 10.0,
+            "revenue_base": 12e6, "opex_base": 8e6} for b in ("a", "bb")]
+
+    def run(round_number, pillar_flags):
+        extra = {}
+        _apply_hr_mechanics(round_number,
+                            {"workforce_readiness": 50.0, "active_event_flags": {}},
+                            [dict(b) for b in bus],
+                            {"pillar_flags": pillar_flags}, extra)
+        return extra
+
+    invested = run(3, ["dei_program"])
+    assert invested.get("hr_invested") is True
+    assert invested.get("hr_invested_r3") is True, (
+        "a round of real HR investment must write the per-round flag its five "
+        "readers count; without it jt_scaling is pinned at 1.0 forever")
+
+    # a round with no HR investment writes no per-round key at all
+    idle = run(5, [])
+    assert idle.get("hr_invested") is False
+    assert not [k for k in idle if k.startswith("hr_invested_r")]
+
+    # and the finale's own counting turns those flags into the scaling input
+    prev_flags = {**run(3, ["dei_program"]), **run(4, ["people_analytics"]), **run(5, [])}
+    rounds = sum(1 for k, v in prev_flags.items()
+                 if isinstance(k, str) and k.startswith("hr_invested_r") and v is True)
+    assert rounds == 2, prev_flags
+
+    from terminal_valuation import calculate_mr
+    scaled = calculate_mr({"community_fund": True}, avg_slo=90.0, avg_burnout=0.0,
+                          workforce_readiness=100.0, synergy_multiplier=1.0,
+                          hr_investment_rounds=rounds)
+    assert scaled["jt_scaling_factor"] == pytest.approx(1.2)
+    assert scaled["breakdown"]["community_champion_bonus"] == pytest.approx(0.216)  # 0.18 x 1.2

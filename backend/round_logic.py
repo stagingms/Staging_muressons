@@ -1595,6 +1595,27 @@ def _apply_hr_mechanics(
     hr_invested = hr_quality in ("high", "medium")
     extra["hr_quality_tier"] = hr_quality
     extra["hr_invested"] = hr_invested
+    # B-4 (2026-09-03): the PER-ROUND key the readers actually count.
+    #
+    # Five readers count flags matching `hr_invested_r{N}` to derive
+    # hr_investment_rounds — _post_r10_grand_finale:2599, ceo_interview:213 and
+    # :367, pedagogical_engine:452 — and the only writer wrote the plain
+    # `hr_invested` above, which carries no round and so matched none of them.
+    # A full ten-round game produced 351 flag keys and not one `hr_invested_r*`.
+    #
+    # The consequence was not cosmetic: hr_investment_rounds was structurally
+    # always 0, so calculate_mr's jt_scaling was pinned at 1.0 forever, the
+    # Just Transition scaling mechanic was dead, and the M_R ceiling of 2.020
+    # that the work order pins as published material was unreachable by anyone.
+    #
+    # The readers are the correct side of this — counting DISTINCT rounds of
+    # sustained HR investment is the documented mechanic, and a single boolean
+    # cannot express it. `hr_invested` is kept (it has no other reader today,
+    # but it is the round's own answer) and the per-round key is added.
+    # Written only when True: the readers test `v is True`, and a False would
+    # just be noise in active_event_flags.
+    if hr_invested:
+        extra[f"hr_invested_r{round_number}"] = True
 
     # ── 2. Apply burnout to each BU ──
     burnout_diagnostics = {}

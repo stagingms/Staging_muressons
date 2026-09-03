@@ -268,7 +268,13 @@ def calculate_mr(
         raw_mr, mr, bonuses,
     )
 
-    # Max achievable: 1.0+0.10+0.15+0.20+0.15+0.18+0.10+0.05 = 1.93 (2.03 with JT-scaling)
+    # Max achievable: 1.0+0.10+0.15+0.20+0.15+0.18+0.10+0.05 = 1.93 without JT
+    # scaling; 2.02 with it (community_champion 0.18 x 1.5 = 0.27), and 1.98
+    # with the BRSR dividend instead. B-4 (2026-09-03): the 2.03 previously
+    # written here was wrong by 0.01, and the 2.02 figure was unreachable in
+    # play anyway because nothing wrote the hr_invested_r{N} flags this scales
+    # on. All three are now pinned by
+    # test_mr_single_arbiter::test_the_published_mr_ceilings_are_reachable.
     return {
         "mr":                 mr,
         "mr_raw":             raw_mr,               # pre-clamp value for diagnostics
