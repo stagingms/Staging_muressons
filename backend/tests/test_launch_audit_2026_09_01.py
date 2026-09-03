@@ -19,6 +19,7 @@ One test class per finding so a future regression names the finding it undoes.
 from __future__ import annotations
 
 import math
+import random
 
 import pytest
 from fastapi.testclient import TestClient
@@ -911,6 +912,65 @@ class TestF04FlowPenaltiesAreTransient:
         for b in res["bu_states"]:
             # …and the persisted base is EXACTLY the inflated base — no residual
             assert abs(b["opex_base"] - round(12_000_000 * infl, 2)) < 1.0, (b["opex_base"], infl)
+
+    def test_a_purely_transient_surcharge_leaves_no_footprint_below_the_lag_threshold(self):
+        """B-2 (2026-09-03) — THE GAP THAT LET F-04 REOPEN.
+
+        The sibling test above runs at investment_ratio 0.3, which is ABOVE
+        IMPLEMENTATION_LAG_INV_THRESHOLD (0.10), so the synergy saving is
+        deferred and calc_synergy_opex never runs. That branch is a PERMANENT
+        multiplicative step on opex_base, and it ran after the only
+        scale_transients call without carrying the outstanding deltas — so a
+        purely transient surcharge left -0.9848% of itself in the base, every
+        round, permanently understating cost and overstating treasury.
+
+        The invariant test existed and could not fail, because it never took
+        the branch. This one does: it runs BELOW the threshold.
+        """
+        import copy
+        from engine import process_tick, TickContext
+        from config import IMPLEMENTATION_LAG_INV_THRESHOLD
+        AMT = 1_000_000.0
+        _orig = TickContext.record_transient
+
+        def run(inject):
+            random.seed(4242)
+            if inject:
+                def patched(self, bu, field_name, applied_delta):
+                    _orig(self, bu, field_name, applied_delta)
+                    seen = getattr(self, "_b2_seen", None)
+                    if seen is None:
+                        seen = self._b2_seen = set()
+                    if field_name == "opex_base" and bu.get("bu_id") not in seen:
+                        seen.add(bu.get("bu_id"))
+                        bu["opex_base"] = round(bu["opex_base"] + AMT, 2)
+                        _orig(self, bu, "opex_base", AMT)   # charged AND declared transient
+                TickContext.record_transient = patched
+            else:
+                TickContext.record_transient = _orig
+            try:
+                gs, bus = _tick_state()
+                gs.setdefault("active_event_flags", {})["stochastic_seed"] = "b2-fixed-seed"
+                ratio = IMPLEMENTATION_LAG_INV_THRESHOLD / 2      # BELOW: synergy runs
+                dec = [{"bu_id": b["bu_id"], "investment_ratio": ratio,
+                        "capex_allocated": 250_000.0, "choice_selected": "option_b"}
+                       for b in bus]
+                out = process_tick(current_global=copy.deepcopy(gs), current_bus=copy.deepcopy(bus),
+                                   decisions=dec, dividends_paid=0, crisis_severity=0.0,
+                                   decision_paradigm="legacy_abc")
+                return {b["bu_id"]: b["opex_base"] for b in out["bu_states"]}
+            finally:
+                TickContext.record_transient = _orig
+
+        assert run(False) == run(False), "harness is not deterministic"
+        clean, injected = run(False), run(True)
+        footprint = sum(injected[k] - clean[k] for k in clean)
+        assert abs(footprint) < 1.0, (
+            f"a purely transient ${AMT:,.0f}/BU surcharge left ${footprint:,.2f} in the "
+            f"persisted opex base. Every permanent MULTIPLICATIVE step on a field must "
+            f"call ctx.rescale_bu_transients (or record its own full delta); otherwise "
+            f"the additive reversal leaks T x (f-1) forever. Pre-fix this was -$39,391.65."
+        )
 
     def test_post_csf_transients_still_cost_cash_this_round(self):
         """F-04b (2026-09-02). Supplier defection and the green-premium squeeze

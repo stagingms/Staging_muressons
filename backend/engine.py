@@ -2516,6 +2516,42 @@ class TickContext:
             for (b, f, d) in self.transient_flow_adjustments
         ]
 
+    def rescale_bu_transients(self, bu: dict, field_name: str, before: float, after: float) -> None:
+        """A PERMANENT MULTIPLICATIVE step just moved bu[field] from `before` to
+        `after`. Scale THIS BU's outstanding transients on that field by the same
+        effective ratio, so the end-of-tick additive reversal stays exact.
+
+        B-2 (2026-09-03) — F-04 reopened. scale_transients() is called exactly
+        once per field per tick, for inflation. Three permanent multipliers run
+        on opex_base AFTER it (synergy at ~2790, technical debt at ~3070,
+        supplier defection at ~4290) and did not scale the outstanding deltas,
+        so reversal subtracted T where it should have subtracted T x f. The
+        residual T x (f-1) stayed in the base forever, every round: measured at
+        -0.9848% of every transient OPEX surcharge, permanently understating
+        cost and overstating treasury.
+
+        Why a ratio and not a factor. Two of those steps clamp (synergy against
+        synergy_opex_floor), so the value applied is not the factor requested
+        and no caller-supplied number is exact. Reading the ratio that ACTUALLY
+        landed is correct whether or not the clamp bound. And unlike
+        scale_transients, which scales every BU by one factor (right for
+        inflation, wrong for anything per-BU), this touches only this BU.
+        """
+        if not self.transient_flow_adjustments:
+            return
+        try:
+            before = float(before); after = float(after)
+        except (TypeError, ValueError):
+            return
+        if before == 0.0 or before == after:
+            return
+        factor = after / before
+        bu_id = bu.get("bu_id")
+        self.transient_flow_adjustments = [
+            (b, f, round(d * factor, 2) if (b == bu_id and f == field_name) else d)
+            for (b, f, d) in self.transient_flow_adjustments
+        ]
+
     def record_waterfall(
         self,
         label: str,
@@ -2784,12 +2820,16 @@ def _run_financial_layer(ctx: TickContext) -> None:
         else:
             # BALANCE FIX: synergy efficiencies floor at 35% of the BU's
             # first-seen opex baseline (see synergy_opex_floor).
+            _syn_before = bu["opex_base"]
             bu["opex_base"] = max(
                 min(synergy_opex_floor(bu), bu["opex_base"]),  # never RAISE opex, only stop the fall
                 calc_synergy_opex(
                     bu["opex_base"], inv_ratio, current_global["synergy_multiplier"],
                 ),
             )
+            # B-2: permanent multiplicative step — carry the outstanding
+            # transients with it or the additive reversal leaks T x (f-1).
+            ctx.rescale_bu_transients(bu, "opex_base", _syn_before, bu["opex_base"])
 
     # ── 1. Corporate Strategic Fund & Short-Term Loan Logic ─────
     # FIX VULN-001: Clamp dividends to treasury
@@ -3072,7 +3112,9 @@ def _run_financial_layer(ctx: TickContext) -> None:
             # PERSISTENT BY DESIGN (F-04 review): deferred maintenance is a
             # stock — each further round of zero investment adds to the base
             # permanently; it is the one OPEX penalty that is meant to ratchet.
+            _td_before = bu["opex_base"]
             bu["opex_base"] = new_opex
+            ctx.rescale_bu_transients(bu, "opex_base", _td_before, bu["opex_base"])  # B-2
             ctx.events[f"technical_debt_penalty_{bu['bu_id']}"] = True
             ctx.events[f"technical_debt_streak_{bu['bu_id']}"]  = streak
 
@@ -4288,6 +4330,18 @@ def _run_reporting_layer(ctx: TickContext) -> None:
             _sd_rev_before  = bu["revenue_base"]
             bu["opex_base"]                  = round(bu["opex_base"] * SUPPLIER_DEFECTION_OPEX_MULT, 2)
             bu["revenue_base"]               = round(bu["revenue_base"] * SUPPLIER_DEFECTION_REV_MULT, 2)
+            # B-2: deliberately NO rescale here. A multiplier that records its
+            # OWN FULL delta is already exact for prior transients, and adding
+            # a rescale double-counts. With base B (containing outstanding
+            # transients T) and factor f, the recorded delta is (f-1)B, which
+            # includes (f-1)T — exactly the amount by which f inflated T's
+            # footprint. Reversal gives fB - T - (f-1)B = B - T, correct.
+            # Rescaling first would give B - fT, and
+            # TestF04FlowPenaltiesAreTransient::
+            # test_post_csf_transients_still_cost_cash_this_round catches it
+            # ($50,350 of permanent footprint on a penalty that must leave none).
+            # Only PERMANENT multipliers that record nothing — synergy,
+            # technical debt — need rescale_bu_transients.
             ctx.record_transient(bu, "opex_base", bu["opex_base"] - _sd_opex_before)
             ctx.record_transient(bu, "revenue_base", bu["revenue_base"] - _sd_rev_before)
             bu["supplier_defection_active"]  = True
