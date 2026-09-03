@@ -196,6 +196,11 @@ _DESCRIPTIONS: dict[tuple[str, str, str], tuple[str, str]] = {
     ("engine_parameters", "ncd_forgiveness", "log_coefficient"):    ("coeff",     "NCD forgiveness logarithmic scaling coefficient"),
     # ── engine_parameters.implementation_lag ──
     ("engine_parameters", "implementation_lag", "inv_threshold"):    ("%",         "Investment ratio threshold for synergy implementation lag"),
+    # ── engine_parameters.slo_ramp (natural-decay tiers, recalibrated 2026-09-03)
+    ("engine_parameters", "slo_ramp", "no_decay_ratio"):            ("ratio",     "Investment ratio at/above which SLO stops decaying (default 0.10)"),
+    ("engine_parameters", "slo_ramp", "mid_ratio"):                 ("ratio",     "Investment ratio at/above which SLO grows mildly (default 0.25)"),
+    ("engine_parameters", "slo_ramp", "growth_ratio"):              ("ratio",     "Investment ratio at/above which SLO grows fully (default 0.50)"),
+    ("engine_parameters", "slo_ramp", "min_abs_capex"):             ("$",         "Minimum absolute per-BU CapEx that counts as invested (default 500,000)"),
     # ── engine_parameters.employer_brand ──
     ("engine_parameters", "employer_brand", "penalty_threshold"):   ("pts",       "Employer brand score below this → OPEX penalty"),
     ("engine_parameters", "employer_brand", "max_penalty_rate"):    ("%",         "Max employer brand OPEX penalty rate"),

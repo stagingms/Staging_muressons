@@ -403,11 +403,40 @@ capex_allocated = 1.00  ->  (rep 50.0, slo 50.0)   # no decay at all
 ```
 
 **One dollar of CapEx buys complete immunity from natural decay.** `dry_run` floors per-BU
-CapEx at `max(1.0, …)`, so every bot run — 5% included — is immune. The `>= 0.15` band is
-dead for every player who allocates anything at all; the only band that does real work is
-the *absolute* escape (`capex_abs >= NATURAL_DECAY_GROWTH_ABS_CAPEX` = $3M → forced into the
-growth tier), which is what lifts the 60% rung's mean SLO to 52.5 while every other rung
-ends at 0–5.
+CapEx at `max(1.0, …)`, so every bot run — 5% included — is immune.
+
+> **Correction, 2026-09-03 (this report's own error).** The first version of this section
+> continued: *"the only band that does real work is the absolute escape
+> (`capex_abs >= NATURAL_DECAY_GROWTH_ABS_CAPEX` = $3M), which is what lifts the 60% rung's
+> mean SLO to 52.5."* That was an inference from reading the code, not a measurement, and it
+> is **wrong** — method 3.1, committed by this report. Instrumenting `apply_natural_decay`
+> directly (40 calls per game, 4 BUs × 10 rounds) shows which branch is actually taken:
+>
+> | rung | branches taken, all 40 calls | SLO removed by decay | SLO added by growth |
+> |---|---|---|---|
+> | 5% | `flat` × 40 | 0.00 | 0.0 |
+> | 10% | `flat` × 40 | 0.00 | 0.0 |
+> | 20% | `flat` × 40 | 0.00 | 0.0 |
+> | 35% | `flat` × 40 | 0.00 | 0.0 |
+> | 60% | `flat` × 40 | 0.00 | 0.0 |
+>
+> **Every tier of `apply_natural_decay` is unreachable for every bot strategy at every rung.**
+> Not "rarely fires" — the decay branch is taken 0 times out of 40, and so is the growth
+> branch and the mid tier. The $3M absolute escape does not fire at 60% either: per-BU CapEx
+> there peaks at **$2,780,968** in R10, just under the $3M bar. `apply_natural_decay` is an
+> identity function in practice.
+>
+> The 60% rung's mean SLO of 52.5 comes from somewhere else entirely — the **greenwashing
+> penalty**, whose threshold is `GREENWASH_INVESTMENT_THRESHOLD` = 0.15, exactly the
+> investment ratio the 60% rung produces:
+>
+> | rung | rounds greenwash fired | cumulative greenwash SLO penalty |
+> |---|---|---|
+> | 5% / 10% / 20% / 35% | all 10 | **82.5** |
+> | 60% | all 10 | **15.0** |
+>
+> ~67 SLO points of difference, against natural decay's zero. The social-licence lever in
+> this game is the greenwashing threshold, not the natural-decay tiers.
 
 So the answer to "a 5% run should be losing licence continuously — is it?" is: **no, and
 neither would a 0.001% run.** SLO does fall across the trace (47.5 → 5.0) but from crises

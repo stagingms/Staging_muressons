@@ -550,8 +550,60 @@ NCD_FORGIVENESS_LOG_COEFF:     float = float(_forgive.get("log_coefficient", 2.0
 # that keeps the heat-map and NPC surfaces aligned even with F1 off.
 _slo_ramp = _engine.get("slo_ramp", {})
 NATURAL_DECAY_GROWTH_ABS_CAPEX: float = float(_slo_ramp.get("growth_abs_capex", 3_000_000))
-NATURAL_DECAY_MID_RATIO:        float = float(_slo_ramp.get("mid_ratio", 0.20))
 NATURAL_DECAY_MID_GROWTH:       float = float(_slo_ramp.get("mid_growth", 1.0))
+
+# ── Natural-decay tier calibration (launch readiness 2026-09-03) ────────────
+# The tiers were 0.15 (no decay) / 0.20 (mild growth) / 0.30 (growth), with the
+# first and last as bare literals in engine.apply_natural_decay. Measured
+# against the 241 stored real decisions (investment_ratio reconstructed with the
+# router's own formula, capex_allocated / max(treasury*0.20, 5M)):
+#
+#   0.15 <= ratio < 0.20 :  0 decisions   <- the "no decay" tier caught NOBODY
+#   0.20 <= ratio < 0.30 :  9 decisions   <- the mild-growth tier, 3.7%
+#   ratio >= 0.30        : 63 decisions   <- 87% of every substantive allocation
+#
+# So two adjacent bands were indistinguishable and the top tier was close to
+# automatic for anyone who spent real money. Substantive allocations run
+# 0.20 -> 1.00 with a median of 0.50, so the bands move onto that distribution:
+# each tier now catches a distinct population and full growth is a choice rather
+# than a default.
+NATURAL_DECAY_NO_DECAY_RATIO:   float = float(_slo_ramp.get("no_decay_ratio", 0.10))
+NATURAL_DECAY_MID_RATIO:        float = float(_slo_ramp.get("mid_ratio", 0.25))
+NATURAL_DECAY_GROWTH_RATIO:     float = float(_slo_ramp.get("growth_ratio", 0.50))
+
+# The tier that never fired at all, and why a ratio band alone could not fix it.
+# engine.py's call site computed `invested = ratio >= 0.15 or capex_allocated > 0`,
+# and router.py refuses any commit giving a BU less than $1 (VULN-009), so
+# capex_allocated > 0 held for EVERY decision ever committed. `invested` was
+# therefore always True and the full-decay branch was unreachable across the
+# whole 0.0-1.0 ratio range, whatever the bands said. A minimum ABSOLUTE spend
+# replaces the "> 0" test, mirroring growth_abs_capex at the other end.
+#
+# $500,000 is chosen from a gap in the real data, not from taste: the 241 stored
+# decisions are bimodal — 169 at exactly $1, then NOTHING until $1,000,000, then
+# a continuous spread to $9,300,000. Any floor strictly inside ($1, $1,000,000)
+# reclassifies exactly the token allocations and cannot misclassify a single
+# real one; 500,000 sits in the middle of that empty interval.
+NATURAL_DECAY_MIN_ABS_CAPEX:    float = float(_slo_ramp.get("min_abs_capex", 500_000))
+
+# Bounds. The tiers are only meaningful strictly ordered inside (0, 1], and a
+# minimum spend above the growth escape would invert the two absolute tests.
+# A configuration that breaks either falls back to the whole default set — never
+# to a half-applied mixture — and says so.
+_DECAY_TIER_DEFAULTS = (0.10, 0.25, 0.50)
+if not (0.0 < NATURAL_DECAY_NO_DECAY_RATIO < NATURAL_DECAY_MID_RATIO
+        < NATURAL_DECAY_GROWTH_RATIO <= 1.0):
+    print(f"[CONFIG] WARNING: slo_ramp tiers must satisfy 0 < no_decay_ratio < mid_ratio "
+          f"< growth_ratio <= 1; got {NATURAL_DECAY_NO_DECAY_RATIO}/{NATURAL_DECAY_MID_RATIO}/"
+          f"{NATURAL_DECAY_GROWTH_RATIO}. Using {_DECAY_TIER_DEFAULTS}. "
+          "Update simulation_config.json on the data volume.")
+    (NATURAL_DECAY_NO_DECAY_RATIO, NATURAL_DECAY_MID_RATIO,
+     NATURAL_DECAY_GROWTH_RATIO) = _DECAY_TIER_DEFAULTS
+if not (0.0 <= NATURAL_DECAY_MIN_ABS_CAPEX <= NATURAL_DECAY_GROWTH_ABS_CAPEX):
+    print(f"[CONFIG] WARNING: slo_ramp.min_abs_capex={NATURAL_DECAY_MIN_ABS_CAPEX:,.0f} must sit "
+          f"between 0 and growth_abs_capex ({NATURAL_DECAY_GROWTH_ABS_CAPEX:,.0f}); using 500,000. "
+          "Update simulation_config.json on the data volume.")
+    NATURAL_DECAY_MIN_ABS_CAPEX = 500_000.0
 GREENWASH_ABS_CAPEX_FLOOR:      float = float(_slo_ramp.get("greenwash_abs_capex_floor", 3_000_000))
 NPC_SENTIMENT_BRIDGE_BASELINE:  float = float(_trust.get("sentiment_bridge_baseline", 0.15))
 

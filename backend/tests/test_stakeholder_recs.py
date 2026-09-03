@@ -91,9 +91,54 @@ def test_natural_decay_growth_branch_has_an_absolute_capex_escape():
 
 
 def test_natural_decay_has_a_mild_middle_growth_tier():
+    """RETARGETED 2026-09-03, not loosened. This pinned ratio 0.22 -> mild
+    growth, which was true when mid_ratio was 0.20. The tiers were recalibrated
+    to 0.10 / 0.25 / 0.50 against the real decision distribution (the old
+    0.15-0.20 band caught zero real decisions and 87% of substantive
+    allocations cleared the old 0.30 growth bar). 0.22 is now inside the
+    no-decay band, so the probe moves to the middle of the NEW mild tier and
+    the assertion is unchanged in strength."""
     from engine import apply_natural_decay
-    _, slo = apply_natural_decay(50.0, 40.0, True, investment_ratio=0.22)
-    assert 40.0 < slo < 43.5, f"ratio 0.22 should grow SLO mildly, got {slo}"
+    from config import NATURAL_DECAY_MID_RATIO, NATURAL_DECAY_GROWTH_RATIO
+    probe = (NATURAL_DECAY_MID_RATIO + NATURAL_DECAY_GROWTH_RATIO) / 2.0
+    _, slo = apply_natural_decay(50.0, 40.0, True, investment_ratio=probe)
+    assert 40.0 < slo < 43.5, f"ratio {probe} should grow SLO mildly, got {slo}"
+
+
+def test_the_four_natural_decay_tiers_are_each_reachable_and_distinct():
+    """The recalibration's own invariant, and the regression it exists to stop.
+
+    Before 2026-09-03 the full-decay tier was unreachable for EVERY commit ever
+    made: the call site read `invested = ratio >= 0.15 or capex_allocated > 0`
+    while router.py refuses any BU under $1 (VULN-009), so `invested` was
+    always True and no ratio anywhere in 0.0-1.0 could reach the decay branch.
+    A band value could never have fixed that, which is why the predicate is now
+    gated on a minimum ABSOLUTE spend.
+    """
+    from engine import apply_natural_decay
+    from config import (NATURAL_DECAY_NO_DECAY_RATIO, NATURAL_DECAY_MID_RATIO,
+                        NATURAL_DECAY_GROWTH_RATIO, NATURAL_DECAY_MIN_ABS_CAPEX)
+
+    assert 0.0 < NATURAL_DECAY_NO_DECAY_RATIO < NATURAL_DECAY_MID_RATIO \
+        < NATURAL_DECAY_GROWTH_RATIO <= 1.0, "tiers must be strictly ordered in (0, 1]"
+
+    def tier(ratio, capex):
+        invested = (ratio >= NATURAL_DECAY_NO_DECAY_RATIO
+                    or capex >= NATURAL_DECAY_MIN_ABS_CAPEX)
+        return apply_natural_decay(50.0, 50.0, invested,
+                                   investment_ratio=ratio, capex_abs=capex)[1]
+
+    below = NATURAL_DECAY_NO_DECAY_RATIO / 2.0
+    token = 1.0                                   # the router's minimum per BU
+    real  = NATURAL_DECAY_MIN_ABS_CAPEX
+
+    assert tier(below, token) < 50.0, (
+        "a token $1 allocation must NOT buy immunity from natural decay — "
+        "that was the defect: 169 of 241 stored real decisions were exactly $1")
+    assert tier(below, real) == 50.0, "a real allocation below the band treads water"
+    assert tier(NATURAL_DECAY_NO_DECAY_RATIO, token) == 50.0, "no-decay tier"
+    assert 50.0 < tier(NATURAL_DECAY_MID_RATIO, token) < tier(NATURAL_DECAY_GROWTH_RATIO, token), (
+        "the mild tier must sit strictly between treading water and full growth")
 
 
 def test_greenwash_bar_accepts_absolute_capex():

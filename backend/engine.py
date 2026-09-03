@@ -43,6 +43,7 @@ from config import (
     # Layer-2 Config Isolation: Engine magic numbers
     SYNERGY_DAMPENING_FACTOR, SYNERGY_MAX_REDUCTION_PER_ROUND, NCD_INTEREST_COEFFICIENT, NATURAL_DECAY_FACTOR,
     NATURAL_DECAY_GROWTH_ABS_CAPEX, NATURAL_DECAY_MID_RATIO, NATURAL_DECAY_MID_GROWTH,
+    NATURAL_DECAY_NO_DECAY_RATIO, NATURAL_DECAY_GROWTH_RATIO, NATURAL_DECAY_MIN_ABS_CAPEX,
     GREENWASH_ABS_CAPEX_FLOOR,
     INFLATION_REVENUE_PASSTHROUGH,
     BURNOUT_NATURAL_DRIFT, BURNOUT_OPEX_THRESHOLD, BURNOUT_CRITICAL_THRESHOLD, BURNOUT_OPEX_PENALTY_COEFF,
@@ -781,31 +782,48 @@ def apply_natural_decay(
 ) -> tuple[float, float]:
     """
     FIX-B: Gradated SLO/reputation decay based on investment_ratio.
-    - ratio >= 0.30 (or capex >= NATURAL_DECAY_GROWTH_ABS_CAPEX) → SLO GROWS
-      +3/round (community rewards ESG). EVAL rec 4 (2026-09-01): the absolute
-      escape exists because the ratio is relative to the CSF pool, and the
-      ratchet-economy repair made pools larger — the same real investment
+    - ratio >= NATURAL_DECAY_GROWTH_RATIO (or capex >= NATURAL_DECAY_GROWTH_ABS_CAPEX)
+      → SLO GROWS +3/round (community rewards ESG). EVAL rec 4 (2026-09-01): the
+      absolute escape exists because the ratio is relative to the CSF pool, and
+      the ratchet-economy repair made pools larger — the same real investment
       must not stop earning licence because the company got healthier.
     - ratio >= NATURAL_DECAY_MID_RATIO → mild growth (+NATURAL_DECAY_MID_GROWTH)
-    - ratio >= 0.15 → No decay (treading water)
-    - ratio <  0.15 → Full 4% decay (neglect erodes trust)
+    - ratio >= NATURAL_DECAY_NO_DECAY_RATIO → No decay (treading water)
+    - below that → Full 4% decay (neglect erodes trust)
     Reputation always decays when not invested (harder to rebuild brand).
+
+    CALIBRATION 2026-09-03 — the tiers were 0.15 / 0.20 / 0.30 and are now
+    0.10 / 0.25 / 0.50, config-driven rather than bare literals. Measured on the
+    241 stored real decisions: the 0.15-0.20 band caught ZERO of them, and 87%
+    of every substantive allocation cleared the old 0.30 growth bar, so two
+    adjacent tiers were indistinguishable and the top tier was near-automatic.
+    Substantive allocations run 0.20-1.00, median 0.50.
+
+    AND THE TIER THAT NEVER FIRED. `invested` used to be
+    `ratio >= 0.15 or capex_allocated > 0` at the call site, while router.py
+    refuses any commit giving a BU under $1 (VULN-009) — so capex_allocated > 0
+    held for every decision ever committed, `invested` was always True, and the
+    full-decay branch below was unreachable across the ENTIRE 0.0-1.0 ratio
+    range no matter what the bands said. Moving a band could never have revived
+    it. `invested` is now gated on a minimum ABSOLUTE spend
+    (NATURAL_DECAY_MIN_ABS_CAPEX), mirroring the absolute escape at the other
+    end, which is what makes the decay tier reachable at all.
     """
     decay = NATURAL_DECAY_FACTOR  # ~0.96
-    if capex_abs >= NATURAL_DECAY_GROWTH_ABS_CAPEX and investment_ratio < 0.30:
-        investment_ratio = 0.30  # absolute escape lands in the growth tier
-    if investment_ratio >= 0.30:
+    if capex_abs >= NATURAL_DECAY_GROWTH_ABS_CAPEX and investment_ratio < NATURAL_DECAY_GROWTH_RATIO:
+        investment_ratio = NATURAL_DECAY_GROWTH_RATIO  # absolute escape lands in the growth tier
+    if investment_ratio >= NATURAL_DECAY_GROWTH_RATIO:
         # Active ESG commitment → SLO grows, reputation stabilises
-        slo_growth = 3.0 + (investment_ratio - 0.30) * 10  # +3 to +10
+        slo_growth = 3.0 + (investment_ratio - NATURAL_DECAY_GROWTH_RATIO) * 10  # +3 to +10
         return (
             reputation,  # reputation stable
             round(min(100.0, social_license + slo_growth), 2),
         )
     elif investment_ratio >= NATURAL_DECAY_MID_RATIO:
         # EVAL rec 4: a mild middle tier so the road back from a low SLO
-        # exists below the 30% full-growth bar.
+        # exists below the full-growth bar.
         return reputation, round(min(100.0, social_license + NATURAL_DECAY_MID_GROWTH), 2)
-    elif investment_ratio >= 0.15 or invested:
+    elif investment_ratio >= NATURAL_DECAY_NO_DECAY_RATIO or invested:
         # Moderate investment → treading water (no decay, no growth)
         return reputation, social_license
     else:
@@ -3029,7 +3047,12 @@ def _run_financial_layer(ctx: TickContext) -> None:
         dec     = ctx.decision_map.get(bu["bu_id"], {})
         # FIX BUG-1C + FIX-B: SLO investment sensitivity with gradated decay
         _inv_ratio = ctx.events.get("_pre_austerity_avg_invest", dec.get("investment_ratio", 0))
-        invested = _inv_ratio >= 0.15 or dec.get("capex_allocated", 0) > 0
+        # 2026-09-03: was `or dec.get("capex_allocated", 0) > 0`, which router.py's
+        # $1-per-BU minimum made unconditionally true, so the decay tier below was
+        # dead code for every commit ever made. A minimum ABSOLUTE spend restores
+        # it — see apply_natural_decay's docstring.
+        invested = (_inv_ratio >= NATURAL_DECAY_NO_DECAY_RATIO
+                    or float(dec.get("capex_allocated", 0) or 0) >= NATURAL_DECAY_MIN_ABS_CAPEX)
         bu["reputation_score"], bu["social_license_score"] = apply_natural_decay(
             bu["reputation_score"], bu["social_license_score"], invested,
             investment_ratio=_inv_ratio,
