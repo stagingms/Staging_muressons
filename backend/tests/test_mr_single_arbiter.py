@@ -357,3 +357,86 @@ def test_the_brsr_finale_now_earns_components_it_could_not_before():
         "the documented consequence of the 2026-09-03 drift ruling. If the design "
         "intent is that it should NOT, suppress it via pathway_bonuses and say so "
         "here, rather than reverting to a second M_R implementation.")
+
+
+# ═════════════════════════════════════════════════════════════════
+#  5. No flag is charged twice — the canon and a pathway must not
+#     both bill the same one (B-3, 2026-09-03)
+# ═════════════════════════════════════════════════════════════════
+#
+# calculate_mr:238 applies -0.20 for `planet_expendable` on EVERY ending, and
+# ending_pathways.calc_climate_black_swan_mr applied another -0.20 for the same
+# flag, arriving back through pathway_bonuses["pathway_mr_delta"]. Measured
+# before the fix: M_R 0.85 with the flag vs 1.25 without — a 0.40 swing for a
+# flag both source comments document as 0.20. 0.80 is exactly the
+# fragile_giant / stranded_relic boundary, so the extra 0.20 could hand a team
+# the wrong ending archetype.
+
+_PATHWAY_MR_CALCULATORS = {
+    "climate_black_swan":  "calc_climate_black_swan_mr",
+    "stakeholder_revolt":  "calc_stakeholder_revolt_mr",
+    "hostile_takeover":    "calc_hostile_takeover_mr",
+    "regulatory_shutdown": "calc_regulatory_shutdown_mr",
+}
+
+# Flags calculate_mr bills itself. A pathway calculator must not bill these too.
+_CANON_OWNED_FLAGS = [
+    "planet_expendable", "materiality_aligned", "synergy_unlock",
+    "ethical_ai_overhaul", "community_fund", "managed_transition",
+    "insurance_only", "electronics_water_priority", "civil_water_priority",
+]
+
+
+def _bus_for_pathway(slo=90.0, ci=37.0):
+    return [{"bu_id": b, "revenue_base": 12_000_000.0, "opex_base": 8_000_000.0,
+             "carbon_intensity": ci, "social_license_score": slo,
+             "governance_risk_score": 20.0, "natural_capital_debt": 10.0,
+             "water_dependency": 30.0, "staff_burnout_index": 10.0,
+             "talent_penalty": 0} for b in ("a", "bb", "c")]
+
+
+def _gs_for_pathway():
+    return {"corporate_treasury": 1e8, "group_reputation": 70.0,
+            "synergy_multiplier": 1.0, "active_event_flags": {},
+            "workforce_readiness": 50.0, "cost_of_capital": 0.08}
+
+
+@pytest.mark.parametrize("pathway,fn_name", sorted(_PATHWAY_MR_CALCULATORS.items()))
+@pytest.mark.parametrize("flag", _CANON_OWNED_FLAGS)
+def test_no_pathway_rebills_a_flag_calculate_mr_already_owns(pathway, fn_name, flag):
+    """The pathway delta must not move when a canon-owned flag is toggled.
+
+    If it does, that flag is billed twice on this ending and the player's M_R
+    swings by double what the documentation says.
+    """
+    import ending_pathways
+    fn = getattr(ending_pathways, fn_name)
+    with_flag, without = {flag}, set()
+    d_with = fn(_bus_for_pathway(), _gs_for_pathway(), with_flag, {})
+    d_without = fn(_bus_for_pathway(), _gs_for_pathway(), without, {})
+    assert d_with == pytest.approx(d_without), (
+        f"{fn_name} changes its M_R delta by {d_with - d_without:+.4f} when "
+        f"'{flag}' is set, but calculate_mr already bills that flag on every "
+        f"ending — so it is charged twice on the {pathway} pathway."
+    )
+
+
+def test_planet_expendable_costs_exactly_its_documented_020():
+    """End to end on the ending where it used to be doubled."""
+    from terminal_valuation import calculate_mr
+    from ending_pathways import calc_climate_black_swan_mr
+
+    def total_mr(flags):
+        extra = {}
+        delta = calc_climate_black_swan_mr(_bus_for_pathway(), _gs_for_pathway(), flags, extra)
+        return calculate_mr({f: True for f in flags}, avg_slo=90.0, avg_burnout=10.0,
+                            workforce_readiness=50.0, synergy_multiplier=0.0,
+                            pathway_bonuses={"pathway_mr_delta": delta})["mr"], extra
+
+    with_flag, extra_with = total_mr({"planet_expendable"})
+    without, _ = total_mr(set())
+    assert without - with_flag == pytest.approx(0.20), (
+        f"planet_expendable swung M_R by {without - with_flag:.4f}; documented 0.20")
+    # the narrative explanation must survive the de-duplication
+    assert extra_with.get("mr_shadow_board_planet_expendable") is True
+    assert "mr_shadow_board_penalty_note" in extra_with

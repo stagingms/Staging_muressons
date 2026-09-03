@@ -584,10 +584,24 @@ def calc_climate_black_swan_mr(
         extra["mr_stranded_asset_penalty"] = b
         extra["mr_stranded_asset_avg_ci"] = round(avg_ci, 2)
 
-    # −0.20: Shadow Board — planet_expendable flag (R5 rejection)
+    # Shadow Board — planet_expendable flag (R5 rejection).
+    #
+    # NARRATIVE ONLY. The -0.20 arithmetic used to live here as well, and
+    # terminal_valuation.calculate_mr:238 ALSO applies -0.20 for the same flag
+    # on every ending — so on this pathway the flag cost 0.40, twice what both
+    # this function's own comment and shadow_board_audit document. Measured
+    # 2026-09-03: M_R 0.85 with the flag vs 1.25 without, and 0.80 is exactly
+    # the fragile_giant / stranded_relic boundary in
+    # terminal_valuation._THRESHOLDS, so the double charge could hand a team
+    # the wrong ending archetype.
+    #
+    # calculate_mr is the single arbiter (F-12) and it already owns this flag,
+    # so the charge stays there and this block keeps only the explanation —
+    # which is worth keeping, because the canonical breakdown says WHAT was
+    # deducted and this says WHY, on this pathway.
     if "planet_expendable" in all_flags:
-        mr_delta -= 0.20
         extra["mr_shadow_board_planet_expendable"] = True
+        extra["mr_shadow_board_penalty_applied_by"] = "calculate_mr.planet_expendable_penalty"
         extra["mr_shadow_board_penalty_note"] = (
             "Ecosystem resilience undermined: R5 Shadow Board rejection of "
             "environmental logic increased climate vulnerability cascade."
