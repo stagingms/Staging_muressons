@@ -719,3 +719,93 @@ and there are **four** shared components with differing behaviour, not three
   (`f"dryrun-{strategy_id}-{seed}"`), so renaming a strategy silently changes every number
   it produces. Worth a comment in `scripts/balance_report.py`; it cost me one confused
   round trip and would cost the next reader the same.
+
+---
+
+# ADDENDUM — rulings taken and acted on (2026-09-03)
+
+Items 3, 4 and 5 were investigations; the rulings below were made by the work-order
+owner after the findings above, and implemented on the same branch.
+
+## Item 3 — ruled: document it, change nothing ✅
+
+**Zero behaviour change.** `engine.calc_macro_noise`'s docstring corrected (it claimed
+±5%; the band is ±7%), each returned field now names its consumer or says it has none,
+and `test_engine_invariants.py` gained Test 6 — a universal statement plus
+`ALLOWLISTED_UNCONSUMED_NOISE_FIELDS`, the same shape as `ALLOWLISTED_UNAPPLIED` above it.
+
+**The trap, recorded in code:** `rng.uniform` consumes entropy, so deleting the unused
+draw shifts every later roll — the micro-strike outcome changes in **8 of 10 rounds**
+(round 2 flips from a strike to none). A "remove dead code" commit would have moved the
+golden traces while looking like a no-op. A second test pins the stream at three seeds so
+that fails there, with an explanation, rather than in a trace.
+
+**The new test found a second orphan on its first run:** `noise_message`, a player-facing
+sentence assembled every round and rendered nowhere — allow-listed with an explicit "do
+not surface this until the carbon ruling lands", because its carbon clause is false.
+
+Golden traces, treasury waterfall and the balance report: **unchanged**.
+
+## Item 4 — ruled: recalibrate the tiers ⚠️ delta written, rebaseline NOT taken
+
+Full delta in `DELTA_natural_decay_recalibration_2026-09-03.md`. Tiers moved
+0.15/0.20/0.30 → **0.10/0.25/0.50**, all four now config keys with defaults and bounds,
+plus `NATURAL_DECAY_MIN_ABS_CAPEX` = $500,000.
+
+Two findings drove the numbers, both from the 241 stored real decisions:
+
+* **The old bands were degenerate.** `0.15 ≤ ratio < 0.20` caught **zero** real decisions;
+  `ratio ≥ 0.30` caught 87% of every substantive allocation.
+* **The decay tier was unreachable, and no band value could have fixed it.** The call site
+  read `invested = ratio >= 0.15 or capex_allocated > 0`, and `router.py` refuses any BU
+  under $1 (VULN-009) — so `invested` was always True and the decay branch was dead across
+  the whole 0.0–1.0 range. Hence the predicate change. $500,000 is read off a gap in the
+  data: the decisions are bimodal at exactly $1 (169 of 241) then nothing until $1,000,000.
+
+**Two golden traces are deliberately left failing and the balance report is not
+regenerated**, pending sign-off. The stakeholder trace moves −21.25 SLO by R10 and
+escalates an NPC to `protest`; three of six reference strategies flip from solvent to
+bankrupt. Nothing was skipped, xfailed or loosened. One test was **retargeted** (it probed
+ratio 0.22, encoding the old band) and one added, pinning that all four tiers are
+reachable and distinct.
+
+## Item 5 — ruled: drift, route through `calculate_mr` ✅
+
+`_post_brsr_grand_finale` now computes M_R through the arbiter with its BRSR awards passed
+via `pathway_bonuses`; `MR_CEILING` applies where it never did; archetype goes through
+`determine_archetype`; the hard-coded 12.0 exit multiple becomes the WACC-driven one.
+`brsr_ngrbc` added to `VALID_DECISION_PARADIGMS` — verified end to end, `POST
+/api/simulations/start` returned **422 before and 201 now**.
+
+**The invariant shipped with an EMPTY exception list**, because both writers now comply.
+It resolves finale paths by AST on assignment *targets*, not grep, so report endpoints
+that merely read `regenerative_multiple` are not miscounted; it finds exactly
+`_post_r10_grand_finale` and `_post_brsr_grand_finale`.
+
+**Stated consequence, now pinned by a test rather than discovered later:** a BRSR ending
+gains the seven components the inline version could not award, `resilience_bonus +0.20`
+among them, which `calculate_mr` grants by default. If design intent says a BRSR ending
+should not earn it, suppress it through `pathway_bonuses` — not by restoring a second M_R
+implementation.
+
+These were also the first tests to exercise `_post_brsr_grand_finale` at all. It had none,
+which is how it diverged unnoticed.
+
+## Regression contract after the rulings
+
+| Check | Observed |
+|---|---|
+| `pytest tests/ -q` | **2333 passed, 15 skipped, 2 failed** — the 2 are the item-4 golden traces held for sign-off |
+| Test-count accounting | main 2323 + 5 (item 1) + 2 (item 3) + 1 (item 4) + 4 (item 5) = 2335 total; 2333 pass, 2 held |
+| Treasury fingerprints + conservation | **86 passed, 1 skipped** — all six unchanged, `git diff main` on that file empty |
+| Route-guard ratchets | **11 passed**; `_MAX_UNGUARDED` 58, `_MAX_UNTENANTED` 1, file unmodified |
+| Golden traces | financial + stakeholder **failing by design**, not rebaselined |
+| `balance_report.py` | **not regenerated**, pending the same sign-off |
+
+## Correction this addendum records against the report above
+
+Item 4's original section claimed the $3M absolute escape was what lifted the 60% rung's
+SLO. That was inferred from reading the code, not measured, and it is wrong — every tier
+took the `flat` branch 40/40 times at every rung, the $3M escape included (per-BU CapEx
+peaks at $2,780,968). The real differentiator is the greenwashing penalty: 82.5 cumulative
+SLO points at every rung below 60% versus 15.0 at 60%. The correction is inline in §Item 4.
