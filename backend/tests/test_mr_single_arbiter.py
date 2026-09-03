@@ -169,3 +169,191 @@ def test_penalty_stack_cannot_go_negative():
     extra = _run_r10("option_c", prev, bus, gs)
     mr = extra["regenerative_multiple"]
     assert mr >= 0.0, f"M_R went negative: {mr} — terminal value flips sign"
+
+
+# ═════════════════════════════════════════════════════════════════
+#  4. Every finale path computes M_R through calculate_mr (item 5, 2026-09-03)
+# ═════════════════════════════════════════════════════════════════
+#
+# F-12 recorded calculate_mr as THE M_R arbiter, and this file's own docstring
+# says the R10 engine must award exactly what it computes. _post_brsr_grand_finale
+# did not: it built M_R inline with hard steps where the canon ramps, so the same
+# named component returned different values depending on which finale ran
+# (workforce readiness exactly 75: canon +0.05, BRSR +0.10; average licence just
+# below 75: canon -0.204, BRSR -0.40; at exactly 75: canon -0.20, BRSR nothing).
+# It also floored M_R without applying MR_CEILING and duplicated the archetype
+# thresholds. Ruled DRIFT and routed through the arbiter, with the BRSR-specific
+# awards passed via `pathway_bonuses`.
+#
+# The exception list is the point: adding a finale that scores its own way is
+# then a reviewable diff carrying a reason, not something an audit rediscovers.
+
+_MR_ARBITER_EXCEPTIONS: dict[str, str] = {
+    # "module.function": "reason, ruling date, and the companion test that pins
+    #                     what it does instead"
+}
+
+
+def _finale_functions():
+    """Every function that writes a terminal `regenerative_multiple`, by AST —
+    never by grep, so a function's own body is what is attributed to it."""
+    import ast, os
+    backend = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    found = {}
+    for fn in sorted(f for f in os.listdir(backend) if f.endswith(".py")):
+        path = os.path.join(backend, fn)
+        try:
+            tree = ast.parse(open(path, encoding="utf-8", errors="replace").read())
+        except SyntaxError:
+            continue
+        mod = fn[:-3]
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            writes = calls = False
+            for sub in ast.walk(node):
+                # WRITES, not reads: `x["regenerative_multiple"] = ...` only.
+                # A report endpoint that .get()s the value is a consumer, not a
+                # second arbiter, and must not be caught here.
+                if isinstance(sub, (ast.Assign, ast.AugAssign, ast.AnnAssign)):
+                    targets = sub.targets if isinstance(sub, ast.Assign) else [sub.target]
+                    for t in targets:
+                        if (isinstance(t, ast.Subscript)
+                                and isinstance(t.slice, ast.Constant)
+                                and t.slice.value == "regenerative_multiple"):
+                            writes = True
+                if isinstance(sub, ast.Call):
+                    f = sub.func
+                    name = getattr(f, "id", None) or getattr(f, "attr", None)
+                    if name == "calculate_mr":
+                        calls = True
+            if writes:
+                found[f"{mod}.{node.name}"] = calls
+    return found
+
+
+def test_every_finale_path_routes_through_calculate_mr():
+    """A second M_R implementation is drift unless someone wrote down why."""
+    offenders = [
+        name for name, calls in _finale_functions().items()
+        if not calls and name not in _MR_ARBITER_EXCEPTIONS
+        # the arbiter's own module and the what-if projection wrap it, not duplicate it
+        and not name.startswith("terminal_valuation.")
+    ]
+    assert not offenders, (
+        f"these finale paths write regenerative_multiple without calling "
+        f"calculate_mr: {offenders}.\nRoute them through the arbiter (pass any "
+        f"ending-specific awards via pathway_bonuses), or add each to "
+        f"_MR_ARBITER_EXCEPTIONS with a reason AND a companion test asserting "
+        f"its intended divergence."
+    )
+
+
+def test_every_exception_names_a_reason():
+    """An exception without a written reason is drift with paperwork."""
+    for name, reason in _MR_ARBITER_EXCEPTIONS.items():
+        assert reason and len(reason) > 20, f"{name} is exempted without a real reason"
+
+
+def test_brsr_finale_uses_the_canonical_component_shapes():
+    """The three shared components that used to differ. At average licence
+    exactly 75 the BRSR path awarded NOTHING where the canon takes -0.20; just
+    below it took the full -0.40 against the canon's ramped -0.204."""
+    from terminal_valuation import calculate_mr, _ramp_fraction, _MR_RAMP_BAND_KPI
+    canon = calculate_mr({}, avg_slo=75.0, avg_burnout=20.0, workforce_readiness=75.0,
+                         synergy_multiplier=0.0)["breakdown"]
+    assert canon.get("instability_discount") == pytest.approx(-0.20), (
+        "the canon ramps the instability discount at the 75 threshold")
+    assert canon.get("workforce_bonus") == pytest.approx(0.05)
+    # and the BRSR finale must now produce these same shapes, not hard steps
+    import inspect, round_logic
+    src = inspect.getsource(round_logic._post_brsr_grand_finale)
+    for stale in ('mr += 0.10', 'mr += 0.05', 'mr -= 0.40', 'if avg_sl < 75'):
+        assert stale not in src, (
+            f"_post_brsr_grand_finale still contains the inline hard step {stale!r}")
+    assert "calculate_mr(" in src, "_post_brsr_grand_finale must call the arbiter"
+
+
+def test_brsr_paradigm_can_actually_be_created():
+    """The finale was unreachable: brsr_ngrbc was in the Pydantic enum and had a
+    full engine path, but not in VALID_DECISION_PARADIGMS, so create_session
+    answered 422 and no cohort could ever reach it."""
+    import config
+    assert "brsr_ngrbc" in config.VALID_DECISION_PARADIGMS
+
+
+def test_the_brsr_finale_scores_through_the_arbiter_end_to_end():
+    """First test to exercise _post_brsr_grand_finale at all — it had none,
+    which is how it diverged unnoticed.
+
+    Pins the three things the routing changed:
+      * shared components take the CANON's ramped shapes, not hard steps
+        (workforce readiness exactly 75 -> +0.05, not +0.10);
+      * the BRSR-specific award arrives through `pathway_bonuses`;
+      * the ceiling diagnostics exist, so MR_CEILING now applies here too.
+    """
+    import logging, random
+    logging.disable(logging.CRITICAL)
+    from round_logic import post_tick
+    random.seed(11)
+    bus = [{"bu_id": b, "revenue_base": 12_000_000.0, "opex_base": 8_000_000.0,
+            "carbon_intensity": 10.0, "social_license_score": 74.0,
+            "governance_risk_score": 20.0, "natural_capital_debt": 10.0,
+            "water_dependency": 30.0, "staff_burnout_index": 19.0,
+            "bed_capacity_utilization": 0.5, "talent_penalty": 0}
+           for b in ("energy", "electronics", "agri", "software")]
+    gs = {"corporate_treasury": 100_000_000.0, "group_reputation": 70.0,
+          "green_transition_fund": 0.0, "synergy_multiplier": 1.0, "round_number": 10,
+          "active_event_flags": {"brsr_net_positive_dividend": 0.05},
+          "workforce_readiness": 75.0, "climate_resilience": 0.5,
+          "session_id": "", "cost_of_capital": 0.08}
+    decs = [{"choice_selected": "option_b", "capex_allocated": 0,
+             "investment_ratio": 0.4, "bu_id": b["bu_id"]} for b in bus]
+    extra = post_tick(10, gs, bus, decs, {}, {}, decision_paradigm="brsr_ngrbc")
+    bd = extra.get("mr_breakdown") or {}
+
+    # Canon shapes, not hard steps. At readiness exactly 75 the old inline code
+    # awarded +0.10; the ramp awards half of it.
+    assert bd.get("workforce_bonus") == pytest.approx(0.05), bd
+    # SLO 74 sits inside the ramp band: the canon takes -0.24, not the -0.40 cliff.
+    assert bd.get("instability_discount") == pytest.approx(-0.24), bd
+    # A BRSR-specific award routed through pathway_bonuses (which tier depends on
+    # the track state finalise_brsr_track computes; any of the three proves it).
+    assert any(k in bd for k in ("brsr_pioneer_bonus", "brsr_steward_bonus",
+                                 "brsr_laggard_penalty")), bd
+    assert bd.get("brsr_esg_alpha_dividend") == pytest.approx(0.05), bd
+    # MR_CEILING now governs this path too; it never did before.
+    assert "mr_raw" in extra and "mr_ceiling_clamped" in extra
+    # And the WACC-driven multiple replaces the hard-coded 12.0.
+    assert extra.get("exit_multiple_dynamic") is True
+    assert extra.get("exit_multiple") != 12.0
+
+
+def test_the_brsr_finale_now_earns_components_it_could_not_before():
+    """Stated consequence of the ruling, pinned so nobody is surprised by it:
+    routing through calculate_mr hands a BRSR ending the seven components the
+    inline version had no way to award — resilience_bonus among them, which the
+    canon grants BY DEFAULT when no water/insurance flag is set."""
+    import logging, random
+    logging.disable(logging.CRITICAL)
+    from round_logic import post_tick
+    random.seed(11)
+    bus = [{"bu_id": b, "revenue_base": 12_000_000.0, "opex_base": 8_000_000.0,
+            "carbon_intensity": 10.0, "social_license_score": 74.0,
+            "governance_risk_score": 20.0, "natural_capital_debt": 10.0,
+            "water_dependency": 30.0, "staff_burnout_index": 19.0,
+            "bed_capacity_utilization": 0.5, "talent_penalty": 0}
+           for b in ("energy", "electronics", "agri", "software")]
+    gs = {"corporate_treasury": 100_000_000.0, "group_reputation": 70.0,
+          "green_transition_fund": 0.0, "synergy_multiplier": 1.0, "round_number": 10,
+          "active_event_flags": {}, "workforce_readiness": 50.0,
+          "climate_resilience": 0.5, "session_id": "", "cost_of_capital": 0.08}
+    decs = [{"choice_selected": "option_b", "capex_allocated": 0,
+             "investment_ratio": 0.4, "bu_id": b["bu_id"]} for b in bus]
+    extra = post_tick(10, gs, bus, decs, {}, {}, decision_paradigm="brsr_ngrbc")
+    bd = extra.get("mr_breakdown") or {}
+    assert bd.get("resilience_bonus") == pytest.approx(0.20), (
+        "a BRSR ending now earns the +0.20 resilience bonus by default — this is "
+        "the documented consequence of the 2026-09-03 drift ruling. If the design "
+        "intent is that it should NOT, suppress it via pathway_bonuses and say so "
+        "here, rather than reverting to a second M_R implementation.")

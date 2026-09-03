@@ -309,8 +309,17 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     # Determine choice selected in R5
     choice = _get_primary_choice(decs)
     
-    # Standard exit multiple and carbon tax
-    exit_multiple = 12.0
+    # Exit multiple — the WACC-driven Gordon-growth multiple the main finale
+    # uses. This path hard-coded 12.0, so a BRSR team that raised its WACC
+    # through poor ESG governance paid no multiple haircut for it.
+    from terminal_valuation import calculate_dynamic_exit_multiple as _dyn_mult
+    _cw = gs.get("active_event_flags", {}).get("esg_adjusted_wacc", {})
+    _wacc = (_cw.get("adjusted_wacc", gs.get("cost_of_capital", 0.08))
+             if isinstance(_cw, dict) else gs.get("cost_of_capital", 0.08))
+    _dyn = _dyn_mult(wacc=_wacc)
+    exit_multiple = _dyn["exit_multiple"]
+    extra["exit_multiple_wacc_used"] = round(float(_wacc), 4)
+    extra["exit_multiple_dynamic"] = True
     # I10: Sync terminal tax to peak internal AC fee when advanced_climate paradigm is active
     _peak_ac_fee = gs.get("active_event_flags", {}).get("peak_internal_carbon_fee", 0)
     decision_paradigm_g = gs.get("active_event_flags", {}).get("decision_paradigm", "legacy_abc")
@@ -329,13 +338,21 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     carbon_cost = round(carbon_tonnage_group * carbon_tax_per_ton, 2)
     terminal_ebitda = round((total_revenue - total_opex) - carbon_cost, 2)
     
-    # Calculate MR (Management Readiness / Materiality Response)
+    # ── M_R — F-12's single arbiter, via terminal_valuation.calculate_mr ──────
+    # RULED DRIFT, 2026-09-03 (launch-readiness item 5). This finale used to
+    # build M_R inline with HARD STEPS while calculate_mr uses GAME-2 ramps, so
+    # the same named component returned different values on the two endings:
+    # at workforce readiness exactly 75 the canon awarded +0.05 and this path
+    # +0.10; at average licence exactly 75 the canon took -0.20 and this path
+    # took nothing, while just below 75 it took the full -0.40 against the
+    # canon's -0.204. It also floored M_R at 0 without applying MR_CEILING, and
+    # duplicated the archetype thresholds inline.
+    #
+    # The BRSR-specific awards are genuinely pathway-specific and stay — they
+    # now travel through `pathway_bonuses`, which is exactly what that parameter
+    # exists for (STRAT-004) and what every other ending pathway already uses.
     all_flags = _collect_all_flags(prev_flags)
-    
-    # Build standard bonuses
-    mr = 1.0
-    extra["mr_breakdown"] = {"base": 1.0}
-    
+
     # +0.05 ESG Alpha Dividend
     # Note: finalise_brsr_track sets this in the SAME R10 post_tick,
     # so check current state first, then fall back to prev_flags.
@@ -347,14 +364,10 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     # Dividend is forfeited.  This penalises teams that skip the
     # Integrated Report in R5 even if they recover in R10.
     _truth_blocked = _cf.get("brsr_truth_premium_blocked", False) or prev_flags.get("brsr_truth_premium_blocked", False)
-    if _truth_blocked and brsr_div:
-        extra["mr_breakdown"]["brsr_truth_premium_blocked"] = -brsr_div
+    _brsr_div_forfeited = bool(_truth_blocked and brsr_div)
+    if _brsr_div_forfeited:
         extra["brsr_truth_premium_blocked_applied"] = True
         brsr_div = 0  # forfeit the dividend
-
-    if brsr_div:
-        mr += brsr_div
-        extra["mr_breakdown"]["brsr_esg_alpha_dividend"] = brsr_div
 
     # BRSR Compliance Score → M_R scaling
     # Note: finalise_brsr_track runs in the SAME R5 post_tick, so the score
@@ -373,37 +386,51 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
                 _brsr_score = _BT().calculate_score(_brsr_ts).get("total_score", 0)
         except Exception:
             pass
+    # BRSR-specific awards — the part that legitimately belongs only here.
+    pathway_bonuses: dict[str, float] = {}
     if _brsr_score >= 85:
-        mr += 0.65
-        extra["mr_breakdown"]["brsr_pioneer_bonus"] = 0.65
+        pathway_bonuses["brsr_pioneer_bonus"] = 0.65
     elif _brsr_score >= 70:
-        mr += 0.35
-        extra["mr_breakdown"]["brsr_steward_bonus"] = 0.35
+        pathway_bonuses["brsr_steward_bonus"] = 0.35
     elif _brsr_score > 0 and _brsr_score < 40:
-        mr -= 0.30
-        extra["mr_breakdown"]["brsr_laggard_penalty"] = -0.30
+        pathway_bonuses["brsr_laggard_penalty"] = -0.30
+    if _brsr_div_forfeited:
+        pathway_bonuses["brsr_truth_premium_blocked"] = 0.0  # recorded; dividend already zeroed
 
-    # Standard workforce and burnout bonuses if they apply
     workforce_readiness = gs.get("workforce_readiness", 50.0)
-    if workforce_readiness >= 75.0:
-        mr += 0.10
-        extra["mr_breakdown"]["workforce_bonus"] = 0.10
-        extra["mr_workforce_bonus"] = True
-        
     avg_burnout = round(sum(bu.get("staff_burnout_index", 0.0) for bu in bus) / len(bus), 2) if bus else 0.0
-    if avg_burnout < 20.0:
-        mr += 0.05
-        extra["mr_breakdown"]["wellbeing_bonus"] = 0.05
-        extra["mr_wellbeing_bonus"] = True
-        
     avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 0
-    if avg_sl < 75:
-        mr -= 0.40
-        extra["mr_breakdown"]["instability_discount"] = -0.40
+
+    # The flags dict calculate_mr reads. brsr_net_positive_dividend is a NUMERIC
+    # flag (calculate_mr does `mr += brsr_div`), so it must carry its value, not
+    # the `True` that the boolean flags carry.
+    _mr_flags = {f: True for f in all_flags}
+    _mr_flags.pop("brsr_net_positive_dividend", None)
+    if brsr_div:
+        _mr_flags["brsr_net_positive_dividend"] = brsr_div
+
+    from terminal_valuation import calculate_mr
+    mr_result = calculate_mr(
+        _mr_flags,
+        avg_slo=avg_sl,
+        avg_burnout=avg_burnout,
+        workforce_readiness=workforce_readiness,
+        synergy_multiplier=gs.get("synergy_multiplier", 1.0),
+        hr_investment_rounds=int(_cf.get("hr_investment_rounds", 0) or 0),
+        pathway_bonuses=pathway_bonuses or None,
+    )
+    mr = round(mr_result["mr"], 4)
+    extra["mr_breakdown"] = mr_result["breakdown"]
+    extra["mr_raw"] = mr_result["mr_raw"]
+    extra["mr_ceiling_clamped"] = mr_result["mr_ceiling_clamped"]
+    extra["mr_floor_clamped"] = mr_result["mr_floor_clamped"]
+    _bd = mr_result["breakdown"]
+    if _bd.get("workforce_bonus"):
+        extra["mr_workforce_bonus"] = True
+    if _bd.get("wellbeing_bonus"):
+        extra["mr_wellbeing_bonus"] = True
+    if _bd.get("instability_discount", 0) < 0:
         extra["mr_instability_discount"] = True
-        
-    # Ensure mr is rounded and positive
-    mr = round(max(0.0, mr), 4)
     
     # Calculate terminal value — F-12: same floor / M_SDG rules as the main
     # finale (terminal_valuation is the single formula).
@@ -416,31 +443,20 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     extra["ebitda_used_for_tv"] = _ebitda_for_tv
     terminal_value = round(_ebitda_for_tv * exit_multiple * mr * _m_sdg, 2)
     
-    # Profile archetype
-    if mr >= 1.8:
-        profile = "regenerative_titan"
-        profile_title = "The Regenerative Titan"
-        profile_desc = "A truly regenerative enterprise."
-        profile_icon = ""
-        profile_gradient = "linear-gradient(135deg, #10b981, #059669)"
-    elif mr >= 1.2:
-        profile = "derisked_safe_haven"
-        profile_title = "The De-risked Safe-Haven"
-        profile_desc = "A resilient corporation that avoided the worst tail risks."
-        profile_icon = ""
-        profile_gradient = "linear-gradient(135deg, #3b82f6, #1d4ed8)"
-    elif mr >= 0.8:
-        profile = "fragile_giant"
-        profile_title = "The Fragile Giant"
-        profile_desc = "Big but brittle."
-        profile_icon = ""
-        profile_gradient = "linear-gradient(135deg, #f59e0b, #d97706)"
-    else:
-        profile = "stranded_relic"
-        profile_title = "The Stranded Relic"
-        profile_desc = "A cautionary tale."
-        profile_icon = ""
-        profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
+    # Profile archetype — terminal_valuation.determine_archetype is the single
+    # classifier. The thresholds (1.8 / 1.2 / 0.8) and the title/gradient set
+    # used to be duplicated inline here, which is how they drift.
+    from terminal_valuation import determine_archetype as _determine_archetype
+    _arch = _determine_archetype(mr)
+    profile = _arch["key"]
+    profile_title = _arch.get("title", "")
+    profile_icon = _arch.get("icon", "")
+    profile_gradient = _arch.get("gradient", "")
+    profile_desc = {
+        "regenerative_titan": "A truly regenerative enterprise.",
+        "derisked_safe_haven": "A resilient corporation that avoided the worst tail risks.",
+        "fragile_giant": "Big but brittle.",
+    }.get(profile, "A cautionary tale.")
         
     # Populate Extra & Global State
     extra["terminal_ebitda"] = terminal_ebitda

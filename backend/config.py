@@ -22,8 +22,15 @@ DATABASE_URL: str = os.getenv(
 # produce a facilitator whose default paradigm could not create a cohort.)
 # Adding a paradigm here is NOT sufficient on its own: the engine must handle
 # it end to end before it is offered to facilitators.
+# 2026-09-03: brsr_ngrbc added. It was in the Pydantic enum (models.py) and had
+# a full engine path (round_logic.post_tick's brsr branch, brsr_controller, the
+# side-track module) but was NOT in this set, so create_session answered 422 and
+# no cohort could ever reach it — the same shape as the un_sdg defect above,
+# with the opposite sign. Added only now that _post_brsr_grand_finale computes
+# M_R through terminal_valuation.calculate_mr like every other finale; before
+# that it scored on hard steps where the canon ramps.
 VALID_DECISION_PARADIGMS: frozenset[str] = frozenset({
-    "legacy_abc", "multi_toggles", "advanced_climate", "healthcare",
+    "legacy_abc", "multi_toggles", "advanced_climate", "healthcare", "brsr_ngrbc",
 })
 
 # Connection pool settings
