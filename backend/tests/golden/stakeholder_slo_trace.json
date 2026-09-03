@@ -5,25 +5,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 56.0
+        "social_license_score": 58.12
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 56.0
+        "social_license_score": 58.12
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 56.0
+        "social_license_score": 58.12
       },
       {
         "bu_id": "software",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 56.0
+        "social_license_score": 58.12
       }
     ],
     "group_reputation": 29.26,
@@ -35,7 +35,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 52.4,
+        "satisfaction": 53.25,
         "trust": 50.0
       },
       "journalist": {
@@ -57,25 +57,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 57.0
+        "social_license_score": 61.24
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 57.0
+        "social_license_score": 61.24
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 57.0
+        "social_license_score": 61.24
       },
       {
         "bu_id": "software",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 57.0
+        "social_license_score": 61.24
       }
     ],
     "group_reputation": 29.26,
@@ -87,7 +87,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 52.8,
+        "satisfaction": 54.5,
         "trust": 50.0
       },
       "journalist": {
@@ -109,25 +109,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 58.0
+        "social_license_score": 64.37
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 58.0
+        "social_license_score": 64.37
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 58.0
+        "social_license_score": 64.37
       },
       {
         "bu_id": "software",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 58.0
+        "social_license_score": 64.37
       }
     ],
     "group_reputation": 29.26,
@@ -139,7 +139,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 53.2,
+        "satisfaction": 55.75,
         "trust": 50.0
       },
       "journalist": {
@@ -161,25 +161,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 49.0
+        "social_license_score": 57.49
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 59.0
+        "social_license_score": 67.5
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 59.0
+        "social_license_score": 67.5
       },
       {
         "bu_id": "software",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 59.0
+        "social_license_score": 67.5
       }
     ],
     "group_reputation": 29.26,
@@ -191,7 +191,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 52.6,
+        "satisfaction": 56.0,
         "trust": 50.0
       },
       "journalist": {
@@ -213,25 +213,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 50.0
+        "social_license_score": 60.62
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 60.0
+        "social_license_score": 70.62
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 60.0
+        "social_license_score": 70.62
       },
       {
         "bu_id": "software",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 60.0
+        "social_license_score": 70.62
       }
     ],
     "group_reputation": 29.26,
@@ -243,7 +243,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 53.0,
+        "satisfaction": 57.25,
         "trust": 50.0
       },
       "journalist": {
@@ -265,25 +265,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 30.0,
         "reputation_score": 60.0,
-        "social_license_score": 29.0
+        "social_license_score": 41.74
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 30.0,
         "reputation_score": 60.0,
-        "social_license_score": 39.0
+        "social_license_score": 51.75
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 30.0,
         "reputation_score": 60.0,
-        "social_license_score": 39.0
+        "social_license_score": 51.75
       },
       {
         "bu_id": "software",
         "governance_risk_score": 30.0,
         "reputation_score": 60.0,
-        "social_license_score": 39.0
+        "social_license_score": 51.75
       }
     ],
     "group_reputation": 1.26,
@@ -295,7 +295,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 53.4,
+        "satisfaction": 58.5,
         "trust": 50.0
       },
       "journalist": {
@@ -317,25 +317,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 32.0,
-        "social_license_score": 30.0
+        "social_license_score": 44.87
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 22.0,
         "reputation_score": 32.0,
-        "social_license_score": 40.0
+        "social_license_score": 54.88
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 22.0,
         "reputation_score": 32.0,
-        "social_license_score": 40.0
+        "social_license_score": 54.88
       },
       {
         "bu_id": "software",
         "governance_risk_score": 22.0,
         "reputation_score": 32.0,
-        "social_license_score": 40.0
+        "social_license_score": 54.88
       }
     ],
     "group_reputation": 0.0,
@@ -346,8 +346,8 @@
         "trust": 50.0
       },
       "community_leader": {
-        "escalation_level": "protest",
-        "satisfaction": 45.0,
+        "escalation_level": "watchful",
+        "satisfaction": 50.95,
         "trust": 50.0
       },
       "journalist": {
@@ -369,25 +369,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 31.0
+        "social_license_score": 47.99
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 41.0
+        "social_license_score": 58.01
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 41.0
+        "social_license_score": 58.01
       },
       {
         "bu_id": "software",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 41.0
+        "social_license_score": 58.01
       }
     ],
     "group_reputation": 0.0,
@@ -398,8 +398,8 @@
         "trust": 50.0
       },
       "community_leader": {
-        "escalation_level": "protest",
-        "satisfaction": 45.4,
+        "escalation_level": "watchful",
+        "satisfaction": 52.2,
         "trust": 50.0
       },
       "journalist": {
@@ -421,25 +421,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 32.0
+        "social_license_score": 51.12
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 42.0
+        "social_license_score": 61.13
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 42.0
+        "social_license_score": 61.13
       },
       {
         "bu_id": "software",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 42.0
+        "social_license_score": 61.13
       }
     ],
     "group_reputation": 0.0,
@@ -450,8 +450,8 @@
         "trust": 50.0
       },
       "community_leader": {
-        "escalation_level": "protest",
-        "satisfaction": 45.8,
+        "escalation_level": "watchful",
+        "satisfaction": 53.45,
         "trust": 50.0
       },
       "journalist": {
@@ -473,25 +473,25 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 33.0
+        "social_license_score": 54.24
       },
       {
         "bu_id": "electronics",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 43.0
+        "social_license_score": 64.25
       },
       {
         "bu_id": "pharma",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 43.0
+        "social_license_score": 64.25
       },
       {
         "bu_id": "software",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 43.0
+        "social_license_score": 64.25
       }
     ],
     "group_reputation": 0.0,
@@ -502,8 +502,8 @@
         "trust": 50.0
       },
       "community_leader": {
-        "escalation_level": "protest",
-        "satisfaction": 46.2,
+        "escalation_level": "watchful",
+        "satisfaction": 54.7,
         "trust": 50.0
       },
       "journalist": {

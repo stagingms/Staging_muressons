@@ -253,9 +253,9 @@
       "treasury_drop_reflection_pct": 20
     },
     "slo_ramp": {
-      "no_decay_ratio": 0.1,
-      "mid_ratio": 0.25,
-      "growth_ratio": 0.4,
+      "no_decay_ratio": 0.15,
+      "mid_ratio": 0.2,
+      "growth_ratio": 0.3,
       "min_abs_capex": 100000
     }
   },

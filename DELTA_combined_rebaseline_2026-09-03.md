@@ -216,14 +216,54 @@ attached.
 **Regression contract: 2420 passed, 15 skipped, 0 failed.** Route-guard ratchets unmoved
 (`_MAX_UNGUARDED` 58, `_MAX_UNTENANTED` 1). Conservation law green on all 15 cases.
 
-### 5.5 The one thing still open, stated plainly
+### 5.5 Second dial-back: the ratio bands reverted in full
 
-The stakeholder golden trace now records SLO −21.25 at R10 and `community_leader` at
-`protest` from R7. That is real: teams allocating in the 0.30–0.40 band — **11 of 72
-substantive real decisions** — lose full licence growth and will see a stakeholder protest
-they would not have seen before.
+Ruling: revert the ratio bands entirely and keep only the part that was genuinely
+defective. Done — `slo_ramp` is now **0.15 / 0.20 / 0.30**, exactly the values the engine
+had before item 4, with `min_abs_capex` $100,000 retained.
 
-If that is more than intended, `slo_ramp.growth_ratio` back to **0.30** removes it entirely,
-at the cost of the mild tier catching 1.7% of real decisions again instead of 5.8% — the
-degeneracy the recalibration was for. One config value, no code change, and the traces would
-need rebaselining once more.
+**Why reverting the growth bar alone would have been wrong.** Measured over the 241 real
+decisions:
+
+| bands | decay | no-decay | mild | growth |
+|---|---|---|---|---|
+| 0.15 / 0.20 / 0.30 — original, and shipped | 70.1% | 0.0% | **3.7%** | 26.1% |
+| 0.10 / 0.25 / 0.40 — previous dial-back | 70.1% | 2.1% | 5.8% | 22.0% |
+| 0.10 / 0.25 / 0.30 — growth bar alone | 70.1% | 2.1% | **1.7%** | 26.1% |
+
+Reverting only the growth bar leaves the mild tier catching **1.7%, narrower than the 3.7%
+it started at** — a new degeneracy in the name of removing one. Both bars went back
+together.
+
+**What that bought, measured against the pre-item-4 committed goldens:**
+
+* **Stakeholder golden trace: byte-identical to the original.** The −21.25 SLO and the
+  `watchful → protest` escalation are entirely gone.
+* **Financial golden trace: byte-identical to the original.** Including the three
+  cost-of-capital values that still moved at 0.40.
+* Both golden files were **restored to their pre-item-4 content** rather than rebaselined —
+  the rebaseline taken earlier in §5.4 is reverted, because the engine now reproduces the
+  originals exactly.
+* **Treasury fingerprints: 0 of 15 changed.** They were already correct, which independently
+  re-confirms that the bands never reach the runner — only `min_abs_capex` and B-2 do.
+* **Balance report: already matches the committed baseline**, no rebaseline needed.
+
+### 5.6 What item 4 finally reduces to
+
+One behavioural change, and it is a defect fix rather than a calibration judgement:
+
+> `invested` was `ratio >= 0.15 or capex_allocated > 0`, and `router.py` refuses any commit
+> giving a BU less than $1 — so `invested` was unconditionally true and the full-decay tier
+> was unreachable across the entire 0.0–1.0 ratio range. It is now gated on a minimum
+> absolute spend of $100,000, which reclassifies exactly the 169 of 241 real decisions that
+> were token $1 allocations and cannot misclassify a single real one.
+
+The ratio bands are untouched. `no_decay_ratio` is now structurally inert given the floor
+(the CSF pool is at least $5M, so reaching ratio 0.15 already means $750k) and is kept as
+the documented band and the knob to turn if the floor is ever raised.
+
+The remaining baseline movement on this branch is **B-2 alone** — the transient-leak fix —
+visible as ~1–2% lower terminal values, `balanced` reaching R9, and the 15 treasury
+fingerprints. That is the engine no longer creating money.
+
+**Final regression contract: 2420 passed, 15 skipped, 0 failed.**

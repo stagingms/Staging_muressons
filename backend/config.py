@@ -560,33 +560,39 @@ NATURAL_DECAY_GROWTH_ABS_CAPEX: float = float(_slo_ramp.get("growth_abs_capex", 
 NATURAL_DECAY_MID_GROWTH:       float = float(_slo_ramp.get("mid_growth", 1.0))
 
 # ── Natural-decay tier calibration (launch readiness 2026-09-03) ────────────
-# The tiers were 0.15 (no decay) / 0.20 (mild growth) / 0.30 (growth), with the
-# first and last as bare literals in engine.apply_natural_decay. Measured
-# against the 241 stored real decisions (investment_ratio reconstructed with the
-# router's own formula, capex_allocated / max(treasury*0.20, 5M)):
+# THE RATIO BANDS ARE THE ORIGINAL 0.15 / 0.20 / 0.30. They were moved to
+# 0.10 / 0.25 / 0.50 and then dialled back to here after measuring, because the
+# case for moving them did not survive the measurement:
 #
-#   0.15 <= ratio < 0.20 :  0 decisions   <- the "no decay" tier caught NOBODY
-#   0.20 <= ratio < 0.30 :  9 decisions   <- the mild-growth tier, 3.7%
-#   ratio >= 0.30        : 63 decisions   <- 87% of every substantive allocation
+#  * they change NOTHING in the balance report or the treasury fingerprints at
+#    any value between 0.30 and 0.50 — the bot ladder runs at investment ratios
+#    0.0125-0.15, below every candidate bar, so the runner never sees them;
+#  * their only real effect was on teams above ratio 0.30, and moving the growth
+#    bar to 0.40 cost the stakeholder golden trace 21.25 SLO points by R10 and
+#    escalated a stakeholder to `protest` from R7 — for a fixture sitting at the
+#    4th percentile of substantive play;
+#  * and reverting the growth bar WITHOUT also reverting the mild bar left the
+#    mild tier catching 1.7% of real decisions, NARROWER than the 3.7% it
+#    started at. A dial-back that leaves a new degeneracy behind is not a
+#    dial-back, so both went back together.
 #
-# So two adjacent bands were indistinguishable and the top tier was close to
-# automatic for anyone who spent real money. Substantive allocations run
-# 0.20 -> 1.00 with a median of 0.50, so the bands move onto that distribution:
-# each tier now catches a distinct population and full growth is a choice rather
-# than a default.
+# What the original bands genuinely had wrong was not their VALUES. It was that
+# the decay tier underneath them was unreachable — see min_abs_capex below.
+# That is the one behavioural change that survives, and it is a defect fix
+# rather than a calibration judgement.
 #
-# growth_ratio DIALLED BACK 0.50 -> 0.40 on 2026-09-03, after measuring rather
-# than guessing. It changes NOTHING in the balance report at any value between
-# 0.30 and 0.50 — the bot ladder runs at ratios 0.0125-0.15, below every
-# candidate bar — so the trade-off is purely about real allocations:
-#   0.30  mild tier catches 1.7% of them (the degeneracy this exists to fix)
-#   0.40  catches 5.8%, demotes 11 real decisions out of full growth
-#   0.50  catches 9.1%, demotes 26
-# The median substantive allocation (0.50) keeps full growth either way; only
-# the bottom third of substantive allocators is affected at all.
-NATURAL_DECAY_NO_DECAY_RATIO:   float = float(_slo_ramp.get("no_decay_ratio", 0.10))
-NATURAL_DECAY_MID_RATIO:        float = float(_slo_ramp.get("mid_ratio", 0.25))
-NATURAL_DECAY_GROWTH_RATIO:     float = float(_slo_ramp.get("growth_ratio", 0.40))
+# Measured tier populations over the 241 stored real decisions, floor $100k:
+#   0.15 / 0.20 / 0.30  (shipped)  decay 70.1%  no-decay 0.0%  mild 3.7%  growth 26.1%
+#   0.10 / 0.25 / 0.40             decay 70.1%  no-decay 2.1%  mild 5.8%  growth 22.0%
+#   0.10 / 0.25 / 0.30             decay 70.1%  no-decay 2.1%  mild 1.7%  growth 26.1%
+#
+# NOTE: no_decay_ratio is structurally INERT given the $100k floor. The CSF pool
+# is at least $5M, so any allocation reaching ratio 0.15 is already at least
+# $750k and clears the floor on the absolute test first. It is kept as the
+# documented band and as the knob to turn if the floor is ever raised.
+NATURAL_DECAY_NO_DECAY_RATIO:   float = float(_slo_ramp.get("no_decay_ratio", 0.15))
+NATURAL_DECAY_MID_RATIO:        float = float(_slo_ramp.get("mid_ratio", 0.20))
+NATURAL_DECAY_GROWTH_RATIO:     float = float(_slo_ramp.get("growth_ratio", 0.30))
 
 # The tier that never fired at all, and why a ratio band alone could not fix it.
 # engine.py's call site computed `invested = ratio >= 0.15 or capex_allocated > 0`,
@@ -617,7 +623,7 @@ NATURAL_DECAY_MIN_ABS_CAPEX:    float = float(_slo_ramp.get("min_abs_capex", 100
 # minimum spend above the growth escape would invert the two absolute tests.
 # A configuration that breaks either falls back to the whole default set — never
 # to a half-applied mixture — and says so.
-_DECAY_TIER_DEFAULTS = (0.10, 0.25, 0.40)
+_DECAY_TIER_DEFAULTS = (0.15, 0.20, 0.30)
 if not (0.0 < NATURAL_DECAY_NO_DECAY_RATIO < NATURAL_DECAY_MID_RATIO
         < NATURAL_DECAY_GROWTH_RATIO <= 1.0):
     print(f"[CONFIG] WARNING: slo_ramp tiers must satisfy 0 < no_decay_ratio < mid_ratio "
