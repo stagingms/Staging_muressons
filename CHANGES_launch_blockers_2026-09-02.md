@@ -550,6 +550,47 @@ and `warn_threshold` (~line 218) and `simulation_config.json` carries those name
 anyone refreshing a volume from this list added two keys nothing reads and left the two
 that matter at their dollar-scale legacy values. The clamp caught it; the list did not.
 
+### Volume refresh performed (2026-09-03, dev data dir)
+
+`db/simulation_config.json` on this working tree — the durable data dir when
+`MURESSONS_DATA_DIR` is unset — was brought into agreement with the repository copy key by
+key (not wholesale), preserving the one volume-only key. Previous copy kept beside it as
+`db/simulation_config.json.pre-refresh-20260903.bak`; both are gitignored, so this note is
+the only record git carries.
+
+| Key | Was | Now |
+|---|---|---|
+| `engine_parameters.cbam.surcharge_rate` | 100000 | 100 |
+| `engine_parameters.imitation_decay.default_rate` | 0.1 | 0.05 |
+| `engine_parameters.regulatory_ratchet.baseline` | 10.0 | 20.0 |
+| `engine_parameters.synergy.max_reduction_per_round` | absent | 0.06 |
+| `ncd_parameters.hard_cap` | 1000000 | 5000 |
+| `ncd_parameters.warn_threshold` | 500000 | 1000 |
+| `ncd_parameters.opex_penalty_per_unit` | absent | 1000 |
+
+`ncd_parameters.opex_scaling_factor: 50000` was PRESERVED — it is the only key on the
+volume and not in the repository. Nothing reads it (its sole mention is the legacy-key
+warning in `config.py`), and that warning is now silent because `opex_penalty_per_unit` is
+present. It is left in place rather than deleted because removing a facilitator's key is a
+separate decision from refreshing the values.
+
+Read back from a running process (`python -c "import config; ..."` from `backend/`):
+imitation 0.05, CBAM 100.0, NCD opex/unit 1000.0, ratchet baseline 20.0, synergy max
+reduction 0.06, NCD hard cap 5000.0, NCD warn 1000.0. No `[CONFIG] WARNING` lines.
+
+**This is the DEV volume only.** The Railway production volume is not reachable from a
+working tree; it still needs the same seven keys, and until it gets them the clamps
+neutralise three of the five stale values while `regulatory_ratchet.baseline` (10.0, not
+clamped) and the absent `synergy.max_reduction_per_round` still govern there.
+
+**`/api/admin/config/live` does not detect this class of staleness.**
+`check_file_ahead_of_process` compares the file's JSON against `SIMULATION_CONFIG`, which
+is that same JSON — so a stale-but-parseable volume reports `in_sync` with zero
+high-severity problems, verified against the pre-refresh copy. It also reports `in_sync`
+while `config.py` is actively clamping four of the file's values away, because the check
+never looks at the typed constants. The endpoint answers "did my upload land", not "is the
+process running what the file says".
+
 ## Things to know before merging
 
 1. **Observable behaviour changes for users:** facilitators on an initial password can only
