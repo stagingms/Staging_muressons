@@ -16,6 +16,12 @@ see §Discarded.
 
 ## B-1 · CRITICAL — an HTTP page load reseeds the RNG that gameplay draws from
 
+> **FIXED 2026-09-03, commit `fc1dff0`.** Both sites take a local `Random` from the new
+> `rng_util.stable_rng`; a tripwire in `test_seeded_stochastics.py` resolves every
+> `<alias>.seed(...)` by AST and blocks a recurrence. It found three further offline sites
+> on its first run, allow-listed with reasons plus a guard that fires if production ever
+> imports one.
+
 **`backend/router.py:5255-5257`** (`get_peer_leaderboard`) and **`:5445-5447`**
 (`get_peer_trend_history`):
 
@@ -218,6 +224,12 @@ about two paradigms, not about the engine.
 
 ## B-6 · HIGH operationally — a cohort freeze is all-or-nothing across all thirty
 
+> **FIXED 2026-09-03, commit `fc1dff0`** — the `system_frozen` half only. The guard now
+> also reads `get_effective_settings(session_id)`, either freeze applies, and four
+> end-to-end tests in `test_freeze_scoping.py` were verified red against the old guard.
+> The four sibling reads below are NOT fixed: they need `session_id` threaded into
+> `TickContext`, which has no such field.
+
 `COHORT_OVERRIDABLE_KEYS` includes `system_frozen`, and `admin_router.py:1131-1139`
 explicitly grants a `lead_facilitator` write access to it **for cohorts they own**. But the
 only enforcement point, `router._commit_turn_impl:2423-2424`, reads the process-global
@@ -291,8 +303,8 @@ does nothing or stops everyone.
 
 | # | Finding | Before launch? | Moves pinned values? |
 |---|---|---|---|
-| B-1 | Global RNG reseed from a page load | **Yes** | No |
-| B-6 | `system_frozen` (at minimum) read from the global | **Yes** | No |
+| B-1 | Global RNG reseed from a page load | **DONE** `fc1dff0` | No |
+| B-6 | `system_frozen` (at minimum) read from the global | **DONE** `fc1dff0` | No |
 | B-3 | `planet_expendable` charged twice | **Yes** | Yes — archetype |
 | B-2 | Transient OPEX leak | After, with a written delta | Yes — traces + balance |
 | B-4 | JT scaling dead / 2.020 unreachable | After, needs a ruling | Yes — textbook |
