@@ -585,7 +585,28 @@ _imit = _engine.get("imitation_decay", {})
 # (the client used to send its own — hard-coded 0.05 while this default said
 # 0.10 and the docs said 5%). The config now says what live play has always
 # done: 5% per round.
-DEFAULT_IMITATION_DECAY_RATE:  float = float(_imit.get("default_rate", 0.05))
+#
+# Launch readiness 2026-09-03: F-07 moved the authority from the client to the
+# server, which means the value on the DURABLE DATA VOLUME now governs — and a
+# volume seeded before F-07 still carries 0.10, exactly double. Nothing failed;
+# every team's competitive advantage simply decayed twice as fast (an advantage
+# of 0.80 left unattended over a ten-round game reaches 0.5042 at 0.05 and
+# 0.3100 at 0.10). Same failure mode, same day, same shape of guard as CBAM
+# (~line 471) and the natural-capital thresholds (~line 224): anything above
+# the sanity ceiling is treated as the stale pre-F-07 value and clamped to the
+# default with a warning naming both. The ceiling deliberately leaves real
+# tuning headroom — this key is facilitator-editable through the Excel importer
+# (config_excel.py) — while sitting strictly below the known-bad 0.10, so the
+# bound can never certify the value it exists to catch.
+_IMITATION_DECAY_DEFAULT: float = 0.05
+_IMITATION_DECAY_SANITY_MAX: float = 0.08
+DEFAULT_IMITATION_DECAY_RATE:  float = float(_imit.get("default_rate", _IMITATION_DECAY_DEFAULT))
+if DEFAULT_IMITATION_DECAY_RATE > _IMITATION_DECAY_SANITY_MAX:
+    print(f"[CONFIG] WARNING: engine_parameters.imitation_decay.default_rate="
+          f"{DEFAULT_IMITATION_DECAY_RATE:.4g} exceeds the {_IMITATION_DECAY_SANITY_MAX:.4g} sanity "
+          f"ceiling (stale pre-F-07 value); using {_IMITATION_DECAY_DEFAULT:.4g}. "
+          "Update simulation_config.json on the data volume.")
+    DEFAULT_IMITATION_DECAY_RATE = _IMITATION_DECAY_DEFAULT
 
 # ── Scoring / Grading Boundaries ────────────────────────────────
 _scoring = _engine.get("scoring", {})

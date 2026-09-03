@@ -31,6 +31,42 @@ client = TestClient(app)
 GOD = {"facilitator_id": "god_mode", "password": "sim2026@iim"}
 
 
+@pytest.fixture
+def decay_rate_on_volume(tmp_path, monkeypatch):
+    """Load `config` against a data volume whose simulation_config.json carries
+    a chosen imitation_decay.default_rate, then put the real one back.
+
+    CONFIG_PATH and every typed constant are import-time, so the only way to
+    exercise a config-load branch is the way config.reload_simulation_config()
+    does it in production: point MURESSONS_DATA_DIR at a directory and reload.
+    Teardown restores the environment AND reloads again, so this fixture does
+    not leak a poisoned config into the rest of the session.
+    """
+    import importlib
+    import json
+    import os
+    import pathlib
+    import config as _config
+
+    repo_cfg = pathlib.Path(__file__).resolve().parent.parent.parent / "simulation_config.json"
+    original = os.environ.get("MURESSONS_DATA_DIR")
+
+    def _load(rate):
+        data = json.loads(repo_cfg.read_text(encoding="utf-8"))
+        data.setdefault("engine_parameters", {}).setdefault("imitation_decay", {})["default_rate"] = rate
+        (tmp_path / "simulation_config.json").write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setenv("MURESSONS_DATA_DIR", str(tmp_path))
+        return importlib.reload(_config)
+
+    yield _load
+
+    if original is None:
+        os.environ.pop("MURESSONS_DATA_DIR", None)
+    else:
+        os.environ["MURESSONS_DATA_DIR"] = original
+    importlib.reload(_config)
+
+
 def _god():
     r = client.post("/api/admin/facilitators/login", json=GOD)
     assert r.status_code == 200, r.text
@@ -1008,6 +1044,58 @@ class TestF07ServerDerivedParameters:
         from round_logic import base_crisis_severity_for_round
         assert base_crisis_severity_for_round(4) == 40.0
         assert base_crisis_severity_for_round(1) == 0.0
+
+
+class TestF07ImitationDecayBound:
+    """The other half of F-07, found at launch-readiness review 2026-09-03.
+
+    Moving the decay rate from the client to the server made the value on the
+    DURABLE DATA VOLUME authoritative — and a volume seeded before F-07 still
+    carries 0.10 against a repo copy of 0.05. Nothing failed; every team's
+    competitive advantage simply decayed at twice the documented rate (0.80 ->
+    0.5042 over a ten-round game at 0.05, 0.3100 at 0.10).
+
+    CBAM and the NCD thresholds got a sanity bound for exactly this on
+    2026-09-01; this key did not. Both branches are pinned here because a
+    ceiling that is never exercised is a ceiling nobody notices has been
+    widened — the bound must clamp the known-bad value AND leave the tuning
+    band below it alone.
+    """
+
+    def test_the_live_rate_is_the_documented_one(self):
+        import config
+        assert config.DEFAULT_IMITATION_DECAY_RATE == pytest.approx(0.05)
+        assert config.DEFAULT_IMITATION_DECAY_RATE <= config._IMITATION_DECAY_SANITY_MAX
+
+    def test_the_ceiling_sits_below_the_known_bad_value(self):
+        """2.4: a bound raised to admit the value it was meant to catch
+        certifies that value. 0.10 is the stale pre-F-07 rate."""
+        import config
+        assert config._IMITATION_DECAY_DEFAULT < config._IMITATION_DECAY_SANITY_MAX < 0.10
+
+    def test_repo_config_matches_the_default(self):
+        import json, pathlib
+        cfg = json.loads((pathlib.Path(__file__).resolve().parent.parent.parent
+                          / "simulation_config.json").read_text(encoding="utf-8-sig"))
+        rate = cfg["engine_parameters"]["imitation_decay"]["default_rate"]
+        assert rate == 0.05
+
+    def test_a_stale_volume_value_is_clamped_and_says_so(self, decay_rate_on_volume, capsys):
+        """Branch 1: above the ceiling -> default, with a warning naming both."""
+        cfg = decay_rate_on_volume(0.10)
+        assert cfg.DEFAULT_IMITATION_DECAY_RATE == pytest.approx(0.05)
+        out = capsys.readouterr().out
+        assert "imitation_decay.default_rate" in out
+        assert "0.1" in out and "0.08" in out and "0.05" in out
+
+    def test_a_configured_value_within_the_bound_is_honoured(self, decay_rate_on_volume, capsys):
+        """Branch 2: at or below the ceiling -> used as configured, silently.
+        This key is facilitator-editable through the Excel importer, so the
+        bound must not collapse the tuning band onto the default."""
+        for rate in (0.07, 0.08):
+            cfg = decay_rate_on_volume(rate)
+            assert cfg.DEFAULT_IMITATION_DECAY_RATE == pytest.approx(rate)
+            assert "imitation_decay" not in capsys.readouterr().out
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -536,12 +536,19 @@ EVAL_Stakeholder_SLO, the glossary and `models.py`.
 
 The server loads `simulation_config.json` from the durable data dir, so the repo copy is
 not what production reads. Update the volume copy (or re-upload the xlsx) for:
-`cbam.surcharge_rate` 100; `ncd_parameters.hostile_threshold` 5000,
-`ncd_parameters.warning_threshold` 1000, `ncd_parameters.opex_penalty_per_unit` 1000 (the
+`cbam.surcharge_rate` 100; `ncd_parameters.hard_cap` 5000,
+`ncd_parameters.warn_threshold` 1000, `ncd_parameters.opex_penalty_per_unit` 1000 (the
 legacy `opex_scaling_factor` key is ignored with a warning); `regulatory_ratchet.baseline`
 20; `synergy.max_reduction_per_round` 0.06; `imitation_decay.default_rate` 0.05.
-`config.py` clamps the two known poison values (CBAM > 5,000/t, NCD thresholds > 100,000)
-back to defaults with a warning, so a stale volume degrades loudly rather than silently.
+`config.py` clamps the three known poison values (CBAM > 5,000/t, NCD thresholds > 100,000,
+imitation decay > 0.08) back to defaults with a warning, so a stale volume degrades loudly
+rather than silently.
+
+2026-09-03: the two NCD entries above previously read `ncd_parameters.hostile_threshold`
+and `ncd_parameters.warning_threshold`. Neither key exists — `config.py` reads `hard_cap`
+and `warn_threshold` (~line 218) and `simulation_config.json` carries those names — so
+anyone refreshing a volume from this list added two keys nothing reads and left the two
+that matter at their dollar-scale legacy values. The clamp caught it; the list did not.
 
 ## Things to know before merging
 
