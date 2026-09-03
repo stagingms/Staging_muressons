@@ -71,12 +71,23 @@ def _cohort(ck, name):
 def _team(ck, cohort, name="Team"):
     """generate-player + player-login -> (player_id, sub_session_id, headers).
     Mirrors test_launch_audit_2026_09_01._team; the token key is `player_token`."""
-    g = client.post(f"/api/admin/{cohort}/generate-player",
-                    json={"player_name": name}, cookies=ck)
-    assert g.status_code in (200, 201), g.text
-    pid, pw = g.json()["player_id"], g.json()["password"]
-    client.cookies.clear()
-    lr = client.post("/api/simulations/player-login", json={"player_id": pid, "password": pw})
+    # Retry on 409 player_id_ambiguous. That is F-40's deliberate refusal when
+    # the same id AND default password exist in more than one cohort, and in a
+    # FULL suite run enough cohorts exist for it to happen. It has nothing to do
+    # with freezing, so a fresh id is the right response rather than a failure
+    # here — this test must fail for freeze reasons only.
+    for _attempt in range(5):
+        g = client.post(f"/api/admin/{cohort}/generate-player",
+                        json={"player_name": f"{name}-{_attempt}"}, cookies=ck)
+        assert g.status_code in (200, 201), g.text
+        pid, pw = g.json()["player_id"], g.json()["password"]
+        client.cookies.clear()
+        lr = client.post("/api/simulations/player-login",
+                         json={"player_id": pid, "password": pw})
+        if lr.status_code == 200:
+            break
+        assert lr.status_code == 409 and "ambiguous" in lr.text, lr.text
+        client.cookies = ck
     assert lr.status_code == 200, lr.text
     body = lr.json()
     assert body.get("player_token"), "login must mint a signed player token (F-22)"

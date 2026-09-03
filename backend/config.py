@@ -574,9 +574,19 @@ NATURAL_DECAY_MID_GROWTH:       float = float(_slo_ramp.get("mid_growth", 1.0))
 # 0.20 -> 1.00 with a median of 0.50, so the bands move onto that distribution:
 # each tier now catches a distinct population and full growth is a choice rather
 # than a default.
+#
+# growth_ratio DIALLED BACK 0.50 -> 0.40 on 2026-09-03, after measuring rather
+# than guessing. It changes NOTHING in the balance report at any value between
+# 0.30 and 0.50 — the bot ladder runs at ratios 0.0125-0.15, below every
+# candidate bar — so the trade-off is purely about real allocations:
+#   0.30  mild tier catches 1.7% of them (the degeneracy this exists to fix)
+#   0.40  catches 5.8%, demotes 11 real decisions out of full growth
+#   0.50  catches 9.1%, demotes 26
+# The median substantive allocation (0.50) keeps full growth either way; only
+# the bottom third of substantive allocators is affected at all.
 NATURAL_DECAY_NO_DECAY_RATIO:   float = float(_slo_ramp.get("no_decay_ratio", 0.10))
 NATURAL_DECAY_MID_RATIO:        float = float(_slo_ramp.get("mid_ratio", 0.25))
-NATURAL_DECAY_GROWTH_RATIO:     float = float(_slo_ramp.get("growth_ratio", 0.50))
+NATURAL_DECAY_GROWTH_RATIO:     float = float(_slo_ramp.get("growth_ratio", 0.40))
 
 # The tier that never fired at all, and why a ratio band alone could not fix it.
 # engine.py's call site computed `invested = ratio >= 0.15 or capex_allocated > 0`,
@@ -586,18 +596,28 @@ NATURAL_DECAY_GROWTH_RATIO:     float = float(_slo_ramp.get("growth_ratio", 0.50
 # whole 0.0-1.0 ratio range, whatever the bands said. A minimum ABSOLUTE spend
 # replaces the "> 0" test, mirroring growth_abs_capex at the other end.
 #
-# $500,000 is chosen from a gap in the real data, not from taste: the 241 stored
+# $100,000 is chosen from a gap in the real data, not from taste: the 241 stored
 # decisions are bimodal — 169 at exactly $1, then NOTHING until $1,000,000, then
 # a continuous spread to $9,300,000. Any floor strictly inside ($1, $1,000,000)
 # reclassifies exactly the token allocations and cannot misclassify a single
-# real one; 500,000 sits in the middle of that empty interval.
-NATURAL_DECAY_MIN_ABS_CAPEX:    float = float(_slo_ramp.get("min_abs_capex", 500_000))
+# real one.
+#
+# DIALLED BACK from $500,000 on 2026-09-03. Every floor from $100k to $999k
+# reclassifies the IDENTICAL 169/241 real decisions — the gap makes them
+# equivalent in play. They are NOT equivalent in the balance report, because the
+# bot ladder allocates $125k-$2.78M per BU, right across the range real teams
+# never occupy: at $500k the pure_B reference strategy went bankrupt at R10 and
+# the 10% rung's terminal value fell $164M -> $66M; at $100k both are untouched.
+# That severity was an artefact of the harness, not a property of the fix, so
+# the floor sits at the BOTTOM of the empty interval — same correction for every
+# real allocation, least collateral damage to the reference material.
+NATURAL_DECAY_MIN_ABS_CAPEX:    float = float(_slo_ramp.get("min_abs_capex", 100_000))
 
 # Bounds. The tiers are only meaningful strictly ordered inside (0, 1], and a
 # minimum spend above the growth escape would invert the two absolute tests.
 # A configuration that breaks either falls back to the whole default set — never
 # to a half-applied mixture — and says so.
-_DECAY_TIER_DEFAULTS = (0.10, 0.25, 0.50)
+_DECAY_TIER_DEFAULTS = (0.10, 0.25, 0.40)
 if not (0.0 < NATURAL_DECAY_NO_DECAY_RATIO < NATURAL_DECAY_MID_RATIO
         < NATURAL_DECAY_GROWTH_RATIO <= 1.0):
     print(f"[CONFIG] WARNING: slo_ramp tiers must satisfy 0 < no_decay_ratio < mid_ratio "
@@ -610,7 +630,7 @@ if not (0.0 <= NATURAL_DECAY_MIN_ABS_CAPEX <= NATURAL_DECAY_GROWTH_ABS_CAPEX):
     print(f"[CONFIG] WARNING: slo_ramp.min_abs_capex={NATURAL_DECAY_MIN_ABS_CAPEX:,.0f} must sit "
           f"between 0 and growth_abs_capex ({NATURAL_DECAY_GROWTH_ABS_CAPEX:,.0f}); using 500,000. "
           "Update simulation_config.json on the data volume.")
-    NATURAL_DECAY_MIN_ABS_CAPEX = 500_000.0
+    NATURAL_DECAY_MIN_ABS_CAPEX = 100_000.0
 GREENWASH_ABS_CAPEX_FLOOR:      float = float(_slo_ramp.get("greenwash_abs_capex_floor", 3_000_000))
 NPC_SENTIMENT_BRIDGE_BASELINE:  float = float(_trust.get("sentiment_bridge_baseline", 0.15))
 

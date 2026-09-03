@@ -127,24 +127,24 @@ _EXPECTED_RUNNER_FINGERPRINTS = {
     # the four ledger terms added on 2026-09-03 are 0.00 on these paradigms:
     # the fingerprint payload includes _residual(), so a non-zero new term
     # would have moved them.
-    ("DEFAULT_4_BU", "legacy_abc"): "7745ac4417107d63",
-    ("DEFAULT_4_BU", "multi_toggles"): "36bab75ce5502265",
-    ("SINGLE_BU_PHARMA", "legacy_abc"): "69638e2fb3940542",
-    ("SINGLE_BU_PHARMA", "multi_toggles"): "7c80369f74371601",
-    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "271bed043fb4e270",
-    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "44dc0fced1a012b7",
+    ("DEFAULT_4_BU", "legacy_abc"): "020d13667d5e6d5d",
+    ("DEFAULT_4_BU", "multi_toggles"): "8ed5dc35b55ae0b2",
+    ("SINGLE_BU_PHARMA", "legacy_abc"): "c039cbbb9198437b",
+    ("SINGLE_BU_PHARMA", "multi_toggles"): "93273de34e6b5177",
+    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "643d2b27f1dd4637",
+    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "738085d5f2a14b37",
     # B-5 (2026-09-03): nine NEW cases, not a rebaseline of anything. Each was
     # computed twice in separate interpreters under different PYTHONHASHSEEDs
     # and matched before being pinned.
-    ("DEFAULT_4_BU", "advanced_climate"): "75be7fc47171631e",
-    ("DEFAULT_4_BU", "un_sdg"): "7745ac4417107d63",
-    ("DEFAULT_4_BU", "healthcare"): "7745ac4417107d63",
-    ("SINGLE_BU_PHARMA", "advanced_climate"): "a71c27d694e132eb",
-    ("SINGLE_BU_PHARMA", "un_sdg"): "69638e2fb3940542",
-    ("SINGLE_BU_PHARMA", "healthcare"): "69638e2fb3940542",
-    ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "bc964e35c467b7c1",
-    ("VERTICAL_OIL_AND_GAS_SUB", "un_sdg"): "271bed043fb4e270",
-    ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "271bed043fb4e270",
+    ("DEFAULT_4_BU", "advanced_climate"): "c039fef396bfd7a2",
+    ("DEFAULT_4_BU", "un_sdg"): "020d13667d5e6d5d",
+    ("DEFAULT_4_BU", "healthcare"): "020d13667d5e6d5d",
+    ("SINGLE_BU_PHARMA", "advanced_climate"): "f8b44913c6fec8fa",
+    ("SINGLE_BU_PHARMA", "un_sdg"): "c039cbbb9198437b",
+    ("SINGLE_BU_PHARMA", "healthcare"): "c039cbbb9198437b",
+    ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "d1f5895bd742fec9",
+    ("VERTICAL_OIL_AND_GAS_SUB", "un_sdg"): "643d2b27f1dd4637",
+    ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "643d2b27f1dd4637",
 }
 
 # WORTH KNOWING, and not a defect this commit fixes: `un_sdg` and `healthcare`

@@ -255,8 +255,8 @@
     "slo_ramp": {
       "no_decay_ratio": 0.1,
       "mid_ratio": 0.25,
-      "growth_ratio": 0.5,
-      "min_abs_capex": 500000
+      "growth_ratio": 0.4,
+      "min_abs_capex": 100000
     }
   },
   "climate_var_parameters": {

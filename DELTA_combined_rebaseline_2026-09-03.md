@@ -1,8 +1,9 @@
 # Combined delta — everything held for rebaseline sign-off
 
-**Status: NOTHING IS REBASELINED. Two golden traces and fifteen treasury fingerprints are
-failing on this branch on purpose, and stay failing until this is signed off.** Nothing was
-skipped, `xfail`ed or loosened to hide them.
+**Status: SIGNED OFF, DIALLED BACK, AND REBASELINED (2026-09-03).** The suite is fully
+green — 2420 passed, 15 skipped, 0 failed. §5 records what the dial-back changed and what
+was finally rebaselined. The sections below describe the state BEFORE the dial-back; read
+§5 for what actually shipped.
 
 This supersedes `DELTA_natural_decay_recalibration_2026-09-03.md` as the single sign-off
 document: that one covers item 4 alone, this one covers everything that moves a baseline.
@@ -143,3 +144,86 @@ buys most of it back for one config value.
 | Conservation law | passes on **all 15** cases (was 6; `advanced_climate` was breaking it by $1,813,896) |
 | Route-guard ratchets | `_MAX_UNGUARDED` 58, `_MAX_UNTENANTED` 1, file unmodified |
 | Test-count accounting | 2435 collected vs 2352 at the bug-hunt commit: +37 (B-3) +36 (B-5's 9 new paradigm cases x 4 parametrized tests) +1 (B-2) +2 (B-4) +7 (B-1/B-6) |
+
+
+---
+
+## 5. Dialled back, re-measured, then rebaselined
+
+The instruction was to dial back and re-measure before rebaselining. Two things came out of
+the measurement that changed the decision, and one of them contradicted my own advice.
+
+### 5.1 My "0.40 recovers most of the stakeholder trace" was wrong
+
+The trace's SLO response to `growth_ratio` is a **step, not a gradient** — the cliff sits at
+0.35, because the fixture's scenario runs at ratio ≈ 0.312:
+
+| growth_ratio | R10 mean SLO | community_leader |
+|---|---|---|
+| 0.30 | 61.75 | watchful |
+| 0.35 / 0.40 / 0.45 / 0.50 | 40.50 | protest |
+
+So 0.40 buys nothing there. Nothing short of 0.30 — abandoning the growth-bar recalibration
+entirely — preserves that fixture.
+
+That reframes it: the fixture sits at the **4th percentile of substantive play**. Its
+dramatic response is what happens to the bottom tail, not to a typical team. The median
+substantive allocation (0.50) keeps full growth at every candidate.
+
+### 5.2 `growth_ratio` was never what made the reference strategies bankrupt
+
+Measured directly: the balance report is **byte-identical at 0.30, 0.35, 0.40 and 0.50**.
+The bot ladder runs at ratios 0.0125–0.15, below every candidate bar. The entire
+balance-report severity came from `min_abs_capex`.
+
+And **for real play, every floor from $100k to $999k reclassifies the identical 169/241
+decisions** — the empty interval between $1 and $1,000,000 makes them equivalent. They are
+not equivalent for the bot harness, which allocates $125k–$2.78M per BU, right across the
+range real teams never occupy:
+
+| floor | pure_B | 10% ladder rung |
+|---|---|---|
+| $100,000 | solvent | $164.4M |
+| $500,000 | **bankrupt R10** | **$66.0M** |
+| $999,000 | bankrupt R10 | $66.0M, and `balanced` becomes STRANDED_RELIC at R7 |
+
+The severity was an artefact of the harness, not a property of the fix.
+
+### 5.3 What shipped
+
+`growth_ratio` **0.50 → 0.40**, `min_abs_capex` **$500,000 → $100,000** — the floor at the
+bottom of the empty interval: identical correction for every real allocation, least
+collateral disturbance to the reference material.
+
+| Baseline | Before dial-back | After |
+|---|---|---|
+| Financial golden trace | −$346,441.84 treasury every round + 4 CoC values | **treasury unchanged**; 3 CoC values move by 0.0001 |
+| Balance report | pure_B, extractive and balanced all flip to insolvent; 5% rung $412.5M → $183.2M | **only `balanced` flips** (R9); 5% rung $412.5M → $409.8M |
+| Stakeholder golden trace | −21.25 SLO at R10, protest from R7 | unchanged by the dial-back (the 0.35 cliff) |
+| Treasury fingerprints | all 15 move | all 15 move (B-2) |
+
+`balanced` → R9 is **B-2, not item 4** — it persists with the floor removed entirely. It is
+the engine no longer creating money, which is the one change here with no design question
+attached.
+
+### 5.4 Rebaselined
+
+* Both golden traces via `MURESSONS_REBASELINE_GOLDEN=1`
+* All 15 treasury fingerprints, each regenerated and **re-verified stable in a second
+  process under a different PYTHONHASHSEED** before being written
+* `BALANCE_REPORT_BASELINE.md` via `--write`, and confirmed it reproduces itself
+
+**Regression contract: 2420 passed, 15 skipped, 0 failed.** Route-guard ratchets unmoved
+(`_MAX_UNGUARDED` 58, `_MAX_UNTENANTED` 1). Conservation law green on all 15 cases.
+
+### 5.5 The one thing still open, stated plainly
+
+The stakeholder golden trace now records SLO −21.25 at R10 and `community_leader` at
+`protest` from R7. That is real: teams allocating in the 0.30–0.40 band — **11 of 72
+substantive real decisions** — lose full licence growth and will see a stakeholder protest
+they would not have seen before.
+
+If that is more than intended, `slo_ramp.growth_ratio` back to **0.30** removes it entirely,
+at the cost of the mild tier catching 1.7% of real decisions again instead of 5.8% — the
+degeneracy the recalibration was for. One config value, no code change, and the traces would
+need rebaselining once more.
