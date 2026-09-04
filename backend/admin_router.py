@@ -8551,8 +8551,13 @@ async def get_debrief(session_id: str, request: Request,
             for key in current_metrics:
                 deltas[key] = round(current_metrics[key] - prev_metrics[key], 2)
 
-        # Extract decision info from this round
-        round_decisions = decisions_by_round.get(rn, [])
+        # Extract the decision that PRODUCED this snapshot. The decision log
+        # files a commit under the round it was MADE in (database*.insert_next_round,
+        # AUDIT-1 2026-08-02), i.e. under decision_round, not under rn. Reading
+        # `rn` here put the NEXT round's decision on every card — "R9 Just
+        # Transition — A: Immediate Closure" for a team that funded the
+        # community — while the deltas on the same card were right (audit F-02).
+        round_decisions = decisions_by_round.get(decision_round, [])
         # Determine choice made (primary choice from first decision)
         choice_selected = ""
         players = []

@@ -2142,13 +2142,15 @@ async def get_final_report(session_id: str, request: Request):
 def _choices_by_game_round(history_raw: list[dict]) -> dict:
     """Map game-round -> primary strategic option (e.g. 'option_a').
 
-    Decisions are persisted one round ahead: a round-N commit produces the
-    round-(N+1) snapshot and its decisions are tagged round_number = N+1 (see
-    commit_turn/new_round), while round 1's initial snapshot carries none. So a
-    decision tagged K belongs to game-round K-1. The per-round rN_choice event
-    flags are already game-round indexed and fill rounds the log misses (they
-    only exist for a few narrative rounds); the decision log wins when both
-    exist. Round 10's decision is never logged, so game-round 10 may be absent.
+    A history row K is the state ENTERING round K (the result of the round-(K-1)
+    commit); the decisions attached to it are the ones MADE in round K — both
+    stores file a commit's decisions under the round it was made in
+    (insert_next_round, AUDIT-1 2026-08-02; round 10 files explicitly at
+    current_round). So a decision tagged K belongs to game-round K. This
+    function read `tag - 1`, the pre-AUDIT-1 offset, and every dashboard
+    history item carried the NEXT round's choice (audit F-02). The per-round
+    rN_choice event flags are game-round indexed and fill rounds the log
+    misses; the decision log wins when both exist.
     """
     out: dict = {}
     for h in history_raw:
@@ -2156,7 +2158,7 @@ def _choices_by_game_round(history_raw: list[dict]) -> dict:
         for dec in (h.get("decisions") or []):
             ch = dec.get("choice_selected") or ""
             if isinstance(ch, str) and ch.startswith("option_"):
-                out[tag - 1] = ch  # decision tagged `tag` == game-round tag-1
+                out[tag] = ch  # decision tagged `tag` == game-round tag
                 break
         flags = (h.get("global_state", {}) or {}).get("active_event_flags", {}) or {}
         for k, v in flags.items():
