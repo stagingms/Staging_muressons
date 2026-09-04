@@ -57,8 +57,8 @@ function buildConstellationData(history, currentRound) {
     const magnitude = Math.abs(treasuryDelta);
 
     // Calculate reputation change
-    const prevRep = idx > 0 ? (history[idx - 1].global_state?.group_reputation || 50) : 50;
-    const currRep = gs.group_reputation || 50;
+    const prevRep = idx > 0 ? (history[idx - 1].global_state?.group_reputation ?? 50) : 50;
+    const currRep = gs.group_reputation ?? 50;
     const repDelta = currRep - prevRep;
 
     // Calculate carbon change

@@ -316,7 +316,9 @@ def accept_concession(gs: dict, bus: list[dict], round_number: int, concession_i
 
     eff = spec["effects"]
     if eff.get("reputation_delta"):
-        gs["group_reputation"] = max(0, min(100, round((gs.get("group_reputation") or 50) + eff["reputation_delta"], 2)))
+        _rep_now = gs.get("group_reputation")
+        _rep_now = 50.0 if _rep_now is None else float(_rep_now)   # audit F-03: 0 is a value, not "missing"
+        gs["group_reputation"] = max(0, min(100, round(_rep_now + eff["reputation_delta"], 2)))
     if eff.get("governance_risk_delta"):
         for b in bus:
             b["governance_risk_score"] = max(0.0, min(100.0, round(

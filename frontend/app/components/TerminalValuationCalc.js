@@ -48,7 +48,7 @@ export default function TerminalValuationCalc({
     const ebitda = businessUnits.reduce((acc, bu) =>
       acc + (bu.revenue_base || 0) - (bu.opex_base || 0), 0);
     const synergy = globalState.synergy_multiplier || 1.0;
-    const reputation = globalState.group_reputation || 50;
+    const reputation = globalState.group_reputation ?? 50;
     const treasury = globalState.corporate_treasury || 0;
 
     // Simplified M_R estimate (matching backend logic direction)

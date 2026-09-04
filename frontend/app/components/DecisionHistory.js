@@ -48,7 +48,7 @@ export default function DecisionHistory({ historyData }) {
         const isOpen = openRound === h.round;
         const dTreasury = h.treasury - (h.previous_treasury || 0);
         const dEbitda = h.ebitda - (h.previous_ebitda || 0);
-        const dReputation = h.reputation - (h.previous_reputation || 50);
+        const dReputation = h.reputation - (h.previous_reputation ?? 50);
         const dCO2 = h.tco2e - (h.previous_tco2e || 0);
 
         return (

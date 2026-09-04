@@ -50,7 +50,7 @@ function deriveMetrics(gs, bus) {
   const avgNCD = list.length
     ? list.reduce((s, bu) => s + (bu.natural_capital_debt || 0), 0) / list.length
     : 0;
-  const reputation = g.group_reputation || 50;
+  const reputation = g.group_reputation ?? 50;
   const wacc = g.cost_of_capital || 0.05;
   const inflation = g.inflation_index || 0;
   const carbonFee = g.carbon_fee_per_ton ?? g.internal_carbon_fee_rate ?? 15;

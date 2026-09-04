@@ -479,7 +479,7 @@ export default function ExecutiveCockpit({
   // For capital allocation gating: strategic decision must be made
   const canAccessAllocation = canAccessStrategy && hasDecision;
   const treasury = globalState?.corporate_treasury || 0;
-  const reputation = globalState?.group_reputation || 50;
+  const reputation = globalState?.group_reputation ?? 50;
   // Initialise EBITDA from BU revenue minus OPEX if not yet committed (avoids $0 display on R1)
   const ebitda = globalState?.historical_ebitda ||
     (businessUnits?.reduce((acc, bu) => acc + (bu.revenue_base || 0) - (bu.opex_base || 0), 0) || 0);
@@ -587,14 +587,14 @@ export default function ExecutiveCockpit({
         yearLabel: roundToQuarter(h.round_number, BASE_YEAR).shortLabel,
         ebitda: perRoundEbitda,
         tco2e: h.global_state?.tco2e_emissions || 0,
-        reputation: h.global_state?.group_reputation || 50,
+        reputation: h.global_state?.group_reputation ?? 50,
         treasury: h.global_state?.corporate_treasury || 0,
         synergy: h.global_state?.synergy_multiplier || 1.0,
         // W-B (W2a): rival ghost series — engine already simulates this every round
         competitor_ebitda: h.global_state?.competitor_ebitda || null,
         previous_ebitda: prev ? (prev.business_units || []).reduce((acc, bu) => acc + (bu.revenue_base || 0) - (bu.opex_base || 0), 0) : 0,
         previous_treasury: prev?.global_state?.corporate_treasury || 0,
-        previous_reputation: prev?.global_state?.group_reputation || 50,
+        previous_reputation: prev?.global_state?.group_reputation ?? 50,
         previous_tco2e: prev?.global_state?.tco2e_emissions || 0,
         bu_count: h.business_units?.length || 0,
         decisions: h.global_state?.active_event_flags?.round_decisions || null,
@@ -612,7 +612,7 @@ export default function ExecutiveCockpit({
         competitor_ebitda: globalState?.competitor_ebitda || null,
         previous_ebitda: lastEntry?.ebitda || 0,
         previous_treasury: lastEntry?.treasury || 0,
-        previous_reputation: lastEntry?.reputation || 50,
+        previous_reputation: lastEntry?.reputation ?? 50,
         previous_tco2e: lastEntry?.tco2e || 0,
         bu_count: businessUnits?.length || 0,
         decisions: null,
@@ -629,7 +629,7 @@ export default function ExecutiveCockpit({
           yearLabel: roundToQuarter(nextRound, BASE_YEAR).shortLabel,
           ebitda: commitResults.globalState.historical_ebitda || 0,
           tco2e: commitResults.globalState.tco2e_emissions || 0,
-          reputation: commitResults.globalState.group_reputation || 50,
+          reputation: commitResults.globalState.group_reputation ?? 50,
           treasury: commitResults.globalState.corporate_treasury || 0,
           synergy: commitResults.globalState.synergy_multiplier || 1.0,
           competitor_ebitda: commitResults.globalState.competitor_ebitda || null,
@@ -2618,7 +2618,7 @@ export default function ExecutiveCockpit({
                 replay below, which knows it. */}
             {(() => {
               const nT = commitResults.globalState?.corporate_treasury || 0;
-              const nR = commitResults.globalState?.group_reputation || 50;
+              const nR = commitResults.globalState?.group_reputation ?? 50;
               const dT = nT - treasury;
               const dR = nR - reputation;
               const verb = (d, up, down) => (d > 0 ? up : d < 0 ? down : 'held');
@@ -4941,7 +4941,7 @@ export default function ExecutiveCockpit({
                 {(() => {
                   const newTreasury = commitResults.globalState?.corporate_treasury || 0;
                   const newEbitda = commitResults.globalState?.historical_ebitda || 0;
-                  const newRep = commitResults.globalState?.group_reputation || 50;
+                  const newRep = commitResults.globalState?.group_reputation ?? 50;
                   const newCarbon = commitResults.globalState?.tco2e_emissions || 0;
                   
                   const dTreasury = newTreasury - treasury;

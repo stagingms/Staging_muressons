@@ -42,7 +42,7 @@ export default function WhatIfSandbox({
   const [sandboxChoice, setSandboxChoice] = useState(null);
 
   const treasury = globalState?.corporate_treasury || 0;
-  const reputation = globalState?.group_reputation || 50;
+  const reputation = globalState?.group_reputation ?? 50;
   const tco2e = globalState?.tco2e_emissions || 0;
   const ebitda = businessUnits.reduce((a, bu) => a + (bu.revenue_base || 0) - (bu.opex_base || 0), 0);
 

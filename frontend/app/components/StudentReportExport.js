@@ -15,7 +15,7 @@ export default function StudentReportExport({ data = {}, globalState = {}, histo
     const profileTitle = d.profile_title || 'Strategic Leader';
     const tv = d.terminal_value || 0;
     const mr = d.regenerative_multiple || 0;
-    const rep = globalState?.group_reputation || 50;
+    const rep = globalState?.group_reputation ?? 50;
     const treasury = globalState?.corporate_treasury || 0;
     const bs = globalState?.balance_sheet || {};
 

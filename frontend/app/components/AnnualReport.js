@@ -38,7 +38,7 @@ export function buildReportModel({ roundNumber, commitResults, history, business
   const ebitda = gs.historical_ebitda ||
     (bus.reduce((a, b) => a + (b.revenue_base || 0) - (b.opex_base || 0), 0) || 0);
   const treasury = gs.corporate_treasury || 0;
-  const reputation = gs.group_reputation || 50;
+  const reputation = gs.group_reputation ?? 50;
   const avgNCD = bus.length ? bus.reduce((s, b) => s + (b.natural_capital_debt || 0), 0) / bus.length : 0;
   const sharePrice = calculateRoundStockPrice({
     ebitda,

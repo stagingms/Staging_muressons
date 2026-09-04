@@ -40,10 +40,15 @@ def _series_from_history(history: list[dict]) -> list[dict]:
     series = []
     for item in history:
         gs = item.get("global_state", {}) or {}
+        # Audit F-03: `or 50` turned a reputation of 0.0 (a reachable state —
+        # the engine clamps at 0) into 50, and the turning-point picker then
+        # reported a "+23 up" swing for a team whose reputation had collapsed.
+        # Only a MISSING value defaults.
+        _rep = gs.get("group_reputation")
         series.append({
             "round": item.get("round_number", 1),
             "treasury": float(gs.get("corporate_treasury", 0) or 0),
-            "reputation": float(gs.get("group_reputation", 50) or 50),
+            "reputation": float(50.0 if _rep is None else _rep),
             "synergy": float(gs.get("synergy_multiplier", 1.0) or 1.0),
             "auto_committed": bool((gs.get("active_event_flags") or {}).get("auto_committed")),
         })

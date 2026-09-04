@@ -205,7 +205,7 @@ export function buildFullStockData(historyData, globalState, businessUnits, curr
       ebitda: Math.max(BASELINE_EBITDA * 0.3, roundEbitda),
       synergy_multiplier: h.synergy_multiplier || globalState?.synergy_multiplier || 1.0,
       natural_capital_debt: avgNCD,
-      group_reputation: h.reputation || globalState?.group_reputation || 50,
+      group_reputation: h.reputation ?? globalState?.group_reputation ?? 50,
       // STRAT-010: Pass WACC so exit multiple is dynamic per round
       cost_of_capital: h.cost_of_capital || globalState?.cost_of_capital || 0.08,
     };
