@@ -567,7 +567,7 @@ _TELEPROMPTER_SCRIPTS = {
             "Option B (Prioritise Electronics) is the utilitarian trap: saves $8M but −25 SLO on Pharma/CG",
             "Option B also BLOCKS the Resilience M_R bonus — same penalty as R5 Insurance Only",
             "Option C (Desalination) costs $30M with 2-round delay — can push treasury deeply negative",
-            "Desalination's NPV is positive long-term (−30 NCD + $15M revenue payback) but requires financial cushion",
+            "Desalination completes at the R10 tick: −30 NCD plus a single $5M revenue credit — the plant's later payback falls outside the game, so inside it the option is $25M net and needs a financial cushion",
             "Blockchain traceability (from R2 pillar) provides scandal shielding this round",
         ],
         "key_teaching_moment": "💡 Equitable resource allocation (Option A) costs more upfront but preserves social license and M_R eligibility. Utilitarian prioritisation (Option B) saves money but creates a -25 SLO crater that triggers Regulatory Friction and blocks terminal bonuses worth ~$72M.",

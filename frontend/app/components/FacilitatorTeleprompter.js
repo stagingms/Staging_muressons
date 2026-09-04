@@ -1317,7 +1317,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     5: '💡 Insurance Only (C) provides ZERO physical protection. If the cyclone strikes, full $12M damage hits. Hard Engineering and Nature-Based both mitigate.',
                     6: '💡 Ethical AI Overhaul (B) sets the "ethical_ai_overhaul" flag that provides +0.15 to the Regenerative Multiple in R10. This is the "Truth Premium."',
                     7: '💡 Waste-to-Energy (C) unlocks +0.35 synergy multiplier — the largest single boost. Teams above 1.20 synergy unlock "Resist & Integrate" in R10.',
-                    8: '💡 Desalination (C) now generates $3M/round payback for 3 rounds after completion. The $30M cost becomes $21M net — still expensive but recoverable.',
+                    8: '💡 Desalination (C) completes at the Round 10 tick: −30 NCD and a single $5M revenue credit. Inside the game the $30M cost is $25M net — the plant\'s later years fall outside it.',
                     9: '💡 Strike probability is now 50% (reduced from 75%). Strike only fires if average Social License is below 50. Teams with good SLO are safe.',
                     10: '💡 The Regenerative Multiple (M_R) determines the profile: ≥1.8 = Regenerative Titan, ≥1.2 = De-Risked Safe Haven, ≥0.8 = Fragile Giant, <0.8 = Stranded Relic.',
                 };

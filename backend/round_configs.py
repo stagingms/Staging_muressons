@@ -586,10 +586,11 @@ ROUND_CONFIGS = {
                 "title": "Desalination Mega-Project",
                 "description": (
                     "Build a desalination plant. Massive cost ($30M) with a "
-                    "2-round construction delay before benefits arrive. "
-                    "Reduces Natural Capital Debt by 30 points and water "
-                    "dependency by 40. Generates $5M/round revenue from "
-                    "Round 10 onward (Rounds 8+2) for 3 rounds."
+                    "2-round construction delay: the plant completes at the "
+                    "Round 10 tick, when it reduces Natural Capital Debt by 30 "
+                    "points and credits a single $5M revenue payment. Its "
+                    "later operating years fall outside this game. Water "
+                    "dependency falls by 40 immediately."
                 ),
                 "flags_set": ["desalination_built"],
                 "climate_framing": "ADAPTATION (energy-intensive infrastructure)",
@@ -599,8 +600,14 @@ ROUND_CONFIGS = {
                     "water_dependency_delta": -40,
                     "carbon_intensity_delta": +5,  # Desalination is energy-intensive (~3-4 kWh/m³)
                     "revenue_delta": +300_000,
+                    # Audit F-05: was 3. pending_capex_projects mature when
+                    # rounds_remaining reaches 0 (engine._process_pending_projects)
+                    # and the game ends at round 10, so a project queued at R8
+                    # with 3 rounds to run matured never — the $5M promised in
+                    # the copy was never credited. 2 matures at the R10 tick,
+                    # exactly like the NCD drop queued beside it.
                     "generates_revenue": 5_000_000,
-                    "payback_rounds": 3,
+                    "payback_rounds": 2,
                     "reputation": +3,
                 },
             },
