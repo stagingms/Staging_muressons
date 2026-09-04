@@ -230,6 +230,7 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
             <div>
               {sectionHeader('Non-Current Liabilities', '🏦')}
               {lineRow('Revolving Credit Facility', ncl.revolving_credit_facility, { indent: true })}
+              {lineRow('CapEx Term Loan', ncl.capex_term_loan, { indent: true, color: (ncl.capex_term_loan || 0) > 0 ? '#f59e0b' : undefined })}
               {lineRow('Green Bonds Outstanding', ncl.green_bonds_outstanding, { indent: true, color: (ncl.green_bonds_outstanding || 0) > 0 ? '#10b981' : undefined })}
               {lineRow('Environmental Provisions', ncl.environmental_provisions, { indent: true })}
               {lineRow('Decommissioning Obligations', ncl.decommissioning_obligations, { indent: true })}

@@ -652,6 +652,18 @@ def _engine_failed(extra: dict, engine: str, exc: BaseException) -> None:
     })
 
 
+def _capex_loan_for_statement(events: dict, global_state: dict) -> float:
+    """Closing CapEx term-loan balance for this round's balance sheet (F-12).
+
+    The engine writes the closing stock to events["capex_loan_balance"] every
+    tick (0.0 once repaid). When the tick produced no such event, the persisted
+    flag is the balance the ledger should still carry."""
+    if "capex_loan_balance" in events:
+        return round(float(events.get("capex_loan_balance") or 0.0), 2)
+    flags = global_state.get("active_event_flags") or {}
+    return round(float(flags.get("capex_loan_balance", 0.0) or 0.0), 2)
+
+
 def run_new_engines(
     round_number: int,
     global_state: dict,
@@ -1167,6 +1179,17 @@ def run_new_engines(
                 # correctly update green_bonds_outstanding on the balance sheet.
                 "green_bond_issued":     events.get("green_bond_issued", False),
                 "green_bond_amount":     events.get("green_bond_amount", 0),
+                # F-12 (audit 2026-09-04): the CapEx term loan (F-05) reaches the
+                # statement through THIS dict, and it was never forwarded —
+                # balance_sheet.py read `capex_loan_balance` / `loan_interest_payment`
+                # from a seven-key dict that never carried them, so the loan
+                # financed PPE the balance sheet showed with no debt against it,
+                # and the P&L priced no interest on it. The closing balance comes
+                # from the engine's events this round; a state that carries the
+                # loan but produced no engine event (a re-strike on a restored
+                # ledger) falls back to the persisted flag.
+                "capex_loan_balance":    _capex_loan_for_statement(events, global_state),
+                "loan_interest_payment": float(events.get("loan_interest_payment", 0.0) or 0.0),
             }
             _include_esg_on_bs = global_state.get("esg_bs_scholarly_mode", False)
             bs, bs_diag = process_balance_sheet_tick(

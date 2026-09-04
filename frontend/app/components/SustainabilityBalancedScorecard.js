@@ -1076,6 +1076,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                 <div>
                                     {sectionHeader('Non-Current Liabilities', '🏦')}
                                     {lineRow('Revolving Credit Facility', ncl.revolving_credit_facility, { indent: true })}
+                                    {lineRow('CapEx Term Loan', ncl.capex_term_loan, { indent: true })}
                                     {lineRow('Green Bonds', ncl.green_bonds_outstanding, { indent: true })}
                                     {lineRow('Environmental Provisions', ncl.environmental_provisions, { indent: true })}
                                     {lineRow('Decommissioning', ncl.decommissioning_obligations, { indent: true })}
@@ -1179,6 +1180,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     { label: 'TOTAL ASSETS', grand: true, get: s => s.total_assets },
                                     { section: 'Non-Current Liabilities' },
                                     { label: 'Revolving Credit Facility', get: s => s.non_current_liabilities?.revolving_credit_facility },
+                                    { label: 'CapEx Term Loan', get: s => s.non_current_liabilities?.capex_term_loan },
                                     { label: 'Green Bonds', get: s => s.non_current_liabilities?.green_bonds_outstanding },
                                     { label: 'Environmental Provisions', get: s => s.non_current_liabilities?.environmental_provisions },
                                     { label: 'Decommissioning', get: s => s.non_current_liabilities?.decommissioning_obligations },
