@@ -705,66 +705,6 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Biodiversity engine", exc)
 
-    # ── SE-6: Balance Sheet Engine ────────────────────────────
-    if _toggles.get("balance_sheet_enabled", True):
-        try:
-            from balance_sheet import (
-                create_initial_balance_sheet,
-                process_balance_sheet_tick,
-            )
-            if "balance_sheet" not in global_state:
-                global_state["balance_sheet"] = create_initial_balance_sheet(bu_states)
-                # Wire difficulty-tier covenant trigger ratio
-                try:
-                    from black_swan_registry import get_difficulty_config
-                    _diff_tier = global_state.get("active_event_flags", {}).get("difficulty_tier", "standard")
-                    _diff_cfg = get_difficulty_config(_diff_tier)
-                    global_state["balance_sheet"]["covenant_trigger_ratio"] = _diff_cfg.get("covenant_trigger_ratio", 3.5)
-                except Exception:
-                    pass  # Graceful fallback to default 3.5×
-            bs = global_state["balance_sheet"]
-            # Compute total CAPEX allocated by the player this round
-            _total_capex = sum(
-                d.get("capex_allocated", 0)
-                for d in (events.get("decisions_raw", []) or [])
-            )
-            bs_events = {
-                "csf_this_round":        events.get("csf_delta", 0),
-                "total_capex_allocated": _total_capex,
-                "dividends_paid":        events.get("dividends_paid", 0),
-                "remediation_events":    [],
-                "tipping_tier":          global_state.get("tipping_tier", "none"),
-                # FIX-B: Wire green bond issuance so Round 3 Scope 3 decisions
-                # correctly update green_bonds_outstanding on the balance sheet.
-                "green_bond_issued":     events.get("green_bond_issued", False),
-                "green_bond_amount":     events.get("green_bond_amount", 0),
-            }
-            _include_esg_on_bs = global_state.get("esg_bs_scholarly_mode", False)
-            bs, bs_diag = process_balance_sheet_tick(
-                bs, global_state, bu_states, bs_events, round_number,
-                include_esg_on_bs=_include_esg_on_bs,
-            )
-            global_state["balance_sheet"] = bs
-            extra["balance_sheet"] = bs_diag
-
-            # Covenant warning message for UI (surcharge already applied inside engine)
-            # FIX-A: Removed duplicate surcharge block — balance_sheet.py Step 9
-            # already deducts the covenant penalty from gs["corporate_treasury"].
-            # Applying it again here was charging teams 2× the penalty.
-            covenant_st = bs.get("covenant_status", "green")
-            if covenant_st in ("amber", "red", "breached"):
-                extra["covenant_warning"] = bs_diag.get("covenants", {}).get("message", "")
-            if covenant_st in ("red", "breached"):
-                # Expose surcharge amount for frontend display (engine has already applied it)
-                extra["covenant_surcharge"] = bs_diag.get("covenants", {}).get(
-                    "treasury_surcharge", 0
-                )
-                extra["covenant_surcharge_rate"] = (
-                    0.02 if covenant_st == "red" else 0.05
-                )
-        except Exception as exc:
-            _engine_failed(extra, "Balance sheet engine", exc)
-
     # ── SE-1: Board Governance ────────────────────────────────
     if _toggles.get("board_governance_enabled", True):
         try:
@@ -1186,6 +1126,73 @@ def run_new_engines(
                     extra["regulatory_sandbox_agent_crosswire"] = agent_diag
         except Exception as exc:
             _engine_failed(extra, "Regulatory sandbox engine", exc)
+
+    # Audit F-08(b) / FIN-02: the statement used to be struck HERE-ABOVE, right
+    # after biodiversity — before the NPC regulator fine, the agent hits and
+    # the tipping caps wrote treasury and opex — so its cash line disagreed
+    # with the persisted treasury in 50 of 200 audited round statements (by
+    # up to $24.5M, including the R10 statement the debrief projects). It now
+    # runs after every state-mutating engine in this batch.
+
+    # ── SE-6: Balance Sheet Engine ────────────────────────────
+    if _toggles.get("balance_sheet_enabled", True):
+        try:
+            from balance_sheet import (
+                create_initial_balance_sheet,
+                process_balance_sheet_tick,
+            )
+            if "balance_sheet" not in global_state:
+                global_state["balance_sheet"] = create_initial_balance_sheet(bu_states)
+                # Wire difficulty-tier covenant trigger ratio
+                try:
+                    from black_swan_registry import get_difficulty_config
+                    _diff_tier = global_state.get("active_event_flags", {}).get("difficulty_tier", "standard")
+                    _diff_cfg = get_difficulty_config(_diff_tier)
+                    global_state["balance_sheet"]["covenant_trigger_ratio"] = _diff_cfg.get("covenant_trigger_ratio", 3.5)
+                except Exception:
+                    pass  # Graceful fallback to default 3.5×
+            bs = global_state["balance_sheet"]
+            # Compute total CAPEX allocated by the player this round
+            _total_capex = sum(
+                d.get("capex_allocated", 0)
+                for d in (events.get("decisions_raw", []) or [])
+            )
+            bs_events = {
+                "csf_this_round":        events.get("csf_delta", 0),
+                "total_capex_allocated": _total_capex,
+                "dividends_paid":        events.get("dividends_paid", 0),
+                "remediation_events":    [],
+                "tipping_tier":          global_state.get("tipping_tier", "none"),
+                # FIX-B: Wire green bond issuance so Round 3 Scope 3 decisions
+                # correctly update green_bonds_outstanding on the balance sheet.
+                "green_bond_issued":     events.get("green_bond_issued", False),
+                "green_bond_amount":     events.get("green_bond_amount", 0),
+            }
+            _include_esg_on_bs = global_state.get("esg_bs_scholarly_mode", False)
+            bs, bs_diag = process_balance_sheet_tick(
+                bs, global_state, bu_states, bs_events, round_number,
+                include_esg_on_bs=_include_esg_on_bs,
+            )
+            global_state["balance_sheet"] = bs
+            extra["balance_sheet"] = bs_diag
+
+            # Covenant warning message for UI (surcharge already applied inside engine)
+            # FIX-A: Removed duplicate surcharge block — balance_sheet.py Step 9
+            # already deducts the covenant penalty from gs["corporate_treasury"].
+            # Applying it again here was charging teams 2× the penalty.
+            covenant_st = bs.get("covenant_status", "green")
+            if covenant_st in ("amber", "red", "breached"):
+                extra["covenant_warning"] = bs_diag.get("covenants", {}).get("message", "")
+            if covenant_st in ("red", "breached"):
+                # Expose surcharge amount for frontend display (engine has already applied it)
+                extra["covenant_surcharge"] = bs_diag.get("covenants", {}).get(
+                    "treasury_surcharge", 0
+                )
+                extra["covenant_surcharge_rate"] = (
+                    0.02 if covenant_st == "red" else 0.05
+                )
+        except Exception as exc:
+            _engine_failed(extra, "Balance sheet engine", exc)
 
     # ── Analytics: Collaboration Gap Tracker ─────────────────────
     # Measures the spread between financial accumulation and ESG
