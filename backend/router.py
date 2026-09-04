@@ -2979,6 +2979,16 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             events=events,
         )
         events.update(new_engine_events)
+        # Audit F-08 / SEAM-05: the R10 finale ran inside post_tick, BEFORE the
+        # engines above applied the round's NPC fines, agent hits and balance
+        # sheet. Re-run its valuation stamps on the closing state so
+        # final_treasury, group_reputation, net debt / equity / share price,
+        # emissions, the solvency-gated profile and the canonical record are
+        # the persisted numbers, not a mid-pipeline snapshot.
+        if events.get("finale_inputs"):
+            from round_logic import restamp_finale_valuation
+            restamp_finale_valuation(new_global, new_bus, events,
+                                     current_global.get("active_event_flags", {}))
     except Exception as exc:
         # F-19: the batch itself throwing means NO engine ran for this team this
         # round. It must not be a warning nobody reads.

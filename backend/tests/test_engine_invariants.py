@@ -51,6 +51,14 @@ def _handler_sources() -> dict[str, str]:
             if isinstance(node, ast.FunctionDef) and (
                     node.name in HANDLER_ROUND or node.name == "_apply_common_impacts"):
                 src_of[node.name] = "\n".join(lines[node.lineno - 1:node.end_lineno])
+            # Audit F-08: the R10 valuation stamps were split out of
+            # _post_r10_grand_finale into _stamp_finale_valuation so the router
+            # can re-run them on the closing state. The finale's impact-key
+            # references live in both halves.
+            if isinstance(node, ast.FunctionDef) and node.name == "_stamp_finale_valuation":
+                src_of["_post_r10_grand_finale"] = (
+                    src_of.get("_post_r10_grand_finale", "") + "\n"
+                    + "\n".join(lines[node.lineno - 1:node.end_lineno]))
     return src_of
 
 

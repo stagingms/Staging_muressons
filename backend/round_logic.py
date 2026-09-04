@@ -2582,6 +2582,59 @@ def _post_r10_grand_finale(
         if impacts.get("mr_penalty"):
             extra["pathway_mr_penalty_from_option"] = impacts["mr_penalty"]
 
+    # ── Valuation stamps (audit F-08 / SEAM-05) ─────────────────────────
+    # Everything from here on is a pure function of the CLOSING state: it
+    # reads gs / bus / the balance sheet and writes stamps (extra + flags),
+    # never state. router.commit_turn re-runs it after run_new_engines —
+    # NPC fines, agent hits and the R10 balance sheet land AFTER post_tick —
+    # so the closing treasury, reputation, net debt, equity and profile the
+    # reveal shows are the persisted ones (the audit found three different
+    # "closing treasury" values on one team). The inputs the option phase
+    # resolved are recorded on the flags so the re-run sees exactly what this
+    # run saw.
+    extra["finale_inputs"] = {
+        "choice": choice,
+        "ending_pathway": ending_pathway,
+        "is_healthcare": is_healthcare,
+        "carbon_tax_per_ton": carbon_tax_per_ton,
+        "exit_multiple": exit_multiple,
+        "synergy_score": synergy_score,
+        "special": special,
+        "all_flags": sorted(all_flags),
+        "total_capex": float(sum(d.get("capex_allocated", 0) for d in decs) if decs else 0),
+    }
+    _stamp_finale_valuation(gs, bus, extra, prev_flags, **extra["finale_inputs"])
+
+
+def restamp_finale_valuation(gs: dict, bus: list[dict], extra: dict, prev_flags: dict) -> bool:
+    """Re-run the R10 valuation stamps on the closing state (audit F-08).
+
+    Called by router.commit_turn after run_new_engines. Returns False when the
+    finale has not run this round (no finale_inputs on the flags)."""
+    inputs = extra.get("finale_inputs") or (gs.get("active_event_flags") or {}).get("finale_inputs")
+    if not isinstance(inputs, dict) or not inputs:
+        return False
+    _stamp_finale_valuation(gs, bus, extra, prev_flags, _restamp=True, **inputs)
+    return True
+
+
+def _stamp_finale_valuation(
+    gs: dict, bus: list[dict], extra: dict, prev_flags: dict, *,
+    choice: str, ending_pathway: str, is_healthcare: bool, carbon_tax_per_ton: float,
+    exit_multiple: float, synergy_score: float, special: dict, all_flags,
+    total_capex: float = 0.0, _restamp: bool = False,
+) -> None:
+    """Terminal EBITDA, M_R (single arbiter), terminal value, equity bridge,
+    profile / archetype, HR ROI and pathway-discovery stamps. Split out of
+    _post_r10_grand_finale (audit F-08) so it can be re-run on the closing
+    state; the option-processing phase above it is NOT re-run.
+
+    Writes only stamps (extra[...] and gs["active_event_flags"][...]); the one
+    write-once record (final_report_canonical) is refreshed when _restamp is
+    True so the canonical snapshot matches the re-stamped figures."""
+    all_flags = set(all_flags or ())
+    if _restamp:
+        gs.pop("final_report_canonical", None)
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     #  Terminal_EBITDA = Σ(Revenue_i − OPEX_i) − (Carbon_Tonnage × $250/ton)
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2977,8 +3030,7 @@ def _post_r10_grand_finale(
     extra["total_opex"] = total_opex
     extra["instability_discount_applied"] = bool(extra.get("mr_instability_discount"))
     # R&D allocation: sum capex_allocated across all BU decisions ÷ total_revenue
-    total_capex = sum(d.get("capex_allocated", 0) for d in decs) if decs else 0
-    extra["rd_allocation_pct"] = round(total_capex / max(total_revenue, 1) * 100, 2)
+    extra["rd_allocation_pct"] = round(float(total_capex or 0) / max(total_revenue, 1) * 100, 2)
     # Climate resilience factor
     extra["climate_resilience_factor"] = round(gs.get("climate_resilience", 0.5), 2)
     # Talent penalty from software BU (or digital health BU in healthcare mode)

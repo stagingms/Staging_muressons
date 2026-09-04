@@ -611,6 +611,13 @@ export default function useSimulation() {
 
                 // Check for game over (R10 produces final report in events)
                 if (data.events?.profile || data.new_round_number > 10) {
+                    // Audit F-08 / SEAM-06: the game-over ladder (ArchetypeReveal,
+                    // GameOverSummary, Scorecard) renders sim.globalState /
+                    // sim.businessUnits, and the poller stops on gameOver, so
+                    // without this the live reveal showed the state ENTERING
+                    // round 10 while a reload showed the final state.
+                    if (data.global_state) setGlobalState(data.global_state);
+                    if (Array.isArray(data.business_units)) setBusinessUnits(data.business_units);
                     setGameOver(true);
                     setFinalReport(data.events);
                 }

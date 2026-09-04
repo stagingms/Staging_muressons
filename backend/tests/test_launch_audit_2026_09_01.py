@@ -1310,7 +1310,10 @@ class TestF12SingleTerminalValueFormula:
         assert calculate_sdg_multiplier(60.0)["m_sdg"] == pytest.approx(1.15)
         assert EBITDA_FLOOR == 0.0
         import inspect, round_logic
-        src = inspect.getsource(round_logic._post_r10_grand_finale)
+        # Audit F-08: the valuation stamps live in _stamp_finale_valuation,
+        # which _post_r10_grand_finale calls and router re-runs on the closing state.
+        src = (inspect.getsource(round_logic._post_r10_grand_finale)
+               + inspect.getsource(round_logic._stamp_finale_valuation))
         assert "calculate_sdg_multiplier" in src and "EBITDA_FLOOR" in src
         assert "* mr * m_sdg" in src
 
