@@ -2950,6 +2950,20 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     )
     events.update(post_events)
 
+    # Audit F-06: the "Road Not Taken" shadow runs (below) take the chosen
+    # option's ALTERNATIVES through process_tick + post_tick — the engine and
+    # the round's option effects — and nothing further. Their baseline is
+    # therefore the actual state at exactly this point, captured before
+    # run_new_engines (NPC fines, agents, balance sheet) and board pressure
+    # mutate new_global in place. Diffing the shadow against the fully
+    # post-processed state made every alternative "worth" exactly the round's
+    # later deductions, identical for both alternatives, to the cent.
+    _regret_baseline = {
+        "treasury": float(new_global.get("corporate_treasury", 0.0) or 0.0),
+        "reputation": float(new_global.get("group_reputation", 50.0) or 0.0),
+        "ebitda": float(sum(b["revenue_base"] - b["opex_base"] for b in new_bus)),
+    }
+
     # ── NEW ENGINES: Process all improvement modules ──────────
     # Inject data needed by balance sheet engine (CAPEX & dividends)
     events["decisions_raw"] = decisions_raw
@@ -3370,20 +3384,42 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                     )
                     shadow_gs = shadow_result["global_state"]
                     shadow_bus = shadow_result["bu_states"]
+                    # The option's own effects (treasury, reputation, CI, SLO,
+                    # flags) are applied by post_tick, not by the engine tick;
+                    # a shadow without it reads 0/0 in most rounds. Same
+                    # inputs as the real path, on the deep copies (audit F-06).
+                    _forward_persistent_flags(current_global, shadow_gs)
+                    shadow_gs_events = shadow_result.get("events") or {}
+                    post_tick(
+                        round_number=current_round,
+                        global_state=shadow_gs,
+                        bu_states=shadow_bus,
+                        decisions=shadow_decisions,
+                        events=shadow_gs_events,
+                        previous_flags=_copy.deepcopy(current_global.get("active_event_flags", {})),
+                        decision_paradigm=paradigm,
+                    )
                     shadow_ebitda = sum(b["revenue_base"] - b["opex_base"] for b in shadow_bus)
-                    actual_ebitda = sum(b["revenue_base"] - b["opex_base"] for b in new_bus)
                     regret_analysis[alt_option] = {
-                        "treasury_delta": round(shadow_gs["corporate_treasury"] - new_global["corporate_treasury"], 2),
-                        "reputation_delta": round(shadow_gs["group_reputation"] - new_global.get("group_reputation", 50), 2),
-                        "ebitda_delta": round(shadow_ebitda - actual_ebitda, 2),
+                        "treasury_delta": round(float(shadow_gs.get("corporate_treasury", 0.0) or 0.0)
+                                                - _regret_baseline["treasury"], 2),
+                        "reputation_delta": round(float(shadow_gs.get("group_reputation", 50.0) or 0.0)
+                                                  - _regret_baseline["reputation"], 2),
+                        "ebitda_delta": round(shadow_ebitda - _regret_baseline["ebitda"], 2),
                     }
                 except Exception:
                     pass  # Shadow tick failed — skip this option
             if regret_analysis:
+                # R10: the synergy gate can replace the chosen option with the
+                # fallback (round_logic r10_choice); report what was applied.
+                _applied_choice = events.get("r10_choice") if current_round == 10 else None
                 events["decision_regret"] = {
-                    "your_choice": primary_choice,
+                    "your_choice": _applied_choice or primary_choice,
                     "alternatives": regret_analysis,
-                    "note": "What would have happened if you chose differently?",
+                    "scope": "engine_and_round_effects",
+                    "note": ("What the other options would have produced this round through the engine and "
+                             "the round's option effects — before events, fines and stakeholder reactions, "
+                             "which land whichever option you choose."),
                 }
     except Exception as exc:
         _log.warning(f"[WARN] Decision Regret analysis failed: {exc}")

@@ -1042,7 +1042,7 @@ export default function FrontPageReveal({
                   ))}
                 </tbody>
               </table>
-              <div className="fpr-cap">Counterfactual outcomes computed by the group’s own planning model.</div>
+              <div className="fpr-cap">Engine-only counterfactuals from the group’s planning model: the other options run through the same tick, before each round’s events, fines and stakeholder reactions.</div>
             </section>
           )}
 

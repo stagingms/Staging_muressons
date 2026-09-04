@@ -700,7 +700,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                     animation: 'shimmer 3s linear infinite',
                   }}>
                     You chose <strong>{optionLabels[regret.your_choice] || regret.your_choice}</strong>
-                  </span>. Here's what the alternatives would have yielded:
+                  </span>. Here's what the engine alone would have produced for the other options — before this round's events, fines and stakeholder reactions, which land whichever option you choose:
                 </div>
                 <style>{`@keyframes shimmer { to { background-position: 200% center; } }`}</style>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
