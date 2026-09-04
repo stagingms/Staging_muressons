@@ -490,7 +490,22 @@ _reg = _engine.get("regulatory_ratchet", {})
 # team paid an unavoidable $3.75M fine in round 1 and $1.25M in round 2 before
 # any decision had taken effect. At 20 the seed is compliant; the fine bites
 # when governance actually deteriorates.
-REG_RATCHET_BASELINE:          float = float(_reg.get("baseline", 20.0))
+_REG_RATCHET_BASELINE_DEFAULT: float = 20.0
+# Audit 2026-09-04 F-07: this was the ONE stale-volume value with no clamp.
+# A data volume seeded before F-10 (2026-09-01) still says 10.0; CBAM, the
+# NCD thresholds and the imitation rate are clamped with a warning, this key
+# governed silently — every team lost $1.6M (generic seed) to $3.75M
+# (healthcare seed) in round 1 before any decision, with an R1 event card
+# blaming "persistent non-compliance". Anything at or below the pre-F-10
+# value is treated as the legacy mistake and clamped to the default; the
+# tuning band ABOVE it (a stricter regulator) is honoured as configured.
+_REG_RATCHET_BASELINE_LEGACY_MAX: float = 10.0
+REG_RATCHET_BASELINE:          float = float(_reg.get("baseline", _REG_RATCHET_BASELINE_DEFAULT))
+if REG_RATCHET_BASELINE <= _REG_RATCHET_BASELINE_LEGACY_MAX:
+    print(f"[CONFIG] WARNING: engine_parameters.regulatory_ratchet.baseline={REG_RATCHET_BASELINE} "
+          f"is at or below the pre-F-10 value {_REG_RATCHET_BASELINE_LEGACY_MAX} (seed teams are fined "
+          f"in round 1); using {_REG_RATCHET_BASELINE_DEFAULT}. Update simulation_config.json on the data volume.")
+    REG_RATCHET_BASELINE = _REG_RATCHET_BASELINE_DEFAULT
 REG_RATCHET_ROUND_INCREMENT:   float = float(_reg.get("round_increment", 5.0))
 REG_RATCHET_FINE_PER_POINT:    float = float(_reg.get("fine_per_point", 500_000))
 

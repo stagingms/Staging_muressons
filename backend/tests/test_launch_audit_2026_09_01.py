@@ -1158,6 +1158,91 @@ class TestF07ImitationDecayBound:
             assert "imitation_decay" not in capsys.readouterr().out
 
 
+@pytest.fixture
+def config_key_on_volume(tmp_path, monkeypatch):
+    """Generalisation of decay_rate_on_volume: load `config` against a data
+    volume whose simulation_config.json carries ANY chosen key, then restore."""
+    import importlib
+    import json
+    import os
+    import pathlib
+    import config as _config
+
+    repo_cfg = pathlib.Path(__file__).resolve().parent.parent.parent / "simulation_config.json"
+    original = os.environ.get("MURESSONS_DATA_DIR")
+
+    def _load(path: list[str], value):
+        data = json.loads(repo_cfg.read_text(encoding="utf-8"))
+        node = data
+        for seg in path[:-1]:
+            node = node.setdefault(seg, {})
+        node[path[-1]] = value
+        (tmp_path / "simulation_config.json").write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setenv("MURESSONS_DATA_DIR", str(tmp_path))
+        return importlib.reload(_config)
+
+    yield _load
+
+    if original is None:
+        os.environ.pop("MURESSONS_DATA_DIR", None)
+    else:
+        os.environ["MURESSONS_DATA_DIR"] = original
+    importlib.reload(_config)
+    # engine captures the typed constants at import (`from config import ...`);
+    # put it back on the restored config so nothing leaks into later tests.
+    import engine as _engine
+    importlib.reload(_engine)
+
+
+class TestRatchetBaselineBound:
+    """Audit 2026-09-04 F-07. regulatory_ratchet.baseline moved 10 -> 20 on
+    2026-09-01 (F-10) and was the ONE stale-volume value with no clamp: CBAM,
+    the NCD thresholds and the imitation rate warn and fall back, this key
+    governed silently. On a volume seeded before F-10 every team paid
+    $1.6M-$3.75M in round 1 before any decision (engine.py regulatory ratchet:
+    (avg_gov_risk - baseline) x $500k on a seed mean of 13.25 / 17.5).
+    Both branches pinned, as for TestF07ImitationDecayBound."""
+
+    _PATH = ["engine_parameters", "regulatory_ratchet", "baseline"]
+
+    def test_the_live_baseline_is_the_documented_one(self):
+        import config
+        assert config.REG_RATCHET_BASELINE == pytest.approx(20.0)
+        assert config._REG_RATCHET_BASELINE_LEGACY_MAX < config._REG_RATCHET_BASELINE_DEFAULT
+
+    def test_repo_config_matches_the_default(self):
+        import json, pathlib
+        cfg = json.loads((pathlib.Path(__file__).resolve().parent.parent.parent
+                          / "simulation_config.json").read_text(encoding="utf-8-sig"))
+        assert cfg["engine_parameters"]["regulatory_ratchet"]["baseline"] == 20.0
+
+    def test_a_stale_volume_value_is_clamped_and_says_so(self, config_key_on_volume, capsys):
+        cfg = config_key_on_volume(self._PATH, 10.0)
+        assert cfg.REG_RATCHET_BASELINE == pytest.approx(20.0)
+        out = capsys.readouterr().out
+        assert "regulatory_ratchet.baseline" in out
+        assert "10.0" in out and "20.0" in out
+
+    def test_a_stricter_baseline_is_honoured(self, config_key_on_volume, capsys):
+        """The band ABOVE the legacy value is a legitimate tuning (a stricter regulator)."""
+        for value in (15.0, 25.0):
+            cfg = config_key_on_volume(self._PATH, value)
+            assert cfg.REG_RATCHET_BASELINE == pytest.approx(value)
+            assert "regulatory_ratchet" not in capsys.readouterr().out
+
+    def test_a_seed_team_is_not_fined_in_round_one_on_a_stale_volume(self, config_key_on_volume):
+        """The engine reads the clamped constant: the R1 ratchet stays inactive."""
+        import importlib
+        config_key_on_volume(self._PATH, 10.0)
+        import engine as _engine
+        importlib.reload(_engine)          # picks up the clamped constant; fixture teardown reloads again
+        gs, bus = _tick_state()            # seed governance risk 20 > the legacy baseline 10
+        res = _tick(gs, bus, choice="option_b")
+        ratchet = res["events"].get("regulatory_ratchet") or {}
+        assert not ratchet.get("active"), ratchet
+        assert float(ratchet.get("fine", 0) or 0) == 0.0
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  F-08 / F-09 / F-10 / F-12 / F-13 — dead or positional mechanics
 # ═══════════════════════════════════════════════════════════════════════════
