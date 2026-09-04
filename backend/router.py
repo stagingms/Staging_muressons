@@ -4318,6 +4318,89 @@ async def update_session_paradigm(request: Request, session_id: str, body: Updat
 
 
 # ─────────────────────────────────────────────────────────────────
+# POST /api/simulations/{session_id}/materiality/commission-panel
+# ─────────────────────────────────────────────────────────────────
+
+_PANELS_COMMISSIONED_KEY = "materiality_panels_commissioned"
+
+
+def _commissioned_panels(global_state: dict) -> set:
+    """Panel groups this session has commissioned (recorded server-side).
+
+    Stored as a {group: True} dict so the flags pack/unpack round-trip keeps it
+    (both stores fold unknown top-level keys into active_event_flags) without
+    _collect_flags_from_state reading the group names as active flags — a list
+    there would."""
+    raw = global_state.get(_PANELS_COMMISSIONED_KEY)
+    if raw is None:
+        raw = (global_state.get("active_event_flags") or {}).get(_PANELS_COMMISSIONED_KEY)
+    if isinstance(raw, dict):
+        return {str(g) for g, on in raw.items() if on}
+    if isinstance(raw, (list, tuple, set)):
+        return {str(g) for g in raw}
+    return set()
+
+
+class PanelCommissionRequest(BaseModel):
+    group: str
+    bu_id: str | None = None
+
+
+@router.post(
+    "/{session_id}/materiality/commission-panel",
+    tags=["Simulation"],
+    summary="Commission one stakeholder panel group for the R2 matrix",
+)
+async def commission_materiality_panel(request: Request, session_id: str, body: PanelCommissionRequest):
+    """F-10 / ACC-2 (audit 2026-09-04): the per-group quadrant recommendations
+    used to ride along in GET /api/admin/materiality-config for everyone, and
+    the `experts` column is always correct — the R2 answer key, free. They are
+    now served here, one group per call, to the session's owner, and the
+    commission is recorded on the session so the group's fee is charged at
+    submission (POST /materiality) even if the client omits it.
+
+    Idempotent: commissioning a group twice returns the same hints and charges
+    once. The dictionary resolves through the same chain the matrix displays
+    and the submit scores against (bu_id → cohort override → pack → region →
+    BU; else cohort sandbox; else global)."""
+    await _assert_player_owns_session(request, session_id)
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+    from round2_csrd import ROUND_2_DEFAULT_CONFIG, compute_panel_recommendations
+    groups = ROUND_2_DEFAULT_CONFIG["round_2_config"]["stakeholder_panel"].get("groups", {})
+    if body.group not in groups:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown panel group {body.group!r}; expected one of {sorted(groups)}.",
+        )
+    gs = latest["global_state"]
+    scoped = await _hydrate_scope_from_session(gs, session_id)
+    if body.bu_id:
+        from materiality_packs import resolve_session_bu_config
+        mat_config = resolve_session_bu_config(scoped, body.bu_id)
+    elif "materiality_dictionary_override" in scoped:
+        mat_config = scoped["materiality_dictionary_override"]
+    else:
+        mat_config = mat_db.get_current_config()
+    recs = compute_panel_recommendations(mat_config.get("issues", []))
+
+    commissioned = _commissioned_panels(gs)
+    if body.group not in commissioned:
+        commissioned.add(body.group)
+        gs[_PANELS_COMMISSIONED_KEY] = {g: True for g in sorted(commissioned)}
+        try:
+            await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+        except Exception as exc:  # never lose the hint over a persistence hiccup
+            _log.warning(f"[MATERIALITY] could not record panel commission for {session_id[:8]}: {exc}")
+    return {
+        "group": body.group,
+        "commissioned": sorted(commissioned),
+        "fee_usd": groups[body.group].get("fee_usd", 750_000),
+        "recommendations": {iid: g.get(body.group) for iid, g in recs.items() if g.get(body.group)},
+    }
+
+
 # POST /api/simulations/{session_id}/materiality
 # ─────────────────────────────────────────────────────────────────
 
@@ -4460,9 +4543,15 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     # supported for backward compatibility with existing saved sessions.
     from round2_csrd import compute_panel_recommendations
     panel_fee = 0
-    if body.panel_groups_commissioned:
+    # F-10 / ACC-2: a panel commissioned through /materiality/commission-panel
+    # is recorded on the session; it is charged whether or not the client
+    # lists it (reading the hints, then omitting the group, was free).
+    _recorded_panels = _commissioned_panels(global_state)
+    _claimed_panels = list(body.panel_groups_commissioned or [])
+    _all_panels = _claimed_panels + [g for g in sorted(_recorded_panels) if g not in _claimed_panels]
+    if _all_panels:
         group_configs = panel_config.get("groups", {})
-        valid_groups = [g for g in body.panel_groups_commissioned if g in group_configs]
+        valid_groups = [g for g in _all_panels if g in group_configs]
         panel_fee = sum(
             group_configs[g].get("fee_usd", 750_000) for g in valid_groups
         )
@@ -4924,7 +5013,9 @@ async def submit_stakeholder_map(request: Request, session_id: str, body: Stakeh
     tags=["Admin"],
     summary="God Mode: Get full master stakeholder config",
 )
-async def get_stakeholder_master():
+async def get_stakeholder_master(_g: None = Depends(require_facilitator)):
+    # F-10 (audit 2026-09-04): the R1 answer key (each stakeholder's
+    # correct_quadrant and per-tactic correct flags) — facilitators only.
     return get_master_config()
 
 

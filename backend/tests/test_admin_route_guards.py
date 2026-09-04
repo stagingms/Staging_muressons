@@ -64,11 +64,24 @@ _INTENTIONALLY_PUBLIC = {
     # not run the same way for websocket routes, so the check is inline.
     "WEBSOCKET /ws/admin",
     "WEBSOCKET /ws/session/{session_id}",
+    # F-10 (audit 2026-09-04): fetched by the PLAYER cockpit (the R2 matrix and
+    # the R6 revelation panel), so a role guard would break the game. They gate
+    # INLINE instead: an anonymous caller gets a projection with the answer key
+    # stripped (see _materiality_player_projection / _r6_player_projection);
+    # tests/test_answer_key_leaks.py pins both projections.
+    "GET /materiality-config",
+    "GET /materiality-config/bu/{bu_id}",
+    "GET /journey/r6-revelation",
 }
 
 # ── THE RATCHET ────────────────────────────────────────────────────────────
 # Measured 2026-08-02. LOWER THESE as routes are fixed. Never raise them.
-_MAX_UNGUARDED = 58     # routes with no Depends(require_*), excluding the public set
+# Audit 2026-09-04 (F-10, WP-10): ten reference/answer-key handlers gated with
+# require_facilitator (teleprompter ×3, debrief-protocol, simulation-reference,
+# interventions/master, engine-tunables, scenario-presets, flag-dependencies,
+# side-tracks/blueprints) and three player-required routes moved to the
+# intentionally-public set with inline projections: 58 → 45.
+_MAX_UNGUARDED = 45     # routes with no Depends(require_*), excluding the public set
 # Launch audit 2026-09-01 (F-21): every session/cohort-scoped admin route now
 # carries an ownership (write) or visibility (read) assertion. The counter below
 # recognises the four tenancy helpers; the single residue is the player

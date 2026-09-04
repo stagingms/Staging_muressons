@@ -92,7 +92,7 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
     const [briefingScript, setBriefingScript] = useState(null);
 
     useEffect(() => {
-        fetch(`${API}/api/admin/teleprompter`)
+        fetch(`${API}/api/admin/teleprompter`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => {
                 const scripts = d.scripts || {};

@@ -46,7 +46,7 @@ export default function MasterInterventions() {
     const fetchMasterData = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/interventions/master`);
+            const res = await fetch(`${API}/api/admin/interventions/master`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setOverrides(data.overrides || SEED_OVERRIDES);

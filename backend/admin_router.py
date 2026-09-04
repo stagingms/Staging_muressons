@@ -1557,7 +1557,7 @@ async def update_facilitator_role(
 
 # ── Simulation Master Reference (read-only, live values) ────────
 @admin_router.get("/simulation-reference", summary="Live simulation master reference (read-only)")
-async def get_simulation_reference():
+async def get_simulation_reference(_g: None = Depends(require_facilitator)):
     """Returns the complete simulation reference with live values from current settings.
     This is a read-only endpoint — no inputs possible. All values are derived from
     the current simulation state, round configs, and God Mode settings."""
@@ -7195,16 +7195,43 @@ async def auto_inject_scheduled_interventions(
 #  MATERIALITY CONFIGURATOR (DYNAMIC)
 # ═════════════════════════════════════════════════════════════════
 
+# F-10 / ACC-2 (audit 2026-09-04): the materiality config is fetched by the
+# PLAYER's R2 Double-Materiality matrix, so it cannot be gated — but per issue
+# it carried `financial_impact` + `societal_impact` (= the correct quadrant:
+# high/high ⇒ Q1), sometimes `correct_quadrant` itself, and the full
+# `panel_recommendations` table whose `experts` column is always correct. A
+# participant with dev-tools open on the R2 screen had the answer key and the
+# +0.10 M_R `materiality_aligned` flag for free. Anonymous callers now get
+# this projection; the commissioned-panel hints are served per group by
+# POST /api/simulations/{id}/materiality/commission-panel, which records the
+# commission so the fee is charged at submission.
+_MATERIALITY_ANSWER_KEY_FIELDS = ("financial_impact", "societal_impact", "correct_quadrant")
+
+
+def _materiality_player_projection(payload: dict) -> dict:
+    out = {k: v for k, v in payload.items() if k != "panel_recommendations"}
+    out["issues"] = [
+        {k: v for k, v in issue.items() if k not in _MATERIALITY_ANSWER_KEY_FIELDS}
+        for issue in (payload.get("issues") or [])
+    ]
+    out["player_projection"] = True
+    return out
+
+
 @admin_router.get(
     "/materiality-config",
     summary="Get the dynamic materiality configuration"
 )
-async def get_materiality_config():
+async def get_materiality_config(request: Request):
     """
     Returns the current materiality issues, interdependencies, fee, plus:
       - panel_group_config: per-group fee/color/label data for the multi-survey UI
       - panel_recommendations: per-issue, per-group quadrant recommendations
         (deterministic, bias-aware per ESRS §1.47 group mandates)
+
+    F-10 / ACC-2 (audit 2026-09-04): the R2 matrix (a graded gate) fetches this
+    with no credentials, so an anonymous caller gets the PLAYER PROJECTION —
+    see _materiality_player_projection. The full body goes to a facilitator.
     """
     from round2_csrd import (
         ROUND_2_DEFAULT_CONFIG,
@@ -7216,11 +7243,14 @@ async def get_materiality_config():
         ROUND_2_DEFAULT_CONFIG["round_2_config"]["stakeholder_panel"].get("groups", {})
     )
     panel_recommendations = compute_panel_recommendations(issues)
-    return {
+    payload = {
         **config,
         "panel_group_config": panel_group_config,
         "panel_recommendations": panel_recommendations,
     }
+    if get_fac_role(request) == "anonymous":
+        return _materiality_player_projection(payload)
+    return payload
 
 
 @admin_router.put(
@@ -7478,7 +7508,7 @@ async def set_bu_composition(session_id: str, request: Request, body: dict = Bod
     "/materiality-config/bu/{bu_id}",
     summary="Get the BU-specific materiality configuration"
 )
-async def get_bu_materiality_config(bu_id: str, session_id: str | None = None):
+async def get_bu_materiality_config(request: Request, bu_id: str, session_id: str | None = None):
     """
     Returns the materiality issues dictionary for a specific Business Unit,
     plus panel_group_config and panel_recommendations (same as global endpoint).
@@ -7520,11 +7550,14 @@ async def get_bu_materiality_config(bu_id: str, session_id: str | None = None):
         ROUND_2_DEFAULT_CONFIG["round_2_config"]["stakeholder_panel"].get("groups", {})
     )
     panel_recommendations = compute_panel_recommendations(issues)
-    return {
+    payload = {
         **config,
         "panel_group_config": panel_group_config,
         "panel_recommendations": panel_recommendations,
     }
+    if get_fac_role(request) == "anonymous":
+        return _materiality_player_projection(payload)  # F-10 / ACC-2
+    return payload
 
 
 @admin_router.put(
@@ -8925,7 +8958,7 @@ _master_swipes = [
     "/interventions/master",
     summary="Get all master overrides and swipe file presets",
 )
-async def get_master_interventions():
+async def get_master_interventions(_g: None = Depends(require_facilitator)):
     """Returns the global master database of overrides and swipe files."""
     return {"overrides": _master_overrides, "swipes": _master_swipes}
 
@@ -10659,7 +10692,7 @@ _engine_tunables: dict = {
 
 
 @admin_router.get("/engine-tunables", summary="Get all economic engine tunables")
-async def get_engine_tunables():
+async def get_engine_tunables(_g: None = Depends(require_facilitator)):
     return {"tunables": _engine_tunables, "descriptions": {
         "inflation_rate": "Annual OPEX inflation applied each round (0.025 = 2.5%)",
         "technical_debt_threshold": "Rounds of zero investment before penalty kicks in",
@@ -10883,7 +10916,7 @@ _scenario_presets = [
 
 
 @admin_router.get("/scenario-presets", summary="Get available scenario presets")
-async def get_scenario_presets():
+async def get_scenario_presets(_g: None = Depends(require_facilitator)):
     return {"presets": _scenario_presets, "current_tunables": _engine_tunables}
 
 
@@ -12548,7 +12581,7 @@ async def get_cohort_side_tracks(session_id: str, request: Request, _guard: None
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/flag-dependencies", summary="Get the cross-round flag dependency graph")
-async def get_flag_dependencies(session_id: str | None = None):
+async def get_flag_dependencies(session_id: str | None = None, _g: None = Depends(require_facilitator)):
     """STRAT-002: Returns the flag dependency graph with optional session overlay."""
     from terminal_valuation import get_flag_dependency_graph
     active_flags = None
@@ -12932,7 +12965,7 @@ async def submit_mod4_crisis_choices(session_id: str, request: Request, body: di
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/side-tracks/blueprints", summary="Full side track round configs for God Mode preview")
-async def get_side_track_blueprints():
+async def get_side_track_blueprints(_g: None = Depends(require_facilitator)):
     """Returns all registered side track configs with full round details.
     Used by the God Mode Side Track panel to display option trees,
     flag dependencies, and impact previews before assigning to cohorts."""

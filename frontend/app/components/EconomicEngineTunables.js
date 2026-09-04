@@ -290,14 +290,14 @@ export default function EconomicEngineTunables() {
     const [newPresetIcon, setNewPresetIcon] = useState('⚙️');
 
     const loadPresets = () => {
-        fetch(`${API}/api/admin/scenario-presets`)
+        fetch(`${API}/api/admin/scenario-presets`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => setPresets(d.presets || []))
             .catch(() => {});
     };
 
     useEffect(() => {
-        fetch(`${API}/api/admin/engine-tunables`)
+        fetch(`${API}/api/admin/engine-tunables`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => { setTunables(d.tunables || {}); setLoading(false); })
             .catch(() => setLoading(false));

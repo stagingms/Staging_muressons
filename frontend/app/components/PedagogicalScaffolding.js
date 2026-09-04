@@ -595,7 +595,7 @@ export function DebriefProtocol() {
     const [activePhase, setActivePhase] = useState(null);
 
     useEffect(() => {
-        fetch(`${API}/api/admin/pedagogical/debrief-protocol`)
+        fetch(`${API}/api/admin/pedagogical/debrief-protocol`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => setProtocol(d.protocol))
             .catch(() => {});

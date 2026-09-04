@@ -699,7 +699,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
     }, [currentRound]);
 
     useEffect(() => {
-        fetch(`${API}/api/admin/teleprompter`)
+        fetch(`${API}/api/admin/teleprompter`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => setScripts(d.scripts || {}))
             .catch(() => {});

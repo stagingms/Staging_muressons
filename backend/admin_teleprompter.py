@@ -958,7 +958,7 @@ _BRSR_TELEPROMPTER_OVERLAYS = {
 }
 
 @teleprompter_router.get("/teleprompter/{round_number}", summary="Get facilitator teleprompter script")
-async def get_teleprompter(round_number: int):
+async def get_teleprompter(round_number: int, _g: None = Depends(require_facilitator)):
     script = _TELEPROMPTER_SCRIPTS.get(round_number, {
         "title": f"Round {round_number}",
         "talking_points": ["Continue guiding teams through their decisions."],
@@ -1009,7 +1009,7 @@ async def get_teleprompter(round_number: int):
 
 
 @teleprompter_router.get("/teleprompter", summary="Get all teleprompter scripts")
-async def get_all_teleprompter():
+async def get_all_teleprompter(_g: None = Depends(require_facilitator)):
     import copy
     scripts = copy.deepcopy(_TELEPROMPTER_SCRIPTS)
     # Inject BRSR NGRBC overlay into scripts when enabled
@@ -1185,7 +1185,7 @@ async def get_strategy_memo_template():
 
 
 @teleprompter_router.get("/pedagogical/debrief-protocol", summary="Get Thiagarajan 3-phase debrief protocol")
-async def get_debrief_protocol():
+async def get_debrief_protocol(_g: None = Depends(require_facilitator)):
     from pedagogical_engine import DEBRIEF_PROTOCOL
     return {"protocol": DEBRIEF_PROTOCOL}
 
@@ -1218,10 +1218,36 @@ async def get_r1_split(phase: str, tier: str = "advanced"):
     return {"split_active": True, "phase": phase, "config": cfg}
 
 
+# F-10 (audit 2026-09-04): the R6 revelation is fetched by the PLAYER cockpit
+# (R6RevelationPanel), so it cannot be gated — but its per-option `impacts`,
+# `flags_set` and stochastic `backfire_impacts` are the payoff table. Players
+# get the narrative, the options and the disclosed backfire probability (the
+# panel shows it by design); the payoffs go only to a facilitator.
+_R6_PLAYER_HIDDEN_KEYS = ("impacts", "flags_set")
+_R6_PLAYER_HIDDEN_STOCHASTIC_KEYS = ("backfire_impacts",)
+
+
+def _r6_player_projection(revelation: dict) -> dict:
+    out = dict(revelation)
+    decisions = {}
+    for key, dec in (revelation.get("micro_decisions") or {}).items():
+        d = {k: v for k, v in dec.items() if k not in _R6_PLAYER_HIDDEN_KEYS}
+        if isinstance(d.get("stochastic"), dict):
+            d["stochastic"] = {k: v for k, v in d["stochastic"].items()
+                               if k not in _R6_PLAYER_HIDDEN_STOCHASTIC_KEYS}
+        decisions[key] = d
+    out["micro_decisions"] = decisions
+    out["player_projection"] = True
+    return out
+
+
 @teleprompter_router.get("/journey/r6-revelation", summary="Get R6 revelation mechanic config")
-async def get_r6_revelation():
+async def get_r6_revelation(request: Request):
     from journey_improvements import get_r6_revelation
-    return {"revelation": get_r6_revelation()}
+    revelation = get_r6_revelation()
+    if _get_fac_role(request) == "anonymous":
+        return {"revelation": _r6_player_projection(revelation)}
+    return {"revelation": revelation}
 
 
 @teleprompter_router.get("/journey/mechanic-variant/{round_number}", summary="Get mechanic variant for R7 or R8")
@@ -1534,7 +1560,7 @@ _AC_TELEPROMPTER_OVERLAYS = {
 }
 
 @teleprompter_router.get("/teleprompter/{round_number}/{paradigm}", summary="Get paradigm-specific teleprompter script")
-async def get_paradigm_teleprompter(round_number: int, paradigm: str = "legacy_abc"):
+async def get_paradigm_teleprompter(round_number: int, paradigm: str = "legacy_abc", _g: None = Depends(require_facilitator)):
     """Get teleprompter script merged with paradigm-specific overlay."""
     base = _TELEPROMPTER_SCRIPTS.get(round_number, {
         "title": f"Round {round_number}",

@@ -30,7 +30,7 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
     // Single source of truth for round names (same endpoint the Teleprompter
     // and the Dashboard briefing card already use).
     useEffect(() => {
-        fetch(`${API}/api/admin/teleprompter`)
+        fetch(`${API}/api/admin/teleprompter`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(d => {
                 if (!d?.scripts) return;

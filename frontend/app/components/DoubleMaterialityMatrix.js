@@ -15,6 +15,7 @@ import {
 import { droppableKeyboardCoordinates } from '../lib/dndDroppableKeyboardCoordinates';
 import styles from './DoubleMaterialityMatrix.module.css';
 import { currencySymbol, moneyFull, atRate } from '../utils/format';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -555,8 +556,35 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     };
 
     // ── Commission a specific panel group (idempotent per group) ──
-    const handleCommissionGroup = (groupKey) => {
+    // F-10 / ACC-2: the group's per-issue recommendations no longer ride along
+    // in the config response (the experts column IS the answer key); they are
+    // fetched here, per commissioned group, from an owner-bound endpoint that
+    // also records the commission so the fee is charged at submission.
+    const handleCommissionGroup = async (groupKey) => {
         if (commissionedGroups.has(groupKey)) return; // already commissioned
+        let recs = null;
+        if (sessionId) {
+            try {
+                const res = await fetch(`${API}/api/simulations/${sessionId}/materiality/commission-panel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
+                    body: JSON.stringify({ group: groupKey, bu_id: effectiveBuId || null }),
+                });
+                if (res.ok) {
+                    const d = await res.json();
+                    recs = d.recommendations || {};
+                }
+            } catch { /* offline: the group is still marked; hints arrive on retry */ }
+        }
+        if (recs) {
+            setPanelRecommendations(prev => {
+                const next = { ...prev };
+                Object.entries(recs).forEach(([issueId, quadrant]) => {
+                    next[issueId] = { ...(next[issueId] || {}), [groupKey]: quadrant };
+                });
+                return next;
+            });
+        }
         setCommissionedGroups(prev => {
             const next = new Set(prev);
             next.add(groupKey);

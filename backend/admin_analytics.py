@@ -618,10 +618,18 @@ async def get_player_analytics(session_id: str, request: Request):
     if not sess:
         raise HTTPException(404, "Session not found")
 
+    # F-11 (audit 2026-09-04): this was a plaintext X-Player-Id compare — a
+    # forgeable header, not the signed player token every router.py player
+    # route requires — and any facilitator passed with no tenancy check. A
+    # player is now bound by the same rule as the cockpit's own routes (a
+    # token scoped to THIS session; observers may read); a facilitator must be
+    # able to observe the cohort the session belongs to.
     if _get_fac_role(request) == 'anonymous':
-        owner = sess.get("player_id") or ""
-        if owner and request.headers.get("X-Player-Id", "") != owner:
-            raise HTTPException(status_code=403, detail="Not your session")
+        from router import _assert_player_owns_session
+        await _assert_player_owns_session(request, session_id, allow_observer=True)
+    else:
+        from admin_router import _assert_session_visible
+        await _assert_session_visible(request, session_id)
 
     player_rounds = global_states.get(session_id, [])
     if not player_rounds:

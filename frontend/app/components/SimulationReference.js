@@ -16,7 +16,7 @@ export default function SimulationReference() {
     useEffect(() => {
         const fetchRef = async () => {
             try {
-                const res = await fetch(`${API}/api/admin/simulation-reference`);
+                const res = await fetch(`${API}/api/admin/simulation-reference`, { credentials: 'include' });
                 if (!res.ok) throw new Error('Failed to load reference data');
                 const json = await res.json();
                 setData(json);

@@ -45,7 +45,7 @@ export default function InterventionConfig({ sessionId }) {
         if (!sessionId) return;
         setLoading(true);
         Promise.all([
-            fetch(`${API}/api/admin/interventions/master`).then(r => r.json()),
+            fetch(`${API}/api/admin/interventions/master`, { credentials: 'include' }).then(r => r.json()),
             fetch(`${API}/api/admin/${sessionId}/interventions`).then(r => r.json()),
         ])
             .then(([master, session]) => {
