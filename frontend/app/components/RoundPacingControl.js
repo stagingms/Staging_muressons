@@ -5,6 +5,7 @@ import styles from './RoundPacingControl.module.css';
 import { useConfirm } from './ConfirmModal';
 
 const TOTAL_ROUNDS = 10;
+const WIZARD_MODE_IDS = { free_play: 'free', scheduled: 'timed' };
 
 const MODES = [
     {
@@ -111,8 +112,12 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing`);
             if (res.ok) {
                 const data = await res.json();
-                setPacing(data);
-                setMode(data.mode);
+                // F-18: cohorts created by the wizard before the pacing fix may
+                // still carry its ids ("free_play" / "scheduled") in a restored
+                // snapshot; show them as the mode they meant.
+                const normMode = WIZARD_MODE_IDS[data.mode] || data.mode;
+                setPacing({ ...data, mode: normMode });
+                setMode(normMode);
                 setFaTimeoutMin(Math.round((data.free_advance_timeout_seconds || 0) / 60));
                 if (Array.isArray(data.schedule) && data.schedule.length > 0) {
                     // Pad/trim to TOTAL_ROUNDS

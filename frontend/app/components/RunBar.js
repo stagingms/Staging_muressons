@@ -120,8 +120,13 @@ export default function RunBar({ cohortId, onOpenPacing }) {
         if (!ok) return;
         setBusy(true);
         try {
+            // FLOW-11: name the round being opened so a double-click or a retried
+            // request is idempotent (the server opens up to target_round, and a
+            // repeat answers already_unlocked instead of opening one more).
             const res = await fetch(`${API}/api/admin/sessions/${cohortId}/pacing/unlock`, {
                 method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_round: nextRound }),
             });
             if (res.ok) {
                 const d = await res.json();

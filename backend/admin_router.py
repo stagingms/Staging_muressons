@@ -3737,9 +3737,12 @@ async def reset_esg_profile_weights(request: Request, _guard: None = Depends(req
     return {"status": "ok", "esg_profile_weights": DEFAULT_ESG_WEIGHTS}
 
 
-@admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
-async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request, _guard: None = Depends(require_sim_manager)):
-    await _assert_session_ownership(request, session_id)
+async def _apply_pacing(session_id: str, body: RoundPacingRequest) -> dict:
+    """Apply a pacing policy to a cohort: mode, unlock ceiling, timers, schedule.
+
+    The body of POST /sessions/{id}/pacing, factored out (audit F-18) so the
+    cohort-creation wizard's PUT /cohort/{id}/pacing applies its choice through
+    the same code instead of writing a vocabulary the gate never reads."""
     pacing = _get_pacing(session_id)
 
     # Cancel existing single-shot timer if any
@@ -3866,6 +3869,14 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
             )
 
     mark_pacing_dirty(session_id)  # Fix #5: share the new pacing policy across workers + snapshot
+    return pacing
+
+
+@admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
+async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request, _guard: None = Depends(require_sim_manager)):
+    await _assert_session_ownership(request, session_id)
+    pacing = await _apply_pacing(session_id, body)
+
 
     # Broadcast mode change to player sessions
     await manager.push_to_session(session_id, {
@@ -4576,13 +4587,25 @@ async def apply_cohort_setup(
                    lambda v: ", ".join(v) if v else "none", _apply_tracks)
 
     # ── Pacing defaults ──
-    async def _apply_pacing(v):
-        await db.update_session_metadata(session_id, {
+    async def _apply_pacing_section(v):
+        _updates = {
             "pacing_mode": v.get("pacing_mode", "free_play"),
             "max_unlocked_round": int(v.get("max_unlocked_round", SIM_ROUNDS) or SIM_ROUNDS),
-        })
+        }
+        if "round_schedules" in v:
+            _updates["round_schedules"] = v.get("round_schedules")
+        await db.update_session_metadata(session_id, _updates)
+        sess.update(_updates)
+        # F-18: the label alone gates nothing — apply it through the pacing engine.
+        from auth_jwt import get_facilitator_from_request as _gfr
+        _role = get_fac_role(request)
+        await _enforce_wizard_pacing(
+            session_id, sess, v,
+            set_by=_gfr(request) or "",
+            source="god_mode" if (is_admin_role(_role) or _role == "god_mode") else "facilitator",
+        )
     await _section("Pacing", body.pacing,
-                   lambda v: f"mode={v.get('pacing_mode', 'free_play')}", _apply_pacing)
+                   lambda v: f"mode={v.get('pacing_mode', 'free_play')}", _apply_pacing_section)
 
     # ── Switchboard / climate overrides ──
     async def _apply_switch(v):
@@ -10946,6 +10969,84 @@ async def save_cohort_pedagogical_settings(session_id: str, request: Request, bo
     }
 
 
+# F-18: the cohort wizard's pacing ids → the pacing engine's ids. The engine's
+# own ids are accepted too so a re-save of what GET /pacing returned is a no-op.
+_WIZARD_PACING_MODES = {
+    "free_play": "free", "manual": "manual", "scheduled": "timed",
+    "free": "free", "timed": "timed",
+}
+
+
+async def _enforce_wizard_pacing(session_id: str, session: dict, body: dict, *, set_by: str, source: str) -> dict:
+    """Apply a wizard-vocabulary pacing choice ({pacing_mode, max_unlocked_round,
+    round_schedules}) through the pacing engine, and return the live pacing dict.
+
+    Shared by PUT /cohort/{id}/pacing (the wizard's step) and the pacing
+    section of POST /cohort/{id}/apply-setup, so neither can drift back to
+    writing a label the commit gate does not read."""
+    wizard_mode = body.get("pacing_mode", session.get("pacing_mode") or "free_play")
+    engine_mode = _WIZARD_PACING_MODES.get(str(wizard_mode))
+    if engine_mode is None:
+        raise HTTPException(
+            422, f"pacing_mode must be one of free_play, manual, scheduled (got {wizard_mode!r})."
+        )
+
+    schedule: list = []
+    if engine_mode == "timed":
+        schedule = _wizard_schedule_to_list(
+            body.get("round_schedules") if "round_schedules" in body else session.get("round_schedules")
+        )
+        if not any(schedule):
+            raise HTTPException(
+                422, "Scheduled pacing needs at least one round unlock time in round_schedules."
+            )
+
+    # Ownership tracking: a facilitator who chooses a gated mode owns the policy
+    # (God Mode may not override it — see the guard in save_cohort_pacing). Set
+    # before applying so the engine's own mark_pacing_dirty() publishes it too.
+    pacing = _get_pacing(session_id)
+    if source == "facilitator" and engine_mode != "free":
+        pacing["set_by"] = set_by or "unknown_facilitator"
+
+    pacing = await _apply_pacing(session_id, RoundPacingRequest(
+        mode=engine_mode,
+        interval_seconds=0,   # never the single-shot countdown (OPS-1); the schedule list only
+        schedule=schedule,
+    ))
+
+    if engine_mode == "manual":
+        # The wizard's "Unlock Up To Round N" is the ceiling. The engine has
+        # already clamped to the round the cohort is on (or kept a ceiling a
+        # facilitator set while gated); raise it to N, never lower it — a
+        # re-save must not revoke rounds a class has been told are open.
+        try:
+            _ceiling = int(body.get("max_unlocked_round", session.get("max_unlocked_round") or 1))
+        except (TypeError, ValueError):
+            _ceiling = 1
+        _ceiling = max(1, min(_ceiling, SIM_ROUNDS))
+        pacing["unlocked_round"] = max(int(pacing.get("unlocked_round") or 1), _ceiling)
+        mark_pacing_dirty(session_id)  # Fix #5: share pacing policy across workers + snapshot
+    return pacing
+
+
+def _wizard_schedule_to_list(raw) -> list:
+    """Wizard `round_schedules` ({"1": iso, "3": iso, …} or a list indexed from
+    round 1) → the engine's `schedule` list (index 0 = round 1, None = unset).
+    Unparseable keys, out-of-range rounds and blank values are dropped."""
+    out: list = [None] * SIM_ROUNDS
+    if not raw:
+        return out
+    items = raw.items() if isinstance(raw, dict) else enumerate(raw, start=1)
+    for k, v in items:
+        try:
+            r = int(k)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= r <= SIM_ROUNDS and v:
+            out[r - 1] = str(v)
+    return out
+
+
 @admin_router.put("/cohort/{session_id}/pacing", summary="Save per-cohort round pacing settings")
 async def save_cohort_pacing(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store pacing mode and max unlocked round per-cohort.
@@ -10983,26 +11084,57 @@ async def save_cohort_pacing(session_id: str, request: Request, body: dict = Bod
         await db.update_session_metadata(session_id, _sess_updates)
         session.update(_sess_updates)
 
-    # Update pacing ownership tracking in shared state
-    pacing = _get_pacing(session_id)
-    if source == "facilitator" and body.get("pacing_mode", "free_play") != "free_play":
-        pacing["set_by"] = set_by or "unknown_facilitator"
-    pacing["mode"] = body.get("pacing_mode", pacing.get("mode", "free"))
-    mark_pacing_dirty(session_id)  # Fix #5: share pacing policy across workers + snapshot
+    # F-18 / FLOW-02 (audit 2026-09-04): apply the wizard's choice through the
+    # same code path as POST /sessions/{id}/pacing.
+    #
+    # This handler used to write `pacing["mode"] = "manual"` / `"scheduled"` —
+    # the wizard's vocabulary, which the commit gate never reads (it tests
+    # `mode == "free"` and `unlocked_round`) — and left `unlocked_round` at the
+    # free-play sentinel 999. A cohort created as "Manual, unlock up to R1" or
+    # "Scheduled" therefore had every round open, the console badge read
+    # "Manual", and no timer was ever armed. Wizard ids map onto the pacing
+    # engine's ids and the engine applies them (ceiling clamp, timers, dirty
+    # flag) exactly as the Round Pacing panel does:
+    #     free_play → free      manual → manual      scheduled → timed
+    wizard_mode = body.get("pacing_mode", session.get("pacing_mode") or "free_play")
+    pacing = await _enforce_wizard_pacing(session_id, session, body, set_by=set_by, source=source)
+
+    # Same notifications as POST /sessions/{id}/pacing so an open console and
+    # any already-joined players see the policy that is now enforced.
+    await manager.push_to_session(session_id, {
+        "type": "pacing_mode_changed",
+        "mode": pacing["mode"],
+        "unlocked_round": pacing["unlocked_round"],
+        "interval_seconds": pacing["interval_seconds"],
+        "schedule": pacing.get("schedule", []),
+    })
+    await manager.broadcast_admin({
+        "type": "pacing_override",
+        "session_id": session_id,
+        "new_mode": pacing["mode"],
+        "unlocked_round": pacing["unlocked_round"],
+        "source": source,
+    })
 
     _audit("cohort_pacing_saved", details={
         "session_id": session_id,
-        "pacing_mode": body.get("pacing_mode"),
+        "pacing_mode": wizard_mode,
+        "mode": pacing["mode"],
         "max_unlocked_round": body.get("max_unlocked_round"),
+        "unlocked_round": pacing["unlocked_round"],
+        "scheduled_rounds": sum(1 for s in pacing.get("schedule", []) if s),
         "set_by": set_by,
         "source": source,
     })
-    
+
     return {
         "status": "ok",
         "session_id": session_id,
         "pacing_mode": session.get("pacing_mode", "free_play"),
         "max_unlocked_round": session.get("max_unlocked_round", SIM_ROUNDS),
+        "mode": pacing["mode"],
+        "unlocked_round": pacing["unlocked_round"],
+        "schedule": pacing.get("schedule", []),
         "set_by": pacing.get("set_by"),
     }
 

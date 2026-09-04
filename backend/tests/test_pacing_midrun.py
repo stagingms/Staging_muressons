@@ -196,10 +196,17 @@ def test_set_pacing_never_reads_the_cohort_shells_own_round():
     """
     import pathlib
     src = (pathlib.Path(__file__).resolve().parents[1] / "admin_router.py").read_text(encoding="utf-8")
-    i = src.index("async def set_pacing")
-    block = src[i:i + 6000]
+    # The clamp lives in `_apply_pacing` (audit 2026-09-04 F-18: shared by
+    # POST /sessions/{id}/pacing and the cohort wizard's PUT); `set_pacing`
+    # must delegate to it rather than grow its own copy.
+    i = src.index("async def _apply_pacing(session_id")
+    j = src.index("async def set_pacing")
+    block = src[i:j]
     # strip comments so the explanation above the fix cannot satisfy the pin
     code = "\n".join(l for l in block.split("\n") if not l.lstrip().startswith("#"))
     assert "fetch_latest_round(session_id)" not in code, \
-        "set_pacing is reading the cohort shell's round again — it is always 1"
+        "the pacing handler is reading the cohort shell's round again — it is always 1"
     assert "_cohort_current_round(session_id)" in code
+    handler = src[j:j + 1500]
+    assert "await _apply_pacing(session_id, body)" in handler
+    assert "fetch_latest_round(" not in handler

@@ -108,6 +108,23 @@ const AccordionItem = ({ id, title, summary, children, isOpen, onToggle }) => {
     );
 };
 
+/**
+ * F-18: the wizard's per-round pickers are <input type="datetime-local">, whose
+ * values are naive local wall-clock strings ("2026-09-07T09:00"). The server
+ * treats a naive time as UTC, so convert here — exactly as RoundPacingControl's
+ * localToIso does — and drop blanks / unparseable entries.
+ */
+export function wizardSchedulesToIso(schedules) {
+    const out = {};
+    Object.entries(schedules || {}).forEach(([round, local]) => {
+        if (!local) return;
+        const d = new Date(local);
+        if (Number.isNaN(d.getTime())) return;
+        out[round] = d.toISOString();
+    });
+    return out;
+}
+
 export default function CreateCohortModal({ isOpen, onClose, onCreated, currentFacilitatorId, currentFacilitatorRole = 'facilitator', editSession = null }) {
     const isSuperAdmin = currentFacilitatorRole === 'super_admin' || currentFacilitatorRole === 'admin';
     const isLeadFacilitator = currentFacilitatorRole === 'lead_facilitator';
@@ -729,7 +746,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             payload: {
                 pacing_mode: pacingMode,
                 max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
-                round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
+                // F-18: datetime-local values are the facilitator's local wall
+                // clock; send them as UTC ISO (as the Round Pacing panel does)
+                // so the server arms each unlock at the moment they meant.
+                round_schedules: pacingMode === 'scheduled' ? wizardSchedulesToIso(roundSchedules) : null,
             },
         });
         steps.push({
@@ -2263,9 +2283,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                 {[
-                                    { id: 'free_play', icon: '🔓', label: 'Free Play', desc: 'All rounds unlocked immediately' },
-                                    { id: 'manual', icon: '✋', label: 'Manual', desc: 'Facilitator unlocks each round' },
-                                    { id: 'scheduled', icon: '📅', label: 'Scheduled', desc: 'Pre-schedule unlocks for all rounds' },
+                                    { id: 'free_play', icon: '🔓', label: 'Free Play', desc: 'All rounds open; teams advance together once every team has committed (or the auto-advance timeout lapses)' },
+                                    { id: 'manual', icon: '✋', label: 'Manual', desc: 'Teams commit when ready; the next round opens only when you unlock it from the console' },
+                                    { id: 'scheduled', icon: '📅', label: 'Scheduled', desc: 'Teams commit when ready; each round opens automatically at the time you set below' },
                                 ].map(mode => (
                                     <div
                                         key={mode.id}
