@@ -15,7 +15,7 @@ import {
 import { droppableKeyboardCoordinates } from '../lib/dndDroppableKeyboardCoordinates';
 import Dialog from './Dialog';
 import styles from './StakeholderMapModal.module.css';
-import { playerIdHeader } from '../hooks/useSimulation';
+import { playerIdHeader, errorDetailText, isPasswordChangeRequired } from '../hooks/useSimulation';
 import { currencySymbol, atRate } from '../utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -156,7 +156,7 @@ function DroppableQuadrant({ quadrant, children, chipCount }) {
  *  - sessionId: current session ID
  *  - onComplete: (result) => void — called when the exercise is done
  */
-export default function StakeholderMapModal({ sessionId, onComplete }) {
+export default function StakeholderMapModal({ sessionId, onComplete, onPasswordChangeRequired = null }) {
     const [stakeholders, setStakeholders] = useState([]);
     const [bank, setBank] = useState([]);                     // IDs still in the bank
     const [placements, setPlacements] = useState({});          // {stakeholder_id: quadrant_id}
@@ -266,9 +266,16 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                 headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
                 body: JSON.stringify({ mapping: placements }),
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             if (data.accuracy_percentage !== undefined && data.details) {
                 setResult(data);
+            } else if (isPasswordChangeRequired(res, data)) {
+                // F-01: not a broken server — the driver must set a personal
+                // password first. Say so, and raise the change-password screen.
+                setResult({ error: true, message: errorDetailText(data.detail, 'Set a personal password before playing.') });
+                if (onPasswordChangeRequired) onPasswordChangeRequired();
+            } else if (!res.ok) {
+                setResult({ error: true, message: errorDetailText(data.detail, `Submission failed (${res.status}). Please retry.`) });
             } else {
                 console.error('API returned incomplete data');
                 setResult({ error: true, message: 'Server returned incomplete data. Please retry.' });
@@ -279,7 +286,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
         } finally {
             setSubmitting(false);
         }
-    }, [placements, sessionId, minRequired]);
+    }, [placements, sessionId, minRequired, onPasswordChangeRequired]);
 
     // C9: Re-attempt logic — 1 retry allowed
     const [attemptCount, setAttemptCount] = useState(0);

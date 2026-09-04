@@ -201,8 +201,15 @@ function directChildren(marker) {
    replaced by one import.
 
    Net effect on this file: seven non-button click targets removed, three
-   modals gained a focus trap, focus restore and topmost-only Escape. */
-const COMPONENT_MOUNTS = { 'app/components/ExecutiveCockpit.js': 58, 'app/page.js': 37 };
+   modals gained a focus trap, focus restore and topmost-only Escape.
+
+   page.js 37 -> 38: <ChangePasswordModal> (audit 2026-09-04 F-01, P0). Not a
+   panel either: an architectural early return rendered INSTEAD of the whole
+   tree while a fresh participant is still on the issued password — the
+   server refuses every write until then, and the only other renderer
+   (JoinCohortModal) is unmounted once a session exists. Nothing is added to
+   the board a playing participant sees. */
+const COMPONENT_MOUNTS = { 'app/components/ExecutiveCockpit.js': 58, 'app/page.js': 38 };
 
 describe('slot budget', () => {
   test('no new component mounts in the player tree', () => {

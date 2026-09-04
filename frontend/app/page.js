@@ -127,7 +127,8 @@ import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
 import DecisionPressureTimer from './components/DecisionPressureTimer';
 import CrisisAlerts, { CrisisScreen } from './components/CrisisAlerts';
-import useSimulation, { playerIdHeader } from './hooks/useSimulation';
+import useSimulation, { playerIdHeader, errorDetailText, isPasswordChangeRequired } from './hooks/useSimulation';
+import ChangePasswordModal from './components/ChangePasswordModal';
 import useSessionLatch from './hooks/useSessionLatch';
 import { useAnalyticsVisibility } from './hooks/useAnalyticsVisibility';
 
@@ -1362,6 +1363,28 @@ export default function CockpitPage() {
     return <div style={{ height: '100vh', width: '100%', background: '#1b2a4a' }} />;
   }
 
+  // ── Forced password change — architectural early return ────
+  // F-01 (audit 2026-09-04): players are issued MUR-NNNN / MUR-NNNN@123 with
+  // must_change_password=true, and the server refuses EVERY write until the
+  // password is personal (403 password_change_required). The only renderer
+  // of ChangePasswordModal was JoinCohortModal, which page.js mounts only
+  // while there is no session — so a fresh participant sailed past it into
+  // the briefing and then hit "Server returned incomplete data" on the R1
+  // map with no screen saying why. Rendered here, before the username and
+  // briefing screens, so the cockpit never mounts until the flag clears;
+  // the same flag is raised again by any write that meets the 403.
+  if (sim.sessionId && sim.mustChangePassword && sim.sessionId !== 'demo' && !sim.isObserver) {
+    return (
+      <ChangePasswordModal
+        isOpen
+        isForced
+        prefillPlayerId={sim.playerId || (typeof window !== 'undefined' ? localStorage.getItem('muressons_playerId') : null) || ''}
+        onClose={() => {}}
+        onSuccess={() => sim.setMustChangePassword(false)}
+      />
+    );
+  }
+
   // ── Username Screen — architectural early return ───────────
   // Step 1 after login: player must choose a username before seeing
   // the round briefing or the cockpit. Implemented as an early return
@@ -1938,8 +1961,12 @@ export default function CockpitPage() {
                   // override that just re-submits the identical payload: that is
                   // exactly what turned a transient/server error into the
                   // recurring double-materiality loop.
+                  // F-01: a driver still on the issued password gets a 403 whose
+                  // detail is an object — raise the change-password screen and
+                  // hand the matrix a sentence, not "[object Object]".
+                  if (isPasswordChangeRequired(res, data)) sim.setMustChangePassword(true);
                   return {
-                    error: data.detail || 'Submission failed. Please try again.',
+                    error: errorDetailText(data.detail, 'Submission failed. Please try again.'),
                     overridable: res.status === 400,
                   };
                 }
@@ -1973,6 +2000,7 @@ export default function CockpitPage() {
           }}>
             <StakeholderMapModal
               sessionId={sim.sessionId}
+              onPasswordChangeRequired={() => sim.setMustChangePassword(true)}
               onComplete={(result) => {
                 setShowStakeholderMap(false);
                 markStakeholderDone();

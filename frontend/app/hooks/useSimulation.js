@@ -29,6 +29,28 @@ export function playerIdHeader() {
     }
 }
 
+// F-01 (audit 2026-09-04): the server refuses every write from a driver still
+// on the issued password with a 403 whose detail is an OBJECT
+// ({code: "password_change_required", message}). Surfaces that reliably:
+// `errorDetailText` turns any FastAPI detail (string, object, pydantic list)
+// into a sentence, and `isPasswordChangeRequired` recognises the code so the
+// caller can raise the forced change-password screen instead of showing
+// "[object Object]" or "incomplete data".
+export function errorDetailText(detail, fallback = 'Request failed.') {
+    if (detail == null) return fallback;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+        const parts = detail.map(d => (d && typeof d === 'object' ? d.msg || d.message : d)).filter(Boolean);
+        return parts.length ? parts.join('; ') : fallback;
+    }
+    if (typeof detail === 'object') return detail.message || detail.msg || detail.error || fallback;
+    return String(detail);
+}
+
+export function isPasswordChangeRequired(res, data) {
+    return res?.status === 403 && (data?.detail?.code === 'password_change_required');
+}
+
 // F-22: a 401 carrying code=player_token_required means the token expired (or
 // the client pre-dates tokens). Clear the stale identity so the login screen
 // comes back instead of a frozen board. Returns true when it acted.
@@ -662,7 +684,10 @@ export default function useSimulation() {
                 );
                 if (!res.ok) {
                     const body = await res.json().catch(() => ({}));
-                    throw new Error(body.detail || `Save failed: ${res.status}`);
+                    // F-01: raise the forced change-password screen; the page
+                    // renders it as soon as the flag is set.
+                    if (isPasswordChangeRequired(res, body)) setMustChangePassword(true);
+                    throw new Error(errorDetailText(body.detail, `Save failed: ${res.status}`));
                 }
                 const data = await res.json();
 
