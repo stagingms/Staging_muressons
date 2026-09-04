@@ -2309,6 +2309,31 @@ def _slim_history_global_state(gs: dict) -> dict:
 # POST /api/simulations/{session_id}/commit-turn
 # ─────────────────────────────────────────────────────────────────
 
+# Session-level configuration stamped on active_event_flags at creation
+# (database_memory.create_session / database.create_session) and read back by
+# post-tick engines. Forwarded into the post-tick state by
+# _forward_persistent_flags — see the F-04 note in commit_turn.
+_PERSISTENT_FLAG_KEYS = (
+    "stochastic_seed",       # rng_util.ensure_cohort_seed — every seeded draw
+    "loan_interest_rate",    # balance_sheet revolver pricing
+    "ending_pathway",        # balance_sheet stranded-asset exposure; finale
+    "difficulty_tier",       # round_logic covenant ratio (get_difficulty_config)
+    "industry_vertical",     # stakeholder_map resolution
+    "region_id",
+)
+
+
+def _forward_persistent_flags(current_global: dict, new_global: dict) -> None:
+    """Copy the session-level keys from the STORED flags into the post-tick
+    state's flags without overriding anything the tick just produced."""
+    stored = current_global.get("active_event_flags") or {}
+    target = new_global.setdefault("active_event_flags", {})
+    for key in _PERSISTENT_FLAG_KEYS:
+        value = stored.get(key)
+        if value not in (None, "") and key not in target:
+            target[key] = value
+
+
 @router.post(
     "/{session_id}/commit-turn",
     response_model=CommitTurnResponse,
@@ -2896,6 +2921,21 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         _log.error(f"[ENGINE-FAILURE] seed_effective_flags failed for {session_id}: {_sef_exc}", exc_info=True)
         events.setdefault("engine_failures", []).append(
             {"engine": "seed_effective_flags", "error": f"{type(_sef_exc).__name__}: {_sef_exc}"[:300]})
+
+    # ── Carry session-level flags into the post-tick state (audit F-04) ──
+    # engine._assemble_global_state sets new_global["active_event_flags"] to
+    # THIS round's events dict; the stored flags are merged in only after
+    # run_new_engines (the "preserve history" merge below). Every post-tick
+    # engine that reads session configuration off gs["active_event_flags"]
+    # therefore saw nothing: the cohort seed (npc_stakeholders.py — the
+    # $5-25M regulator fine fell through to the unseeded global RNG, so two
+    # teams with identical decisions diverged by up to ~$17M), the loan rate
+    # and ending pathway on the balance sheet, the difficulty tier for the
+    # covenant ratio. dry_run.py forwarded the seed since its inception;
+    # production never did, which is why the offline balance reports were
+    # seeded and the classroom was not. setdefault: nothing the tick produced
+    # is overridden.
+    _forward_persistent_flags(current_global, new_global)
 
     # ── POST-TICK: Round-specific state mutations ────────────
     post_events = post_tick(
