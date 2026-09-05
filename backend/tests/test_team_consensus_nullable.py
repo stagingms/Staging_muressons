@@ -80,12 +80,21 @@ def test_auto_default_is_rejected():
 
 
 def test_auto_commit_paths_record_not_recorded():
-    """Both auto-commit builders must write not_recorded — a server commit is
-    the canonical 'no team answered' case."""
+    """The auto-commit builder must write not_recorded — a server commit is
+    the canonical 'no team answered' case.
+
+    OPS-1 (audit 2026-09-04, WP-17): there is ONE builder now. admin_router's
+    timed unlock used to carry its own (_auto_commit_player: pre_tick /
+    process_tick / post_tick with no commit envelope, 26 flags wiped, an R11
+    row); it now routes through router._auto_commit_laggards, so the
+    not_recorded value lives in router.py only and admin_router must not
+    grow a second decision builder."""
     router_src = (_BACKEND_DIR / "router.py").read_text(encoding="utf-8", errors="ignore")
     admin_src = (_BACKEND_DIR / "admin_router.py").read_text(encoding="utf-8", errors="ignore")
     assert 'team_consensus="not_recorded"' in router_src
-    assert '"team_consensus": "not_recorded"' in admin_src
+    assert "from router import _auto_commit_laggards" in admin_src
+    assert "def _auto_commit_player" not in admin_src
+    assert '"team_consensus":' not in admin_src, "admin_router builds no decisions of its own"
     assert '"auto_default"' not in router_src
     assert '"team_consensus": "auto_default"' not in admin_src
 

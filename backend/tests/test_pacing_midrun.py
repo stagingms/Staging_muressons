@@ -81,6 +81,21 @@ def _play(client, team, upto):
         assert r.status_code == 201, (rnd, r.status_code, r.text[:150])
 
 
+def _play_together(client, teams, upto):
+    """Commit rounds 1..upto for every team, round by round.
+
+    F-18(ii) (audit 2026-09-04, WP-18): in FREE mode the server now enforces
+    the cohort barrier — a team may not commit round N+1 while a sibling has
+    not committed round N (403 waiting_for_teams). Playing one team several
+    rounds ahead of another is therefore no longer a valid way to set up a
+    class "on round 4"; the class gets there together.
+    """
+    for rnd in range(1, upto + 1):
+        for psid, headers in teams:
+            r = _commit(client, psid, headers, rnd)
+            assert r.status_code == 201, (rnd, r.status_code, r.text[:150])
+
+
 # ── the reported bug ───────────────────────────────────────────────────────
 
 def test_applying_manual_midrun_does_not_lock_the_round_in_progress(client, cohort):
@@ -88,8 +103,7 @@ def test_applying_manual_midrun_does_not_lock_the_round_in_progress(client, coho
     from admin_shared import _get_pacing, is_round_unlocked
 
     a, b = _join(client, cohort), _join(client, cohort)
-    _play(client, a, 3)
-    _play(client, b, 3)           # both teams are now ON round 4
+    _play_together(client, [a, b], 3)   # both teams are now ON round 4
 
     assert client.post(f"/api/admin/sessions/{cohort}/pacing",
                        json={"mode": "manual"}).status_code == 200
@@ -141,9 +155,17 @@ def test_the_ceiling_follows_the_leading_team_not_the_trailing_one(client, cohor
     from admin_shared import _get_pacing
 
     fast, slow = _join(client, cohort), _join(client, cohort)
+    # F-18(ii) (WP-18): free mode holds a team at most one round ahead of the
+    # slowest sibling, so an out-of-sync class can only arise under gated
+    # pacing with the ceiling raised (a facilitator advancing past a straggler).
+    assert client.post(f"/api/admin/sessions/{cohort}/pacing", json={"mode": "manual"}).status_code == 200
+    for _ in range(5):
+        assert client.post(f"/api/admin/sessions/{cohort}/pacing/unlock").status_code == 200
+    assert _get_pacing(cohort)["unlocked_round"] == 6
     _play(client, fast, 5)          # on round 6
     _play(client, slow, 2)          # on round 3
 
+    # re-applying Manual mid-run clamps to the round the class is on: the MAX
     client.post(f"/api/admin/sessions/{cohort}/pacing", json={"mode": "manual"})
     assert _get_pacing(cohort)["unlocked_round"] == 6
 

@@ -195,17 +195,23 @@ class TestTalentBrainDrainEdgeCases:
         assert opex > 4_000_000
 
     def test_zero_reputation_max_penalty(self):
-        """VULN: Extreme reputation drop has no cap on penalty."""
+        """FIN-10 (audit 2026-09-04, WP-12): the penalty is capped. Uncapped it
+        reached ×1.975 at reputation 0 and compounded on the OPEX base every
+        round (×2.975/round on healthcare/software) — the cap is the ceiling."""
+        from config import BRAINDRAIN_PENALTY_CAP
         opex, penalty = calc_talent_braindrain(4_000_000, 0)
-        expected = 1.0 + (65 / 100) * 1.5  # 1.975
-        assert penalty == round(expected, 4)
-        assert opex == round(4_000_000 * expected, 2)
+        uncapped = 1.0 + (65 / 100) * 1.5  # 1.975 — what the formula says before the cap
+        assert uncapped > BRAINDRAIN_PENALTY_CAP
+        assert penalty == round(BRAINDRAIN_PENALTY_CAP, 4)
+        assert opex == round(4_000_000 * BRAINDRAIN_PENALTY_CAP, 2)
 
     def test_negative_reputation_capped(self):
-        """FIX: Negative reputation still creates penalties but within designed bounds."""
+        """Negative reputation still penalises, but never beyond the cap."""
+        from config import BRAINDRAIN_PENALTY_CAP
         opex, penalty = calc_talent_braindrain(4_000_000, -50)
-        # penalty = 1 + (115/100) * 1.5 = 1 + 1.725 = 2.725
-        assert penalty > 2.5
+        # uncapped: 1 + (115/100) * 1.5 = 2.725 — the cap holds it at BRAINDRAIN_PENALTY_CAP
+        assert penalty == round(BRAINDRAIN_PENALTY_CAP, 4)
+        assert penalty > 1.0
         # NOTE: Reputation validation should happen upstream (in router)
 
 
@@ -662,6 +668,14 @@ class TestR10Valuation:
             bus = make_bus()
             for bu in bus:
                 bu["social_license_score"] = sl
+                # WP-15 (audit 2026-09-04): DMAV = treasury × M_R − NCD liability
+                # (points × $/pt × exit multiple). make_bus() carries 11,400 NCD
+                # points — three BUs near the 5,000 hard cap — which is ~$80M
+                # of liability and would make every "solvent" case here value-
+                # destroying. A modest debt keeps solvency where the matrix
+                # says it is; the solvency gate itself is tested in
+                # test_reveal_scale_and_units.
+                bu["natural_capital_debt"] = 100
             decs = make_decisions("option_b")
 
             extra = post_tick(10, gs, bus, decs, {}, flags)
