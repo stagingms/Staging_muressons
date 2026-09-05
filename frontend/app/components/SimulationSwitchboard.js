@@ -992,8 +992,9 @@ function SimConfigUploader({ onUploaded }) {
                     <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
                         Upload a modified <code style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontSize: 'var(--type-caption)' }}>simulation_config.xlsx</code> to update engine parameters.
                         {' '}<strong>Verify below before you rely on it.</strong> The reload rebinds only some
-                        modules, and the uploaded file lives in the image — so a later redeploy reverts it.
-                        For a change that must stick, edit <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-caption)' }}>simulation_config.json</code>, commit, redeploy.
+                        modules until the service restarts, and the uploaded file lands on the data volume — it survives
+                        a redeploy, and the volume then keeps it over whatever a later build ships.
+                        For a change that must stick everywhere, edit <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--type-caption)' }}>simulation_config.json</code>, commit, redeploy, and refresh the volume copy (DEPLOYMENT_CHECKLIST §5b).
                     </div>
                 </div>
                 <button

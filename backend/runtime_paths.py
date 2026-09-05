@@ -98,13 +98,64 @@ def disk_free(path) -> dict:
     }
 
 
+def mount_point_of(path) -> str | None:
+    """The mount point the path lives on, read from /proc/mounts (Linux).
+
+    OPS-3 (audit 2026-09-04): `durable` was true whenever MURESSONS_DATA_DIR
+    was set and the directory was writable — which the image guarantees
+    (Dockerfile: ENV MURESSONS_DATA_DIR=/data; mkdir -p /data) whether or not
+    a Railway volume is actually attached there. A volume that is attached
+    shows up as its own mount; a bare directory on the container filesystem
+    resolves to "/" (or an overlay root). None when /proc/mounts is not
+    available (macOS/Windows dev boxes) — an unknown, not a verdict."""
+    try:
+        target = Path(path).resolve()
+    except OSError:
+        target = Path(path)
+    try:
+        with open("/proc/mounts", "r", encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        return None
+    best = None
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        # /proc/mounts escapes spaces as \040
+        mp = parts[1].replace("\\040", " ")
+        try:
+            mp_path = Path(mp)
+            if target == mp_path or mp_path in target.parents:
+                if best is None or len(str(mp_path)) > len(str(best)):
+                    best = mp_path
+        except Exception:
+            continue
+    return str(best) if best is not None else None
+
+
+def is_mounted(path) -> bool | None:
+    """True when the path sits on a mount of its own (not the root filesystem
+    the image was unpacked onto); False when it is a plain directory on the
+    container root; None when it cannot be told (no /proc/mounts)."""
+    mp = mount_point_of(path)
+    if mp is None:
+        return None
+    return mp not in ("/", "")
+
+
 def storage_status() -> dict:
     """Durability report for the mutable-state directory.
 
     `durable` is the single flag deployments should alert on: True when the
     data dir is explicitly configured (MURESSONS_DATA_DIR → a mounted volume)
-    AND writable, or when we're NOT on an ephemeral platform (local dev /
+    AND writable AND — where the platform lets us tell — actually on a mount
+    of its own, or when we're NOT on an ephemeral platform (local dev /
     docker-compose with a bind mount, where <repo>/db is fine).
+
+    `mounted` is the OPS-3 reading: on Railway a configured, writable /data
+    that is NOT a mount is the container filesystem, wiped on every redeploy,
+    and this used to report it durable.
 
     `low_space` is the second flag worth alerting on (A6): the volume can be
     configured, writable and durable and still be one upload from full."""
@@ -130,14 +181,22 @@ def storage_status() -> dict:
              or space["free_bytes"] < LOW_SPACE_BYTES)
     )
 
+    mounted = is_mounted(d)
+    mount_point = mount_point_of(d)
+
     return {
         "data_dir": str(d),
         "configured": configured,          # MURESSONS_DATA_DIR set
         "writable": writable,
         "on_railway": railway,
-        # On Railway the container FS is ephemeral: durable ⇔ volume configured
-        # and writable. Off Railway, <repo>/db is as durable as the host disk.
-        "durable": (configured and writable) if railway else writable,
+        # OPS-3: the data dir is on a mount of its own (a volume / bind mount),
+        # not the container root. None = could not be read (no /proc/mounts).
+        "mounted": mounted,
+        "mount_point": mount_point,
+        # On Railway the container FS is ephemeral: durable ⇔ volume configured,
+        # writable and (when readable) actually mounted. Off Railway, <repo>/db
+        # is as durable as the host disk.
+        "durable": (configured and writable and mounted is not False) if railway else writable,
         "low_space": low_space,
         **space,
     }

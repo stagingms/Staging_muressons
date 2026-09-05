@@ -227,6 +227,27 @@ from admin_analytics import analytics_router  # noqa: E402  ARCH-002
 from admin_god_controls import god_router  # noqa: E402  audit #17 (extracted sub-router)
 
 
+def _config_boot_report() -> dict:
+    """CFG-02/03: the config facts a deploy log and /health need — which file,
+    its fingerprint, whether the volume copy still matches the image, and the
+    values config.py refused (clamped). Cheap, read-only, never raises."""
+    import config as _config_mod
+    import config_introspect as _ci
+    out = {
+        "path": str(getattr(_config_mod, "CONFIG_PATH", "")),
+        "fingerprint": _ci._fingerprint(_ci._public_constants(_config_mod)),
+        "clamped_values": [
+            {k: c.get(k) for k in ("key", "configured", "using", "reason")}
+            for c in _ci.check_clamped_values(_config_mod)
+        ],
+    }
+    try:
+        out["image_vs_volume"] = _ci.check_image_vs_volume(_config_mod)
+    except Exception as exc:  # noqa: BLE001
+        out["image_vs_volume"] = {"status": "unknown", "reason": str(exc)[:200]}
+    return out
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage the database lifecycle."""
@@ -294,7 +315,19 @@ async def lifespan(app: FastAPI):
         _st = _storage_status()
         print(f"[storage] data dir: {_st['data_dir']} "
               f"(configured={_st['configured']}, writable={_st['writable']}, "
-              f"railway={_st['on_railway']}, durable={_st['durable']})")
+              f"mounted={_st.get('mounted')}, railway={_st['on_railway']}, durable={_st['durable']})")
+        if _st["on_railway"] and _st["configured"] and _st["writable"] and _st.get("mounted") is False:
+            # OPS-3 (audit 2026-09-04): the image sets MURESSONS_DATA_DIR=/data
+            # and creates the directory, so the two checks above pass with NO
+            # volume attached — and this used to boot silently as "durable".
+            print("\n" + "=" * 70)
+            print(f"  [!!] MURESSONS_DATA_DIR={_st['data_dir']} IS NOT A MOUNTED VOLUME")
+            print("  The directory exists on the container filesystem, which is")
+            print("  wiped on every redeploy: facilitator accounts, cohort settings")
+            print("  and the game-state snapshot will NOT survive the next deploy.")
+            print("  Fix: Railway → Service → Volumes: attach a volume at this path")
+            print("  (see DEPLOYMENT_CHECKLIST.md §5).")
+            print("=" * 70 + "\n")
         if _st["on_railway"] and not _st["configured"]:
             print("\n" + "=" * 70)
             print("  [!!] RAILWAY DETECTED WITHOUT A DURABLE DATA DIRECTORY")
@@ -314,6 +347,31 @@ async def lifespan(app: FastAPI):
             print("=" * 70 + "\n")
     except Exception as _storage_exc:
         print(f"[storage] boot verification skipped (non-fatal): {_storage_exc}")
+
+    # CFG-02 (audit 2026-09-04, WP-20): say which config this process is
+    # running. A data volume seeded by an earlier build keeps its copy of
+    # simulation_config.json forever (runtime_paths.config_file), so a build
+    # that changed a default is silently not in effect; and every sanity clamp
+    # config.py applied was a bare stdout line. Both now print here in one
+    # place and are kept on app.state for /health.
+    try:
+        _cfg_boot = _config_boot_report()
+        app.state.config_boot = _cfg_boot
+        print(f"[config] loaded {_cfg_boot['path']} (fingerprint {_cfg_boot['fingerprint']})")
+        _ivv = _cfg_boot.get("image_vs_volume") or {}
+        if _ivv.get("status") == "differs":
+            print(f"[config] volume differs from image on {_ivv['differing_count']} keys: "
+                  + ", ".join(d["key"] for d in _ivv.get("differences", [])[:20])
+                  + (" …" if _ivv.get("differing_count", 0) > 20 else "")
+                  + " — a build that changed a default is not in effect; refresh the volume copy "
+                  "(DEPLOYMENT_CHECKLIST.md §5).")
+        elif _ivv.get("status") in ("in_sync", "same_file"):
+            print(f"[config] volume config matches the image copy ({_ivv['status']}).")
+        for _c in _cfg_boot.get("clamped_values", []):
+            print(f"[config] CLAMPED {_c['key']}: volume says {_c['configured']!r}, engine runs {_c['using']!r} "
+                  f"({_c['reason']}). The file is NOT what the engine uses.")
+    except Exception as _cfg_exc:
+        print(f"[config] boot report skipped (non-fatal): {_cfg_exc}")
 
     # PF-1 (2026-08-02): run the deployment preflight and PRINT it. The module
     # (186 lines, five checks, each tied to an incident that actually happened)
@@ -632,12 +690,50 @@ async def health_check(strict: bool = False):
     except Exception:
         _storage = {"durable": False, "error": "storage probe failed"}
     _low_disk = bool(_storage.get("low_space"))
+    # OPS-4 (audit 2026-09-04): this endpoint never touched the database, so
+    # the RunBar dot stayed green and Railway saw "ok" with Postgres down.
+    # Under ?strict=1 only — the default stays cheap (Railway polls it) — run
+    # `SELECT 1` with a 2-second bound. A failure degrades the report to 503.
+    _db_reachable: bool | None = None
+    _db_error: str | None = None
+    if strict and not _memory:
+        try:
+            _pool = await asyncio.wait_for(db.get_pool(), timeout=2.0)
+            await asyncio.wait_for(_pool.fetchval("SELECT 1"), timeout=2.0)
+            _db_reachable = True
+        except Exception as _db_exc:  # noqa: BLE001 — any failure is the finding
+            _db_reachable = False
+            _db_error = f"{type(_db_exc).__name__}: {str(_db_exc)[:160]}"
+    elif strict and _memory:
+        _db_reachable = True   # in-process store: reachable by construction
+    # CFG-02: which config this process runs, and whether the volume copy is
+    # what this build shipped / what config.py accepted (computed at boot).
+    _cfg = getattr(app.state, "config_boot", None)
+    try:
+        import config as _config_mod
+        _clamped_now = [c.get("key") for c in getattr(_config_mod, "CONFIG_CLAMPS", []) or []]
+    except Exception:  # noqa: BLE001
+        _clamped_now = []
+    _config_block = {
+        "path": (_cfg or {}).get("path"),
+        "fingerprint": (_cfg or {}).get("fingerprint"),
+        "clamped_values": _clamped_now,
+        "volume_differs_from_image_on": [
+            d["key"] for d in ((_cfg or {}).get("image_vs_volume") or {}).get("differences", [])
+        ],
+    }
+    _degraded = bool(strict and (_low_disk or _persistence_summary().get("failures") or _db_reachable is False))
     _payload = {
-        # Under ?strict=1 a low volume is reported as "degraded", not "ok" —
-        # a monitor reading the body sees the same verdict as one reading only
+        # Under ?strict=1 a low volume, lost persistence writes or an
+        # unreachable database are reported as "degraded", not "ok" — a
+        # monitor reading the body sees the same verdict as one reading only
         # the status code.
-        "status": "degraded" if (strict and (_low_disk or _persistence_summary().get("failures"))) else "ok",
+        "status": "degraded" if _degraded else "ok",
         "database": "memory" if _memory else "postgresql",
+        # OPS-4: None unless ?strict=1 asked for the round trip.
+        "database_reachable": _db_reachable,
+        **({"database_error": _db_error} if _db_error else {}),
+        "config": _config_block,
         "demo_mode": _demo,
         "storage": _storage,
         "durable_storage": bool(_storage.get("durable")),
@@ -689,9 +785,10 @@ async def health_check(strict: bool = False):
         },
     }
 
-    if strict and _low_disk:
+    if strict and (_low_disk or _db_reachable is False):
         # 503, not 500: the service is up and answering, the DEPENDENCY (disk
-        # headroom) is what has degraded. The body is the full report either
-        # way, so whoever is paged can read the numbers without a second call.
+        # headroom, the database) is what has degraded. The body is the full
+        # report either way, so whoever is paged can read the numbers without
+        # a second call.
         return JSONResponse(status_code=503, content=_payload)
     return _payload

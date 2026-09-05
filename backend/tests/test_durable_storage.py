@@ -49,12 +49,57 @@ def test_railway_without_volume_is_not_durable(monkeypatch, tmp_path):
 def test_railway_with_writable_volume_is_durable(monkeypatch, tmp_path):
     vol = tmp_path / "data"
     rp = _fresh_runtime_paths(monkeypatch, data_dir=vol, railway=True)
+    # OPS-3: a Railway volume is a mount of its own; say so for this temp dir.
+    monkeypatch.setattr(rp, "mount_point_of", lambda p: str(vol))
     st = rp.storage_status()
     assert st["on_railway"] is True
     assert st["configured"] is True
     assert st["writable"] is True
+    assert st["mounted"] is True and st["mount_point"] == str(vol)
     assert st["durable"] is True
     assert st["data_dir"] == str(vol)
+
+
+def test_railway_configured_writable_but_not_mounted_is_not_durable(monkeypatch, tmp_path):
+    """OPS-3 (audit 2026-09-04): the image sets MURESSONS_DATA_DIR=/data and
+    creates the directory, so `configured` and `writable` hold with NO volume
+    attached — and `durable` said true while every redeploy wiped it. A data
+    dir on the container root is not durable on Railway."""
+    vol = tmp_path / "data"
+    rp = _fresh_runtime_paths(monkeypatch, data_dir=vol, railway=True)
+    monkeypatch.setattr(rp, "mount_point_of", lambda p: "/")
+    st = rp.storage_status()
+    assert st["configured"] is True and st["writable"] is True
+    assert st["mounted"] is False
+    assert st["durable"] is False
+
+
+def test_unreadable_mount_table_is_not_a_verdict(monkeypatch, tmp_path):
+    """No /proc/mounts (macOS/Windows): mounted is None and durability falls
+    back to the configured+writable reading rather than failing closed."""
+    vol = tmp_path / "data"
+    rp = _fresh_runtime_paths(monkeypatch, data_dir=vol, railway=True)
+    monkeypatch.setattr(rp, "mount_point_of", lambda p: None)
+    st = rp.storage_status()
+    assert st["mounted"] is None
+    assert st["durable"] is True
+
+
+def test_mount_point_of_reads_proc_mounts(monkeypatch, tmp_path):
+    import runtime_paths as rp
+    fake = tmp_path / "mounts"
+    fake.write_text("overlay / overlay rw 0 0\n/dev/vdb /data ext4 rw 0 0\nproc /proc proc rw 0 0\n", encoding="utf-8")
+    real_open = open
+
+    def _open(path, *a, **kw):
+        if str(path) == "/proc/mounts":
+            return real_open(fake, *a, **kw)
+        return real_open(path, *a, **kw)
+    monkeypatch.setattr("builtins.open", _open)
+    assert rp.mount_point_of("/data") == "/data"
+    assert rp.mount_point_of("/data/sub/dir") == "/data"
+    assert rp.mount_point_of("/var/lib/x") == "/"
+    assert rp.is_mounted("/data") is True and rp.is_mounted("/var/lib/x") is False
 
 
 def test_off_railway_repo_dir_is_durable(monkeypatch, tmp_path):
@@ -81,6 +126,7 @@ def test_health_endpoints_report_storage():
         assert body["status"] == "ok"
         assert "durable_storage" in body
         assert "storage" in body and "data_dir" in body["storage"]
+        assert "mounted" in body["storage"]   # OPS-3
 
 
 def teardown_module(module):

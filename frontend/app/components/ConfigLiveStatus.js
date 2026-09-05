@@ -10,22 +10,31 @@
  * WHY THIS PANEL EXISTS
  *   There are three ways to tune this simulation and they fail three different
  *   ways:
- *     1. The Excel uploader above writes simulation_config.json into the IMAGE,
- *        so the next redeploy silently reverts it — and its hot-reload only
- *        reloads 5 modules, leaving every `from config import X` consumer bound
- *        to the OLD value. It reports {"reload": "complete"} either way.
+ *     1. The Excel uploader above writes simulation_config.json onto the DATA
+ *        VOLUME (it survives a redeploy) — but its hot-reload only reloads a
+ *        few modules, leaving every `from config import X` consumer bound to
+ *        the OLD value until a restart. It reports {"reload": "complete"}
+ *        either way. And the volume keeps its copy forever: a build that
+ *        changed a default is silently not in effect on a volume seeded by
+ *        an earlier build, and config.py refuses (clamps) known-legacy values
+ *        with nothing but a stdout line (CFG-02/03, audit 2026-09-04).
  *     2. The god-mode engine-tunable sliders forward 2 of their 24 values; the
  *        other 22 are write-only and the endpoint still returns {"changed":…}.
- *     3. Editing the JSON and redeploying — the only path that fully works.
+ *     3. Editing the JSON, committing and redeploying, then refreshing the
+ *        volume copy (DEPLOYMENT_CHECKLIST §5b) — the path that fully works.
  *
  *   So "did my change take effect?" used to be answerable only by moving a
  *   parameter and watching the numbers — an observation the engine's
  *   non-determinism makes unreliable. This reads the values the RUNNING PROCESS
- *   holds and names every way they disagree with what was configured.
+ *   holds and names every way they disagree with what was configured:
+ *   `clamped_value` (the volume says X, the engine runs Y), `image_vs_volume`
+ *   (the volume kept an earlier build's numbers), stale bindings, god-mode
+ *   shadowing.
  *
  * READ `problems` FIRST. Empty means the file, this process and every consumer
- * module agree. Anything else tells you which of the three failure modes you
- * hit, by name.
+ * module agree and nothing was clamped. Anything else tells you which failure
+ * mode you hit, by name. `advisories` (inert god-mode tunables) are true of a
+ * pristine install and never colour the verdict.
  *
  * Colours come from styles/tokens.css semantic tokens only (repo convention —
  * no raw hex for danger/caution/positive).
@@ -80,6 +89,7 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
     const problems = [...(report?.problems || [])].sort(
         (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9)
     );
+    const advisories = Array.isArray(report?.advisories) ? report.advisories : [];
     const healthy = !!report?.healthy;
     const constants = report?.constants || {};
     const constantNames = Object.keys(constants).filter(
@@ -218,7 +228,39 @@ export default function ConfigLiveStatus({ refreshToken = 0 }) {
                         {report.file_vs_process?.status && (
                             <span>file_vs_process: {report.file_vs_process.status}</span>
                         )}
+                        {report.image_vs_volume?.status && (
+                            <span>image_vs_volume: {report.image_vs_volume.status}</span>
+                        )}
+                        {Array.isArray(report.clamped_values) && (
+                            <span>clamped: {report.clamped_values.length}</span>
+                        )}
                     </div>
+
+                    {/* Advisories — inert god-mode tunables. Real, worth knowing,
+                        and NOT a reason to call the configuration unhealthy. */}
+                    {advisories.length > 0 && (
+                        <details style={{ marginTop: '0.7rem' }} data-testid="config-live-advisories">
+                            <summary style={{
+                                cursor: 'pointer', fontSize: 'var(--type-caption)', fontWeight: 600,
+                                color: 'var(--text-secondary)',
+                            }}>
+                                {advisories.length} advisory note{advisories.length === 1 ? '' : 's'} (inert tunables — informational)
+                            </summary>
+                            <ul style={{
+                                listStyle: 'none', padding: 0, margin: '0.5rem 0 0',
+                                display: 'flex', flexDirection: 'column', gap: '0.3rem',
+                            }}>
+                                {advisories.map((a, i) => (
+                                    <li key={`${a.kind}-${i}`} style={{
+                                        fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 1.5,
+                                        borderLeft: '2px solid var(--border-subtle)', paddingLeft: '0.6rem',
+                                    }}>
+                                        <span style={{ fontFamily: 'var(--font-mono)' }}>{a.kind}</span> — {a.message}
+                                    </li>
+                                ))}
+                            </ul>
+                        </details>
+                    )}
 
                     {/* Everything else, summoned not ambient */}
                     <details style={{ marginTop: '0.9rem' }}>

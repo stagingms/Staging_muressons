@@ -130,6 +130,15 @@ A script cannot see rendering. Open http://localhost:3000/admin and check:
 - [ ] Railway Variables match `backend\.env.railway`
 - [ ] **A Railway Volume is mounted at `/data`** — without it, every redeploy
       wipes the facilitator registry. This is the most common Railway mistake.
+      Proof is `mounted=True` in the `[storage]` boot line / `"storage":
+      {"mounted": true}` on `GET /health` — `configured`/`writable` are true
+      even with no volume (OPS-3).
+- [ ] **The volume's `simulation_config.json` is current** — the volume keeps
+      the copy an earlier build seeded, so a changed default is silently not in
+      effect. Run the inspect/patch/restart steps in DEPLOYMENT_CHECKLIST.md
+      §5b; the boot log must contain **no `[CONFIG] WARNING`** and no
+      `[config] volume differs from image` line, and `GET /api/admin/config/live`
+      (super-admin) must say `"healthy": true`.
 - [ ] Postgres plugin added and referenced by the service
 - [ ] After first deploy, check the logs for
       `[preflight] Deployment configuration looks correct.`

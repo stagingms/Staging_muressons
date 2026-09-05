@@ -145,6 +145,23 @@ if CONFIG_PATH.exists():
     except Exception as e:
         print(f"[CONFIG] Warning: Failed to load simulation_config.json: {e}")
 
+# CFG-02/03 (audit 2026-09-04, WP-20): every sanity clamp below used to be a
+# bare print() — a stdout line nobody reads on Railway, invisible to /health,
+# to /api/admin/config/live and to the facilitator. The ledger records each
+# clamp so those surfaces can report "the volume config carries a legacy value
+# and the engine is NOT running what the file says". Reset on reload, like
+# every other module-level value here.
+CONFIG_CLAMPS: list[dict] = []
+
+
+def _clamp(key: str, configured, using, reason: str) -> None:
+    """Record and announce a sanity clamp: `key` on the data volume said
+    `configured`; the engine runs `using`."""
+    CONFIG_CLAMPS.append({"key": key, "configured": configured, "using": using, "reason": reason})
+    print(f"[CONFIG] WARNING: {key}={configured} {reason}; using {using}. "
+          "Update simulation_config.json on the data volume.")
+
+
 _sim_settings    = SIMULATION_CONFIG.get("simulation_settings", {})
 _economic_params = SIMULATION_CONFIG.get("economic_parameters", {})
 _constraints     = SIMULATION_CONFIG.get("constraints", {})
@@ -226,13 +243,12 @@ NCD_OPEX_PENALTY_PER_UNIT: float = float(_ncd.get("opex_penalty_per_unit", 1_000
 # keep the mechanics inert forever. Anything above 100,000 is unambiguously
 # the legacy scale: fall back to the index defaults and say so.
 if NCD_HARD_CAP > 100_000 or NCD_WARN_THRESHOLD > 100_000:
-    print(f"[CONFIG] WARNING: ncd_parameters hard_cap={NCD_HARD_CAP:,.0f} / warn_threshold="
-          f"{NCD_WARN_THRESHOLD:,.0f} are dollar-scale legacy values (F-10); using 5,000 / 1,000. "
-          "Update simulation_config.json on the data volume.")
+    _clamp("ncd_parameters.hard_cap/warn_threshold", f"{NCD_HARD_CAP:,.0f}/{NCD_WARN_THRESHOLD:,.0f}",
+           "5,000/1,000", "are dollar-scale legacy values (F-10)")
     NCD_HARD_CAP, NCD_WARN_THRESHOLD = 5_000.0, 1_000.0
 if "opex_penalty_per_unit" not in _ncd and "opex_scaling_factor" in _ncd:
-    print("[CONFIG] WARNING: ncd_parameters.opex_scaling_factor is the legacy key (F-10); "
-          "using opex_penalty_per_unit=1,000. Update simulation_config.json on the data volume.")
+    _clamp("ncd_parameters.opex_scaling_factor", _ncd.get("opex_scaling_factor"),
+           "opex_penalty_per_unit=1,000", "is the legacy key (F-10)")
 
 # Balance sheet: $ environmental provision per unit of average NCD (IAS 37).
 BS_NCD_PROVISION_PER_UNIT: float = float(_ncd.get("provision_per_unit", 5_000))
@@ -484,9 +500,8 @@ _CBAM_SURCHARGE_DEFAULT: float = 100.0
 _CBAM_SURCHARGE_SANITY_MAX: float = 5_000.0
 CBAM_SURCHARGE_RATE:           float = float(_cbam.get("surcharge_rate", _CBAM_SURCHARGE_DEFAULT))
 if CBAM_SURCHARGE_RATE > _CBAM_SURCHARGE_SANITY_MAX:
-    print(f"[CONFIG] WARNING: engine_parameters.cbam.surcharge_rate={CBAM_SURCHARGE_RATE:,.0f} $/tCO2e "
-          f"exceeds the {_CBAM_SURCHARGE_SANITY_MAX:,.0f} sanity ceiling (legacy value); "
-          f"using {_CBAM_SURCHARGE_DEFAULT:,.0f}. Update simulation_config.json on the data volume.")
+    _clamp("engine_parameters.cbam.surcharge_rate", CBAM_SURCHARGE_RATE, _CBAM_SURCHARGE_DEFAULT,
+           f"$/tCO2e exceeds the {_CBAM_SURCHARGE_SANITY_MAX:,.0f} sanity ceiling (legacy value)")
     CBAM_SURCHARGE_RATE = _CBAM_SURCHARGE_DEFAULT
 
 # ── Regulatory Ratchet ──────────────────────────────────────────
@@ -507,9 +522,8 @@ _REG_RATCHET_BASELINE_DEFAULT: float = 20.0
 _REG_RATCHET_BASELINE_LEGACY_MAX: float = 10.0
 REG_RATCHET_BASELINE:          float = float(_reg.get("baseline", _REG_RATCHET_BASELINE_DEFAULT))
 if REG_RATCHET_BASELINE <= _REG_RATCHET_BASELINE_LEGACY_MAX:
-    print(f"[CONFIG] WARNING: engine_parameters.regulatory_ratchet.baseline={REG_RATCHET_BASELINE} "
-          f"is at or below the pre-F-10 value {_REG_RATCHET_BASELINE_LEGACY_MAX} (seed teams are fined "
-          f"in round 1); using {_REG_RATCHET_BASELINE_DEFAULT}. Update simulation_config.json on the data volume.")
+    _clamp("engine_parameters.regulatory_ratchet.baseline", REG_RATCHET_BASELINE, _REG_RATCHET_BASELINE_DEFAULT,
+           f"is at or below the pre-F-10 value {_REG_RATCHET_BASELINE_LEGACY_MAX} (seed teams are fined in round 1)")
     REG_RATCHET_BASELINE = _REG_RATCHET_BASELINE_DEFAULT
 REG_RATCHET_ROUND_INCREMENT:   float = float(_reg.get("round_increment", 5.0))
 REG_RATCHET_FINE_PER_POINT:    float = float(_reg.get("fine_per_point", 500_000))
@@ -646,16 +660,16 @@ NATURAL_DECAY_MIN_ABS_CAPEX:    float = float(_slo_ramp.get("min_abs_capex", 100
 _DECAY_TIER_DEFAULTS = (0.15, 0.20, 0.30)
 if not (0.0 < NATURAL_DECAY_NO_DECAY_RATIO < NATURAL_DECAY_MID_RATIO
         < NATURAL_DECAY_GROWTH_RATIO <= 1.0):
-    print(f"[CONFIG] WARNING: slo_ramp tiers must satisfy 0 < no_decay_ratio < mid_ratio "
-          f"< growth_ratio <= 1; got {NATURAL_DECAY_NO_DECAY_RATIO}/{NATURAL_DECAY_MID_RATIO}/"
-          f"{NATURAL_DECAY_GROWTH_RATIO}. Using {_DECAY_TIER_DEFAULTS}. "
-          "Update simulation_config.json on the data volume.")
+    _clamp("engine_parameters.slo_ramp.{no_decay,mid,growth}_ratio",
+           f"{NATURAL_DECAY_NO_DECAY_RATIO}/{NATURAL_DECAY_MID_RATIO}/{NATURAL_DECAY_GROWTH_RATIO}",
+           "/".join(str(x) for x in _DECAY_TIER_DEFAULTS),
+           "must satisfy 0 < no_decay_ratio < mid_ratio < growth_ratio <= 1")
     (NATURAL_DECAY_NO_DECAY_RATIO, NATURAL_DECAY_MID_RATIO,
      NATURAL_DECAY_GROWTH_RATIO) = _DECAY_TIER_DEFAULTS
 if not (0.0 <= NATURAL_DECAY_MIN_ABS_CAPEX <= NATURAL_DECAY_GROWTH_ABS_CAPEX):
-    print(f"[CONFIG] WARNING: slo_ramp.min_abs_capex={NATURAL_DECAY_MIN_ABS_CAPEX:,.0f} must sit "
-          f"between 0 and growth_abs_capex ({NATURAL_DECAY_GROWTH_ABS_CAPEX:,.0f}); using 500,000. "
-          "Update simulation_config.json on the data volume.")
+    # CFG-09: the message said "using 500,000" while the code set 100,000.
+    _clamp("engine_parameters.slo_ramp.min_abs_capex", f"{NATURAL_DECAY_MIN_ABS_CAPEX:,.0f}", "100,000",
+           f"must sit between 0 and growth_abs_capex ({NATURAL_DECAY_GROWTH_ABS_CAPEX:,.0f})")
     NATURAL_DECAY_MIN_ABS_CAPEX = 100_000.0
 GREENWASH_ABS_CAPEX_FLOOR:      float = float(_slo_ramp.get("greenwash_abs_capex_floor", 3_000_000))
 NPC_SENTIMENT_BRIDGE_BASELINE:  float = float(_trust.get("sentiment_bridge_baseline", 0.15))
@@ -707,10 +721,8 @@ _IMITATION_DECAY_DEFAULT: float = 0.05
 _IMITATION_DECAY_SANITY_MAX: float = 0.08
 DEFAULT_IMITATION_DECAY_RATE:  float = float(_imit.get("default_rate", _IMITATION_DECAY_DEFAULT))
 if DEFAULT_IMITATION_DECAY_RATE > _IMITATION_DECAY_SANITY_MAX:
-    print(f"[CONFIG] WARNING: engine_parameters.imitation_decay.default_rate="
-          f"{DEFAULT_IMITATION_DECAY_RATE:.4g} exceeds the {_IMITATION_DECAY_SANITY_MAX:.4g} sanity "
-          f"ceiling (stale pre-F-07 value); using {_IMITATION_DECAY_DEFAULT:.4g}. "
-          "Update simulation_config.json on the data volume.")
+    _clamp("engine_parameters.imitation_decay.default_rate", DEFAULT_IMITATION_DECAY_RATE, _IMITATION_DECAY_DEFAULT,
+           f"exceeds the {_IMITATION_DECAY_SANITY_MAX:.4g} sanity ceiling (stale pre-F-07 value)")
     DEFAULT_IMITATION_DECAY_RATE = _IMITATION_DECAY_DEFAULT
 
 # ── Scoring / Grading Boundaries ────────────────────────────────

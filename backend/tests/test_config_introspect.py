@@ -156,3 +156,102 @@ def test_route_requires_super_admin():
     assert "require_super_admin" in dep_names, (
         "config/live enumerates every engine constant — it must stay super-admin only"
     )
+
+
+# ── 7. CFG-02/03 (audit 2026-09-04, WP-20): clamps, image vs volume, honesty ─
+
+def test_pristine_install_is_healthy_and_inert_tunables_are_advisories():
+    """CFG-03: 16 inert god-mode tunables are true of a pristine install. Listed
+    as problems they kept `healthy` false forever, so the panel's warning was
+    permanently on and a real problem read like the noise."""
+    r = ci.live_config_report(include_values=False)
+    assert r["clamped_values"] == [], "the committed config must not trip a clamp"
+    assert r["image_vs_volume"]["status"] in ("in_sync", "same_file"), r["image_vs_volume"]
+    assert r["healthy"] is True
+    assert all(p["kind"] != "inert_tunable" for p in r["problems"])
+    assert any(a["kind"] == "inert_tunable" for a in r["advisories"])
+    assert "no value was clamped" in r["summary"]
+
+
+def test_a_clamp_is_a_high_severity_problem(monkeypatch):
+    monkeypatch.setattr(config, "CONFIG_CLAMPS", [
+        {"key": "engine_parameters.regulatory_ratchet.baseline", "configured": 10.0, "using": 20.0,
+         "reason": "is at or below the pre-F-10 value 10.0 (seed teams are fined in round 1)"},
+    ], raising=False)
+    r = ci.live_config_report(include_values=False)
+    assert r["healthy"] is False
+    clamp = next(p for p in r["problems"] if p["kind"] == "clamped_value")
+    assert clamp["severity"] == "high"
+    assert clamp["key"] == "engine_parameters.regulatory_ratchet.baseline"
+    assert clamp["configured"] == 10.0 and clamp["using"] == 20.0
+    assert "NOT what the engine uses" in clamp["message"]
+
+
+def test_volume_drift_from_the_image_is_reported_with_its_keys(monkeypatch):
+    """A volume seeded by an earlier build keeps its values forever — even the
+    ones no clamp guards (e.g. terminal_valuation.shares_outstanding)."""
+    import copy
+    drifted = copy.deepcopy(config.SIMULATION_CONFIG)
+    drifted.setdefault("terminal_valuation", {})["shares_outstanding"] = 100_000_000
+    drifted.setdefault("engine_parameters", {}).setdefault("regulatory_ratchet", {})["baseline"] = 15.0
+    monkeypatch.setattr(config, "SIMULATION_CONFIG", drifted)
+    # make the volume path distinct from the image so the diff is not "same_file"
+    monkeypatch.setattr(config, "CONFIG_PATH", Path("/data/simulation_config.json"), raising=False)
+    state = ci.check_image_vs_volume(config)
+    assert state["status"] == "differs", state
+    keys = {d["key"] for d in state["differences"]}
+    assert keys == {"terminal_valuation.shares_outstanding", "engine_parameters.regulatory_ratchet.baseline"}
+    r = ci.live_config_report(include_values=False)
+    prob = next(p for p in r["problems"] if p["kind"] == "image_vs_volume")
+    assert prob["severity"] == "medium" and set(prob["keys"]) == keys
+    assert r["healthy"] is False
+
+
+def test_stale_volume_end_to_end_in_a_fresh_process(tmp_path):
+    """The real thing: a data volume carrying pre-F-10 values, loaded by a
+    fresh interpreter — config.py clamps, the ledger fills, /config/live
+    reports it as high-severity, `healthy` is false. The audit's probe
+    (cfg/probe_config_live.py case b) found `in_sync`, 0 stale bindings and
+    healthy:false for the WRONG reason (inert tunables) on exactly this volume."""
+    import json
+    import subprocess
+    image = json.loads((_BACKEND_DIR.parent / "simulation_config.json").read_text(encoding="utf-8"))
+    stale = json.loads(json.dumps(image))
+    stale["engine_parameters"]["regulatory_ratchet"]["baseline"] = 10.0
+    stale["engine_parameters"]["imitation_decay"]["default_rate"] = 0.1
+    (tmp_path / "simulation_config.json").write_text(json.dumps(stale), encoding="utf-8")
+    env = {**os.environ, "MURESSONS_DATA_DIR": str(tmp_path), "USE_MEMORY_DB": "true",
+           "MURESSONS_NO_LEGACY_MIGRATION": "1", "PYTHONPATH": str(_BACKEND_DIR)}
+    code = (
+        "import json, config, config_introspect as ci\n"
+        "r = ci.live_config_report(include_values=True)\n"
+        "print('JSON' + json.dumps({'clamps': config.CONFIG_CLAMPS, 'healthy': r['healthy'],"
+        " 'problems': [(p['severity'], p['kind'], p.get('key')) for p in r['problems']],"
+        " 'ivv': r['image_vs_volume']['status'], 'live_baseline': r['constants']['REG_RATCHET_BASELINE'],"
+        " 'live_imit': r['constants']['DEFAULT_IMITATION_DECAY_RATE']}))\n"
+    )
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True,
+                         timeout=120, cwd=str(_BACKEND_DIR))
+    line = next((l for l in out.stdout.splitlines() if l.startswith("JSON")), None)
+    assert line, f"no report line:\nSTDOUT:{out.stdout[-1500:]}\nSTDERR:{out.stderr[-1500:]}"
+    rep = json.loads(line[4:])
+    assert [c["key"] for c in rep["clamps"]] == [
+        "engine_parameters.regulatory_ratchet.baseline", "engine_parameters.imitation_decay.default_rate"]
+    assert rep["live_baseline"] == 20.0 and rep["live_imit"] == 0.05
+    assert rep["healthy"] is False and rep["ivv"] == "differs"
+    kinds = [(s, k) for s, k, _ in rep["problems"]]
+    assert kinds.count(("high", "clamped_value")) == 2
+    assert ("medium", "image_vs_volume") in kinds
+    assert all(k != "inert_tunable" for _, k in kinds)
+    # and the deploy log line the runbook tells the operator to look for
+    assert "[CONFIG] WARNING: engine_parameters.regulatory_ratchet.baseline=10.0" in out.stdout
+
+
+def test_file_ahead_message_no_longer_claims_the_file_lives_in_the_image():
+    """CFG-09/CFG-03: the upload lands on the data volume (admin_router writes
+    to runtime_paths.config_file) and survives a redeploy; the old sentence
+    said the opposite."""
+    import inspect
+    src = inspect.getsource(ci.check_file_ahead_of_process)
+    assert "lives in the image" not in src
+    assert "data volume" in src

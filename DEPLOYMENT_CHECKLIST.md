@@ -38,11 +38,18 @@ then set `MURESSONS_DATA_DIR=/data`.
   files are migrated across automatically (see `backend/runtime_paths.py`).
 - **Verify the volume is live two ways:**
   1. Boot log shows `[storage] data dir: /data (configured=True, writable=True,
-     railway=True, durable=True)`. If instead you see the `[!!] RAILWAY DETECTED
-     WITHOUT A DURABLE DATA DIRECTORY` banner, the volume isn't mounted /
-     `MURESSONS_DATA_DIR` isn't set.
-  2. `GET /health` returns `"durable_storage": true` (and a `storage` object with
-     the details). This is the fastest post-deploy confirmation.
+     mounted=True, railway=True, durable=True)`. `mounted` is read from
+     `/proc/mounts` (OPS-3, audit 2026-09-04): the image sets
+     `MURESSONS_DATA_DIR=/data` and creates the directory, so `configured` and
+     `writable` are true **with no volume attached** — only `mounted=True`
+     proves the volume is there. If you see the `[!!] … IS NOT A MOUNTED
+     VOLUME` banner the directory is on the container filesystem and every
+     redeploy wipes it; the `[!!] RAILWAY DETECTED WITHOUT A DURABLE DATA
+     DIRECTORY` banner means `MURESSONS_DATA_DIR` isn't set at all.
+  2. `GET /health` returns `"durable_storage": true` and
+     `"storage": {"mounted": true, "mount_point": "/data", …}`. This is the
+     fastest post-deploy confirmation. (`"mounted": null` means the platform
+     exposes no mount table; then rely on the end-to-end proof below.)
 - End-to-end proof: create a facilitator (or set a cohort's briefing-video
   URLs), redeploy, confirm the account still logs in and the settings persist —
   this is the exact failure the volume fixes.
@@ -75,7 +82,14 @@ live workshop down. So the failure is opt-in.
 ```
 GET /health?strict=1   →  200 normally
                        →  503 + {"status":"degraded"} when low_disk_space
+                       →  503 + {"status":"degraded","database_reachable":false,
+                                 "database_error":"…"} when Postgres does not
+                                 answer SELECT 1 within 2 s (OPS-4)
 ```
+
+`?strict=1` is the only call that touches the database: the plain `/health`
+(Railway's healthcheck, the facilitator RunBar dot) stays a no-I/O 200, so a
+database outage is visible to your monitor without restarting the container.
 
 Point any uptime monitor (UptimeRobot, Better Stack, Healthchecks.io — all have
 free tiers) at **`https://<your-domain>/health?strict=1`** with a 5–15 minute
@@ -124,7 +138,7 @@ only **blocks merge** once branch protection requires the check:
 GitHub → Settings → Branches → add a rule for the deploy branch →
 require the `Backend — pytest` and `Frontend — jest` status checks to pass.
 
-## 5. Boot-log sanity check (first deploy)
+## 5. Boot-log sanity check (first deploy — and every deploy before a class)
 
 Tail the deploy logs and confirm:
 
@@ -132,6 +146,40 @@ Tail the deploy logs and confirm:
 - No `SEC-2 FATAL` / `SEC-6 FATAL` banners.
 - `[SEC-4] MASTER_PASSWORD not set — ... DISABLED` **or** the `SEC-4 WARNING`
   armed banner — whichever you intend.
+- `[storage] … mounted=True … durable=True` (see §2).
+- **No `[CONFIG] WARNING` line and no `[config] CLAMPED …` line.** Each one
+  means the `simulation_config.json` on the volume carries a legacy value that
+  `config.py` refused: the file says one thing, the engine runs its default.
+- `[config] volume config matches the image copy (in_sync)`. If instead you see
+  `[config] volume differs from image on N keys: …`, the volume kept the
+  config an earlier build seeded and a changed default is **not in effect**
+  (this includes keys no clamp guards — e.g. `terminal_valuation.shares_outstanding`).
+
+### 5b. Refresh the volume config (CFG-01/02, audit 2026-09-04)
+
+The data volume keeps its own `simulation_config.json` forever
+(`runtime_paths.config_file` seeds it once and never overwrites it), so a
+volume created before a build that changed a default silently runs the old
+numbers. Do this after any deploy that touched `simulation_config.json`, and
+before every class:
+
+1. **Inspect** (from a Railway shell, or `railway ssh --`):
+   ```
+   python3 -c "import json;c=json.load(open('/data/simulation_config.json'));e=c['engine_parameters'];print('cbam',e['cbam']['surcharge_rate'],'imit',e['imitation_decay']['default_rate'],'ratchet',e['regulatory_ratchet']['baseline'],'synergy',e['synergy'].get('max_reduction_per_round'),'ncd',c['ncd_parameters'].get('hard_cap'),c['ncd_parameters'].get('warn_threshold'),c['ncd_parameters'].get('opex_penalty_per_unit'),'shares',c['terminal_valuation'].get('shares_outstanding'))"
+   ```
+   Expected: `cbam 100 imit 0.05 ratchet 20.0 synergy 0.06 ncd 5000 1000 1000 shares 6500000`.
+2. **Patch** anything else with the shipped patcher (it backs the file up first
+   and only touches the keys it knows):
+   ```
+   python3 /app/backend/patch_volume_config.py /data/simulation_config.json
+   ```
+   or, to adopt the image copy wholesale (loses any deliberate tuning):
+   `cp /app/simulation_config.json /data/simulation_config.json`.
+3. **Restart** the service (Railway → Deployments → Restart), then re-run
+   step 1 and re-check the boot log per §5. As super-admin,
+   `GET /api/admin/config/live` must show `"healthy": true` with an empty
+   `problems` list — `clamped_value` entries name any key still refused,
+   `image_vs_volume` names any key still differing from the image.
 
 ---
 

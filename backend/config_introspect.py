@@ -29,7 +29,19 @@ WHAT IT CHECKS (in order of how often it will save you)
                               means.
     C. shadowed_by_god_mode   a runtime override wins over the config constant,
                               so the configured value is dead.
-    D. inert_tunable          an _engine_tunables knob that reaches nothing.
+    D. clamped_value          config.py refused a value on the data volume as
+                              a legacy/out-of-range number and is running its
+                              default instead (CFG-02/03, audit 2026-09-04).
+                              The file says one thing, the engine does another,
+                              and nothing else reports it.
+    E. image_vs_volume        the config on the data volume differs from the
+                              copy this build ships. Expected after deliberate
+                              tuning; otherwise a volume seeded by an earlier
+                              build that kept its values forever.
+    F. inert_tunable          an _engine_tunables knob that reaches nothing —
+                              an ADVISORY, not a problem: it is true of a
+                              pristine install and must not keep `healthy`
+                              permanently false.
 
     Plus a fingerprint over the live values, so a run can be stamped with the
     configuration that produced it.
@@ -164,9 +176,9 @@ def check_file_ahead_of_process(config_mod) -> dict:
         "message": (
             f"simulation_config.json on disk differs from what this process loaded "
             f"({len(diffs)} value(s)). THESE CHANGES ARE NOT IN EFFECT. Restart the "
-            "backend (or redeploy) to pick them up. Note that on Railway the file "
-            "lives in the image, so an uploaded config is also lost on the next "
-            "redeploy — see remediation #37."
+            "backend (or redeploy) to pick them up. The file is the durable copy on "
+            "the data volume (runtime_paths.config_file): an upload lands there and "
+            "survives a redeploy, but a running process only reads it at start."
         ),
     }
 
@@ -289,6 +301,101 @@ def check_inert_tunables() -> list[dict]:
     return findings
 
 
+# ── D. Clamped values (the volume says X, the engine runs Y) ─────────────────
+
+def check_clamped_values(config_mod) -> list[dict]:
+    """Every sanity clamp config.py applied at import, from its ledger.
+
+    A clamp is the one disagreement no other check can see: the file and the
+    process agree (both hold the legacy number), every consumer agrees with
+    config (all hold the clamped default) — and the engine is still not
+    running what the file says."""
+    out = []
+    for c in list(getattr(config_mod, "CONFIG_CLAMPS", []) or []):
+        key = str(c.get("key", "?"))
+        out.append({
+            "key": key,
+            "configured": c.get("configured"),
+            "using": c.get("using"),
+            "reason": c.get("reason", ""),
+            "message": (
+                f"{key} on the data volume is {c.get('configured')!r} — {c.get('reason', 'rejected')}; "
+                f"the engine is running {c.get('using')!r} instead. The file is NOT what the engine "
+                "uses: refresh simulation_config.json on the data volume (DEPLOYMENT_CHECKLIST §5) "
+                "and restart."
+            ),
+        })
+    return out
+
+
+# ── E. Image vs volume (has the volume kept an earlier build's values?) ──────
+
+def _flatten(d, prefix=""):
+    out = {}
+    for k, v in (d or {}).items():
+        key = f"{prefix}{k}"
+        if isinstance(v, dict):
+            out.update(_flatten(v, key + "."))
+        else:
+            out[key] = v
+    return out
+
+
+def check_image_vs_volume(config_mod) -> dict:
+    """Flatten-diff the config copy shipped in the image against the copy on
+    the data volume (the one config.py reads). Deliberate tuning shows here
+    too, so the verdict names the keys and lets the reader decide."""
+    try:
+        from runtime_paths import _CONFIG_IMAGE_DEFAULTS
+        image_path = _CONFIG_IMAGE_DEFAULTS.get("simulation_config.json")
+    except Exception:
+        image_path = None
+    volume_path = getattr(config_mod, "CONFIG_PATH", None)
+    if image_path is None or volume_path is None:
+        return {"status": "unknown", "reason": "no image default or CONFIG_PATH"}
+    image_path, volume_path = Path(image_path), Path(volume_path)
+    try:
+        same = image_path.resolve() == volume_path.resolve()
+    except OSError:
+        same = str(image_path) == str(volume_path)
+    if same:
+        return {"status": "same_file", "image": str(image_path), "volume": str(volume_path),
+                "message": "The process reads the shipped copy directly (no data volume in play)."}
+    if not image_path.exists():
+        return {"status": "unknown", "image": str(image_path), "volume": str(volume_path),
+                "reason": "the shipped copy is not present in this build"}
+    try:
+        image = _flatten(json.loads(image_path.read_text(encoding="utf-8")))
+    except Exception as exc:
+        return {"status": "unknown", "image": str(image_path), "volume": str(volume_path),
+                "reason": f"shipped copy unreadable: {exc}"}
+    volume = _flatten(getattr(config_mod, "SIMULATION_CONFIG", None) or {})
+    keys = sorted(set(image) | set(volume), key=str)
+    diffs = [
+        {"key": k, "in_image": image.get(k, "«absent»"), "on_volume": volume.get(k, "«absent»")}
+        for k in keys
+        if image.get(k, "«absent»") != volume.get(k, "«absent»")
+    ]
+    if not diffs:
+        return {"status": "in_sync", "image": str(image_path), "volume": str(volume_path),
+                "differing_count": 0, "differences": []}
+    names = ", ".join(d["key"] for d in diffs[:12]) + (" …" if len(diffs) > 12 else "")
+    return {
+        "status": "differs",
+        "image": str(image_path),
+        "volume": str(volume_path),
+        "differing_count": len(diffs),
+        "differences": diffs[:100],
+        "message": (
+            f"The config on the data volume differs from the copy this build ships on "
+            f"{len(diffs)} key(s): {names}. Expected only if these were tuned deliberately; "
+            "a volume seeded by an earlier build keeps its values forever (runtime_paths."
+            "config_file), so a build that changed a default is silently not in effect. "
+            "Refresh the volume copy (DEPLOYMENT_CHECKLIST §5) and restart."
+        ),
+    }
+
+
 # ── Assembly ─────────────────────────────────────────────────────────────────
 
 def _fingerprint(constants: dict[str, Any]) -> str:
@@ -322,11 +429,16 @@ def live_config_report(include_values: bool = True) -> dict:
                       {"status": "unknown"})
     stale = _run("stale_bindings", lambda: check_stale_bindings(config_mod), [])
     shadowed = _run("god_mode_shadowing", lambda: check_god_mode_shadowing(config_mod), [])
+    clamped = _run("clamped_values", lambda: check_clamped_values(config_mod), [])
+    image_state = _run("image_vs_volume", lambda: check_image_vs_volume(config_mod),
+                       {"status": "unknown"})
     inert = _run("inert_tunables", check_inert_tunables, [])
 
     report["file_vs_process"] = file_state
     report["stale_bindings"] = stale
     report["god_mode_shadowing"] = shadowed
+    report["clamped_values"] = clamped
+    report["image_vs_volume"] = image_state
     report["inert_tunables"] = inert
 
     problems = []
@@ -335,20 +447,35 @@ def live_config_report(include_values: bool = True) -> dict:
                          "message": file_state.get("message", "")})
     for f in stale:
         problems.append({"severity": "high", "kind": "stale_binding", "message": f["message"]})
+    # CFG-03: a clamp is the file saying one thing and the engine doing another —
+    # the highest-value finding this endpoint can make, and it was invisible.
+    for f in clamped:
+        problems.append({"severity": "high", "kind": "clamped_value", "key": f["key"],
+                         "configured": f["configured"], "using": f["using"], "message": f["message"]})
     for f in shadowed:
         if f["differs"]:
             problems.append({"severity": "medium", "kind": "shadowed_by_god_mode",
                              "message": f["message"]})
-    for f in inert:
-        problems.append({"severity": "low", "kind": "inert_tunable", "message": f["message"]})
+    if image_state.get("status") == "differs":
+        problems.append({"severity": "medium", "kind": "image_vs_volume",
+                         "differing_count": image_state.get("differing_count", 0),
+                         "keys": [d["key"] for d in image_state.get("differences", [])],
+                         "message": image_state.get("message", "")})
+    # CFG-03: inert tunables are true of a pristine install. Listing them as
+    # problems kept `healthy` false forever, so the panel's warning was
+    # permanently on and a real problem read exactly like the noise.
+    advisories = [{"severity": "low", "kind": "inert_tunable", "message": f["message"]} for f in inert]
 
     report["healthy"] = not problems
     report["problems"] = problems
+    report["advisories"] = advisories
+    _adv = f" {len(advisories)} advisory note(s) — see 'advisories'." if advisories else ""
     report["summary"] = (
-        "Configuration is coherent: the file, this process and every consumer module agree."
+        "Configuration is coherent: the file, this process and every consumer module agree, "
+        "and no value was clamped." + _adv
         if not problems else
         f"{len(problems)} configuration problem(s). The engine is NOT necessarily running "
-        "the values you last set — see 'problems'."
+        "the values you last set — see 'problems'." + _adv
     )
     if include_values:
         report["constants"] = {k: _redact(k, v) for k, v in sorted(constants.items())}

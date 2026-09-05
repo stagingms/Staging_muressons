@@ -88,6 +88,51 @@ describe('ConfigLiveStatus', () => {
     expect(kinds[2]).toMatch(/inert_tunable/);      // low
   });
 
+  it('CFG-03: advisories never colour the verdict and sit behind a disclosure', async () => {
+    // A pristine install has 16 inert god-mode tunables. They used to be
+    // low-severity PROBLEMS, so `healthy` was false forever and the warning
+    // sentence was permanently on — a real problem read exactly like the noise.
+    mockFetch({
+      ...CLEAN,
+      summary: 'Configuration is coherent: the file, this process and every consumer module agree, and no value was clamped. 1 advisory note(s) — see \'advisories\'.',
+      advisories: [{ severity: 'low', kind: 'inert_tunable',
+        message: "_engine_tunables['cannibalization_rate'] is not forwarded and reaches nothing." }],
+      clamped_values: [], image_vs_volume: { status: 'in_sync' },
+    });
+    await renderPanel();
+    expect(await screen.findByTestId('config-live-summary')).toHaveTextContent(/coherent/i);
+    expect(screen.queryByTestId('config-live-problems')).toBeNull();
+    const adv = screen.getByTestId('config-live-advisories');
+    expect(adv.open).toBe(false);
+    expect(adv).toHaveTextContent(/1 advisory note/);
+    expect(adv).toHaveTextContent(/cannibalization_rate/);
+    expect(screen.getByText(/image_vs_volume: in_sync/)).toBeInTheDocument();
+    expect(screen.getByText(/clamped: 0/)).toBeInTheDocument();
+  });
+
+  it('CFG-02: a clamped value is a HIGH problem, named with what the engine runs', async () => {
+    mockFetch({
+      ...CLEAN, healthy: false,
+      summary: '2 configuration problem(s). The engine is NOT necessarily running the values you last set — see \'problems\'.',
+      problems: [
+        { severity: 'medium', kind: 'image_vs_volume', keys: ['terminal_valuation.shares_outstanding'],
+          message: 'The config on the data volume differs from the copy this build ships on 1 key(s): terminal_valuation.shares_outstanding.' },
+        { severity: 'high', kind: 'clamped_value', key: 'engine_parameters.regulatory_ratchet.baseline', configured: 10, using: 20,
+          message: 'engine_parameters.regulatory_ratchet.baseline on the data volume is 10.0 — is at or below the pre-F-10 value; the engine is running 20.0 instead.' },
+      ],
+      advisories: [], clamped_values: [{ key: 'engine_parameters.regulatory_ratchet.baseline' }],
+      image_vs_volume: { status: 'differs', differing_count: 1 },
+    });
+    await renderPanel();
+    const list = await screen.findByTestId('config-live-problems');
+    const items = [...list.querySelectorAll('li')].map((li) => li.textContent);
+    expect(items[0]).toMatch(/HIGH/);
+    expect(items[0]).toMatch(/clamped_value/);
+    expect(items[0]).toMatch(/engine is running 20\.0 instead/);
+    expect(items[1]).toMatch(/image_vs_volume/);
+    expect(screen.getByText(/clamped: 1/)).toBeInTheDocument();
+  });
+
   it('keeps the constants behind a disclosure so the verdict stays visible', async () => {
     mockFetch(CLEAN);
     const { container } = await act(async () => render(<ConfigLiveStatus />)) || {};
