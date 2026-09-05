@@ -588,6 +588,10 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
             body = _auto_commit_request(state["global_state"], state["bu_states"], latest,
                                         shuffle_seed=_sinfo.get("shuffle_seed"),
                                         paradigm=_sinfo.get("decision_paradigm", "legacy_abc"))
+            # OPS-1 (WP-17): a server-initiated commit for a team that has not
+            # committed this round is not a double-submit — the 5-s cooldown
+            # guards the client's button, not the facilitator's timer.
+            _commit_timestamps.pop(sid, None)
             if await _run_commit_locked(sid, body) is not None:
                 advanced += 1
                 # AC-1: stamp a persistent disclosure onto the new round's flags.

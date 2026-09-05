@@ -3396,140 +3396,6 @@ async def _cohort_current_round(session_id: str) -> int:
     return max(rounds) if rounds else 1
 
 
-async def _auto_commit_player(player_session_id: str, current_round: int):
-    """Auto-commit a single player session with default option_b."""
-    try:
-        import database as db
-        from engine import process_tick
-        from round_logic import pre_tick, post_tick, get_round_config
-
-        current = await db.fetch_latest_state(player_session_id)
-        if current is None:
-            return False
-
-        # Only auto-commit if player is still on the expected round
-        if current["round_number"] != current_round:
-            return False  # Already committed or ahead
-
-        current_global = {
-            "round_number": current_round,
-            **current["global_state"],
-        }
-        current_bus = current["bu_states"]
-
-        # Build default decisions: option_b, minimal investment
-        # WARN-02 FIX: Derive BU IDs dynamically from actual session state
-        # instead of hardcoding legacy_abc BUs — critical for SDG/healthcare paradigms
-        bu_ids = [bu["bu_id"] for bu in current_bus] if current_bus else [
-            "pharma", "electronics", "consumer_goods", "software"
-        ]
-        decisions_raw = [
-            {
-                "bu_id": bu_id,
-                "investment_ratio": 0,
-                "capex_allocated": 1,
-                "choice_selected": "option_b",
-                "decision_node_id": f"auto_round_{current_round}_{bu_id}",
-                "time_to_decision_seconds": 0,
-                # TEAM-3 (UX audit #7): "auto_default" is NOT a member of the
-                # consensus_level enum — on Postgres this would violate the type.
-                # A server auto-commit is precisely the "no team answered" case.
-                "team_consensus": "not_recorded",
-                "player_id": "",
-            }
-            for bu_id in bu_ids
-        ]
-
-        # Pre-tick
-        pre_result = pre_tick(
-            round_number=current_round,
-            current_global=current_global,
-            current_bus=current_bus,
-            decisions=decisions_raw,
-            crisis_severity=0,
-        )
-        if "validation_error" in pre_result:
-            # Skip validation errors (e.g., R2 CFO gate) — just advance
-            pass
-
-        effective_crisis = pre_result.get("crisis_severity", 0)
-
-        # FIX AUDIT-007: Was referencing undefined `session_id` — must use `player_session_id`
-        session_info = await db.get_session_info(player_session_id)
-        paradigm = (session_info or {}).get("decision_paradigm", "legacy_abc")
-
-        # Run tick engine
-        tick_result = process_tick(
-            current_global=current_global,
-            current_bus=current_bus,
-            decisions=decisions_raw,
-            dividends_paid=0,
-            crisis_severity=effective_crisis,
-            imitation_decay_rate=0.05,
-            decision_paradigm=paradigm,
-        )
-
-        new_round = tick_result["global_state"]["round_number"]
-        new_global = tick_result["global_state"]
-        new_bus = tick_result["bu_states"]
-        events = tick_result["events"]
-        events.update(pre_result.get("pre_events", {}))
-
-        # C2: re-seed effective climate inputs (global + per-cohort override)
-        # into the round flags before the engine reads them (admin advance path).
-        try:
-            new_global.setdefault("active_event_flags", {})
-            seed_effective_flags(player_session_id, new_global["active_event_flags"])
-        except Exception:
-            pass
-
-        # Post-tick
-        post_events = post_tick(
-            round_number=current_round,
-            global_state=new_global,
-            bu_states=new_bus,
-            decisions=decisions_raw,
-            events=events,
-            previous_flags=current_global.get("active_event_flags", {}),
-            decision_paradigm=paradigm,
-        )
-        events.update(post_events)
-        events["auto_committed"] = True
-        # AC-1 (UX audit §7.8): source is always "default" on this path — the
-        # scheduled-unlock auto-commit builds option_b/$1 decisions above and
-        # never reads the saved draft. The disclosure card must say so.
-        events["auto_committed_source"] = "default"
-        events["auto_committed_reason"] = "Scheduled timer expired — default option_b applied"
-        new_global["active_event_flags"] = events
-
-        # Clear saved decisions
-        new_global.pop("saved_allocations", None)
-        new_global.pop("saved_decision_choice", None)
-
-        # Persist
-        await db.insert_next_round(
-            session_id=player_session_id,
-            round_number=new_round,
-            global_state=new_global,
-            bu_states=new_bus,
-            decisions=decisions_raw,
-        )
-
-        # Push notification to player
-        await manager.push_to_session(player_session_id, {
-            "type": "auto_committed",
-            "new_round_number": new_round,
-            "message": "Time expired — your turn was auto-committed with default choices.",
-        })
-
-        _ar_log.info(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
-        return True
-
-    except Exception as exc:
-        _ar_log.warning(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
-        return False
-
-
 async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
     """Background task: auto-commit lagging players, then unlock next round after `delay_seconds`."""
     try:
@@ -3543,30 +3409,21 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
         current_unlocked = pacing["unlocked_round"]
 
         # ── Auto-commit lagging players ──────────────────────────
-        # Find all player sub-sessions for this cohort
-        from router import _session_players
-        import database as db
-
-        player_entries = _session_players.get(session_id, [])
+        # OPS-1 (audit 2026-09-04): this used to run its own engine chain
+        # (_auto_commit_player: pre_tick/process_tick/post_tick with no commit
+        # lock, no draft, and `active_event_flags = events`, which REPLACED the
+        # persisted flags — 26 keys gone, stochastic_seed, decision_paradigm,
+        # ending_pathway, loan_interest_rate and every new-engine state among
+        # them, and at R10 a round-11 row with no game_over). It now goes
+        # through the real commit path: router._auto_commit_laggards commits
+        # every team still behind the next round via _run_commit_locked —
+        # locked, draft-aware, flags merged, R10-aware, disclosure stamped.
+        from router import _auto_commit_laggards
         auto_committed_count = 0
-
-        for player_entry in player_entries:
-            player_sid = player_entry.get("player_session_id")
-            if not player_sid:
-                continue
-
-            # Check if this player is still on the current round
-            try:
-                latest = await db.fetch_latest_state(player_sid)
-                if latest and latest["round_number"] == current_unlocked:
-                    # NEW-11: Only auto-commit players who are STILL on the current round
-                    # (== current_unlocked). Players who already committed have round_number
-                    # > current_unlocked and must NOT be auto-committed again.
-                    success = await _auto_commit_player(player_sid, latest["round_number"])
-                    if success:
-                        auto_committed_count += 1
-            except Exception as exc:
-                _ar_log.warning(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
+        try:
+            auto_committed_count = await _auto_commit_laggards(session_id, current_unlocked + 1)
+        except Exception as exc:
+            _ar_log.warning(f"[AUTO-COMMIT] laggard commit failed for cohort {session_id[:8]}…: {exc}")
 
         if auto_committed_count > 0:
             _ar_log.info(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
