@@ -193,7 +193,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
                         <div
                             data-testid={`tunable-inert-${varKey}`}
                             title="This knob is not wired to the engine: saving it records the value but changes nothing in play (CFG-08)."
-                            style={{ marginTop: 4, fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--caution-text, #f59e0b)' }}
+                            style={{ marginTop: 4, fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--caution-text)' }}
                         >
                             ⚠ not wired — no effect in play
                         </div>

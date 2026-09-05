@@ -4092,6 +4092,14 @@ def _run_reporting_layer(ctx: TickContext) -> None:
         # FLAG-9 (audit 2026-09-04, WP-24): black_swan_registry (whistleblower
         # +15 pp, SEC climate rule +12 pp), regional_reporting and
         # meadows_leverage read `greenwashing_detected`, which nothing wrote.
+        # Semantics (Wave 2 gate, 2026-09-05): `greenwashing_scandal` is THIS
+        # round's verdict (written True/False every tick, so the router's
+        # event→flag merge clears it on a clean round); `greenwashing_detected`
+        # is the run's RECORD that a scandal fired — written only when it does,
+        # so it persists. Its readers are all record-shaped: the registry tests
+        # key membership, the finale premiums want a clean record, the
+        # regional report and the Meadows debrief narrate history. Round-scoped
+        # consumers (NPC / agent betrayal) read the tick's events, not the bag.
         ctx.events["greenwashing_detected"]     = True
         ctx.events["greenwashing_penalty"]      = greenwash_penalty
         _gw_claim_word = "full" if _claim_level == "full" else "moderate"

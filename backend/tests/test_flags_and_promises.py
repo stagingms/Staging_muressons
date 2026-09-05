@@ -166,6 +166,24 @@ def test_the_greenwashing_scandal_is_detected_a_betrayal_and_blocks_the_premiums
     assert clean.get("mr_fortress_premium", 0) > 0 and "mr_fortress_premium" not in dirty
 
 
+def test_greenwashing_detected_is_the_record_and_greenwashing_scandal_the_verdict():
+    """Wave 2 gate (2026-09-05): a clean round clears this round's verdict but
+    does not touch the record. The router merges every event key into
+    active_event_flags, so a key written False clears and a key not written
+    persists — the two flags deliberately use the two behaviours."""
+    bus = build_bu_states()
+    clean = _tick(_gs(1), bus, decisions=_decisions(bus, "option_a", ratio=0.5, capex=5_000_000))["events"]
+    assert clean["greenwashing_scandal"] is False
+    assert "greenwashing_detected" not in clean
+    scandal = _scandal_tick()["events"]
+    assert scandal["greenwashing_scandal"] is True and scandal["greenwashing_detected"] is True
+    # the persisted bag after scandal → clean, as the router merges it
+    bag = {}
+    bag.update({k: v for k, v in scandal.items() if isinstance(v, bool)})
+    bag.update({k: v for k, v in clean.items() if isinstance(v, bool)})
+    assert bag["greenwashing_scandal"] is False and bag["greenwashing_detected"] is True
+
+
 def test_greenwash_messages_state_the_claims_own_bar_and_the_absolute_escape():
     from config import GREENWASH_INVESTMENT_THRESHOLD, GREENWASH_MODERATE_THRESHOLD_SCALE, GREENWASH_ABS_CAPEX_FLOOR
     bus = build_bu_states()
@@ -315,3 +333,28 @@ def test_stakeholder_fatigue_dampens_between_tick_reputation_gains():
     fresh = _gs(5); fresh["group_reputation"] = 70.0
     calm = _tick(fresh, bus)
     assert out["global_state"]["group_reputation"] < calm["global_state"]["group_reputation"]
+
+
+# ── GATE-1 (Wave 2 gate, 2026-09-05) ─────────────────────────────────────────
+
+def test_a_running_cascade_is_read_from_the_persisted_flags_and_not_relaunched():
+    from round_logic import _active_npc_cascades
+    from systemic_risk_engine import evaluate_npc_cascades
+    campaign = {"npc_id": "activist_investor", "action": "divestment_campaign",
+                "round_triggered": 6, "persistence_rounds": 2}
+    injunction = {"npc_id": "community_leader", "action": "court_injunction",
+                  "round_triggered": 6, "persistence_rounds": 1}
+    gs = {"active_event_flags": {"active_npc_cascades": [campaign, injunction]}}
+    # R7: the two-round campaign is still running, the one-round injunction is over
+    live = _active_npc_cascades(gs, {}, 7)
+    assert [c["action"] for c in live] == ["divestment_campaign"]
+    # R8: the campaign has run its course and may be launched again
+    assert _active_npc_cascades(gs, {}, 8) == []
+    # this tick's events never carry the list — the old read returned nothing
+    assert {}.get("active_npc_cascades", []) == []
+    # and evaluate_npc_cascades honours the live list: with trust on the floor
+    # the activist does not relaunch a running campaign
+    floor = {nid: 0.0 for nid in ("activist_investor", "regulator", "community_leader", "journalist")}
+    relaunched = [c["action"] for c in evaluate_npc_cascades(floor, 7, live)]
+    assert "divestment_campaign" not in relaunched
+    assert "divestment_campaign" in [c["action"] for c in evaluate_npc_cascades(floor, 7, [])]

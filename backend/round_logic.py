@@ -760,6 +760,35 @@ def post_tick(
 #  Called from router.py commit_turn after post_tick returns.
 # ═══════════════════════════════════════════════════════════════
 
+def _active_npc_cascades(global_state: dict, events: dict, round_number: int) -> list[dict]:
+    """The cascades still running when round `round_number` is evaluated.
+
+    GATE-1 (Wave 2 gate, 2026-09-05): evaluate_npc_cascades skips a gate whose
+    action is already active so a divestment campaign (persistence 2) is not
+    re-launched every round it is still running. The list was read from THIS
+    tick's events, which never carry it — the previous round's list lives in
+    active_event_flags (the router merges every event key there) — so the
+    guard never held and every cascade re-fired each round its gate stayed
+    open. Read the persisted list and keep only entries still inside their
+    persistence window (a 1-round cascade may fire again next round; that is
+    what persistence_rounds 1 means)."""
+    raw = events.get("active_npc_cascades")
+    if not raw:
+        raw = (global_state.get("active_event_flags") or {}).get("active_npc_cascades")
+    live = []
+    for c in raw or []:
+        if not isinstance(c, dict):
+            continue
+        try:
+            started = int(c.get("round_triggered") or 0)
+            lasts = max(1, int(c.get("persistence_rounds") or 1))
+        except (TypeError, ValueError):
+            continue
+        if started and round_number < started + lasts:
+            live.append(c)
+    return live
+
+
 def _engine_failed(extra: dict, engine: str, exc: BaseException) -> None:
     """F-19 / F-36 (launch audit 2026-09-01): an engine exception is no longer a
     print() nobody reads. It is logged at ERROR with the traceback AND recorded
@@ -962,7 +991,7 @@ def run_new_engines(
                         ndata.get("trust", ndata.get("satisfaction", 50))
                         if _memory_on else ndata.get("satisfaction", 50)
                     )
-                active_cascades = events.get("active_npc_cascades", [])
+                active_cascades = _active_npc_cascades(global_state, events, round_number)
                 # IMP-06 (audit 2026-09-04, WP-22): the god-mode "NPC Cascading
                 # Reactions" switch had no reader. router.commit_turn stamps it
                 # onto active_event_flags (forwarded into this state); OFF =
