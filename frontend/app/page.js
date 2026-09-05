@@ -1570,11 +1570,20 @@ export default function CockpitPage() {
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.2rem',
           fontFamily: "'DM Sans', sans-serif",
         }}>
-          <div style={{ fontSize: '3rem' }}>🔒</div>
-          <h2 style={{ color: '#f1f5f9', fontSize: '1.4rem', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>Waiting for Facilitator</h2>
+          <div style={{ fontSize: '3rem' }}>{sim.roundLockReason?.kind === 'teams' ? '⏳' : '🔒'}</div>
+          <h2 style={{ color: '#f1f5f9', fontSize: '1.4rem', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>
+            {sim.roundLockReason?.kind === 'teams' ? 'Waiting for Other Teams' : 'Waiting for Facilitator'}
+          </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', maxWidth: 380, textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
-            Round {roundNumber} is locked. Your facilitator will unlock when the cohort is ready.
+            {sim.roundLockReason?.kind === 'teams'
+              ? (sim.roundLockReason.message || 'Round opens when every team has committed, when the auto-advance timeout lapses, or when the facilitator advances.')
+              : <>Round {roundNumber} is locked. Your facilitator will unlock when the cohort is ready.</>}
           </p>
+          {sim.roundLockReason?.kind === 'teams' && sim.roundLockReason.teams ? (
+            <p style={{ color: '#cbd5e1', fontSize: '0.8rem', margin: 0 }}>
+              {sim.roundLockReason.committed ?? '—'} / {sim.roundLockReason.teams} teams committed
+            </p>
+          ) : null}
           <button onClick={() => sim.setRoundLocked(false)} style={{
             padding: '8px 20px', background: 'transparent',
             border: '1px solid rgba(241,245,249,0.2)', borderRadius: 4, color: '#94a3b8', cursor: 'pointer',
@@ -1821,7 +1830,16 @@ export default function CockpitPage() {
           animation: 'slideDown 0.3s ease-out', cursor: 'pointer',
         }}>
           <span style={{ fontSize: '1.2rem' }}>⏰</span>
-          Time expired — your turn was auto-committed with default choices. Now on Round {roundNumber}.
+          {/* F-18(ii): a Force Advance is not a timeout, and a saved draft is not "defaults" */}
+          {(() => {
+            const f = globalState?.active_event_flags || {};
+            const fromDraft = f.auto_committed_source === 'draft';
+            const reason = String(f.auto_committed_reason || '');
+            const byFacilitator = /facilitator/i.test(reason) && !/time/i.test(reason);
+            const who = byFacilitator ? 'The facilitator advanced the round' : 'The round closed';
+            const what = fromDraft ? 'your saved draft was submitted for you' : `defaults were submitted for you (Option B, ${money(1)} to each business unit)`;
+            return `${who} — ${what}. Now on Round ${roundNumber}.`;
+          })()}
           <span style={{ marginLeft: '0.5rem', opacity: 0.7, fontSize: '0.7rem' }}>✕</span>
         </button>
       )}

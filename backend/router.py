@@ -2601,6 +2601,49 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             detail=f"Round {current_round} is locked. It opens when the facilitator's timer fires or they advance the round.",
         )
 
+    # ── Free-mode barrier, server side (F-18(ii), audit 2026-09-04) ─────
+    # In free mode the cohort advances together: the cockpit shows "Waiting
+    # for Other Teams" after a commit until every team has committed the
+    # round (or the auto-advance timeout lapses / the facilitator forces).
+    # That barrier lived in React state only — a reload skipped it and the
+    # server accepted round N+1 from a team while a sibling was still on
+    # round N. Now the same status the dashboard computes
+    # (_cohort_advance_status: timeout, force flag, laggard auto-commit) is
+    # consulted here, and a team AHEAD of the slowest sibling is refused
+    # with the barrier's own copy while it is not released. A team that is
+    # behind (catching up) is never blocked by this.
+    if parent_id_for_pace:
+        try:
+            from admin_shared import _get_pacing as _gp_fa
+            _fa_pacing = _gp_fa(parent_id_for_pace)
+            if _fa_pacing.get("mode") == "free":
+                _fa_sibs, _fa_rounds = await _cohort_sibling_rounds(parent_id_for_pace)
+                if _fa_rounds and len(_fa_rounds) > 1 and current_round > min(_fa_rounds):
+                    _fa_status = await _cohort_advance_status(session_info_for_pace, rounds=_fa_rounds)
+                    if _fa_status is not None and not _fa_status.get("unblocked"):
+                        _fa_rounds_after = (await _cohort_sibling_rounds(parent_id_for_pace))[1] or _fa_rounds
+                        if current_round > min(_fa_rounds_after):
+                            if commit_lock.locked(): commit_lock.release()
+                            _behind = sum(1 for r in _fa_rounds_after if r < current_round)
+                            raise HTTPException(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                detail={
+                                    "code": "waiting_for_teams",
+                                    "message": (
+                                        f"Waiting for other teams — {_behind} team(s) have not committed round "
+                                        f"{current_round - 1} yet. Round {current_round} opens when every team has "
+                                        f"committed, when the auto-advance timeout lapses, or when the facilitator advances."
+                                    ),
+                                    "committed": _fa_status.get("committed"),
+                                    "teams": _fa_status.get("teams"),
+                                    "deadline_at": _fa_status.get("deadline_at"),
+                                },
+                            )
+        except HTTPException:
+            raise
+        except Exception as _fa_exc:  # never let the barrier itself break a commit
+            _log.warning(f"[FREE-ADVANCE] barrier check failed for {session_id}: {_fa_exc}")
+
     # ── Mandatory-quiz gate (server-side enforcement) ────────
     # When the cohort marks quizzes mandatory, a round that carries a quiz
     # notebook cannot be committed until the player has taken that round's quiz.

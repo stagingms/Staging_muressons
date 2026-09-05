@@ -58,10 +58,10 @@ async def _game(ac, rounds):
     return sid, dash
 
 
-async def _board(ac):
+async def _board(ac, mp):
     import master_credentials
-    master_credentials.MASTER_PASSWORD = "test-master-pw"
-    master_credentials._load_override_hash = lambda: None
+    mp.setattr(master_credentials, "MASTER_PASSWORD", "test-master-pw", raising=False)
+    mp.setattr(master_credentials, "_load_override_hash", lambda: None, raising=False)
     r = await ac.post("/api/admin/facilitators/login",
                       json={"facilitator_id": "god_mode", "password": "test-master-pw"})
     assert r.status_code == 200, r.text[:200]
@@ -72,13 +72,17 @@ async def _board(ac):
 
 @pytest.fixture(scope="module")
 def played():
+    mp = pytest.MonkeyPatch()   # module scope: restore the master password after the module
     async def go():
         async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
             done_sid, done = await _game(ac, 10)
             mid_sid, mid = await _game(ac, 4)
-            rows = await _board(ac)
+            rows = await _board(ac, mp)
             return done_sid, done, mid_sid, mid, rows
-    return _run(go())
+    try:
+        yield _run(go())
+    finally:
+        mp.undo()
 
 
 def test_a_completed_game_is_ranked_on_the_awarded_terminal_value(played):

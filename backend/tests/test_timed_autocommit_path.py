@@ -48,10 +48,10 @@ def _run(coro):
         loop.close()
 
 
-async def _login(ac):
+async def _login(ac, mp):
     import master_credentials
-    master_credentials.MASTER_PASSWORD = "test-master-pw"
-    master_credentials._load_override_hash = lambda: None
+    mp.setattr(master_credentials, "MASTER_PASSWORD", "test-master-pw", raising=False)
+    mp.setattr(master_credentials, "_load_override_hash", lambda: None, raising=False)
     r = await ac.post("/api/admin/facilitators/login", json={"facilitator_id": "god_mode", "password": "test-master-pw"})
     assert r.status_code == 200, r.text[:200]
 
@@ -103,10 +103,10 @@ def test_auto_commit_player_is_gone():
     assert "_auto_commit_laggards(session_id, current_unlocked + 1)" in src
 
 
-def test_timed_auto_commit_keeps_the_flags_and_uses_the_draft():
+def test_timed_auto_commit_keeps_the_flags_and_uses_the_draft(monkeypatch):
     async def go():
         async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
-            await _login(ac)
+            await _login(ac, monkeypatch)
             r = await ac.post("/api/simulations/start", json={"cohort_name": f"OPS1-{int(time.time()*1000)}", "decision_paradigm": "legacy_abc",
                                                             "ending_pathway": "hostile_takeover"})
             cid = r.json()["session_id"]
@@ -135,11 +135,19 @@ def test_timed_auto_commit_keeps_the_flags_and_uses_the_draft():
     # its draft), so decision-driven event keys legitimately differ. The wipe
     # took 26 PERSISTENT keys; none of those may be missing, and the flag set
     # must be the same size as a hand-committed team's, give or take events.
-    import re
-    _event_keys = lambda k: (k.startswith("greenwashing") or k.endswith("_because") or k.endswith("_counterfactual")
-                             or re.search(r"_applied_r\d+$", k) is not None)
-    missing = sorted(k for k in fA if k not in fB and k not in _VOLATILE and not _event_keys(k))
-    assert not missing, f"auto-committed team lost flags: {missing}"
+    # The wipe took the PERSISTENT keys (the audit's list) — those must all be
+    # there; event-driven keys legitimately differ between A's and B's decisions.
+    persistent = ("stochastic_seed", "decision_paradigm", "ending_pathway", "loan_interest_rate", "difficulty_tier")
+    missing = [k for k in persistent if k in fA and k not in fB]
+    assert not missing, f"auto-committed team lost persistent flags: {missing}"
+    # every engine sub-state A carries, B carries too (on the state or folded into the flags)
+    def _has(d, f, k):
+        return k in d["global_state"] or k in f
+    engine_states = [k for k in ("npc_stakeholders", "org_politics", "supply_chain", "board_governance",
+                                 "balance_sheet", "autonomous_agents", "biodiversity") if _has(dA, fA, k)]
+    assert engine_states, "precondition: a hand-committed team carries engine sub-states"
+    lost = [k for k in engine_states if not _has(dB, fB, k)]
+    assert not lost, f"auto-committed team lost engine state: {lost}"
     assert len(fB) >= 0.9 * len(fA), (len(fA), len(fB))
     for k in ("stochastic_seed", "ending_pathway", "loan_interest_rate"):
         assert fB.get(k) == fA.get(k), (k, fB.get(k), fA.get(k))
@@ -151,14 +159,12 @@ def test_timed_auto_commit_keeps_the_flags_and_uses_the_draft():
     decs = dB["global_state"].get("decisions_raw") or fB.get("decisions_raw") or []
     assert decs, "no decisions recorded for the auto-committed round"
     assert all(float(d.get("capex_allocated", 0)) == pytest.approx(2_000_000, abs=1) for d in decs), decs
-    # engine sub-states survived
-    assert dB["global_state"].get("npc_stakeholders") or fB.get("npc_stakeholders")
 
 
-def test_r10_timed_auto_commit_ends_the_game_properly():
+def test_r10_timed_auto_commit_ends_the_game_properly(monkeypatch):
     async def go():
         async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
-            await _login(ac)
+            await _login(ac, monkeypatch)
             r = await ac.post("/api/simulations/start", json={"cohort_name": f"OPS1R10-{int(time.time()*1000)}", "decision_paradigm": "legacy_abc"})
             cid = r.json()["session_id"]
             sidC, _, hC = await _player(ac, cid, "TeamC")

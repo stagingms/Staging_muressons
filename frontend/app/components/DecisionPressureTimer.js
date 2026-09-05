@@ -42,11 +42,28 @@ export default function DecisionPressureTimer({ sessionId, roundNumber, isCommit
   const [totalSeconds, setTotalSeconds] = useState(0);
 
   const API = process.env.NEXT_PUBLIC_API_URL || '';
+  // F-18(iii) (audit 2026-09-04): pacing is set on the COHORT. Polling the
+  // player sub-session's id created a fresh default ("free", no clock) for the
+  // sub-session, so the briefing screen said "No time limit this round" while
+  // the cohort countdown ran. Resolve parent_cohort_id once (as CountdownTimer
+  // does) and poll that; a solo session resolves to itself.
+  const [cohortId, setCohortId] = useState(null);
+  useEffect(() => {
+    if (!sessionId || sessionId === 'demo') { setCohortId(sessionId || null); return undefined; }
+    let cancelled = false;
+    const fromState = globalState?.parent_cohort_id;
+    if (fromState) { setCohortId(fromState); return undefined; }
+    fetch(`${API}/api/simulations/${encodeURIComponent(sessionId)}/session-info`, { credentials: 'include', headers: { ...playerIdHeader() } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setCohortId((d && d.parent_cohort_id) || sessionId); })
+      .catch(() => { if (!cancelled) setCohortId(sessionId); });
+    return () => { cancelled = true; };
+  }, [sessionId, API, globalState?.parent_cohort_id]);
 
   // Poll pacing endpoint every 5s
   const fetchPacing = useCallback(() => {
-    if (!sessionId) return;
-    fetch(`${API}/api/admin/sessions/${encodeURIComponent(sessionId)}/pacing`, { credentials: 'include', headers: { ...playerIdHeader() } })
+    if (!cohortId) return;
+    fetch(`${API}/api/admin/sessions/${encodeURIComponent(cohortId)}/pacing`, { credentials: 'include', headers: { ...playerIdHeader() } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d) return;
@@ -64,7 +81,7 @@ export default function DecisionPressureTimer({ sessionId, roundNumber, isCommit
         }
       })
       .catch(() => {}); // Silent fallback
-  }, [sessionId, API]);
+  }, [cohortId, API]);
 
   useEffect(() => {
     fetchPacing();

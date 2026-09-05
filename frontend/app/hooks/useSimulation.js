@@ -91,6 +91,10 @@ export default function useSimulation() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [roundLocked, setRoundLocked] = useState(false);
+    // F-18(ii): why the last commit was refused — 'facilitator' (manual/timed
+    // pacing) or 'teams' (the free-mode barrier the server now enforces), with
+    // the server's own sentence and tally, so the overlay says the right thing.
+    const [roundLockReason, setRoundLockReason] = useState(null);
     const [commitResults, setCommitResults] = useState(null); // Holds results after commit, before advance
     const [practiceReset, setPracticeReset] = useState(false); // True when practice round reset occurs
     const [mustChangePassword, setMustChangePassword] = useState(false); // True when player must change password
@@ -579,6 +583,24 @@ export default function useSimulation() {
                             setLoading(false);
                             return null;
                         }
+                        if (denied?.detail?.code === 'waiting_for_teams') {
+                            // F-18(ii): the free-mode barrier, now server-side. Refresh
+                            // the board so the tally and the "Waiting for Other Teams"
+                            // card reflect the cohort, and say why in the overlay.
+                            setRoundLockReason({
+                                kind: 'teams',
+                                message: errorDetailText(denied.detail, 'Waiting for other teams to commit.'),
+                                committed: denied.detail.committed ?? null,
+                                teams: denied.detail.teams ?? null,
+                                deadlineAt: denied.detail.deadline_at ?? null,
+                            });
+                            setRoundLocked(true);
+                            setLoading(false);
+                            commitInProgressRef.current = false;
+                            try { await fetchDashboard(sessionId); } catch { /* the poller will catch up */ }
+                            return null;
+                        }
+                        setRoundLockReason({ kind: 'facilitator', message: errorDetailText(denied?.detail, '') });
                         setRoundLocked(true);
                         setLoading(false);
                         return null;
@@ -940,6 +962,7 @@ export default function useSimulation() {
         lastSyncAt,
         roundLocked,
         setRoundLocked,
+        roundLockReason,
         commitResults,
         autoAdvanceDetected,
         setAutoAdvanceDetected,

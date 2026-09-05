@@ -176,15 +176,15 @@ def test_dna_projection_reads_the_expanded_flags():
         assert "proj_synergy_bonus" in proj and "proj_truth_premium" in proj
 
 
-def test_what_if_replay_reads_the_expanded_flags_and_the_dynamic_multiple():
+def test_what_if_replay_reads_the_expanded_flags_and_the_dynamic_multiple(monkeypatch):
     import httpx
     from httpx import ASGITransport
     import database as db
     import admin_shared
     import master_credentials
     from main import app
-    master_credentials.MASTER_PASSWORD = "test-master-pw"
-    master_credentials._load_override_hash = lambda: None
+    monkeypatch.setattr(master_credentials, "MASTER_PASSWORD", "test-master-pw", raising=False)
+    monkeypatch.setattr(master_credentials, "_load_override_hash", lambda: None, raising=False)
     admin_shared._god_mode_settings["solo_mode_enabled"] = True
 
     async def go():
