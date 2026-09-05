@@ -2956,7 +2956,17 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         new_global.setdefault("active_event_flags", {})
         new_global["active_event_flags"][flag_key] = pillar_aggregation.get("flags_set", [])
     else:
-        events["decision_paradigm"] = "legacy_abc"
+        # WP-27 (audit 2026-09-04 follow-on): this stamped the literal
+        # "legacy_abc" for EVERY non-pillar paradigm, and the label is what
+        # round_logic reads back from active_event_flags — so advanced_climate
+        # paid the legacy mid-game carbon OPEX on top of its own escalating
+        # internal fee (_apply_midgame_carbon_cost's advanced_climate early
+        # return never saw "advanced_climate"), the finale's I10 carbon-tax
+        # sync to the peak internal fee never fired, and a BRSR run carried a
+        # legacy label. `paradigm` is already "legacy_abc" here when a
+        # multi_toggles commit fell back to the legacy path (no pillar
+        # decisions), so the pillar/legacy distinction is preserved.
+        events["decision_paradigm"] = paradigm
 
     # C2: re-seed effective climate inputs (global + per-cohort override) into
     # the round's active_event_flags before the engine reads them, so a mid-run
@@ -2996,6 +3006,13 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         decisions=decisions_raw,
         events=events,
         previous_flags=current_global.get("active_event_flags", {}),
+        # VAL-06 (audit 2026-09-04, WP-27): post_tick's brsr_ngrbc branch —
+        # process_brsr_round, the BRSR option flags, finalise_brsr_track and
+        # the BRSR finale — is gated on this parameter, which the player
+        # commit never passed (the facilitator auto-commit did). A BRSR
+        # cohort therefore played the legacy crises with legacy flags and
+        # ended on the legacy finale.
+        decision_paradigm=paradigm,
     )
     events.update(post_events)
 
@@ -4170,12 +4187,18 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
     elif paradigm == "healthcare":
         from healthcare_configs import get_healthcare_round_config
         cfg = get_healthcare_round_config(round_number)
+    elif paradigm == "brsr_ngrbc":
+        # VAL-06 / WP-27: the BRSR track ships its own ten rounds (crisis,
+        # options, pillar map); the cockpit used to be handed the legacy
+        # round here while the engine (now) runs the BRSR branch.
+        from side_tracks.brsr_ngrbc.configs import get_brsr_round_config
+        cfg = get_brsr_round_config(round_number)
     else:
         cfg = get_round_config(round_number)
 
     # ── Ending Pathway: overlay R10 crisis/options if non-default ──
     ending_pathway = None
-    if round_number == 10 and session_id and paradigm not in ("un_sdg", "healthcare"):
+    if round_number == 10 and session_id and paradigm not in ("un_sdg", "healthcare", "brsr_ngrbc"):
         try:
             latest = await db.fetch_latest_state(session_id)
             if latest:

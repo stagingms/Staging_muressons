@@ -90,11 +90,20 @@ class BRSRNGRBCTrack(BaseSideTrack):
         if "governance_fragility" in accumulated:
             flags["brsr_truth_premium_cost_doubled"] = True
         for f in ["brsr_pioneer", "brsr_core_assured", "brsr_living_wage",
-                  "sdg_12_leadership", "brsr_greenwash_risk",
-                  "deep_hrdd_active", "policy_leadership", "msme_champion",
-                  "csrd_aligned"]:
+                  "sdg_12_leadership", "brsr_greenwash_risk"]:
             if f in accumulated:
                 flags[f] = True
+        # VAL-06 (audit 2026-09-04, WP-27): the four option flags below carry
+        # no registered prefix, and exporting them raw made DataBridgeOutput
+        # raise on the R10 finalise — the first time the BRSR finale ever ran
+        # from the player commit path, it 500'd. They are exported under the
+        # names the in-round controller already stamps on active_event_flags.
+        for raw, exported in (("deep_hrdd_active", "brsr_deep_hrdd_active"),
+                              ("policy_leadership", "brsr_policy_leadership"),
+                              ("msme_champion", "brsr_msme_champion_active"),
+                              ("csrd_aligned", "brsr_csrd_aligned")):
+            if raw in accumulated:
+                flags[exported] = True
         return DataBridgeOutput(flags_to_set=flags)
 
     def calculate_score(self, track_state: dict) -> dict[str, Any]:

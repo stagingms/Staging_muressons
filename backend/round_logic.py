@@ -305,9 +305,70 @@ def _apply_treasury_with_green_fund(
         _stamp(-cost)
 
 
-def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events: dict, extra: dict, prev_flags: dict):
+def _equity_and_solvency(gs: dict, bus: list[dict], extra: dict, *, terminal_value: float, mr: float,
+                         effective_exit_multiple: float, total_revenue: float) -> dict:
+    """The equity bridge and the solvency axis, from the closing state — ONE
+    formula for every finale (WP-27, audit 2026-09-04: the BRSR finale had no
+    bridge at all, so a BRSR run reached the reveal, the leaderboard and the
+    grading CSV with no price per share, no equity and no solvency gate).
+
+    Net debt = financial debt (revolver + green bonds + the CapEx term loan,
+    F-05) − treasury cash; equity and price per share via calculate_equity_
+    bridge; the NCD liability is the engine's own price of natural-capital
+    debt capitalised at the exit multiple (F-20); DMAV = treasury × M_R −
+    NCD liability, and solvency is DMAV > 0. Writes the NCD stamps to extra
+    (they are diagnostics of this computation) and returns the rest."""
+    from terminal_valuation import calculate_equity_bridge, SHARES_OUTSTANDING
+    from config import NCD_OPEX_PENALTY_PER_UNIT as _NCD_PRICE
+    _bs = gs.get("balance_sheet", {})
+    _ncl = _bs.get("non_current_liabilities", {})
+    _cl = _bs.get("current_liabilities", {})
+    _capex_loan = float((gs.get("active_event_flags") or {}).get("capex_loan_balance", 0.0) or 0.0)
+    total_financial_debt = (
+        _ncl.get("revolving_credit_facility", 50_000_000)
+        + _ncl.get("green_bonds_outstanding", 0.0)
+        + max(_ncl.get("capex_term_loan", 0.0), _capex_loan)
+        + _cl.get("short_term_debt", 0.0)
+    )
+    treasury_cash = gs.get("corporate_treasury", 0.0)
+    net_debt = round(total_financial_debt - treasury_cash, 2)
+    book_equity = _bs.get("net_assets", 0.0)
+    equity_bridge = calculate_equity_bridge(
+        enterprise_value=terminal_value,
+        net_debt=net_debt,
+        shares_outstanding=SHARES_OUTSTANDING,
+        book_equity=book_equity,
+        total_revenue=total_revenue,
+    )
+    equity_value = equity_bridge["equity_value"]
+    _total_ncd_points = round(sum(max(0.0, float(b.get("natural_capital_debt", 0) or 0)) for b in bus), 2)
+    _ncd_liability = round(_total_ncd_points * _NCD_PRICE * float(effective_exit_multiple), 2)
+    extra["total_ncd_points"] = _total_ncd_points
+    extra["ncd_liability_usd"] = _ncd_liability
+    extra["ncd_liability_basis"] = (
+        f"{_total_ncd_points:,.0f} NCD pts × ${_NCD_PRICE:,.0f}/pt/round × {float(effective_exit_multiple):.1f}× exit multiple"
+    )
+    _dmav = treasury_cash * mr - _ncd_liability
+    extra["dmav"] = round(_dmav, 2)
+    return {
+        "total_financial_debt": total_financial_debt,
+        "net_debt": net_debt,
+        "equity_bridge": equity_bridge,
+        "equity_value": equity_value,
+        "price_per_share": equity_bridge["price_per_share"],
+        "equity_wiped_out": equity_bridge.get("equity_wiped_out", equity_value < 0),
+        "shares_outstanding": SHARES_OUTSTANDING,
+        "dmav": _dmav,
+        "solvent": _dmav > 0,
+    }
+
+
+def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events: dict, extra: dict, prev_flags: dict,
+                            _restamp: bool = False):
     # Determine choice selected in R5
     choice = _get_primary_choice(decs)
+    if _restamp:
+        gs.pop("final_report_canonical", None)
     
     # Exit multiple — the WACC-driven Gordon-growth multiple the main finale
     # uses. This path hard-coded 12.0, so a BRSR team that raised its WACC
@@ -475,13 +536,67 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     extra["synergy_score"] = round(gs.get("synergy_multiplier", 1.0) * 100, 2)
     extra["avg_social_license"] = round(avg_sl, 2)
     extra["r5_choice"] = choice
-    
+    extra["r10_choice"] = choice
+    extra["group_reputation"] = round(gs.get("group_reputation", 0), 2)
+    extra["total_revenue"] = total_revenue
+    extra["total_opex"] = total_opex
+
+    # ── WP-27: the same equity bridge, solvency gate, archetype key and
+    # canonical record as the main finale (VAL-11: "same set minus equity
+    # bridge / archetype key / canonical") — the reveal, the leaderboard,
+    # the grading CSV and the DMAV gate read these for every paradigm.
+    _eq = _equity_and_solvency(gs, bus, extra, terminal_value=terminal_value, mr=mr,
+                               effective_exit_multiple=exit_multiple, total_revenue=total_revenue)
+    _gated = solvency_gated_profile(profile, _eq["dmav"])
+    if _gated != profile:
+        profile = _gated
+        if profile == "hollow_idealist":
+            profile_title, profile_desc = "The Hollow Idealist", (
+                "A regenerative story the balance sheet couldn't fund — enterprise value turned negative.")
+            profile_gradient = "linear-gradient(135deg, #a855f7, #7e22ce)"
+        else:
+            profile_title, profile_desc = "The Stranded Relic", (
+                "Value destroyed — Natural Capital Debt and losses outran the M_R-adjusted balance sheet.")
+            profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
+        extra["profile"] = profile
+        extra["profile_title"] = profile_title
+        extra["profile_description"] = profile_desc
+        extra["profile_gradient"] = profile_gradient
+    archetype_key = terminal_archetype_key(profile, mr)
+    extra["archetype"] = archetype_key
+    extra["equity_value"] = _eq["equity_value"]
+    extra["price_per_share"] = _eq["price_per_share"]
+    extra["equity_wiped_out"] = _eq["equity_wiped_out"]
+    extra["net_debt"] = _eq["net_debt"]
+    extra["shares_outstanding"] = _eq["shares_outstanding"]
+    extra["equity_bridge"] = _eq["equity_bridge"]
+    extra["total_financial_debt"] = _eq["total_financial_debt"]
+    extra["exit_multiple_applied"] = exit_multiple
+    # router.commit_turn re-runs this finale on the closing state (after the
+    # NPC/agent engines and the R10 balance sheet) — see restamp_finale_valuation.
+    extra["finale_inputs"] = {"brsr": True, "choice": choice}
+
     # Persist into global state flags
     gs["active_event_flags"]["terminal_value"] = terminal_value
     gs["active_event_flags"]["regenerative_multiple"] = mr
     gs["active_event_flags"]["terminal_ebitda"] = terminal_ebitda
     gs["active_event_flags"]["profile"] = profile
     gs["active_event_flags"]["profile_title"] = profile_title
+    gs["active_event_flags"]["profile_description"] = profile_desc
+    gs["active_event_flags"]["archetype"] = archetype_key
+    gs["active_event_flags"]["equity_value"] = _eq["equity_value"]
+    gs["active_event_flags"]["price_per_share"] = _eq["price_per_share"]
+    gs["active_event_flags"]["equity_wiped_out"] = _eq["equity_wiped_out"]
+    gs["active_event_flags"]["net_debt"] = _eq["net_debt"]
+    gs["active_event_flags"]["exit_multiple_applied"] = exit_multiple
+    gs["active_event_flags"]["exit_multiple_wacc_used"] = round(float(_wacc), 4)
+    gs["active_event_flags"]["ev_over_revenue"] = _eq["equity_bridge"].get("ev_over_revenue")
+    gs["active_event_flags"]["price_to_book"] = _eq["equity_bridge"].get("price_to_book")
+    from engine import record_canonical_completion
+    record_canonical_completion(
+        gs, terminal_value=terminal_value, regenerative_multiple=mr,
+        archetype=archetype_key, profile=profile, profile_title=profile_title,
+    )
 
 
 def post_tick(
@@ -563,7 +678,11 @@ def post_tick(
     # Skip R10: terminal valuation already applies a lump-sum carbon tax on exit EBITDA.
     # Applying I9 OPEX in R10 would double-charge carbon in the terminal year.
     if round_number != SIM_ROUNDS:
-        _dp = global_state.get("active_event_flags", {}).get("decision_paradigm", "legacy_abc")
+        # WP-27: the caller's paradigm first (the router now passes it);
+        # the flag is the PREVIOUS round's label — absent in R1, and until
+        # WP-27 always "legacy_abc", which is how advanced_climate paid this
+        # on top of its own internal fee.
+        _dp = decision_paradigm or global_state.get("active_event_flags", {}).get("decision_paradigm", "legacy_abc")
         _apply_midgame_carbon_cost(round_number, global_state, bu_states, extra_events, decision_paradigm=_dp)
 
 
@@ -2685,6 +2804,12 @@ def restamp_finale_valuation(gs: dict, bus: list[dict], extra: dict, prev_flags:
     inputs = extra.get("finale_inputs") or (gs.get("active_event_flags") or {}).get("finale_inputs")
     if not isinstance(inputs, dict) or not inputs:
         return False
+    if inputs.get("brsr"):
+        # WP-27: the BRSR finale is a pure function of the closing state and
+        # the flags, so it is simply re-run.
+        _post_brsr_grand_finale(gs, bus, [{"choice_selected": inputs.get("choice", "")}], extra, extra,
+                                prev_flags, _restamp=True)
+        return True
     _stamp_finale_valuation(gs, bus, extra, prev_flags, _restamp=True, **inputs)
     return True
 
@@ -2877,31 +3002,15 @@ def _stamp_finale_valuation(
     # Enterprise Value (TV) − Net Debt = Equity Value → Price Per Share
     # Net Debt = financial debt (revolving credit + bonds + CapEx term loan) − treasury cash
     # Balance sheet data (may be absent in early rounds — graceful fallback)
-    _bs = gs.get("balance_sheet", {})
-    _ncl = _bs.get("non_current_liabilities", {})
-    _cl  = _bs.get("current_liabilities", {})
-    # F-05: the CapEx term loan is debt whether or not a ledger exists.
-    _capex_loan = float((gs.get("active_event_flags") or {}).get("capex_loan_balance", 0.0) or 0.0)
-    total_financial_debt = (
-        _ncl.get("revolving_credit_facility", 50_000_000)
-        + _ncl.get("green_bonds_outstanding", 0.0)
-        + max(_ncl.get("capex_term_loan", 0.0), _capex_loan)
-        + _cl.get("short_term_debt", 0.0)
-    )
-    treasury_cash = gs.get("corporate_treasury", 0.0)
-    net_debt = round(total_financial_debt - treasury_cash, 2)
-    book_equity = _bs.get("net_assets", 0.0)  # IAS 1 net assets (total equity)
-
-    equity_bridge = calculate_equity_bridge(
-        enterprise_value=terminal_value,
-        net_debt=net_debt,
-        shares_outstanding=SHARES_OUTSTANDING,
-        book_equity=book_equity,
-        total_revenue=total_revenue,
-    )
-    equity_value    = equity_bridge["equity_value"]
-    price_per_share = equity_bridge["price_per_share"]           # floored at $1 (never negative)
-    equity_wiped_out = equity_bridge.get("equity_wiped_out", equity_value < 0)
+    # WP-27: one formula for every finale — see _equity_and_solvency.
+    _eq = _equity_and_solvency(gs, bus, extra, terminal_value=terminal_value, mr=mr,
+                               effective_exit_multiple=effective_exit_multiple, total_revenue=total_revenue)
+    total_financial_debt = _eq["total_financial_debt"]
+    net_debt = _eq["net_debt"]
+    equity_bridge = _eq["equity_bridge"]
+    equity_value    = _eq["equity_value"]
+    price_per_share = _eq["price_per_share"]           # floored at $1 (never negative)
+    equity_wiped_out = _eq["equity_wiped_out"]
 
     # ===================================================
     #  Year 5 PROFILE ARCHETYPE
@@ -2928,17 +3037,8 @@ def _stamp_finale_valuation(
     # per-round OPEX penalty per point) × the finale's exit multiple. Both the
     # points and the dollars are published so the reveal can show "−$0.6M
     # (47 NCD pts)". MODEL_CARD.md records the choice.
-    from config import NCD_OPEX_PENALTY_PER_UNIT as _NCD_PRICE
-    _total_ncd_points = round(sum(max(0.0, float(b.get("natural_capital_debt", 0) or 0)) for b in bus), 2)
-    _ncd_liability = round(_total_ncd_points * _NCD_PRICE * float(effective_exit_multiple), 2)
-    extra["total_ncd_points"] = _total_ncd_points
-    extra["ncd_liability_usd"] = _ncd_liability
-    extra["ncd_liability_basis"] = (
-        f"{_total_ncd_points:,.0f} NCD pts × ${_NCD_PRICE:,.0f}/pt/round × {float(effective_exit_multiple):.1f}× exit multiple"
-    )
-    _dmav = gs.get("corporate_treasury", 0.0) * mr - _ncd_liability
-    extra["dmav"] = round(_dmav, 2)
-    _solvent = _dmav > 0
+    _dmav = _eq["dmav"]
+    _solvent = _eq["solvent"]
 
     if custom_archetypes:
         matched = match_custom_archetype(custom_archetypes, mr, _solvent)

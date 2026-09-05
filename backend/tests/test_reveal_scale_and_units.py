@@ -87,5 +87,9 @@ def test_the_index_alone_never_moves_dollars():
     """Source pin: the gate subtracts the liability, not the raw index."""
     import inspect
     import round_logic
-    src = inspect.getsource(round_logic._stamp_finale_valuation)
-    assert "_dmav = gs.get(\"corporate_treasury\", 0.0) * mr - _ncd_liability" in src
+    # WP-27: the bridge and the solvency axis live in ONE helper both finales
+    # (legacy and BRSR) call — the pin follows the formula.
+    src = inspect.getsource(round_logic._equity_and_solvency)
+    assert "_dmav = treasury_cash * mr - _ncd_liability" in src
+    for fin in (round_logic._stamp_finale_valuation, round_logic._post_brsr_grand_finale):
+        assert "_equity_and_solvency(" in inspect.getsource(fin), fin.__name__
