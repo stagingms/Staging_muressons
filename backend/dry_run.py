@@ -27,7 +27,7 @@ from typing import Any, Optional
 from engine import process_tick
 from round_logic import pre_tick, post_tick, run_new_engines, base_crisis_severity_for_round
 from round_configs import get_round_options, get_round_crisis
-from config import CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR, DEFAULT_IMITATION_DECAY_RATE
+import config as _cfg   # CFG-05 (WP-25): call-time reads survive the Excel hot reload
 
 # ── Bot strategies ───────────────────────────────────────────────────────────
 # capex_frac: share of the CSF pool the bot deploys each round (None = chaotic
@@ -94,7 +94,7 @@ def _decisions(round_number: int, bus: list[dict], treasury: float,
     """
     choice = _pick_choice(round_number, strategy["scorer"], rng,
                           strategy.get("choice_map"))
-    csf_pool = max((treasury or 0) * CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR)
+    csf_pool = max((treasury or 0) * _cfg.CSF_POOL_TREASURY_FRACTION, _cfg.CSF_POOL_FLOOR)
     frac = strategy["capex_frac"]
     if frac is None:
         frac = rng.uniform(0.0, 0.9)
@@ -167,7 +167,7 @@ def _run_one(initial_global: dict, initial_bus: list[dict], strategy_id: str,
         # — so every balance-report trajectory measured a different game.
         _server_crisis = base_crisis_severity_for_round(rnd)
         _treasury_now = float(gs.get("corporate_treasury", 0) or 0)
-        _server_emergency = bool((_treasury_now * CSF_POOL_TREASURY_FRACTION) < CSF_POOL_FLOOR)
+        _server_emergency = bool((_treasury_now * _cfg.CSF_POOL_TREASURY_FRACTION) < _cfg.CSF_POOL_FLOOR)
         pre = pre_tick(round_number=rnd, current_global=gs, current_bus=bus,
                        decisions=decs, crisis_severity=_server_crisis, force_override_cfo=False)
         if "validation_error" in pre:
@@ -183,7 +183,7 @@ def _run_one(initial_global: dict, initial_bus: list[dict], strategy_id: str,
         tick = process_tick(
             current_global=gs, current_bus=bus, decisions=decs,
             dividends_paid=dividends, crisis_severity=severity,
-            imitation_decay_rate=DEFAULT_IMITATION_DECAY_RATE, decision_paradigm=paradigm,
+            imitation_decay_rate=_cfg.DEFAULT_IMITATION_DECAY_RATE, decision_paradigm=paradigm,
             emergency_credit_used=_server_emergency,
         )
         new_gs, new_bus, events = tick["global_state"], tick["bu_states"], tick["events"]

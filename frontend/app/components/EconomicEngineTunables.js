@@ -132,7 +132,7 @@ function Tooltip({ data, accentColor }) {
 }
 
 // ─── Custom slider row ────────────────────────────────────
-function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSymbol }) {
+function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSymbol, inert = false }) {
     const [hovering, setHovering] = useState(false);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState('');
@@ -189,6 +189,15 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
                     <code style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono,monospace)', letterSpacing: '0.04em' }}>
                         {varKey}
                     </code>
+                    {inert && (
+                        <div
+                            data-testid={`tunable-inert-${varKey}`}
+                            title="This knob is not wired to the engine: saving it records the value but changes nothing in play (CFG-08)."
+                            style={{ marginTop: 4, fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--caution-text, #f59e0b)' }}
+                        >
+                            ⚠ not wired — no effect in play
+                        </div>
+                    )}
                 </div>
                 {/* Value badge — click to edit numerically */}
                 {editing ? (
@@ -242,9 +251,11 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
                     min={range.min} max={range.max} step={range.step}
                     value={sliderVal}
                     onChange={handleSlider}
+                    disabled={inert}
+                    aria-label={`${label}${inert ? ' (not wired to the engine)' : ''}`}
                     style={{
                         position: 'absolute', left: 0, right: 0, width: '100%', height: '20px',
-                        opacity: 0, cursor: 'pointer', margin: 0,
+                        opacity: 0, cursor: inert ? 'not-allowed' : 'pointer', margin: 0,
                     }}
                 />
                 {/* Custom thumb */}
@@ -274,6 +285,9 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
 export default function EconomicEngineTunables() {
     const { currency, setCurrency } = useCurrency();
     const [tunables, setTunables] = useState({});
+    // CFG-08 (WP-25): knobs the server reports as reaching nothing — shown
+    // disabled with a note rather than pretending a save changes the engine.
+    const [inert, setInert] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -299,7 +313,7 @@ export default function EconomicEngineTunables() {
     useEffect(() => {
         fetch(`${API}/api/admin/engine-tunables`, { credentials: 'include' })
             .then(r => r.json())
-            .then(d => { setTunables(d.tunables || {}); setLoading(false); })
+            .then(d => { setTunables(d.tunables || {}); setInert(Array.isArray(d.inert) ? d.inert : []); setLoading(false); })
             .catch(() => setLoading(false));
         loadPresets();
     }, []);
@@ -606,6 +620,7 @@ export default function EconomicEngineTunables() {
                                     trackGradient={accent.track}
                                     onChange={handleChange}
                                     currSymbol={currency.symbol}
+                                    inert={inert.includes(key)}
                                 />
                             ))}
                         </div>

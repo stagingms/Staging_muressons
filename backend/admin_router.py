@@ -9162,8 +9162,16 @@ async def upload_simulation_config(
 
         # ── Convert Excel → JSON ───────────────────────────────
         try:
-            from config_excel import import_from_excel
+            from config_excel import import_from_excel, ConfigImportError
             import_from_excel(temp_xlsx, json_path)
+        except ConfigImportError as e:
+            # CFG-06 (WP-25): a sheet with a negative tax rate, a rate above
+            # 1, a bool typo, a fractional int or an unknown key is REFUSED
+            # with every offending row listed — nothing was written, so this
+            # is the caller's error (422), not a server failure.
+            if temp_xlsx.exists():
+                temp_xlsx.unlink()
+            raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
             # Rollback: restore backup
             if json_bak.exists():
@@ -9275,6 +9283,39 @@ async def get_current_config(
         "status": "ok",
         "config": _config_mod.SIMULATION_CONFIG,
     }
+
+
+@admin_router.get(
+    "/config/excel",
+    summary="Download the LIVE simulation config as the editable Excel sheet",
+    tags=["Admin — Simulation Config"],
+)
+async def download_config_excel(_guard: None = Depends(require_super_admin)):
+    """CFG-04 (audit 2026-09-04, WP-25): there was no export, so the only
+    sheet a facilitator could upload was the shipped template — which was
+    stale (191 rows vs 208 parameters, imitation decay 0.1) and, because the
+    importer rebuilt the JSON from the sheet, deleted 17 keys on upload. This
+    generates the sheet from the config file the running process reads, so an
+    edit starts from the live values and carries every key."""
+    import io, os, tempfile
+    from pathlib import Path as _P
+    from fastapi.responses import StreamingResponse
+    import config as _config_mod
+    from config_excel import export_to_excel
+    tmp_path = _P(tempfile.gettempdir()) / f"simulation_config_export_{os.getpid()}.xlsx"
+    try:
+        export_to_excel(_P(_config_mod.CONFIG_PATH), tmp_path)
+        file_bytes = tmp_path.read_bytes()
+    finally:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="simulation_config.xlsx"'},
+    )
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -10581,7 +10622,16 @@ _engine_tunables: dict = {
 
 @admin_router.get("/engine-tunables", summary="Get all economic engine tunables")
 async def get_engine_tunables(_g: None = Depends(require_facilitator)):
-    return {"tunables": _engine_tunables, "descriptions": {
+    # CFG-08 (audit 2026-09-04, WP-25): 16 of these knobs reach nothing —
+    # only overrun_probability / overrun_severity are forwarded to the engine
+    # (and the rest have no config constant). The panel returned "changed"
+    # for all of them. The inert set is reported so the panel can say so.
+    try:
+        from config_introspect import check_inert_tunables
+        _inert = sorted(f["tunable"] for f in check_inert_tunables())
+    except Exception:  # noqa: BLE001 — never let introspection break the panel
+        _inert = []
+    return {"tunables": _engine_tunables, "inert": _inert, "descriptions": {
         "inflation_rate": "Annual OPEX inflation applied each round (0.025 = 2.5%)",
         "technical_debt_threshold": "Rounds of zero investment before penalty kicks in",
         "technical_debt_penalty": "OPEX multiplier penalty for neglected BUs",

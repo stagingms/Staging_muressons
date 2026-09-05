@@ -505,15 +505,43 @@ def export_to_excel(json_path: Path = JSON_PATH, excel_path: Path = EXCEL_PATH) 
 #  IMPORT: Excel → JSON
 # ═══════════════════════════════════════════════════════════════
 
+class ConfigImportError(ValueError):
+    """The sheet carries values the engine must not be handed. Every offending
+    row is listed (row number, key, value, rule) so the facilitator fixes them
+    in one pass; NOTHING is written when this is raised."""
+
+
+_BOOL_TRUE = ("true", "1", "yes", "y", "on")
+_BOOL_FALSE = ("false", "0", "no", "n", "off")
+
+
 def _cast_value(value: Any, type_label: str) -> Any:
-    """Cast an Excel cell value back to the correct Python type."""
+    """Cast an Excel cell value back to the correct Python type.
+
+    CFG-06 (audit 2026-09-04, WP-25): a bool typo ("Ture") used to become
+    False and an int cell of 1.7 used to become 1, both silently. A bool
+    must be one of true/false/1/0/yes/no; an int must be integral."""
     if type_label == "bool":
         if isinstance(value, bool):
             return value
-        return str(value).strip().lower() in ("true", "1", "yes")
+        if isinstance(value, (int, float)) and value in (0, 1):
+            return bool(value)
+        text = str(value).strip().lower()
+        if text in _BOOL_TRUE:
+            return True
+        if text in _BOOL_FALSE:
+            return False
+        raise ValueError(f"{value!r} is not a boolean (use true/false)")
     elif type_label == "int":
-        return int(float(value))
+        if isinstance(value, bool):
+            raise ValueError(f"{value!r} is a boolean, expected an integer")
+        f = float(value)
+        if f != int(f):
+            raise ValueError(f"{value!r} is not an integer (the engine reads a whole number here)")
+        return int(f)
     elif type_label == "float":
+        if isinstance(value, bool):
+            raise ValueError(f"{value!r} is a boolean, expected a number")
         return float(value)
     elif type_label == "string":
         return str(value)
@@ -523,32 +551,76 @@ def _cast_value(value: Any, type_label: str) -> Any:
     return value
 
 
-def import_from_excel(excel_path: Path = EXCEL_PATH, json_path: Path = JSON_PATH) -> None:
-    """Read simulation_config.xlsx and write simulation_config.json."""
+# ── Range rules (CFG-06) ────────────────────────────────────────────────
+# Keys that are legitimately negative — everything else numeric must be ≥ 0.
+_NEGATIVE_OK: frozenset[str] = frozenset({
+    "financial_parameters.insolvency_threshold",
+    "financial_parameters.treasury_floor",
+    "engine_parameters.workforce_readiness.delta_none",
+    "engine_parameters.greenwashing.bu_rep_penalty",
+    "engine_parameters.eu_taxonomy.coc_benefit",
+})
+# A *_rate / *_ratio / *_fraction / *_probability / *_severity is a share of one…
+_UNIT_INTERVAL_SUFFIXES = ("_rate", "_ratio", "_fraction", "_probability", "_severity")
+# …except these, which are priced or multiples by design.
+_UNIT_INTERVAL_EXEMPT: frozenset[str] = frozenset({
+    "balance_sheet_parameters.covenant_green_ratio",   # a coverage ratio (2.5×)
+    "engine_parameters.cbam.surcharge_rate",           # $/tCO2e — config.py clamps it
+})
+
+
+def _range_violation(dotted: str, value: Any) -> str | None:
+    """The rule a numeric value breaks, or None."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    leaf = dotted.rsplit(".", 1)[-1]
+    if value < 0 and dotted not in _NEGATIVE_OK:
+        return "negative — only insolvency_threshold, treasury_floor, delta_none, bu_rep_penalty and coc_benefit may be"
+    if leaf.endswith("_pct"):
+        if not (0 <= value <= 100):
+            return "a percentage must sit in [0, 100]"
+        return None
+    if leaf.endswith(_UNIT_INTERVAL_SUFFIXES) and dotted not in _UNIT_INTERVAL_EXEMPT:
+        if not (0 <= value <= 1):
+            return "a rate / ratio / fraction / probability is a share of one and must sit in [0, 1]"
+    return None
+
+
+def _leaves(d: dict, prefix: str = "") -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for k, v in (d or {}).items():
+        if isinstance(v, dict):
+            out.update(_leaves(v, f"{prefix}{k}."))
+        else:
+            out[f"{prefix}{k}"] = v
+    return out
+
+
+def read_excel_values(excel_path: Path = EXCEL_PATH) -> tuple[dict[str, Any], list[str]]:
+    """Read the sheet into {dotted_key: value} with every row validated.
+
+    Returns (values, problems). `problems` lists rows that could not be cast
+    or break a range rule, each with its row number; the caller decides
+    whether to refuse (import_from_excel does)."""
     wb = load_workbook(str(excel_path), read_only=True, data_only=True)
     ws = wb.active
-
-    config: dict[str, Any] = {}
-
-    for row in ws.iter_rows(min_row=2, values_only=True):
+    values: dict[str, Any] = {}
+    problems: list[str] = []
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         if row is None or all(cell is None for cell in row):
             continue
-
         section_raw, subsection, parameter, value, type_label, *_ = (
             list(row) + [None] * 7
         )[:7]
-
         # Skip section header rows (merged cells with emoji labels)
         if parameter is None or str(parameter).strip() == "":
             continue
         if section_raw is None or str(section_raw).strip() == "":
             continue
-
         section_raw = str(section_raw).strip()
         parameter   = str(parameter).strip()
         subsection  = str(subsection).strip() if subsection else ""
         type_label  = str(type_label).strip() if type_label else ""
-
         # Reverse-map display label → JSON key
         section_key = section_raw
         for json_key, label in _SECTION_LABELS.items():
@@ -556,40 +628,78 @@ def import_from_excel(excel_path: Path = EXCEL_PATH, json_path: Path = JSON_PATH
             if section_raw == clean_label or section_raw == label:
                 section_key = json_key
                 break
+        dotted = ".".join(p for p in (section_key, subsection, parameter) if p)
+        if value is None:
+            problems.append(f"row {row_idx}: {dotted} has no value")
+            continue
+        if type_label:
+            try:
+                value = _cast_value(value, type_label)
+            except (TypeError, ValueError) as exc:
+                problems.append(f"row {row_idx}: {dotted}: {exc}")
+                continue
+        rule = _range_violation(dotted, value)
+        if rule:
+            problems.append(f"row {row_idx}: {dotted} = {value!r} is {rule}")
+            continue
+        values[dotted] = value
+    return values, problems
 
-        # Cast value
-        if value is not None and type_label:
-            value = _cast_value(value, type_label)
 
-        # Build nested structure
-        if subsection:
-            config.setdefault(section_key, {}).setdefault(subsection, {})[parameter] = value
-        else:
-            config.setdefault(section_key, {})[parameter] = value
+def _set_dotted(config: dict, dotted: str, value: Any) -> None:
+    parts = dotted.split(".")
+    node = config
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
 
-    # Preserve _comment fields from original JSON if it exists
+
+def import_from_excel(excel_path: Path = EXCEL_PATH, json_path: Path = JSON_PATH,
+                      allow_new_keys: bool = False) -> dict[str, Any]:
+    """Read simulation_config.xlsx and MERGE it into simulation_config.json.
+
+    CFG-04 (audit 2026-09-04, WP-25): this used to rebuild the JSON from the
+    sheet, so a sheet older than the JSON silently deleted every key it did
+    not carry (17 keys from the shipped template) — and a later code change
+    to any of those defaults was ignored on that volume forever. The sheet
+    now overlays the existing file: keys the sheet omits keep their value
+    (and are reported), keys the file does not know are refused unless
+    allow_new_keys=True, and every row is range-checked before anything is
+    written (CFG-06). Returns a summary {changed, preserved, refused}."""
+    values, problems = read_excel_values(excel_path)
+    original: dict[str, Any] = {}
     if json_path.exists():
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                original = json.load(f)
-            for section, section_val in original.items():
-                if isinstance(section_val, dict):
-                    for key, val in section_val.items():
-                        if key.startswith("_") and section in config:
-                            config[section][key] = val
-        except Exception:
-            pass
+        with open(json_path, "r", encoding="utf-8") as f:
+            original = json.load(f)
+    known = _leaves(original)
+    unknown = sorted(k for k in values if k not in known)
+    if unknown and not allow_new_keys:
+        problems.extend(f"{k} is not a parameter the engine reads (typo?) — refused" for k in unknown)
+    if problems:
+        raise ConfigImportError(
+            f"{len(problems)} problem(s) in {excel_path.name}; nothing was written:\n  "
+            + "\n  ".join(problems)
+        )
+
+    import copy
+    config = copy.deepcopy(original)
+    changed: dict[str, tuple[Any, Any]] = {}
+    for dotted, value in values.items():
+        before = known.get(dotted, None)
+        if dotted not in known or before != value:
+            changed[dotted] = (before, value)
+        _set_dotted(config, dotted, value)
+    preserved = sorted(k for k in known if k not in values and not any(p.startswith("_") for p in k.split(".")))
 
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
         f.write("\n")
 
-    param_count = sum(
-        len(v) if not any(isinstance(vv, dict) for vv in v.values()) else
-        sum(len(vv) for vv in v.values() if isinstance(vv, dict))
-        for v in config.values() if isinstance(v, dict)
-    )
-    print(f"[OK] Imported {param_count} parameters to: {json_path}")
+    print(f"[OK] Imported {len(values)} parameters into {json_path}: "
+          f"{len(changed)} changed, {len(preserved)} kept from the file (absent from the sheet)")
+    if preserved:
+        print("     kept: " + ", ".join(preserved[:20]) + (" …" if len(preserved) > 20 else ""))
+    return {"changed": changed, "preserved": preserved, "values": values}
 
 
 # ═══════════════════════════════════════════════════════════════

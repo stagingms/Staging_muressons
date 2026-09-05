@@ -1,6 +1,6 @@
 {
-  "_comment": "Machine-readable provenance sidecar for simulation_config.json. The engine does NOT load this file; it exists so parameter rationale can be surfaced in docs/UI and kept in sync. See docs/Parameter_Provenance.md for the full narrative.",
-  "_version": 1,
+  "_comment": "Machine-readable provenance sidecar for simulation_config.json. The engine does NOT load this file; it exists so parameter rationale can be surfaced in docs/UI and kept in sync. Every key under `parameters` is a dotted path that exists in simulation_config.json and its `value` equals the shipped value (tests/test_config_excel_sync.py pins both); `code_constants` records rationale for values that live in code, not in the JSON. The narrative lives in MODEL_CARD.md.",
+  "_version": 2,
   "parameters": {
     "economic_parameters.carbon_price_base": {
       "value": 50,
@@ -50,12 +50,6 @@
       "rationale": "Cost-of-capital level above which lenders price in ESG-driven risk; ties Natural Capital Debt to real credit behaviour.",
       "reference": "Corporate credit pricing"
     },
-    "terminal_valuation.exit_multiple": {
-      "value": "dynamic (Gordon Growth, ~2% long-run growth), 12x fallback",
-      "unit": "EV/EBITDA",
-      "rationale": "Derived from WACC + long-run nominal growth via Gordon Growth Model, clamped to floor/ceiling; links valuation to cost of capital. 12x is representative mid-cycle EV/EBITDA for diversified industrials.",
-      "reference": "Gordon Growth Model; sector EV/EBITDA comps"
-    },
     "climate_parameters.loss_damage_levy_stressed": {
       "value": 1000000,
       "unit": "USD",
@@ -68,29 +62,45 @@
       "rationale": "Step-up liability once a climate tipping point is crossed; encodes non-linearity of climate risk.",
       "reference": "Climate tipping-point literature"
     },
-    "esg_refinancing.greenium_bps": {
-      "value": 75,
-      "unit": "basis points",
-      "rationale": "Greenium for sustainability leaders on green bonds / sustainability-linked loans.",
-      "reference": "Bloomberg green-bond issuance data 2022-2024"
+    "terminal_valuation.exit_multiple_floor": {
+      "value": 6.0,
+      "unit": "EV/EBITDA",
+      "rationale": "Floor of the dynamic (Gordon-growth) exit multiple: Derived from WACC + long-run nominal growth via Gordon Growth Model, clamped to floor/ceiling; links valuation to cost of capital. 12x is representative mid-cycle EV/EBITDA for diversified industrials.",
+      "reference": "Gordon Growth Model; sector EV/EBITDA comps"
     },
-    "eu_taxonomy.green_discount_pct": {
+    "terminal_valuation.exit_multiple_ceiling": {
+      "value": 18.0,
+      "unit": "EV/EBITDA",
+      "rationale": "Ceiling of the dynamic (Gordon-growth) exit multiple — the top of observed mid-cycle EV/EBITDA for diversified industrials.",
+      "reference": "Gordon Growth Model; sector EV/EBITDA comps"
+    },
+    "engine_parameters.eu_taxonomy.green_threshold_pct": {
       "value": 60,
-      "unit": "percent",
-      "rationale": "Green financing discount for taxonomy-aligned (low carbon-intensity) revenue.",
+      "unit": "percent of revenue",
+      "rationale": "Share of taxonomy-aligned (low carbon-intensity) revenue above which the cost-of-capital benefit (coc_benefit) applies.",
       "reference": "EU Taxonomy-aligned financing spreads"
     },
-    "eu_taxonomy.brown_penalty_pct": {
+    "engine_parameters.eu_taxonomy.brown_threshold_pct": {
       "value": 20,
-      "unit": "percent",
-      "rationale": "Brown financing penalty for high carbon-intensity revenue below the taxonomy threshold.",
+      "unit": "percent of revenue",
+      "rationale": "Share of high carbon-intensity revenue above which the cost-of-capital surcharge (coc_surcharge) applies.",
       "reference": "Brown-financing spread evidence"
-    },
-    "mr.synergy_bonus": {
+    }
+  },
+  "code_constants": {
+    "terminal_valuation.calculate_mr synergy_bonus": {
       "value": 0.15,
       "unit": "M_R points",
       "rationale": "Reduced from 0.30 to avoid double-counting: synergy already lowers OPEX and raises EBITDA.",
-      "reference": "terminal_valuation.py header"
+      "reference": "terminal_valuation.py header",
+      "where": "backend/terminal_valuation.py"
+    },
+    "greenium (not implemented)": {
+      "value": 75,
+      "unit": "basis points",
+      "rationale": "Greenium for sustainability leaders on green bonds / sustainability-linked loans. Recorded as design intent only — no engine reads a greenium today.",
+      "reference": "Bloomberg green-bond issuance data 2022-2024",
+      "where": "—"
     }
   }
 }

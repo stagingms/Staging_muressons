@@ -21,7 +21,13 @@ from engine import process_tick
 from round_logic import pre_tick, post_tick, run_new_engines, base_crisis_severity_for_round
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
-from config import MASTER_PASSWORD, CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR, DEFAULT_IMITATION_DECAY_RATE
+from config import MASTER_PASSWORD
+# CFG-05 (audit 2026-09-04, WP-25): the CSF pool constants and the imitation
+# decay default are read off the config MODULE at call time, not bound here
+# at import — the Excel upload's hot reload rebinds names inside config only,
+# so a `from config import X` copy kept the old value while the response said
+# "reload: complete" (the engine ran 0.05 after an upload of 0.07).
+import config as _cfg
 from master_credentials import verify_master_password, verify_player_master_password
 from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions, require_facilitator, _check_rate_limit, _assert_player_or_facilitator_can_view
 from password_hashing import verify_password as _verify_pw, hash_password as _hash_pw, maybe_upgrade_password as _maybe_upgrade_pw
@@ -2815,7 +2821,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # honest client already sends exactly this value, legitimate play is
     # unchanged; only fabricated ratios are corrected.
     _treasury = current_global.get("corporate_treasury", 0) or 0
-    _csf_pool = max(_treasury * CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR)
+    _csf_pool = max(_treasury * _cfg.CSF_POOL_TREASURY_FRACTION, _cfg.CSF_POOL_FLOOR)
     for d in decisions_raw:
         _capex = d.get("capex_allocated", 0) or 0
         _ratio = (_capex / _csf_pool) if _csf_pool > 0 else 0.0
@@ -2829,10 +2835,10 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # imitation_decay_rate=0 to freeze synergy decay. The body fields are still
     # accepted for older clients but are ignored (and logged when non-default).
     _server_crisis = base_crisis_severity_for_round(current_round)
-    _server_decay = DEFAULT_IMITATION_DECAY_RATE
+    _server_decay = _cfg.DEFAULT_IMITATION_DECAY_RATE   # CFG-05: call-time read
     # The cockpit's rule for the emergency credit line: the 20% CSF allowance
     # has fallen below the $5M floor — computed here from the same numbers.
-    _server_emergency = bool((_treasury * CSF_POOL_TREASURY_FRACTION) < CSF_POOL_FLOOR)
+    _server_emergency = bool((_treasury * _cfg.CSF_POOL_TREASURY_FRACTION) < _cfg.CSF_POOL_FLOOR)
     if (body.crisis_severity not in (0.0, _server_crisis)
             or abs(body.imitation_decay_rate - _server_decay) > 1e-9
             or body.emergency_credit_used != _server_emergency):
@@ -6231,7 +6237,7 @@ async def commit_side_track_turn(request: Request, session_id: str, track_id: st
         decisions=decisions_raw,
         dividends_paid=body.dividends_paid,
         crisis_severity=effective_crisis,
-        imitation_decay_rate=DEFAULT_IMITATION_DECAY_RATE,  # F-07
+        imitation_decay_rate=_cfg.DEFAULT_IMITATION_DECAY_RATE,  # F-07 / CFG-05: call-time read
         decision_paradigm=paradigm,
     )
 

@@ -18,6 +18,7 @@ from typing import Any, Optional
 _shared_logger = logging.getLogger("muressons.admin_shared")
 
 from config import MASTER_PASSWORD
+from config import OVERRUN_DEFAULT_PROBABILITY as _OVERRUN_DEFAULT_PROBABILITY, OVERRUN_DEFAULT_SEVERITY as _OVERRUN_DEFAULT_SEVERITY
 
 # GOD-004: Protects check_and_increment_cohort_count against concurrent
 # session creation racing through the read-check-increment sequence.
@@ -313,8 +314,11 @@ _god_mode_settings: dict = {
     "market_hostility_index": 5,
     "scope_3_threshold": 2.5,
     "custom_archetypes": [],
-    "overrun_probability": 0.25,
-    "overrun_severity": 0.15,
+    # CFG-08 (WP-25): seeded from simulation_config.json (engine_parameters.
+    # overrun_risk) — these were literals, so the JSON keys reached nothing
+    # and /config/live reported them shadowed.
+    "overrun_probability": _OVERRUN_DEFAULT_PROBABILITY,
+    "overrun_severity": _OVERRUN_DEFAULT_SEVERITY,
     "currency_symbol": "$",
     "side_tracks_available": [],
     "side_tracks_facilitator_permissions": {},
