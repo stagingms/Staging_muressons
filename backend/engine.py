@@ -4770,15 +4770,20 @@ def process_tick(
         _n_bu = max(len(ctx.new_bus), 1)
         _pv_wacc = float(ctx.corporate_cost_of_capital or 0.05)
         _pv_multiple = calculate_dynamic_exit_multiple(wacc=_pv_wacc)["exit_multiple"]
-        _pv_flags = dict(current_global.get("active_event_flags", {}) or {})
-        _pv_flags.update({k: v for k, v in ctx.events.items() if not k.startswith("_")})
+        # F-15 (audit 2026-09-04): read the flags the way the finale does —
+        # collect_all_flags expands the `rN_flags` lists where every strategic
+        # flag actually lives — and count hr_invested_r{N} keys (the old
+        # `hr_investment_rounds` state key had no writer). 370 of 384 probed
+        # states diverged from the award before this, by up to −0.57.
+        from flag_utils import mr_input_from_state
+        _pv_flags, _pv_hr = mr_input_from_state(current_global, ctx.events)
         _pv_mr = calculate_mr(
             _pv_flags,
             sum(b.get("social_license_score", 50) for b in ctx.new_bus) / _n_bu,
             sum(b.get("staff_burnout_index", 0) for b in ctx.new_bus) / _n_bu,
             float(current_global.get("workforce_readiness", 50) or 50),
             float(ctx.new_synergy or 0.0),
-            int(current_global.get("hr_investment_rounds", 0) or 0),
+            _pv_hr,
         )["mr"]
         _pv_ebitda = round(sum(b["revenue_base"] - b["opex_base"] for b in ctx.new_bus), 2)
         ctx.events["valuation_preview"] = {

@@ -302,7 +302,10 @@ def build_consequence_dna_data(
     avg_burnout = sum(bu.get("staff_burnout_index", 0) for bu in bu_states) / max(len(bu_states), 1)
     workforce_readiness = global_state.get("workforce_readiness", 50)
     synergy = global_state.get("synergy_multiplier", 1.0)
-    hr_rounds = global_state.get("hr_investment_rounds", 0)
+    # F-15 (audit 2026-09-04): the same flag reading and HR-round count the
+    # finale uses (list-held flags were invisible to the raw dict here).
+    from flag_utils import mr_input_from_state
+    _mr_flags, hr_rounds = mr_input_from_state(global_state)
 
     # If the engine already computed the authoritative M_R (stored at R10 commit),
     # use it directly so the DNA Visualizer matches the Scorecard.  Only fall back
@@ -318,7 +321,7 @@ def build_consequence_dna_data(
             "max_achievable_mr": 2.33,
         }
     else:
-        mr_result = calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness, synergy, hr_rounds)
+        mr_result = calculate_mr(_mr_flags, avg_slo, avg_burnout, workforce_readiness, synergy, hr_rounds)
     projection_nodes = []
     for key, value in mr_result["breakdown"].items():
         if key == "base":

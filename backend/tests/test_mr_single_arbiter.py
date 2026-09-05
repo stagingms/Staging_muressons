@@ -129,6 +129,33 @@ def test_engine_award_equals_calculate_mr():
         f"(avg SLO {avg_slo:.1f} — cliff vs ramp divergence)")
 
 
+def test_engine_award_equals_calculate_mr_on_list_held_flags():
+    """Audit 2026-09-04 F-15: the test above pins the equality with `{}`
+    flags, where the raw dict and the finale's expanded reading agree by
+    construction. Production stores strategic flags inside `rN_flags` lists;
+    the award must equal calculate_mr on the EXPANDED reading (flag_utils),
+    and differ from calculate_mr on the raw dict."""
+    from terminal_valuation import calculate_mr
+    from flag_utils import mr_input_from_state
+    bus = _mk_bus(slo=80.0, burnout=10.0)
+    gs = _mk_gs(10, workforce=50.0)
+    prev_flags = {"r6_flags": ["ethical_ai_overhaul"], "r7_flags": ["synergy_unlock"],
+                  "r9_flags": ["community_fund"], "synergy_unlock": None, "hr_invested_r4": True}
+    gs["active_event_flags"] = dict(prev_flags)
+    extra = _run_r10("option_b", dict(prev_flags), bus, gs)
+
+    avg_slo = sum(b["social_license_score"] for b in bus) / len(bus)
+    avg_burnout = sum(b["staff_burnout_index"] for b in bus) / len(bus)
+    mr_flags, hr = mr_input_from_state({"active_event_flags": prev_flags})
+    assert hr == 1
+    expected = calculate_mr(mr_flags, avg_slo=avg_slo, avg_burnout=avg_burnout,
+                            workforce_readiness=50.0, synergy_multiplier=1.0, hr_investment_rounds=hr)["mr"]
+    raw = calculate_mr(prev_flags, avg_slo=avg_slo, avg_burnout=avg_burnout,
+                       workforce_readiness=50.0, synergy_multiplier=1.0, hr_investment_rounds=0)["mr"]
+    assert extra["regenerative_multiple"] == pytest.approx(expected, abs=1e-4)
+    assert expected > raw + 0.4, "the raw dict cannot see the listed flags — the pin is not vacuous"
+
+
 def test_waste_to_energy_alone_earns_no_synergy_premium():
     """calculate_mr canon: the synergy premium needs synergy_unlock (and the
     multiplier gate) — waste_to_energy is the ANTI-circular R7 path and must

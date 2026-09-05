@@ -12632,8 +12632,16 @@ async def what_if_replay(session_id: str, request: Request, body: dict = Body(..
     n = len(bus) or 1
     avg_slo = sum(bu.get("social_license_score", 50) for bu in bus) / n
     avg_burnout = sum(bu.get("staff_burnout_index", 0) for bu in bus) / n
+    # F-15 (audit 2026-09-04): calculate_mr gets the flags the finale reads
+    # (list-held strategic flags expanded), the finale's HR-round count, and
+    # the finale's dynamic exit multiple at the team's ESG-adjusted WACC —
+    # not the raw dict and a fixed 12×.
+    from flag_utils import mr_input_from_state
+    _mr_flags, _hr_rounds = mr_input_from_state(gs)
+    _esg_wacc = flags.get("esg_adjusted_wacc") if isinstance(flags.get("esg_adjusted_wacc"), dict) else {}
+    _wacc = float(_esg_wacc.get("adjusted_wacc", gs.get("cost_of_capital", 0.05)) or 0.05)
     result = what_if_terminal(
-        bus=bus, base_flags=flags, flag_overrides=overrides,
+        bus=bus, base_flags=_mr_flags, flag_overrides=overrides,
         avg_slo=avg_slo, avg_burnout=avg_burnout,
         # B-4 (2026-09-03): both of these read keys that NO writer ever sets, so
         # what-if silently assumed readiness 50 (never awarding the Workforce
@@ -12643,10 +12651,9 @@ async def what_if_replay(session_id: str, request: Request, body: dict = Body(..
         workforce_readiness=gs.get(
             "workforce_readiness", flags.get("workforce_readiness", 50.0)),
         synergy_multiplier=gs.get("synergy_multiplier", 1.0),
-        hr_investment_rounds=sum(
-            1 for k, v in flags.items()
-            if isinstance(k, str) and k.startswith("hr_invested_r") and v is True),
+        hr_investment_rounds=_hr_rounds,
         carbon_tax_per_ton=250.0, exit_multiple=12.0,
+        wacc=_wacc, use_dynamic_multiple=True,
         green_fund_balance=gs.get("green_transition_fund", 0.0),
         is_advanced_climate=paradigm == "advanced_climate",
     )

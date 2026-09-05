@@ -3412,41 +3412,7 @@ def _find_dual_form_flags(flags_dict: dict) -> set[str]:
     return bool_keys & list_flags
 
 
-def _collect_all_flags(flags_dict: dict) -> set[str]:
-    """
-    FIX AUDIT-008: Collect boolean keys and specific flag lists (e.g., rX_flags),
-    rather than recursively slurping every string value in the event dictionary.
-    """
-    result = set()
-    for key, val in flags_dict.items():
-        if not isinstance(key, str):
-            continue  # Skip non-string keys (e.g. SDG integer indices)
-        if key.startswith("_"):
-            # Private state bags (e.g. _materiality_idempotency, whose nested
-            # debrief carries booleans like governance_board/q1_recall) are
-            # storage, not flags — recursing into them polluted the flag
-            # namespace with names no writer ever intended as flags.
-            continue
-        if "flag" in key.lower():
-            if isinstance(val, list):
-                result.update(str(v) for v in val)
-            elif isinstance(val, str):
-                result.add(val)
-        elif isinstance(val, bool) and val:
-            # Explicit boolean states are valid flags (e.g. cfo_override_used: True)
-            result.add(key)
-        elif isinstance(val, dict):
-            # Recurse to find nested booleans or flag lists
-            result.update(_collect_all_flags(val))
-            
-    # Fallback to check specific critical string keys if they weren't matched
-    for flag_key in [
-        "electronics_blindspot", "deep_audit_completed",
-        "electronics_blindspot_triggered", "deep_audit_protected",
-    ]:
-        if flag_key in flags_dict:
-            result.add(flag_key)
-    return result
+from flag_utils import collect_all_flags as _collect_all_flags  # noqa: E402  (F-15: shared reading; see flag_utils)
 
 
 def _apply_option_flags(

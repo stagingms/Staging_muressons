@@ -24,103 +24,23 @@ import React, { useMemo } from 'react';
 import styles from './MirrorDebrief.module.css';
 import { currencySymbol, atRate } from '../utils/format';
 
-/**
- * M_R component catalog — maps flag keys to their M_R bonus value and
- * the round + option that would have earned them. Pulled from the game
- * design (terminal_valuation.py / SIMULATION_CONTEXT.md).
- */
-const MR_OPPORTUNITIES = [
-  {
-    flag: 'materiality_governance',
-    label: 'Materiality Governance',
-    bonus: 0.10,
-    round: 2,
-    option: 'A',
-    optionLabel: 'Double Materiality Framework',
-    description: 'Establishes governance for tracking both financial and impact materiality',
-  },
-  {
-    flag: 'social_license_rebuilt',
-    label: 'Social License Rebuilt',
-    bonus: 0.12,
-    round: 3,
-    option: 'A',
-    optionLabel: 'Community Partnership Model',
-    description: 'Rebuilds trust with affected communities through genuine partnership',
-  },
-  {
-    flag: 'supply_chain_transparency',
-    label: 'Supply Chain Transparency',
-    bonus: 0.15,
-    round: 4,
-    option: 'A',
-    optionLabel: 'Full Supply Chain Mapping',
-    description: 'Creates complete Scope 3 visibility and supplier accountability',
-  },
-  {
-    flag: 'resilience_investment',
-    label: 'Resilience Champion',
-    bonus: 0.20,
-    round: 5,
-    option: 'A',
-    optionLabel: 'Hard Engineering Defence',
-    description: 'Maximum physical climate resilience through infrastructure investment',
-  },
-  {
-    flag: 'truth_premium',
-    label: 'Truth Premium',
-    bonus: 0.15,
-    round: 6,
-    option: 'A',
-    optionLabel: 'Integrated Value Reporting',
-    description: 'Transparent reporting builds investor trust and reduces risk premium',
-  },
-  {
-    flag: 'just_transition_fund',
-    label: 'Just Transition Fund',
-    bonus: 0.10,
-    round: 7,
-    option: 'A',
-    optionLabel: 'Worker Reskilling Programme',
-    description: 'Funds a comprehensive transition programme for displaced workers',
-  },
-  {
-    flag: 'circular_economy_leader',
-    label: 'Circular Economy Leader',
-    bonus: 0.12,
-    round: 8,
-    option: 'A',
-    optionLabel: 'Circular Business Model',
-    description: 'Transforms waste streams into revenue through circular design',
-  },
-  {
-    flag: 'community_champion',
-    label: 'Community Champion',
-    bonus: 0.18,
-    round: 9,
-    option: 'A',
-    optionLabel: 'Community Wealth Building',
-    description: 'Creates shared prosperity with local communities and indigenous groups',
-  },
-];
+// F-15 (audit 2026-09-04): the catalogue used to be a private table of eight
+// flag names, none of which is a top-level key for any real player (and four
+// of which no writer sets at all), so "your biggest missed lever" was always
+// Resilience +0.20 — told to players whose finale had awarded resilience_bonus
+// 0.20. The single shared table in utils/mrJourney now decides, reading the
+// arbiter's mr_breakdown when the finale has run.
+import { computeMrRegret } from '../utils/mrJourney';
 
 export default function MirrorDebrief({ mr, flags = {}, terminalValue, decisionHistory = [] }) {
   const insight = useMemo(() => {
     if (!flags || typeof mr !== 'number') return null;
 
-    // Find the biggest missed M_R bonus
+    // Find the biggest missed M_R component, as the arbiter scores it
+    const { missed } = computeMrRegret(flags);
     let biggestMiss = null;
-    let biggestDelta = 0;
-
-    for (const opp of MR_OPPORTUNITIES) {
-      const earned = !!flags[opp.flag];
-      if (!earned) {
-        // This was missed — would it have been the biggest delta?
-        if (opp.bonus > biggestDelta) {
-          biggestDelta = opp.bonus;
-          biggestMiss = opp;
-        }
-      }
+    for (const opp of missed) {
+      if (!biggestMiss || opp.nominalMr > biggestMiss.mr) biggestMiss = { ...opp, mr: opp.nominalMr, bonus: opp.nominalMr };
     }
 
     if (!biggestMiss) return null; // Player earned everything!
