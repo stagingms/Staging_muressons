@@ -456,7 +456,7 @@ _TELEPROMPTER_SCRIPTS = {
         },
         "autonomous_agents_debrief": {
             "likely_stage": "hostile \u2192 FIRST TRIGGER possible",
-            "facilitator_note": "\u26a0\ufe0f R6 is the earliest round a trigger can fire under sustained poor management. The Gen Z Employee (Greta Berg, tolerance decay=10) or Journalist (Beth Colbert, decay=9) are most likely. Check the panel for HOSTILE agents.",
+            "facilitator_note": "\u26a0\ufe0f R4 is the earliest round a trigger can fire under maximal breach (audit 2026-09-04 probe); R6 under sustained poor management. The Gen Z Employee (Greta Berg, tolerance decay=10) or Journalist (Beth Colbert, decay=9) are most likely. Check the panel for HOSTILE agents.",
             "debrief_if_triggered": [
                 "\u2605 A stakeholder has TRIGGERED. Read the crisis event aloud. Which agent was it? What was the cascading effect on other agents?",
                 "The triggered agent's cascade chain has damaged other agents' tolerance. Can you identify the domino effect in your dashboard?",
@@ -1642,7 +1642,10 @@ GAME_FEEL_GUIDANCE = {
     "consequence_waterfall": {
         "title": "📊 Consequence Waterfall — How to Debrief",
         "how_to_use": [
-            "The waterfall shows EXACTLY how treasury moved from start to finish of the round.",
+            "The waterfall shows how treasury moved inside the engine tick — gross profit, "
+            "inflation, the NCD penalty, the flow surcharges. It is frozen before the round "
+            "handlers and the stakeholder engines (option costs, NPC fines, balance-sheet items) "
+            "post, so read it beside the round's events, not as the whole story (FIN-06).",
             "Read it top-to-bottom with the team: 'You started at $50M. Gross profit added $13M. "
             "Then inflation took $860K. Then NCD interest took $180K — and notice, that was "
             "only $90K last round. It's compounding.'",

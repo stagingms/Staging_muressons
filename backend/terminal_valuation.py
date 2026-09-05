@@ -55,6 +55,26 @@ _EXIT_MULTIPLE_CEILING: float = TV_EXIT_MULTIPLE_CEILING    # Maximum (very low 
 #                value, preventing unbounded terminal value inflation.
 MR_FLOOR:    float = 0.0
 MR_CEILING:  float = 2.05
+# VAL-11 (audit 2026-09-04, WP-28): the published, reachable M_R ceilings
+# (test_mr_single_arbiter pins them): 1.93 without JT scaling, 2.02 with it
+# (pillar HR investment every round), 1.98 with the BRSR dividend. One table,
+# read by calculate_mr's max_achievable_mr, the DNA projection and the
+# cross-paradigm normaliser — no more per-file literals (1.93 / 1.98 / 2.33).
+MR_PUBLISHED_CEILINGS: dict[str, float] = {"base": 1.93, "jt_scaled": 2.02, "brsr": 1.98}
+MR_CEILING_BY_PARADIGM: dict[str, float] = {
+    "legacy_abc": 1.93, "advanced_climate": 1.93, "healthcare": 1.93,
+    "multi_toggles": 2.02, "brsr_ngrbc": 1.98,
+}
+
+
+def max_achievable_mr_for(flags: dict | None = None, hr_investment_rounds: int = 0) -> float:
+    """The ceiling this state can reach: JT scaling (pillar HR) → 2.02; the BRSR
+    dividend → 1.98; otherwise 1.93."""
+    if hr_investment_rounds and hr_investment_rounds > 0:
+        return MR_PUBLISHED_CEILINGS["jt_scaled"]
+    if flags and flags.get("brsr_net_positive_dividend"):
+        return MR_PUBLISHED_CEILINGS["brsr"]
+    return MR_PUBLISHED_CEILINGS["base"]
 
 
 # ── GAME-2: Threshold ramps (remove M_R knife-edges) ─────────────────────────
@@ -285,7 +305,7 @@ def calculate_mr(
         "breakdown":          breakdown,
         "jt_scaling_factor":  jt_scaling,
         "bonuses_earned":     bonuses,
-        "max_achievable_mr":  1.93,
+        "max_achievable_mr":  max_achievable_mr_for(flags, hr_investment_rounds),
         # diagnostic fields for OI-1 / synergy gate audit
         "synergy_flag_present":   synergy_flag_present,
         "synergy_threshold_met":  synergy_threshold_met,

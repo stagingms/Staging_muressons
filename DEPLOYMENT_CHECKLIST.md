@@ -203,7 +203,13 @@ On a Postgres staging deploy with `WEB_CONCURRENCY≥2`:
 2. `load_tests/throughput_test.js` — ramp to 100 cohorts × 5 players; watch p95
    `/dashboard` and `/commit-turn` latency and the 409/429 rate.
 
-Only enable `WEB_CONCURRENCY>1` and Railway replicas after both pass. Note: the
+Only enable `WEB_CONCURRENCY>1` and Railway replicas after both pass, and record
+the pass by setting `MURESSONS_MULTIWORKER_VERIFIED=true` in the service
+variables: `backend/scale_preflight.py` clamps `WEB_CONCURRENCY` back to 1 at
+boot unless that variable is truthy (and `/health` reports it as
+`scaling.multi_worker_verified`), so the variable is the gate, not a memo.
+Note: the
 WebSocket fan-out is still per-process (QA §1.4) — until pub/sub is added,
 cross-worker pushes fall back to the 5–15s client polling, so verify that
-latency is acceptable for your session.
+latency is acceptable for your session. Not run for the 2026-09 cohort:
+`WEB_CONCURRENCY=1`.

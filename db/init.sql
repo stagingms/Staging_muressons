@@ -131,6 +131,16 @@ RETURNS TRIGGER AS $$
 DECLARE
     v_is_current boolean := false;
 BEGIN
+    -- Admin purge/reset/undo paths set a transaction-local flag
+    -- (SET LOCAL muressons.allow_purge = 'on'); the flag is set nowhere
+    -- else, so ordinary writes are guarded exactly as before. OPS-7 (audit
+    -- 2026-09-04, WP-28): this bypass existed only in the boot-time copy in
+    -- backend/database.py, so a database initialised from this file alone
+    -- refused every admin purge / undo until the app had booted once.
+    IF current_setting('muressons.allow_purge', true) = 'on' THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     IF TG_OP = 'DELETE' THEN
         RAISE EXCEPTION
             'Immutability violation: DELETE on "%" is not allowed. '

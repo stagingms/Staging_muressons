@@ -748,6 +748,15 @@ Golden traces, treasury waterfall and the balance report: **unchanged**.
 
 ## Item 4 — ruled: recalibrate the tiers ⚠️ delta written, rebaseline NOT taken
 
+> **Addendum 2026-09-05 (audit SOC-8 / F-17, WP-28).** The values below were dialled back
+> the same day (cfc07fe): the shipped tiers are **0.15 / 0.20 / 0.30** with
+> `NATURAL_DECAY_MIN_ABS_CAPEX = $100,000` — `config.py` carries the measurement and the
+> reasons. The predicate fix (a minimum absolute spend instead of `capex_allocated > 0`)
+> stands. And the "241-decision" populations were measured per decision while the engine
+> evaluated the tier on the group-average ratio; since WP-21 (2026-09-05) the engine reads
+> each BU's own ratio, so those populations now describe what it does.
+
+
 Full delta in `DELTA_natural_decay_recalibration_2026-09-03.md`. Tiers moved
 0.15/0.20/0.30 → **0.10/0.25/0.50**, all four now config keys with defaults and bounds,
 plus `NATURAL_DECAY_MIN_ABS_CAPEX` = $500,000.

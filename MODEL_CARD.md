@@ -152,7 +152,10 @@ update its row and verdict in the same commit.
   F-05 CapEx debits treasury, excess amortises as a term loan (§2.2, §3.1); F-06 synergy
   OPEX saving capped at 6%/round (§2.3); F-07 crisis severity, imitation decay and the
   emergency-credit flag derived server-side (and in `dry_run.py`); F-08 stakeholder
-  fatigue acts on each BU's reputation gain (it never fired before); F-09 the
+  fatigue acts on each BU's reputation gain — as shipped on 2026-09-02 the baseline was
+  captured after the between-tick reconciliation and it still never fired (audit SOC-3,
+  0/360 ticks); since 2026-09-05 (WP-24) the baseline is the pre-reconciliation stock
+  and it fires on every reconciled recovery (180/360 on the same probe); F-09 the
   positional option_a/option_c CI bonus removed (options carry their configured
   deltas); F-10 NCD OPEX penalty in real dollars, SDG 6/14 thresholds on the 0–100
   scale (§2.3); F-11 F2 continuous NPC pressure default OFF (§3.4); F-12 one

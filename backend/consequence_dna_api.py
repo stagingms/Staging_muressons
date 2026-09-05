@@ -15,6 +15,7 @@ from terminal_valuation import (
     calculate_mr,
     determine_archetype,
     get_flag_dependency_graph,
+    max_achievable_mr_for,
 )
 
 
@@ -318,7 +319,7 @@ def build_consequence_dna_data(
             "mr": float(authoritative_mr),
             "breakdown": mr_breakdown,
             "bonuses_earned": [],
-            "max_achievable_mr": 2.33,
+            "max_achievable_mr": max_achievable_mr_for(_mr_flags, hr_rounds),  # VAL-11 (WP-28): the published table, not a stale literal
         }
     else:
         mr_result = calculate_mr(_mr_flags, avg_slo, avg_burnout, workforce_readiness, synergy, hr_rounds)

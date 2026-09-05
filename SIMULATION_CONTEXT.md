@@ -780,8 +780,8 @@ To enable fair comparison across sessions with different pathways, M_R is normal
 - Strike probability override: 50% base chance (`round_configs.py` `strike_probability_override: 0.50`; burnout adds up to +20 pts, cap 95%) of a strike zeroing revenue for that round. *(Corrected 2026-09-02 — the text said 75%.)*
 
 ### Greenwashing Engine
-- Activates when a player selects a "green" option (A or C) without backing it with ≥ 15% investment ratio.
-- Penalty: −15 reputation (group level), sets auditor tolerance to Hostile.
+- Activates when the chosen option carries a green claim (`green_claim: full` — most A/C options — or `moderate`) without backing it: a full claim needs an average investment ratio ≥ 15 % of the CSF pool, a moderate claim ≈ 10 %; an average CapEx ≥ $3M per BU always passes.
+- Penalty: −15 social licence on every BU (moderate claim: −7.5); the scandal is a betrayal for NPC/agent trust memory (SOC-4, 2026-09-05) and raises the whistleblower / SEC-rule black-swan odds (`greenwashing_detected`).
 - Moderate choices (B): lower threshold at 10%.
 
 ### Macro Interest Rate Cycles
@@ -847,7 +847,7 @@ Flags are boolean state markers set by decisions that carry cross-round conseque
 | R2 | `materiality_ignored` | R3 | Green Bond +$1M risk premium (option B) | risk |
 | R2 | `blockchain_traceability` | R8 | Prevents supply chain scandal | supply_chain |
 | R3 | `early_decarboniser` | R7 | +0.10 synergy multiplier bonus | climate |
-| R3 | `greenwash_risk` | R5 | Triggers greenwash if inv < 15% | risk |
+| R3 | `greenwash_risk` | R5 | Betrayal flag for NPC trust memory (the greenwash check itself reads each option's `green_claim`) | risk |
 | R5 | `insurance_only` | R10 | BLOCKS +0.20 Resilience M_R bonus | climate |
 | R6 | `ethical_ai_overhaul` | R10 | +0.15 Truth Premium M_R | governance |
 | R6 | `ai_monetised` | R7 | EU AI Act costs from R7+ | risk |
@@ -883,19 +883,19 @@ All 30 registered modules live primarily in `backend/engine.py` and satellite fi
 | 8 | Workforce Readiness | ±8–16 per round; penalty < 40; bonus > 75 | Every round |
 | 9 | Talent Brain-Drain | Attrition from high burnout + low readiness | Every round |
 | 10 | Strike Probability | SLO + burnout → probability of revenue-zeroing strike | Every round |
-| 11 | Natural Decay | Scores decay toward baseline when uninvested | Every round |
+| 11 | Natural Decay | Per BU, on its OWN investment ratio: < 15 % and < $100k CapEx → SLO and reputation × 0.96; 15 % hold; 20 % SLO +1; ≥ 30 % (or ≥ $3M) SLO +3…+10 | Every round |
 | 12 | Macroeconomic Inflation | OPEX inflation per macro cycle | Every round |
 | 13 | Execution Overrun Risk | Investment budget overruns add OPEX drag | Every round |
 | 14 | Technical Debt | Deferred IT/ops investment accumulates latent cost | Every round |
 | 15 | Revenue Cannibalization | BUs > 15% above avg revenue cannibalize overlapping BUs | Every round |
-| 16 | Stakeholder Fatigue | `efficiency = 1 / (1 + 0.3 × crisis_count)` | After crises |
+| 16 | Stakeholder Fatigue | `efficiency = 1 / (1 + 0.3 × crisis_count)` applied to each BU's reputation GAIN since the previous tick (between-tick recoveries); `crisis_count` increments every round with a non-zero scripted severity, so it reaches 10 by R10 (SOC-3, 2026-09-05) | Every round with a recovery |
 | 17 | Supply Chain Contagion | SC disruption propagates revenue/OPEX shocks | When flagged |
 | 18 | Competitor Pressure | Market share erosion when peers decarbonise faster | R5+ |
 | 19 | Cash Conversion | Treasury → liquidity ratio → covenant trigger | Every round |
 | 20 | Dividend Ratchet | Dividend expectations grow with profitability history | R4+ |
 | 21 | Talent Allocation Pressure | Cross-BU talent competition reduces marginal returns | R3+ |
 | 22 | Technology Lock-In | Early tech choices create switching costs | R4+ |
-| 23 | ESG Greenwashing Risk | Green option + inv < 15% → reputation penalty −15 | When flagged |
+| 23 | ESG Greenwashing Risk | Green claim (full 15 % / moderate ≈10 % bar, $3M/BU escape) → SLO −15 (moderate −7.5) on every BU; betrayal + swan odds | When a green claim is unbacked |
 | 24 | Macro Interest Rate | 4-phase rate cycle modifies WACC | Every round |
 | 25 | Biodiversity Engine | `biodiversity_engine.py` | When NCD or nature flags set |
 | 26 | Balance Sheet Engine | IAS 1 format; liquidity ratio covenant | Every round |

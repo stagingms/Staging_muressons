@@ -262,7 +262,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
     };
 
     const handleResetPassword = async (playerId, sessionId) => {
-        if (!confirm(`Reset password for ${playerId}? A new random password will be generated. You must share it with the player.`)) return;
+        if (!confirm(`Reset password for ${playerId}? The password returns to the default (ID@123), the player must set a personal one at the next login, and every device signed in with the old password is signed out. You must share the default with the player.`)) return;
         try {
             const res = await fetch(`${API}/api/admin/players/${playerId}/reset-password`, {
                 method: 'POST',

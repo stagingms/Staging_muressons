@@ -11786,11 +11786,15 @@ from admin_teleprompter import teleprompter_router
 #  CROSS-PARADIGM NORMALIZED COMPARISON
 # ═════════════════════════════════════════════════════════════════
 
+# VAL-11 (audit 2026-09-04, WP-28): max_mr was a stale 1.98 for every paradigm;
+# the published ceilings are per paradigm (terminal_valuation.MR_CEILING_BY_PARADIGM).
+from terminal_valuation import MR_CEILING_BY_PARADIGM as _MR_CEIL
 _PARADIGM_NORMALIZATION = {
-    "legacy_abc":       {"exit_multiple": 12.0, "max_mr": 1.98, "carbon_tax": 250},
-    "multi_toggles":    {"exit_multiple": 12.0, "max_mr": 1.98, "carbon_tax": 250},
-    "advanced_climate": {"exit_multiple": 12.0, "max_mr": 1.98, "carbon_tax": 250},
-    "healthcare":       {"exit_multiple": 14.0, "max_mr": 1.98, "carbon_tax": 180},
+    "legacy_abc":       {"exit_multiple": 12.0, "max_mr": _MR_CEIL["legacy_abc"], "carbon_tax": 250},
+    "multi_toggles":    {"exit_multiple": 12.0, "max_mr": _MR_CEIL["multi_toggles"], "carbon_tax": 250},
+    "advanced_climate": {"exit_multiple": 12.0, "max_mr": _MR_CEIL["advanced_climate"], "carbon_tax": 250},
+    "healthcare":       {"exit_multiple": 14.0, "max_mr": _MR_CEIL["healthcare"], "carbon_tax": 180},
+    "brsr_ngrbc":       {"exit_multiple": 12.0, "max_mr": _MR_CEIL["brsr_ngrbc"], "carbon_tax": 250},
 }
 
 # Reference paradigm for normalization
