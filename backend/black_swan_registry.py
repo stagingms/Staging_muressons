@@ -33,42 +33,52 @@ from config import BLACK_SWAN_MAX_EVENT_PROBABILITY
 #  DIFFICULTY TIER CONFIGURATION
 # ═══════════════════════════════════════════════════════════════
 
+# FIN-08 (audit 2026-09-04, WP-23): sessions carry foundation / advanced /
+# expert (the wizard, the presets, database default "advanced"), but this
+# table was keyed easy / standard / expert, so every "Classroom (Easy)"
+# cohort silently got the standard tier through the .get() fallback. Keyed
+# by the session vocabulary now; the old names are accepted as aliases.
+# The four keys no code read (treasury_floor, bailout_amount,
+# natural_decay_rate, and the never-consulted npc_max_fine) are gone or
+# wired: npc_max_fine caps the regulator's enforcement fine (FIN-09).
 DIFFICULTY_TIERS = {
-    "easy": {
+    "foundation": {
         "probability_multiplier": 0.5,
         "impact_multiplier": 0.7,
-        "treasury_floor": -500_000_000,
-        "natural_decay_rate": 0.96,       # 4%/round
-        "npc_max_fine": 25_000_000,
-        "bailout_amount": 3_000_000,
+        "npc_max_fine": 6_000_000,
         "covenant_trigger_ratio": 4.5,
         "label": "Introductory",
     },
-    "standard": {
+    "advanced": {
         "probability_multiplier": 1.0,
         "impact_multiplier": 1.0,
-        "treasury_floor": -200_000_000,
-        "natural_decay_rate": 0.94,       # 6%/round
-        "npc_max_fine": 50_000_000,
-        "bailout_amount": 1_000_000,
+        "npc_max_fine": 12_000_000,
         "covenant_trigger_ratio": 3.5,
         "label": "Professional",
     },
     "expert": {
         "probability_multiplier": 1.5,
         "impact_multiplier": 1.3,
-        "treasury_floor": -50_000_000,
-        "natural_decay_rate": 0.92,       # 8%/round
-        "npc_max_fine": 100_000_000,
-        "bailout_amount": 0,
+        "npc_max_fine": 25_000_000,
         "covenant_trigger_ratio": 2.5,
         "label": "Executive",
     },
 }
+_TIER_ALIASES = {"easy": "foundation", "standard": "advanced", "intermediate": "advanced",
+                 "hard": "expert", "": "advanced", None: "advanced"}
 
-def get_difficulty_config(tier: str = "standard") -> dict:
-    """Return the difficulty configuration for a given tier."""
-    return DIFFICULTY_TIERS.get(tier, DIFFICULTY_TIERS["standard"])
+
+def normalise_tier(tier: str | None) -> str:
+    """The session vocabulary (foundation / advanced / expert) for any spelling."""
+    key = (tier or "").strip().lower()
+    if key in DIFFICULTY_TIERS:
+        return key
+    return _TIER_ALIASES.get(key, "advanced")
+
+
+def get_difficulty_config(tier: str = "advanced") -> dict:
+    """Return the difficulty configuration for a given tier (aliases accepted)."""
+    return DIFFICULTY_TIERS[normalise_tier(tier)]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -557,7 +567,7 @@ def evaluate_black_swans(
     gs: dict,
     bus: list[dict],
     round_number: int,
-    difficulty_tier: str = "standard",
+    difficulty_tier: str = "advanced",
     active_black_swans: list[dict] | None = None,
     forced_event_id: str | None = None,
     region_id: str | None = None,
@@ -602,10 +612,22 @@ def evaluate_black_swans(
         "carbon_intensity_avg": sum(bu.get("carbon_intensity", 50) for bu in bus) / n,
         "social_license_avg": sum(bu.get("social_license_score", 50) for bu in bus) / n,
         "group_reputation": gs.get("group_reputation", 50),
+        # IMP-11 (WP-23): the engine writes `supply_chain_transparency`; this
+        # read a key nobody wrote (…_avg), so the +10 pp embargo modifier
+        # applied forever regardless of the audits the team had done.
         "supply_chain_transparency": gs.get("active_event_flags", {}).get(
-            "supply_chain_transparency_avg", 30
+            "supply_chain_transparency",
+            gs.get("active_event_flags", {}).get("supply_chain_transparency_avg", 30),
         ),
     }
+    # FLAG-8 (WP-23): option flags live in rN_flags / rN_pillar_flags LISTS;
+    # a top-level key test never saw them, so ethical_ai_overhaul's −5 pp on
+    # the AI-disruption wave never applied. Flatten once, the way round_logic does.
+    try:
+        from flag_utils import collect_all_flags as _collect_all_flags
+        _held_flags = set(_collect_all_flags(flags))
+    except Exception:
+        _held_flags = set()
 
     triggered_events = []
     event_narratives = []
@@ -661,7 +683,7 @@ def evaluate_black_swans(
             elif "flag" in mod:
                 flag_set = flags.get("flags_set", [])
                 flag_list = flag_set if isinstance(flag_set, list) else []
-                if mod["flag"] in flags or mod["flag"] in flag_list:
+                if mod["flag"] in flags or mod["flag"] in flag_list or mod["flag"] in _held_flags:
                     effective_prob += mod["probability_add"]
 
         # ── Hard probability ceiling: max 12% regardless of penalty stacking ─
@@ -688,6 +710,27 @@ def evaluate_black_swans(
             slo_hit = round(impacts.get("social_license_delta", 0) * impact_mult, 1)
             gov_hit = round(impacts.get("governance_risk_delta", 0) * impact_mult, 1)
 
+            # IMP-05 (WP-23): the revenue / OPEX percentages are FLOWS for the
+            # event's duration (the engine records them as transients and
+            # re-applies them while the event continues), and the headline
+            # the player sees is the all-in cost — treasury hit plus the
+            # flow erosion over the duration — not the cash hit alone, which
+            # understated the real cost 4–5×.
+            _dur = int(event.get("duration_rounds", 1) or 1)
+            _aff = impacts.get("affected_bus", [])
+            _flow_round = 0.0
+            for _b in bus:
+                _tgt = not _aff or _b["bu_id"] in _aff
+                if _tgt:
+                    _flow_round += abs(float(_b.get("revenue_base", 0) or 0) * float(impacts.get("revenue_pct_reduction", 0) or 0))
+                    _flow_round += abs(float(_b.get("opex_base", 0) or 0) * float(impacts.get("opex_pct_increase", 0) or 0))
+                if _b["bu_id"] in _aff:
+                    _flow_round += abs(float(_b.get("revenue_base", 0) or 0) * float(impacts.get("revenue_pct_reduction_targeted", 0) or 0))
+                    _flow_round += abs(float(_b.get("opex_base", 0) or 0) * float(impacts.get("opex_pct_increase_targeted", 0) or 0))
+            _flow_round = round(_flow_round, 2)
+            _flow_total = round(_flow_round * _dur, 2)
+            _headline = round(treasury_hit + _flow_total, 2)
+
             triggered_event = {
                 "event_id": event_id,
                 "title": event["title"],
@@ -709,13 +752,20 @@ def evaluate_black_swans(
                     ),
                     "revenue_pct_reduction": impacts.get("revenue_pct_reduction", 0),
                     "opex_pct_increase": impacts.get("opex_pct_increase", 0),
+                    "revenue_pct_reduction_targeted": impacts.get("revenue_pct_reduction_targeted", 0),
+                    "opex_pct_increase_targeted": impacts.get("opex_pct_increase_targeted", 0),
                     "burnout_delta": round(impacts.get("burnout_delta", 0) * impact_mult, 1),
                     "affected_bus": impacts.get("affected_bus", []),
+                    # IMP-05: the flow erosion this event costs per round, and
+                    # the all-in headline (cash hit + flow × duration).
+                    "flow_cost_per_round": _flow_round,
+                    "flow_cost_total": _flow_total,
+                    "headline_cost": _headline,
                 },
                 "cascading_npcs": event.get("cascading_npcs", []),
                 "pedagogical_note": event.get("pedagogical_note", ""),
                 "narrative": event.get("narrative_trigger", "").format(
-                    impact_amount=f"${treasury_hit:,.0f}",
+                    impact_amount=f"${_headline:,.0f}",
                     impact_pct=round(abs(impacts.get("treasury_pct_hit", 0)) * 100, 1),
                     legal_cost=abs(impacts.get("treasury_flat_hit", 0)),
                     writedown_pct=round(impacts.get("stranded_asset_writedown_pct", 0) * 100, 1),
@@ -849,6 +899,43 @@ def apply_black_swan_impacts(
         })
 
     return diagnostics
+
+
+def apply_black_swan_flows(bus: list[dict], events: list[dict]) -> list[tuple[str, str, float]]:
+    """IMP-05 (WP-23): apply the revenue / OPEX percentage effects of the
+    given events to the BU bases IN PLACE and return the deltas applied as
+    (bu_id, field, delta) so the engine can record them as transients — a
+    flow for this round, reversed from the persisted base at tick end. Used
+    for the rounds an event CONTINUES (the trigger round is applied by
+    apply_black_swan_impacts, whose deltas the engine records the same way)."""
+    applied: list[tuple[str, str, float]] = []
+    for event in events:
+        impacts = event.get("impacts_applied", {}) or {}
+        revenue_pct = impacts.get("revenue_pct_reduction", 0) or 0
+        opex_pct = impacts.get("opex_pct_increase", 0) or 0
+        rev_t = impacts.get("revenue_pct_reduction_targeted", 0) or 0
+        opex_t = impacts.get("opex_pct_increase_targeted", 0) or 0
+        affected = impacts.get("affected_bus", []) or []
+        for bu in bus:
+            is_targeted = not affected or bu["bu_id"] in affected
+            if is_targeted and revenue_pct:
+                before = bu["revenue_base"]
+                bu["revenue_base"] = round(before * (1 + revenue_pct), 2)
+                applied.append((bu["bu_id"], "revenue_base", round(bu["revenue_base"] - before, 2)))
+            if is_targeted and opex_pct:
+                before = bu["opex_base"]
+                bu["opex_base"] = round(before * (1 + opex_pct), 2)
+                applied.append((bu["bu_id"], "opex_base", round(bu["opex_base"] - before, 2)))
+            if bu["bu_id"] in affected:
+                if rev_t:
+                    before = bu["revenue_base"]
+                    bu["revenue_base"] = round(before * (1 + rev_t), 2)
+                    applied.append((bu["bu_id"], "revenue_base", round(bu["revenue_base"] - before, 2)))
+                if opex_t:
+                    before = bu["opex_base"]
+                    bu["opex_base"] = round(before * (1 + opex_t), 2)
+                    applied.append((bu["bu_id"], "opex_base", round(bu["opex_base"] - before, 2)))
+    return applied
 
 
 def get_available_black_swans(round_number: int) -> list[dict]:

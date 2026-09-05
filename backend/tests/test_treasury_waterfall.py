@@ -123,28 +123,30 @@ _ROUNDS = 10
 # multi_toggles and legacy_abc had converged to the same fingerprint). Bit-
 # identical across two fresh processes before pinning.
 _EXPECTED_RUNNER_FINGERPRINTS = {
-    # The original six. UNCHANGED by B-5 — which is itself the evidence that
-    # the four ledger terms added on 2026-09-03 are 0.00 on these paradigms:
-    # the fingerprint payload includes _residual(), so a non-zero new term
-    # would have moved them.
-    ("DEFAULT_4_BU", "legacy_abc"): "020d13667d5e6d5d",
-    ("DEFAULT_4_BU", "multi_toggles"): "8ed5dc35b55ae0b2",
-    ("SINGLE_BU_PHARMA", "legacy_abc"): "c039cbbb9198437b",
-    ("SINGLE_BU_PHARMA", "multi_toggles"): "93273de34e6b5177",
-    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "643d2b27f1dd4637",
-    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "738085d5f2a14b37",
-    # B-5 (2026-09-03): nine NEW cases, not a rebaseline of anything. Each was
-    # computed twice in separate interpreters under different PYTHONHASHSEEDs
-    # and matched before being pinned.
-    ("DEFAULT_4_BU", "advanced_climate"): "c039fef396bfd7a2",
+    # WP-23 (audit 2026-09-04, 2026-09-05): re-pinned after three deliberate
+    # numbers changes — the regulator's enforcement fine is capped by tier and
+    # 4% of turnover (FIN-09), a black swan's revenue/OPEX percentages are
+    # flows for the event's duration instead of permanent base erosion
+    # (IMP-05), and TARGETED swan effects (revenue_pct_reduction_targeted /
+    # opex_pct_increase_targeted — the embargo, the water crisis) now apply:
+    # they were dropped from impacts_applied before, so those events were
+    # inert. Bit-identical across two interpreters under PYTHONHASHSEED=1
+    # and 12345 before pinning. Unmoved cases are the ones no swan fires in.
+    ("DEFAULT_4_BU", "advanced_climate"): "6bcb02d976455f3e",
     ("DEFAULT_4_BU", "brsr_ngrbc"): "020d13667d5e6d5d",
-    ("DEFAULT_4_BU", "healthcare"): "020d13667d5e6d5d",
+    ("DEFAULT_4_BU", "healthcare"): "3c8ce84c6e55c59a",
+    ("DEFAULT_4_BU", "legacy_abc"): "3c8ce84c6e55c59a",
+    ("DEFAULT_4_BU", "multi_toggles"): "a0c95779a95996b6",
     ("SINGLE_BU_PHARMA", "advanced_climate"): "f8b44913c6fec8fa",
     ("SINGLE_BU_PHARMA", "brsr_ngrbc"): "c039cbbb9198437b",
     ("SINGLE_BU_PHARMA", "healthcare"): "c039cbbb9198437b",
-    ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "d1f5895bd742fec9",
+    ("SINGLE_BU_PHARMA", "legacy_abc"): "c039cbbb9198437b",
+    ("SINGLE_BU_PHARMA", "multi_toggles"): "93273de34e6b5177",
+    ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "f8b8209cd014b2c8",
     ("VERTICAL_OIL_AND_GAS_SUB", "brsr_ngrbc"): "643d2b27f1dd4637",
-    ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "643d2b27f1dd4637",
+    ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "01c9fe7938f44933",
+    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "01c9fe7938f44933",
+    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "0f420a5d01fc249c",
 }
 
 # Audit 2026-09-04 (WP-12 harness debt): `un_sdg` is not a paradigm the

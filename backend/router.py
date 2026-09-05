@@ -2915,7 +2915,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         _crisis_source = "baseline"
         _crisis_label = "✅ Baseline — Full audit completed"
     # ── PHASE-1: Inject difficulty tier into engine input ─────
-    _session_difficulty = (session_info or {}).get("difficulty_tier", "standard")
+    _session_difficulty = (session_info or {}).get("difficulty_tier", "advanced")
     current_global.setdefault("active_event_flags", {})["difficulty_tier"] = _session_difficulty
     # ── Run the tick engine ──────────────────────────────────
     tick_result = process_tick(

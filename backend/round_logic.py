@@ -1307,7 +1307,7 @@ def run_new_engines(
                 # Wire difficulty-tier covenant trigger ratio
                 try:
                     from black_swan_registry import get_difficulty_config
-                    _diff_tier = global_state.get("active_event_flags", {}).get("difficulty_tier", "standard")
+                    _diff_tier = global_state.get("active_event_flags", {}).get("difficulty_tier", "advanced")
                     _diff_cfg = get_difficulty_config(_diff_tier)
                     global_state["balance_sheet"]["covenant_trigger_ratio"] = _diff_cfg.get("covenant_trigger_ratio", 3.5)
                 except Exception:
@@ -3317,7 +3317,12 @@ def _revert_r5_hard_engineering_pulse(
     Triggers in R7 if hard_engineering flag is active and pulse not yet reverted.
     """
     flags = gs.get("active_event_flags", {})
-    if round_number == 7 and flags.get("hard_engineering") and not flags.get("hard_engineering_pulse_reverted"):
+    # FLAG-8 (audit 2026-09-04, WP-23): the R5 option flag lives in the
+    # r5_flags / r5_pillar_flags LIST; the top-level key test never fired,
+    # so the +3 CI construction pulse was permanent.
+    _held = _collect_all_flags(flags)
+    if round_number == 7 and ("hard_engineering" in _held or flags.get("hard_engineering")) \
+            and not flags.get("hard_engineering_pulse_reverted"):
         revert_delta = -3.0  # Reverse the +3 from R5
         for bu in bus:
             bu["carbon_intensity"] = max(0.0, round(bu.get("carbon_intensity", 0) + revert_delta, 2))

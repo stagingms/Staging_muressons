@@ -42,8 +42,8 @@ def test_the_clock_arms_from_tier_two():
 def _run_even_team(cohort_seed: int, uncertainty: bool):
     """The production call chain (dry_run helpers), even 100% team, option B."""
     import dry_run
-    from dry_run import _decisions, base_crisis_severity_for_round, pre_tick, post_tick, run_new_engines, \
-        CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR
+    from dry_run import _decisions, base_crisis_severity_for_round, pre_tick, post_tick, run_new_engines
+    from config import CSF_POOL_TREASURY_FRACTION, CSF_POOL_FLOOR   # WP-25: dry_run no longer binds these at import
     from engine import process_tick
     from config import DEFAULT_IMITATION_DECAY_RATE
     from bu_profiles import build_bu_states

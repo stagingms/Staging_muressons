@@ -2605,7 +2605,7 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
     # ── PHASE-1: Black Swan Evaluation — stochastic disruptions ──
     try:
         from black_swan_registry import evaluate_black_swans, apply_black_swan_impacts
-        _session_tier = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
+        _session_tier = current_global.get("active_event_flags", {}).get("difficulty_tier", "advanced")
         _active_swans = current_global.get("active_event_flags", {}).get("active_black_swans", [])
         _forced_swan  = current_global.get("active_event_flags", {}).get("forced_black_swan", None)
         _region_id    = (
@@ -2621,7 +2621,21 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
             region_id=_region_id or None,
         )
         if _swan_result["total_new_events"] > 0:
+            # IMP-05 (audit 2026-09-04, WP-23): the revenue / OPEX percentages
+            # were written into the persisted BU base — permanent erosion,
+            # while the narrative promised "for N round(s)" and the headline
+            # showed the cash hit alone (understating the real cost 4–5×).
+            # They are flows: recorded as transients here, so the base is
+            # restored at tick end (F-04), and re-applied below for every
+            # round the event continues.
+            _pre = {b["bu_id"]: (b["revenue_base"], b["opex_base"]) for b in ctx.new_bus}
             _swan_diag = apply_black_swan_impacts(current_global, ctx.new_bus, _swan_result["events_triggered"])
+            for _b in ctx.new_bus:
+                _r0, _o0 = _pre[_b["bu_id"]]
+                if _b["revenue_base"] != _r0:
+                    ctx.record_transient(_b, "revenue_base", round(_b["revenue_base"] - _r0, 2))
+                if _b["opex_base"] != _o0:
+                    ctx.record_transient(_b, "opex_base", round(_b["opex_base"] - _o0, 2))
             ctx.events["black_swan_events"]      = _swan_result["events_triggered"]
             ctx.events["black_swan_narratives"]  = _swan_result["narratives"]
             ctx.events["black_swan_diagnostics"] = _swan_diag
@@ -2629,7 +2643,17 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
                 {"title": e["title"], "narrative": e["narrative"], "icon": e["icon"], "severity": "critical"}
                 for e in _swan_result["events_triggered"]
             ])
-        _all_active = _swan_result.get("events_continuing", []) + _swan_result.get("events_triggered", [])
+        _continuing = _swan_result.get("events_continuing", [])
+        if _continuing:
+            from black_swan_registry import apply_black_swan_flows
+            _by_id = {b["bu_id"]: b for b in ctx.new_bus}
+            _flows = apply_black_swan_flows(ctx.new_bus, _continuing)
+            for _bu_id, _field, _delta in _flows:
+                ctx.record_transient(_by_id[_bu_id], _field, _delta)
+            if _flows:
+                ctx.events["black_swan_continuing_flows"] = [
+                    {"bu_id": b, "field": f, "delta": d} for b, f, d in _flows]
+        _all_active = _continuing + _swan_result.get("events_triggered", [])
         ctx.events["active_black_swans"] = [e for e in _all_active if e.get("rounds_remaining", 0) > 0]
         if _forced_swan:
             ctx.events["forced_black_swan"] = None
@@ -3709,7 +3733,11 @@ def _run_operational_layer(ctx: TickContext) -> None:
         }
 
         # Carbon Credit Futures Market
-        if "carbon_deferred" in current_global.get("active_event_flags", {}):
+        # FLAG-8 (audit 2026-09-04, WP-23): carbon_deferred is an R3 option
+        # flag held in the r3_flags / r3_pillar_flags list; the top-level key
+        # test made the whole Carbon Credit Futures Market block unreachable.
+        from flag_utils import collect_all_flags as _collect_all_flags_bs
+        if "carbon_deferred" in _collect_all_flags_bs(current_global.get("active_event_flags", {})):
             # FIX CRITICAL-2 (AUDIT): Use an independent Random instance
             # instead of re-importing the global random module.  This ensures
             # the carbon offset volatility does not depend on or perturb the
@@ -4288,7 +4316,7 @@ def _run_reporting_layer(ctx: TickContext) -> None:
                     "narrative": trans["message"],
                     "icon": "⚠️", "severity": "critical",
                 })
-        _session_tier_ms = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
+        _session_tier_ms = current_global.get("active_event_flags", {}).get("difficulty_tier", "advanced")
         _active_flags_ms = current_global.get("active_event_flags", {})
         _shocks          = evaluate_materiality_shocks(
             current_global["round_number"],

@@ -706,10 +706,31 @@ def process_npc_tick(
 
             # Financial penalty from regulator (seeded per cohort — GAME-4, §4.3).
             if npc_id == "regulator" and action_result["action"] == "enforcement":
-                fine = (_seeded_fine(_seed, npc_id, round_number, 5_000_000, 25_000_000)
-                        if _seed not in (None, "") else round(random.uniform(5_000_000, 25_000_000), 2))
+                drawn = (_seeded_fine(_seed, npc_id, round_number, 5_000_000, 25_000_000)
+                         if _seed not in (None, "") else round(random.uniform(5_000_000, 25_000_000), 2))
+                # FIN-09 (audit 2026-09-04, WP-23): uniform($5M, $25M) every
+                # enforcement round, uncapped by tier — $39.6M in one probe
+                # run, 79% of the starting treasury. Real regimes cap at a few
+                # percent of turnover (GDPR 4%). The fine is now the lesser of
+                # the draw, the tier's npc_max_fine (which nothing read
+                # before) and 4% of trailing annual revenue (two six-month
+                # rounds), and the ledger records the basis. RNG-6: the
+                # narrative amount is the amount deducted.
+                from black_swan_registry import get_difficulty_config
+                _tier_cfg = get_difficulty_config(gs.get("active_event_flags", {}).get("difficulty_tier", "advanced"))
+                _annual_rev = 2.0 * sum(float(b.get("revenue_base", 0) or 0) for b in bus)
+                _rev_cap = round(0.04 * _annual_rev, 2)
+                fine = round(min(drawn, float(_tier_cfg.get("npc_max_fine", drawn)), _rev_cap if _rev_cap > 0 else drawn), 2)
                 gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0.0) - fine, 2)
                 diagnostics["regulatory_fine"] = fine
+                diagnostics["regulatory_fine_basis"] = {
+                    "drawn": drawn, "tier_cap": _tier_cfg.get("npc_max_fine"),
+                    "revenue_cap_4pct_annual": _rev_cap, "applied": fine,
+                }
+                _msg = action_result.get("message") or ""
+                if _msg:
+                    import re as _re
+                    action_result["message"] = _re.sub(r"€[\d.]+M fine", f"€{fine / 1_000_000:.1f}M fine", _msg)
 
         npc_state["interactions"].append({
             "round": round_number,
