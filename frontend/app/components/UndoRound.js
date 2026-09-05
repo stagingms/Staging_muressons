@@ -22,6 +22,27 @@ export default function UndoRound({ session }) {
     const fetchRound = useCallback(async () => {
         if (!sessionId) return;
         try {
+            // OPS-2 (audit 2026-09-04, WP-26): a cohort SHELL sits at round 1
+            // forever — the gameplay rows belong to the player sub-sessions —
+            // so reading the shell's dashboard disabled "Roll Back Entire
+            // Cohort" permanently. For a cohort, the round the class is on is
+            // the furthest team's round (cohort-pulse), as the server's own
+            // cohort-wide undo now counts it.
+            if (!isPlayer) {
+                const pr = await fetch(`${API}/api/admin/cohort-pulse/${sessionId}`, { credentials: 'include' });
+                if (pr.ok) {
+                    const pulse = await pr.json();
+                    const rounds = (pulse.teams || [])
+                        .filter((t) => !t.is_cohort_shell)
+                        .map((t) => Number(t.round) || 1);
+                    if (rounds.length > 0) {
+                        const r = Math.max(...rounds);
+                        setCurrentRound(r);
+                        setTargetRound(Math.max(1, r - 1));
+                        return;
+                    }
+                }
+            }
             const res = await fetch(`${API}/api/simulations/${sessionId}/dashboard`);
             if (res.ok) {
                 const data = await res.json();
@@ -31,7 +52,7 @@ export default function UndoRound({ session }) {
                 setTargetRound(Math.max(1, r - 1));
             }
         } catch { /* offline */ }
-    }, [sessionId]);
+    }, [sessionId, isPlayer]);
 
     useEffect(() => { fetchRound(); }, [fetchRound]);
 
@@ -207,6 +228,14 @@ export default function UndoRound({ session }) {
                 <div className={styles.success}>
                     ✅ Successfully rolled back to Round {result.new_current_round}
                     {result.deleted_round && ` (deleted up to Round ${result.deleted_round})`}
+                    {result.cohort_wide && result.teams_rolled_back && (
+                        <span data-testid="undo-cohort-summary">
+                            {' '}— {Object.keys(result.teams_rolled_back).length} team(s) rolled back
+                            {result.teams_skipped && Object.keys(result.teams_skipped).length > 0
+                                ? `, ${Object.keys(result.teams_skipped).length} already there`
+                                : ''}
+                        </span>
+                    )}
                 </div>
             )}
             {error && (

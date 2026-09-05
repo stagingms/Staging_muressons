@@ -1719,7 +1719,20 @@ def translate_pillars_to_legacy_choice(
 #  the standard PILLAR_OPTIONS for a given round.
 # ═════════════════════════════════════════════════════════════════
 
+# The version-controlled copies that ship in the image. Runtime edits go to
+# the durable data dir (ACC-6, audit 2026-09-04, WP-26): the facilitator's
+# custom areas and re-orderings used to be written INTO this directory —
+# inside the image on Railway (wiped on redeploy) and inside the working
+# tree on a developer box (an access-sweep probe re-serialised
+# pillar_overrides_pharma.json in git).
 _OVERRIDES_DB_DIR = Path(__file__).parent / "db"
+
+
+def _pillar_overrides_path(bu_id: str) -> Path:
+    from runtime_paths import seeded_config_file
+    bu_id_norm = bu_id.lower().replace(" ", "_").replace("-", "_")
+    name = f"pillar_overrides_{bu_id_norm}.json"
+    return seeded_config_file(name, _OVERRIDES_DB_DIR / name)
 
 
 def _load_pillar_overrides(bu_id: str) -> dict:
@@ -1730,8 +1743,7 @@ def _load_pillar_overrides(bu_id: str) -> dict:
     """
     if not bu_id:
         return {}
-    bu_id_norm = bu_id.lower().replace(" ", "_").replace("-", "_")
-    path = _OVERRIDES_DB_DIR / f"pillar_overrides_{bu_id_norm}.json"
+    path = _pillar_overrides_path(bu_id)
     if not path.exists():
         return {}
     try:
@@ -1743,10 +1755,10 @@ def _load_pillar_overrides(bu_id: str) -> dict:
 
 
 def _save_pillar_overrides(bu_id: str, data: dict) -> None:
-    """Persist pillar overrides JSON for a given vertical."""
-    bu_id_norm = bu_id.lower().replace(" ", "_").replace("-", "_")
-    _OVERRIDES_DB_DIR.mkdir(parents=True, exist_ok=True)
-    path = _OVERRIDES_DB_DIR / f"pillar_overrides_{bu_id_norm}.json"
+    """Persist pillar overrides JSON for a given vertical — to the durable
+    data dir, never into the image / working tree (ACC-6)."""
+    path = _pillar_overrides_path(bu_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 

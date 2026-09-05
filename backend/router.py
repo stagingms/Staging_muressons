@@ -344,6 +344,20 @@ async def _assert_player_owns_session(request: Request, session_id: str, allow_o
     except Exception:
         tok, fac_id = None, None
     if tok and tok.get("session_id") == str(session_id):
+        # OPS-6 (audit 2026-09-04, WP-26): a token minted before a facilitator
+        # password RESET carries the old password version — a lost laptop kept
+        # read/commit access for the token's 12 h. Refuse it (401, re-login);
+        # tokens without the claim (minted by an older build) are admitted
+        # until they expire.
+        _tok_pwv = tok.get("pw_version") or ""
+        if _tok_pwv and not tok.get("observer"):
+            _now_pwv = _current_player_pw_version(tok.get("player_id", ""))
+            if _now_pwv and _now_pwv != _tok_pwv:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail={"code": "player_token_required",
+                            "message": "Your password was reset by the facilitator — sign in again with the new one."},
+                )
         if tok.get("observer") and not allow_observer:
             # TEAM-1: observers may only read routes that opted in; every
             # mutation refuses. Fail-closed by default.
@@ -1056,7 +1070,8 @@ async def player_login(request: Request, req: PlayerLoginRequest):
         ws_ticket = create_player_ws_ticket(player_sid, _requested_id)
         # F-22: the HTTP credential. Observers get a token flagged observer so
         # every mutating route (and every read that did not opt in) refuses it.
-        player_token = create_player_token(player_sid, _requested_id, observer=_as_observer)
+        player_token = create_player_token(player_sid, _requested_id, observer=_as_observer,
+                                           pw_version=_current_player_pw_version(_requested_id))
     except Exception:
         ws_ticket = ""
         player_token = ""
@@ -1414,11 +1429,24 @@ async def _join_session_impl(session_id: str, req: JoinSessionRequest, *,
     }
 
 
+def _current_player_pw_version(player_id: str) -> str:
+    """OPS-6: the player's password version from the registry ("0" until a
+    facilitator resets the password), or "" when the player is unknown."""
+    try:
+        from admin_shared import _player_registry
+        from auth_jwt import password_version
+        rec = next((p for p in _player_registry if p.get("player_id") == player_id), None)
+        return password_version(rec) if rec else ""
+    except Exception:
+        return ""
+
+
 def _mint_player_token(player_sid: str, player_id: str, observer: bool) -> str:
     """F-22: best-effort token mint for the join paths (empty when JWT is unavailable)."""
     try:
         from auth_jwt import create_player_token
-        return create_player_token(player_sid, player_id, observer=bool(observer))
+        return create_player_token(player_sid, player_id, observer=bool(observer),
+                                   pw_version=_current_player_pw_version(player_id))
     except Exception:
         return ""
 
@@ -5071,18 +5099,50 @@ async def submit_stakeholder_map(request: Request, session_id: str, body: Stakeh
     latest = await db.fetch_latest_state(session_id)
     if latest:
         gs = latest["global_state"]
+        # OPS-5 (audit 2026-09-04, WP-26): the modal allows ONE re-attempt by
+        # design (C9), but every submission re-applied the bonus / penalty on
+        # top of the last one (probe: two submissions, treasury −$1M for one
+        # $500k penalty). A resubmission now REPLACES the previous outcome —
+        # the earlier points / treasury / reputation effects are reversed and
+        # the new ones applied — and the API allows the same two attempts the
+        # modal does; a third returns the stored result unchanged.
+        _prev = gs.get("stakeholder_map_result") or {}
+        _attempts = int(gs.get("stakeholder_map_attempts", 1 if gs.get("stakeholder_map_completed") else 0) or 0)
+        if _attempts >= 2 and _prev:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "stakeholder_map_locked",
+                        "message": "The stakeholder map has already been submitted twice; the recorded result stands.",
+                        "result": _prev},
+            )
+        if _prev:
+            gs["bonus_score"] = gs.get("bonus_score", 0) - float(_prev.get("points_awarded", 0) or 0)
+            if _prev.get("treasury_penalty"):
+                gs["corporate_treasury"] = gs.get("corporate_treasury", 0) - float(_prev["treasury_penalty"])
+            if _prev.get("reputation_penalty"):
+                gs["group_reputation"] = min(100, gs.get("group_reputation", 50) - float(_prev["reputation_penalty"]))
         gs["bonus_score"] = gs.get("bonus_score", 0) + result["points_awarded"]
         gs["stakeholder_map_completed"] = True
         gs["stakeholder_map_accuracy"] = result["accuracy_percentage"]
+        gs["stakeholder_map_attempts"] = _attempts + 1
         # C18: Persist per-stakeholder accuracy for R2 Voice Boost
         gs["stakeholder_accuracy"] = body.mapping  # {stakeholder_id: quadrant_id}
         # C12: Treasury penalty for poor analysis (<60%)
         if result.get("treasury_penalty", 0) != 0:
             gs["corporate_treasury"] = gs.get("corporate_treasury", 0) + result["treasury_penalty"]
             gs["stakeholder_penalty_applied"] = result["treasury_penalty"]
+        else:
+            gs.pop("stakeholder_penalty_applied", None)
         # C4: Reputation penalty for failing (<80%)
         if result.get("reputation_penalty", 0) != 0:
             gs["group_reputation"] = max(0, gs.get("group_reputation", 50) + result["reputation_penalty"])
+        gs["stakeholder_map_result"] = {
+            "accuracy_percentage": result["accuracy_percentage"],
+            "passed": result["passed"],
+            "points_awarded": result["points_awarded"],
+            "treasury_penalty": result.get("treasury_penalty", 0),
+            "reputation_penalty": result.get("reputation_penalty", 0),
+        }
         await db.update_latest_global_state(session_id, gs, latest["bu_states"])
 
     return {

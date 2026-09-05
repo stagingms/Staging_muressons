@@ -297,8 +297,20 @@ PLAYER_TOKEN_TTL_HOURS: int = int(os.getenv("PLAYER_TOKEN_TTL_HOURS", "12"))
 PLAYER_TOKEN_HEADER = "X-Player-Token"
 
 
+def password_version(player_record: dict | None) -> str:
+    """OPS-6 (audit 2026-09-04, WP-26): the player's password VERSION — a
+    counter on the registry record that a facilitator reset bumps. Stamped
+    into the player token as `pwv`; a token minted before the reset stops
+    matching and the lost device is signed out. A self-service password
+    change does not bump it (F-01: the same token keeps working after the
+    forced first change), so only a facilitator's reset revokes devices."""
+    if not player_record:
+        return ""
+    return str(int(player_record.get("pw_version", 0) or 0))
+
+
 def create_player_token(session_id: str, player_id: str, *, observer: bool = False,
-                        ttl_hours: int | None = None) -> str:
+                        ttl_hours: int | None = None, pw_version: str = "") -> str:
     """Signed bearer token binding a player (or team observer) to ONE session."""
     if not _jwt_available():
         return ""
@@ -306,11 +318,13 @@ def create_player_token(session_id: str, player_id: str, *, observer: bool = Fal
     now = datetime.now(timezone.utc)
     payload = {"sid": str(session_id), "pid": str(player_id or ""), "typ": "player",
                "obs": bool(observer), "iat": now, "exp": now + timedelta(hours=hours)}
+    if pw_version:
+        payload["pwv"] = str(pw_version)
     return _pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def verify_player_token(token: str) -> Optional[dict]:
-    """Return {"session_id", "player_id", "observer"} for a valid player token, else None."""
+    """Return {"session_id", "player_id", "observer", "pw_version"} for a valid player token, else None."""
     if not token or not _jwt_available():
         return None
     try:
@@ -320,7 +334,7 @@ def verify_player_token(token: str) -> Optional[dict]:
     if payload.get("typ") != "player":
         return None
     return {"session_id": str(payload.get("sid") or ""), "player_id": str(payload.get("pid") or ""),
-            "observer": bool(payload.get("obs", False))}
+            "observer": bool(payload.get("obs", False)), "pw_version": str(payload.get("pwv") or "")}
 
 
 def get_player_from_request(request: Request) -> Optional[dict]:

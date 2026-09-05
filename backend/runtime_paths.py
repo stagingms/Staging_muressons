@@ -327,7 +327,17 @@ def config_file(name: str) -> Path:
     (misconfigured mount), the in-image path is returned instead — read-only,
     but with the correct values, which beats an empty config every time.
     """
-    default = _CONFIG_IMAGE_DEFAULTS.get(name)
+    return seeded_config_file(name, _CONFIG_IMAGE_DEFAULTS.get(name))
+
+
+def seeded_config_file(name: str, default: Path | None) -> Path:
+    """config_file() for a file whose in-image default is given explicitly —
+    the pillar overrides (ACC-6, audit 2026-09-04, WP-26): backend/db/
+    pillar_overrides_<bu>.json ships in the image and is edited by
+    facilitators at runtime, and the edits were written back INTO the image
+    path, lost on the next redeploy (and, on a developer box, straight into
+    the working tree). Same seed-once-then-volume-wins contract as
+    simulation_config.json."""
     target = data_dir() / name
     if target.exists():
         return target

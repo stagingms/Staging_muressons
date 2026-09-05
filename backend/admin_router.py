@@ -4974,39 +4974,52 @@ async def set_player_password(body: dict = Body(...), _guard: None = Depends(req
 
 
 @admin_router.post("/players/{player_id}/reset-password", summary="Reset a player's password to the default (MUR-NNN@123)")
-async def reset_player_password(player_id: str, _guard: None = Depends(require_sim_manager)):
+async def reset_player_password(player_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
     """
     Generates a new random temp password for a player and returns the plaintext to the facilitator.
     Sets must_change_password=True so the player is required to change it on first login.
     Updates both the _player_registry and the session's registered_players so the
     facilitator panel immediately shows the new password.
+
+    ACC-4 (audit 2026-09-04, WP-26): this was keyed by player id with NO check
+    that the caller owns the player's cohort — any facilitator could reset
+    (and learn) another cohort's player credential and lock that team out
+    mid-run. The caller must now own (or be an admin over) every cohort whose
+    roster names the player; the session-scoped mint path already did this.
     """
     player_id_upper = player_id.strip().upper()
 
     # Find in registry
     player = next((p for p in _player_registry if p["player_id"] == player_id_upper), None)
 
-    # Search session registered_players if not in registry
-    if not player:
-        all_sessions = await db.fetch_all_sessions()
-        for sess in all_sessions:
-            for rp in sess.get("registered_players", []):
-                if rp.get("player_id") == player_id_upper:
+    # Search session registered_players if not in registry; and, either way,
+    # collect every cohort that rosters this player for the ownership check.
+    all_sessions = await db.fetch_all_sessions()
+    rostered_in: list[str] = []
+    for sess in all_sessions:
+        for rp in sess.get("registered_players", []) or []:
+            if rp.get("player_id") == player_id_upper:
+                rostered_in.append(sess["session_id"])
+                if not player:
                     player = rp
                     if not any(p["player_id"] == player_id_upper for p in _player_registry):
                         _player_registry.append(rp)
-                    break
-            if player:
                 break
 
     if not player:
         raise HTTPException(status_code=404, detail=f"Player {player_id_upper} not found.")
+
+    for _cohort_sid in rostered_in:
+        await _assert_session_ownership(request, _cohort_sid)   # admins bypass inside
 
     # Reset to the DETERMINISTIC default MUR-NNN@123 (same policy as creation);
     # force a personal password on the next login.
     new_plaintext, new_hash = await make_player_credentials_async(player["player_id"])  # F-30
     player["password"] = new_hash
     player["must_change_password"] = True
+    # OPS-6 (WP-26): bump the password version so every token minted before
+    # this reset (the lost laptop's) is refused from the next request.
+    player["pw_version"] = int(player.get("pw_version", 0) or 0) + 1
 
     # QA-2026-07-16 #4: write the new hash DURABLY through the db interface for
     # every session whose registered_players names this player. The old path
@@ -5023,6 +5036,7 @@ async def reset_player_password(player_id: str, _guard: None = Depends(require_s
                     rp["password"] = new_hash
                     rp["must_change_password"] = True
                     rp["plaintext_password"] = new_plaintext  # facilitator display
+                    rp["pw_version"] = player["pw_version"]
                     touched = True
             if touched:
                 await db.update_session_metadata(sess["session_id"], {"registered_players": reg})
@@ -9452,12 +9466,26 @@ async def undo_round(
     """
     await _assert_session_ownership(request, session_id)
     targets = [session_id]
+    children: list[str] = []
     if cohort_wide:
-        targets.extend(await db.fetch_child_session_ids(session_id))   # F-28: indexed
+        children = list(await db.fetch_child_session_ids(session_id))   # F-28: indexed
+        targets.extend(children)
 
     last_res = None
+    rolled_back: dict[str, int] = {}
+    skipped: dict[str, str] = {}
 
-    for tgt in set(targets):
+    # OPS-2 (audit 2026-09-04, WP-26): a cohort SHELL sits at round 1 forever
+    # (gameplay rows belong to the player sub-sessions), so a cohort-wide
+    # undo iterated a SET — shell first: 400 before any child was touched;
+    # shell last: every child rolled back and THEN a 400 — and the UI button
+    # was permanently disabled off the shell's round. The shell is now a
+    # coordinator, not a target, when it has children; the response reports
+    # every team's new round.
+    _shell_only = cohort_wide and bool(children)
+    for tgt in targets:
+        if _shell_only and tgt == session_id:
+            continue
         # Parity API: latest round via fetch_latest_round (works under Postgres;
         # a direct _global_states read returns {} there).
         current = await db.fetch_latest_round(tgt)
@@ -9471,6 +9499,7 @@ async def undo_round(
                     status_code=400,
                     detail=f"Target round {stop_at} must be less than current round {current}."
                 )
+            skipped[tgt] = f"already at round {current}"
             continue
 
         # Loop: undo one round at a time until we reach stop_at
@@ -9488,6 +9517,7 @@ async def undo_round(
                 break
 
             last_res = result
+            rolled_back[tgt] = result["new_current_round"]
 
             await manager.push_to_session(tgt, {
                 "type": "round_undone",
@@ -9502,8 +9532,18 @@ async def undo_round(
             })
 
     if not last_res:
+        if _shell_only and skipped and not rolled_back:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Nothing to roll back — every team is already at or below round "
+                       f"{max(1, target_round) if target_round is not None else 1}.",
+            )
         raise HTTPException(status_code=400, detail="Undo failed — nothing to roll back")
 
+    if cohort_wide:
+        return {**last_res, "cohort_wide": True, "teams_rolled_back": rolled_back,
+                "teams_skipped": skipped,
+                "new_current_round": max(rolled_back.values()) if rolled_back else last_res.get("new_current_round")}
     return last_res
 
 
@@ -12995,7 +13035,8 @@ async def get_side_track_blueprints(_g: None = Depends(require_facilitator)):
 # ═════════════════════════════════════════════════════════════════
 #  PILLAR CONFIG ENDPOINTS (Phase 4.1.5)
 #  GET/POST/PUT/DELETE for vertical-specific pillar areas.
-#  Access: god_mode and lead_facilitator.
+#  Access: read — any facilitator; write — super_admin only (ACC-6, WP-26:
+#  a platform-global config, persisted on the data volume).
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get(
@@ -13018,7 +13059,7 @@ async def get_pillar_config(
 async def add_custom_pillar_area(
     bu_id: str,
     body: dict = Body(...),
-    _guard: None = Depends(require_facilitator),
+    _guard: None = Depends(require_super_admin),   # ACC-6 (WP-26): platform-global config
 ):
     """Append a new custom pillar area to the vertical's overrides JSON."""
     from pillar_configs import _load_pillar_overrides, _save_pillar_overrides
@@ -13060,7 +13101,7 @@ async def edit_custom_pillar_area(
     bu_id: str,
     area_key: str,
     body: dict = Body(...),
-    _guard: None = Depends(require_facilitator),
+    _guard: None = Depends(require_super_admin),   # ACC-6 (WP-26): platform-global config
 ):
     """Update a custom pillar area by area_key."""
     from pillar_configs import _load_pillar_overrides, _save_pillar_overrides
@@ -13086,7 +13127,7 @@ async def edit_custom_pillar_area(
 async def delete_custom_pillar_area(
     bu_id: str,
     area_key: str,
-    _guard: None = Depends(require_facilitator),
+    _guard: None = Depends(require_super_admin),   # ACC-6 (WP-26): platform-global config
 ):
     """Remove a custom pillar area by area_key."""
     from pillar_configs import _load_pillar_overrides, _save_pillar_overrides
@@ -13110,7 +13151,7 @@ async def delete_custom_pillar_area(
 async def reorder_pillar_areas(
     bu_id: str,
     body: dict = Body(...),
-    _guard: None = Depends(require_facilitator),
+    _guard: None = Depends(require_super_admin),   # ACC-6 (WP-26): platform-global config
 ):
     """
     Reorder custom areas.
