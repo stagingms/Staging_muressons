@@ -18,7 +18,7 @@ import { currencySymbol, atRate, price as fmtPrice } from '../utils/format';
  * a final terminal value / M_R score.
  */
 
-const SHARES_OUTSTANDING = 100_000_000;   // 100M shares (matches backend constant)
+const SHARES_OUTSTANDING = 6_500_000;     // F-20: matches simulation_config.json terminal_valuation.shares_outstanding
 const IPO_PRICE = 50.0;                   // Opening price
 const LONG_RUN_GROWTH = 0.02;             // 2% terminal growth
 const EXIT_FLOOR = 6.0;

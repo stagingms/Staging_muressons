@@ -1184,6 +1184,9 @@ export default function CockpitPage() {
         total_ncd:             (sim.businessUnits ?? []).reduce(
                                  (acc, bu) => acc + (bu.natural_capital_debt ?? 0), 0
                                ),
+        // F-20: the finale's monetised NCD liability (null for games finished before the fix)
+        ncd_liability_usd:     sim.globalState?.active_event_flags?.ncd_liability_usd
+                               ?? sim.finalReport?.ncd_liability_usd ?? null,
         archetype:             sim.finalReport?.archetype ?? 'SAFE_HAVEN',
         // AR-D: pass the real (pathway/custom) name + description so the reveal
         // shows the actual archetype, not just the generic theme label.

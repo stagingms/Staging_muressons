@@ -42,9 +42,10 @@ def test_insolvent_outcome_floors_at_one_not_negative():
 
 def test_exactly_wiped_to_below_floor_still_floors():
     # Small positive equity that divides to < $1/share still floors to $1.
+    from config import TV_SHARES_OUTSTANDING as _SH
     b = calculate_equity_bridge(
-        enterprise_value=50_000_000,
-        net_debt=0.0,           # equity $50M / 100M shares = $0.50 raw
+        enterprise_value=0.5 * _SH,   # equity = half a dollar per share raw
+        net_debt=0.0,
         book_equity=0.0,
         total_revenue=0.0,
     )
@@ -55,9 +56,10 @@ def test_exactly_wiped_to_below_floor_still_floors():
 
 
 def test_solvent_outcome_is_unchanged():
+    from config import TV_SHARES_OUTSTANDING as _SH
     b = calculate_equity_bridge(
-        enterprise_value=8_000_000_000,
-        net_debt=1_000_000_000,   # equity $7B / 100M = $70/share
+        enterprise_value=70.0 * _SH + 1_000_000_000,
+        net_debt=1_000_000_000,   # equity = $70/share
         book_equity=2_000_000_000,
         total_revenue=1_000_000_000,
     )
@@ -70,8 +72,9 @@ def test_solvent_outcome_is_unchanged():
 
 def test_floor_never_inflates_above_one():
     # A price already above $1 must pass through untouched.
+    from config import TV_SHARES_OUTSTANDING as _SH
     b = calculate_equity_bridge(
-        enterprise_value=200_000_000,
+        enterprise_value=2.0 * _SH,
         net_debt=0.0,             # $2.00/share
         book_equity=0.0,
         total_revenue=0.0,
@@ -94,3 +97,20 @@ def test_full_terminal_valuation_surfaces_the_flag():
     assert res["equity_wiped_out"] is True
     assert res["price_per_share"] == 1.0
     assert res["price_per_share"] >= SHARE_PRICE_FLOOR
+
+
+def test_a_typical_terminal_ev_prices_above_the_amber_threshold():
+    """F-20 (audit 2026-09-04): with 100M shares at a $50 IPO the implied
+    market cap was $5.0B against terminal EVs of $0–0.9B, so every solvent
+    team's reveal priced at $1–3 ("loss −94%", red; GameOverSummary colours
+    green ≥ $50, amber ≥ $30). 6.5M shares (= baseline EV $19.2M × 17 ÷ $50)
+    puts a typical $280M EV at ≈ $43 and a strong $891M at ≈ $137."""
+    from config import TV_SHARES_OUTSTANDING
+    assert TV_SHARES_OUTSTANDING == 6_500_000
+    typical = calculate_equity_bridge(enterprise_value=280_000_000, net_debt=0.0,
+                                      book_equity=100_000_000, total_revenue=80_000_000)
+    strong = calculate_equity_bridge(enterprise_value=891_000_000, net_debt=0.0,
+                                     book_equity=200_000_000, total_revenue=80_000_000)
+    assert 30 <= typical["price_per_share"] < 50, typical["price_per_share"]
+    assert strong["price_per_share"] >= 50, strong["price_per_share"]
+    assert typical["share_price_floored"] is False

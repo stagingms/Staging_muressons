@@ -789,7 +789,11 @@ BS_DECOMMISSIONING_ACCRETION:  float = float(_bs_acct.get("decommissioning_accre
 
 _tv = SIMULATION_CONFIG.get("terminal_valuation", {})
 
-TV_SHARES_OUTSTANDING:         int   = int(_tv.get("shares_outstanding", 100_000_000))
+# F-20 (audit 2026-09-04): 100M shares at a $50 IPO implied a $5.0B market cap
+# against terminal EVs of $0–0.9B, so every solvent team's reveal priced at
+# $1–3 a share ("loss −94%", red). 6.5M shares = baseline EV ($19.2M seed
+# EBITDA × 17) ÷ $50, so a $280M EV prices at ≈ $43 and $891M at ≈ $137.
+TV_SHARES_OUTSTANDING:         int   = int(_tv.get("shares_outstanding", 6_500_000))
 TV_IPO_PRICE:                  float = float(_tv.get("ipo_price_per_share", 50.0))
 TV_LONG_RUN_GROWTH:            float = float(_tv.get("long_run_growth", 0.02))
 TV_EXIT_MULTIPLE_FLOOR:        float = float(_tv.get("exit_multiple_floor", 6.0))

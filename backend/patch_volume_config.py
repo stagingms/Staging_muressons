@@ -39,6 +39,8 @@ PATCH = [
     (["engine_parameters", "slo_ramp", "mid_ratio"],               0.2),
     (["engine_parameters", "slo_ramp", "growth_ratio"],            0.3),
     (["engine_parameters", "slo_ramp", "min_abs_capex"],           100000),
+    # F-20 (audit 2026-09-04): reveal share-price scale — see config.py TV_SHARES_OUTSTANDING
+    (["terminal_valuation", "shares_outstanding"],                 6500000),
 ]
 
 print(f"file: {PATH}")

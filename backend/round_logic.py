@@ -2916,12 +2916,28 @@ def _stamp_finale_valuation(
     profile_icon = None
     profile_gradient = None
 
-    # AR-A/C: Double-Materiality Adjusted Value = final_treasury x M_R - NCD —
-    # the same figure the reveal shows. Drives the solvency axis for both the
-    # default gate and custom (facilitator-configured) archetypes.
-    _dmav = gs.get("corporate_treasury", 0.0) * mr - sum(
-        b.get("natural_capital_debt", 0) for b in bus
+    # AR-A/C: Double-Materiality Adjusted Value = final_treasury x M_R - NCD
+    # liability — the same figure the reveal shows. Drives the solvency axis
+    # for both the default gate and custom (facilitator-configured) archetypes.
+    #
+    # F-20 (audit 2026-09-04): NCD is an INDEX (hard cap 5,000; R10 sums of
+    # 47–92 observed) and was subtracted from dollars as if it were dollars —
+    # inert on the reveal ("$61.1M − $47") and in this gate. The liability is
+    # now the engine's own price of natural-capital debt capitalised the way
+    # the EV capitalises EBITDA: NCD points × NCD_OPEX_PENALTY_PER_UNIT (the
+    # per-round OPEX penalty per point) × the finale's exit multiple. Both the
+    # points and the dollars are published so the reveal can show "−$0.6M
+    # (47 NCD pts)". MODEL_CARD.md records the choice.
+    from config import NCD_OPEX_PENALTY_PER_UNIT as _NCD_PRICE
+    _total_ncd_points = round(sum(max(0.0, float(b.get("natural_capital_debt", 0) or 0)) for b in bus), 2)
+    _ncd_liability = round(_total_ncd_points * _NCD_PRICE * float(effective_exit_multiple), 2)
+    extra["total_ncd_points"] = _total_ncd_points
+    extra["ncd_liability_usd"] = _ncd_liability
+    extra["ncd_liability_basis"] = (
+        f"{_total_ncd_points:,.0f} NCD pts × ${_NCD_PRICE:,.0f}/pt/round × {float(effective_exit_multiple):.1f}× exit multiple"
     )
+    _dmav = gs.get("corporate_treasury", 0.0) * mr - _ncd_liability
+    extra["dmav"] = round(_dmav, 2)
     _solvent = _dmav > 0
 
     if custom_archetypes:

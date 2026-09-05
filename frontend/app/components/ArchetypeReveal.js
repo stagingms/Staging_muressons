@@ -14,12 +14,18 @@
  * @typedef {Object} TerminalStatePayload
  * @property {number} final_mr           – Regenerative Multiple (e.g. 1.34)
  * @property {number} final_treasury     – Raw treasury balance in currency units
- * @property {number} total_ncd          – Accumulated Natural Capital Debt
+ * @property {number} total_ncd          – Accumulated Natural Capital Debt (an INDEX, in points)
+ * @property {number} [ncd_liability_usd] – F-20: the finale's monetised NCD liability
+ *                                          (points × $/pt/round × exit multiple), in currency
  * @property {"REGENERATIVE_TITAN"|"SAFE_HAVEN"|"FRAGILE_GIANT"|"PRAGMATIC_OPERATOR"|"HOLLOW_IDEALIST"|"STRANDED_RELIC"|"TURNAROUND_MANAGER"} archetype
  * @property {string[]} triggered_black_swans – IDs/labels of black swan events
  *
  * ── Math Presented ───────────────────────────────────────────────────────
- * Adjusted Value = (final_treasury × final_mr) − total_ncd
+ * Adjusted Value = (final_treasury × final_mr) − NCD liability ($)
+ * F-20 (audit 2026-09-04): NCD is an index; the money row subtracts the
+ * finale's monetised liability and shows the points alongside. A payload
+ * without ncd_liability_usd (a game finished before the fix) subtracts
+ * nothing and shows the index as points.
  * The UI deliberately splits the "traditional balance sheet" row from
  * the "double materiality adjustment" rows so executives see exactly how
  * a healthy treasury is reshaped by ESG performance.
@@ -358,6 +364,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
     final_mr            = 1.0,
     final_treasury      = 0,
     total_ncd           = 0,
+    ncd_liability_usd   = null,
     archetype           = 'SAFE_HAVEN',
     profile_title       = null,
     profile_description = null,
@@ -373,7 +380,10 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
   // ── Derived math ────────────────────────────────────────────────────────
   const traditionalValue   = final_treasury;                          // What the balance sheet shows
   const mrAdjustedValue    = final_treasury * final_mr;              // After Regenerative Multiple
-  const adjustedFinalValue = mrAdjustedValue - total_ncd;            // After deducting NCD
+  // F-20: the deduction is the MONETISED liability, never the raw index
+  const ncdLiability       = Number.isFinite(Number(ncd_liability_usd)) && ncd_liability_usd !== null
+                             ? Number(ncd_liability_usd) : 0;
+  const adjustedFinalValue = mrAdjustedValue - ncdLiability;         // After deducting the NCD liability
 
   // Is the company destroyed, and by which side of the balance sheet?
   const isValueDestroyed  = adjustedFinalValue <= 0;
@@ -628,15 +638,18 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                 <WaterfallRow
                   icon="🌿"
                   label="Natural Capital Debt (NCD)"
-                  sublabel="Accumulated ecological liability never on your balance sheet"
-                  value={-total_ncd}
+                  sublabel={ncd_liability_usd !== null
+                    ? `Accumulated ecological liability never on your balance sheet — ${Math.round(total_ncd)} NCD pts, capitalised at the engine's per-point OPEX penalty × exit multiple`
+                    : 'Accumulated ecological liability never on your balance sheet (an index, in points)'}
+                  value={-ncdLiability}
                   valueDisplay={
                     <span style={{ color: '#ef4444' }}>
-                      −<AnimatedNumber
-                        target={total_ncd}
-                        duration={1100}
-                        formatter={(v) => fmtCurrency(v)}   /* the .replace stripped a glyph that is no longer hard-coded */
-                      />
+                      {ncd_liability_usd !== null ? (
+                        <>−<AnimatedNumber target={ncdLiability} duration={1100} formatter={(v) => fmtCurrency(v)} />
+                          <span style={{ opacity: 0.75, fontSize: '0.8em', marginLeft: 6 }}>({Math.round(total_ncd)} NCD pts)</span></>
+                      ) : (
+                        <AnimatedNumber target={total_ncd} duration={1100} formatter={(v) => `${Math.round(v)} NCD pts`} />
+                      )}
                     </span>
                   }
                   color="#ef4444"

@@ -280,7 +280,7 @@
     "decommissioning_accretion_rate": 0.03
   },
   "terminal_valuation": {
-    "shares_outstanding": 100000000,
+    "shares_outstanding": 6500000,
     "ipo_price_per_share": 50.0,
     "long_run_growth": 0.02,
     "exit_multiple_floor": 6.0,

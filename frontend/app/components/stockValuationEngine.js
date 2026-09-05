@@ -14,7 +14,7 @@ import { roundToQuarter } from '../utils/roundToQuarter';
 
 // ── Constants ────────────────────────────────────────────────
 const IPO_PRICE = 50.00;            // Round 0 stock price
-const SHARES_OUTSTANDING = 100_000_000;  // 100M shares (matches backend terminal_valuation.py)
+const SHARES_OUTSTANDING = 6_500_000;    // F-20: matches simulation_config.json terminal_valuation.shares_outstanding (baseline EV $19.2M×17 ÷ $50 IPO)
 const BASELINE_EBITDA = 19_200_000; // Sum of 4 BU EBITDA margins at seed
 const DAYS_PER_ROUND = 40;          // Interpolated daily ticks per 6-month round
 const LONG_RUN_GROWTH = 0.02;       // 2% terminal growth for Gordon Growth Model
