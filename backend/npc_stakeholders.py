@@ -167,6 +167,10 @@ def _bridge_weight() -> float:
 
 
 # ── SPEC F4: seeded threshold uncertainty + patience ─────────────
+# F-16 (audit 2026-09-04): the tier index from which the patience clock arms.
+# 2 = the first hostile-ish tier ("Public Campaign" / "Formal Investigation");
+# it was 1 ("Concerned"), which forced every team hostile on a timer.
+PATIENCE_ARMS_FROM_TIER: int = 2
 def _seeded_unit(seed: Any, *tags: Any) -> float:
     """Deterministic [0,1) from a cohort seed + tags via SHA-256 (GAME-4 style)."""
     key = "|".join(str(t) for t in (seed, *tags))
@@ -506,8 +510,11 @@ def determine_npc_action(
     SPEC F4 (only when the caller passes them):
       • `threshold_offsets` jitter each tier's threshold (seeded per cohort), so
         the exact tipping points are uncertain.
-      • `patience_limit` runs a patience clock: an NPC held at a wary tier (index
-        ≥ 1) for that many rounds escalates one tier regardless of the metric.
+      • `patience_limit` runs a patience clock: an NPC held at a HOSTILE-ish tier
+        (index ≥ 2 — F-16, audit 2026-09-04; was ≥ 1, the merely "concerned"
+        tier, which three of four NPCs sit at even for an excellent team, so
+        every team was forced hostile on a timer) for that many rounds
+        escalates one tier regardless of the metric.
     With both None (the default) tier selection is byte-for-byte the legacy path.
     """
     profile = npc_state["profile"]
@@ -543,13 +550,23 @@ def determine_npc_action(
             staged = escalation_levels[tier_idx]
             action, label = staged["action"], staged["label"]
 
-    # Patience clock (F4): sitting at a wary tier too long forces escalation.
+    # Patience clock (F4): sitting at a hostile-ish tier too long forces
+    # escalation. F-16 (audit 2026-09-04): the clock armed from tier 1, the
+    # "concerned" tier, which needs satisfaction/trust ≥ 70 to leave and which
+    # three of four NPCs occupy even at reputation 85 / SLO 85 / CI 20 — so an
+    # even-investment team with F4 on (the production default) took ≈3.5
+    # forced hostile actions, −16.8 reputation and near the jittered boundary
+    # a regulator fine, none of it attributable to a decision. It now arms
+    # from the first hostile-ish tier (index 2): a team that IS at "Public
+    # Campaign" and does nothing for PATIENCE_LIMIT rounds is escalated; a
+    # team at "Concerned" is not. PATIENCE_LIMIT stays 3 (calibration call:
+    # the tier change, not the limit, was the defect).
     if patience_limit is not None and tier_idx is not None and escalation_levels:
         if tier_idx == npc_state.get("last_tier"):
             npc_state["rounds_at_tier"] = npc_state.get("rounds_at_tier", 0) + 1
         else:
             npc_state["rounds_at_tier"] = 1
-        if (tier_idx >= 1 and npc_state["rounds_at_tier"] >= patience_limit
+        if (tier_idx >= PATIENCE_ARMS_FROM_TIER and npc_state["rounds_at_tier"] >= patience_limit
                 and tier_idx < len(escalation_levels) - 1):
             tier_idx += 1
             forced = escalation_levels[tier_idx]

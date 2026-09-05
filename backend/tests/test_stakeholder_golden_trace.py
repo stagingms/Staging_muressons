@@ -680,14 +680,23 @@ def test_patience_forces_escalation_and_cooperative_resets():
     st = {"profile": {"escalation_levels": levels, "dialogue_templates": {}, "name": "n", "title": "t", "icon": "i"}}
     gs = {"group_reputation": 50}
 
+    # F-16 (audit 2026-09-04): the clock arms from the first HOSTILE-ish tier
+    # (index 2), not from "watchful" — a merely wary stakeholder is never
+    # forced hostile on a timer.
     actions = [determine_npc_action("regulator", st, 55.0, gs, rnd, patience_limit=3)["action"]
-               for rnd in range(1, 5)]
-    assert actions[0] == "watchful" and actions[1] == "watchful"
-    assert actions[2] == "protest"   # 3 rounds at watchful → forced escalation
-    assert actions[3] == "watchful"  # clock reset after forcing
+               for rnd in range(1, 11)]
+    assert actions == ["watchful"] * 10, actions   # ten rounds at watchful: nothing forced
 
-    determine_npc_action("regulator", st, 90.0, gs, 5, patience_limit=3)  # cooperative
-    assert st["rounds_at_tier"] == 0 and st["last_tier"] == 0
+    st2 = {"profile": st["profile"]}
+    actions = [determine_npc_action("regulator", st2, 35.0, gs, rnd, patience_limit=3)["action"]
+               for rnd in range(1, 6)]
+    assert actions[0] == "watchful"                 # staged escalation: one step from a standing start
+    assert actions[1] == "protest" and actions[2] == "protest"
+    assert actions[3] == "legal"                    # 3 rounds at protest → forced escalation
+    assert actions[4] == "protest"                  # clock reset after forcing
+
+    determine_npc_action("regulator", st2, 90.0, gs, 6, patience_limit=3)  # cooperative
+    assert st2["rounds_at_tier"] == 0 and st2["last_tier"] == 0
 
 
 def test_stakeholder_intel_single_source_and_shape():
