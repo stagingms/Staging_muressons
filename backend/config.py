@@ -620,6 +620,13 @@ NATURAL_DECAY_MID_GROWTH:       float = float(_slo_ramp.get("mid_growth", 1.0))
 #   0.10 / 0.25 / 0.40             decay 70.1%  no-decay 2.1%  mild 5.8%  growth 22.0%
 #   0.10 / 0.25 / 0.30             decay 70.1%  no-decay 2.1%  mild 1.7%  growth 26.1%
 #
+# F-17 (audit 2026-09-04, WP-21): until 2026-09-05 engine.py evaluated the tier
+# on the GROUP-AVERAGE investment ratio, so the per-decision populations above
+# described a quantity the engine never read (a $0 BU grew when the team
+# average cleared 0.30). The tier is now the BU's own ratio, as measured here.
+# The bands stay 0.15 / 0.20 / 0.30 until the owner's stored-decision export is
+# re-measured per BU per tick.
+#
 # NOTE: no_decay_ratio is structurally INERT given the $100k floor. The CSF pool
 # is at least $5M, so any allocation reaching ratio 0.15 is already at least
 # $750k and clears the floor on the absolute test first. It is kept as the

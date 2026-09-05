@@ -805,12 +805,12 @@ def apply_natural_decay(
     - below that → Full 4% decay (neglect erodes trust)
     Reputation always decays when not invested (harder to rebuild brand).
 
-    CALIBRATION 2026-09-03 — the tiers were 0.15 / 0.20 / 0.30 and are now
-    0.10 / 0.25 / 0.50, config-driven rather than bare literals. Measured on the
-    241 stored real decisions: the 0.15-0.20 band caught ZERO of them, and 87%
-    of every substantive allocation cleared the old 0.30 growth bar, so two
-    adjacent tiers were indistinguishable and the top tier was near-automatic.
-    Substantive allocations run 0.20-1.00, median 0.50.
+    CALIBRATION 2026-09-03 — the tiers are the config-driven 0.15 / 0.20 / 0.30
+    (moved to 0.10 / 0.25 / 0.50 and dialled back the same day; config.py
+    records the measurement and the reasons). F-17 (WP-21, 2026-09-05): the
+    call site evaluates the tier on each BU's OWN investment ratio — the
+    quantity those 241-decision populations were measured on — not the group
+    average it used to read.
 
     AND THE TIER THAT NEVER FIRED. `invested` used to be
     `ratio >= 0.15 or capex_allocated > 0` at the call site, while router.py
@@ -3138,10 +3138,20 @@ def _run_financial_layer(ctx: TickContext) -> None:
         ctx.events["education_lag_matured"] = _proj_delta.education_lag_total
 
     # ── Natural Decay + Technical Debt + Technology Lock-In ──────
+    _austerity_now = bool(current_global.get("active_event_flags", {}).get("cfo_austerity_active", False))
     for bu in ctx.new_bus:
         dec     = ctx.decision_map.get(bu["bu_id"], {})
-        # FIX BUG-1C + FIX-B: SLO investment sensitivity with gradated decay
-        _inv_ratio = ctx.events.get("_pre_austerity_avg_invest", dec.get("investment_ratio", 0))
+        # FIX BUG-1C + FIX-B: SLO investment sensitivity with gradated decay.
+        # F-17 (audit 2026-09-04, WP-21): the tier was evaluated on the GROUP-
+        # AVERAGE investment ratio, so a $0 BU grew +3/round whenever the team
+        # average cleared 0.30 and a $3M BU decayed whenever it did not — while
+        # every calibration number (config.py, "241 stored decisions") had been
+        # measured per decision, a quantity the engine never looked at. The
+        # tier is the BU's own ratio; under the CFO austerity clamp (which
+        # zeroes every ratio) it is the BU's own pre-clamp intent.
+        _inv_ratio = float(dec.get("investment_ratio", 0) or 0)
+        if _austerity_now:
+            _inv_ratio = float((ctx.events.get("_pre_austerity_ratios") or {}).get(bu["bu_id"], _inv_ratio) or 0)
         # 2026-09-03: was `or dec.get("capex_allocated", 0) > 0`, which router.py's
         # $1-per-BU minimum made unconditionally true, so the decay tier below was
         # dead code for every commit ever made. A minimum ABSOLUTE spend restores
@@ -4811,6 +4821,9 @@ def process_tick(
     _pre_austerity_avg_invest = sum(
         d.get("investment_ratio", 0) for d in decisions
     ) / max(len(decisions), 1)
+    # F-17 (audit 2026-09-04, WP-21): the per-BU intent before the clamp, for
+    # the natural-decay tier — which is evaluated on the BU's OWN ratio.
+    _pre_austerity_ratios = {d.get("bu_id"): float(d.get("investment_ratio", 0) or 0) for d in decisions}
     if current_global.get("active_event_flags", {}).get("cfo_austerity_active", False):
         for d in decisions:
             d["investment_ratio"] = 0.0
@@ -4879,6 +4892,7 @@ def process_tick(
     # ── 4. Run the four pipeline stages ─────────────────────────
     # FIX BUG-1A: Store pre-austerity investment ratio for floor calculations
     ctx.events["_pre_austerity_avg_invest"] = _pre_austerity_avg_invest
+    ctx.events["_pre_austerity_ratios"] = _pre_austerity_ratios   # F-17 (WP-21): per BU
     # F-01: fold every between-tick group_reputation write into the BU stock
     # BEFORE contagion re-derives the group figure (see reconcile_reputation_stock).
     # F-08 / SOC-3 (audit 2026-09-04, WP-24): the fatigue baseline was captured

@@ -33,7 +33,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 65476797.47,
+      "corporate_treasury": 65273818.87,
       "cost_of_capital": 0.05,
       "green_transition_fund": 0.0,
       "historical_ebitda": 35128336.28,
@@ -77,7 +77,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 88448607.28,
+      "corporate_treasury": 88245628.68,
       "cost_of_capital": 0.05,
       "green_transition_fund": 0.0,
       "historical_ebitda": 36564084.71,
@@ -121,7 +121,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 115842649.96,
+      "corporate_treasury": 115639671.36,
       "cost_of_capital": 0.05,
       "green_transition_fund": 0.0,
       "historical_ebitda": 38417949.95,
@@ -165,7 +165,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 129692937.11,
+      "corporate_treasury": 129489958.51,
       "cost_of_capital": 0.05,
       "green_transition_fund": 0.0,
       "historical_ebitda": 37948638.07,
@@ -209,7 +209,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 157901034.73,
+      "corporate_treasury": 157698056.13,
       "cost_of_capital": 0.05,
       "green_transition_fund": 0.0,
       "historical_ebitda": 41535663.87,
@@ -253,8 +253,8 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 192821221.48,
-      "cost_of_capital": 0.05,
+      "corporate_treasury": 192618242.88,
+      "cost_of_capital": 0.0508,
       "green_transition_fund": 0.0,
       "historical_ebitda": 42466295.13,
       "synergy_multiplier": 0.274,
@@ -297,8 +297,8 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 201546216.28,
-      "cost_of_capital": 0.05,
+      "corporate_treasury": 201343237.68,
+      "cost_of_capital": 0.051,
       "green_transition_fund": 0.0,
       "historical_ebitda": 56347647.86,
       "synergy_multiplier": 0.263,
@@ -341,8 +341,8 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 242167989.78,
-      "cost_of_capital": 0.0502,
+      "corporate_treasury": 241965011.18,
+      "cost_of_capital": 0.051,
       "green_transition_fund": 0.0,
       "historical_ebitda": 57255640.27,
       "synergy_multiplier": 0.2525,
@@ -385,8 +385,8 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 267429067.86,
-      "cost_of_capital": 0.0582,
+      "corporate_treasury": 267226089.26,
+      "cost_of_capital": 0.0581,
       "green_transition_fund": 0.0,
       "historical_ebitda": 61321686.38,
       "synergy_multiplier": 0.2424,
@@ -429,7 +429,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 313817405.69,
+      "corporate_treasury": 313614427.09,
       "cost_of_capital": 0.0605,
       "green_transition_fund": 0.0,
       "historical_ebitda": 56341171.79,
