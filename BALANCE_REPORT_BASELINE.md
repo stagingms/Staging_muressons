@@ -21,17 +21,26 @@ Baseline history (why the reference numbers moved):
   greenwasher by construction; a ladder at realistic ratios is the owner's
   call. WP-21 itself (natural decay on each BU's own ratio) moves nothing
   here: every bot gives all four BUs the same ratio.
+- 2026-09-05 (owner calibration rulings C-1 / C-2): C-1 — the greenwash bar
+  is the TEAM'S share of the CSF pool (sum of the BU ratios), not their
+  average, which had made 15 % mean 60 % of the pool for a four-BU group;
+  the archetypal real team (one BU at ~50 % of the pool, $1 elsewhere) is
+  no longer a greenwasher. C-2 — the reference strategies deploy 50 % of
+  the pool (the real median substantive allocation) instead of 10 %; the
+  ladder keeps its 5 % / 10 % rungs to show the greenwash cliff. Every
+  reference row therefore moved; the low rungs are the only rows that still
+  greenwash, and they are meant to.
 
-## 1. Strategy outcomes (DEFAULT_4_BU, legacy_abc; capex 10% of CSF pool unless noted)
+## 1. Strategy outcomes (DEFAULT_4_BU, legacy_abc; capex 50% of CSF pool unless noted)
 
 | Strategy | Terminal Value | M_R | Archetype | Final treasury | Bankrupt |
 |---|---|---|---|---|---|
-| pure_A | $49.3M | 0.80 | STRANDED_RELIC | $-246.3M | R5 |
-| pure_B | $124.0M | 0.92 | STRANDED_RELIC | $-86.9M | R6 |
-| pure_C | $0.0M | 1.02 | STRANDED_RELIC | $-236.7M | R6 |
+| pure_A | $258.7M | 0.80 | STRANDED_RELIC | $4.9M | R7 |
+| pure_B | $636.2M | 0.97 | FRAGILE_GIANT | $133.9M | — |
+| pure_C | $0.0M | 1.02 | STRANDED_RELIC | $-181.4M | R7 |
 | aggressive_green | $893.9M | 1.43 | SAFE_HAVEN | $68.3M | — |
 | extractive | $57.6M | 0.84 | STRANDED_RELIC | $-306.6M | R5 |
-| balanced | $163.6M | 1.02 | STRANDED_RELIC | $-122.2M | R6 |
+| balanced | $832.3M | 1.43 | SAFE_HAVEN | $51.1M | — |
 
 Spread: $0.0M … $893.9M  (unbounded (a strategy ends below TV $0))
 
@@ -41,17 +50,17 @@ Spread: $0.0M … $893.9M  (unbounded (a strategy ends below TV $0))
 |---|---|---|---|---|
 | 5% | $161.5M | 0.96 | $-63.1M | R6 |
 | 10% | $143.3M | 0.92 | $-81.8M | R7 |
-| 20% | $184.5M | 0.96 | $-38.7M | R6 |
-| 35% | $183.4M | 0.96 | $-49.8M | R7 |
-| 60% | $263.5M | 0.92 | $54.2M | — |
+| 20% | $579.7M | 0.97 | $182.7M | — |
+| 35% | $575.6M | 0.97 | $125.4M | — |
+| 60% | $604.7M | 0.97 | $118.9M | — |
 
 ## 2. M_R component attainment (across all runs above)
 
 | Component | Runs earning it | Share |
 |---|---|---|
 | resilience_bonus | 11/11 | 100% |
-| instability_discount | 10/11 | 91% |
-| wellbeing_bonus | 7/11 | 64% |
+| instability_discount | 9/11 | 82% |
+| wellbeing_bonus | 9/11 | 82% |
 | just_transition_bonus | 6/11 | 55% |
 | community_champion_bonus | 3/11 | 27% |
 | materiality_governance | 0/11 | **0% — unreachable for these strategies** |
@@ -65,33 +74,33 @@ bots do not play), `synergy_bonus`/`truth_premium`/`workforce_bonus`
 REAL cohort also never earns is a calibration finding — cross-check with
 the cohort telemetry report (W4.3).
 
-## 3. Lever sensitivity (legacy_abc, baseline pure_B @ 10% capex: TV $124.0M, M_R 0.92)
+## 3. Lever sensitivity (legacy_abc, baseline pure_B @ 50% capex: TV $636.2M, M_R 0.97)
 
 Switching ONE round away from all-B. A ~zero row is a dead lever for
 this trajectory (C-1's failure mode, measured).
 
 | Round | → option | Δ Terminal Value | Δ M_R | Δ final treasury |
 |---|---|---|---|---|
-| R1 | A | +$12.3M | +0.04 | −$100.7M |
-| R1 | C | +$12.3M | +0.04 | −$57.7M |
-| R2 | A | +$45.4M | +0.04 | +$37.8M |
-| R2 | C | +$54.2M | +0.04 | +$18.6M |
-| R3 | A | −$30.9M | +0.04 | −$21.4M |
-| R3 | C | +$1.6M | +0.00 | −$18.8M |
-| R4 | A | +$11.9M | +0.00 | −$14.0M |
-| R4 | C | −$0.4M | +0.04 | +$55.6M |
-| R5 | A | +$54.8M | +0.04 | +$86.6M |
-| R5 | C | −$12.4M | +0.04 | −$21.4M |
-| R6 | A | +$92.9M | +0.04 | −$22.6M |
-| R6 | C | −$3.1M | +0.04 | +$8.0M |
-| R7 | A | +$94.4M | +0.04 | +$78.8M |
-| R7 | C | −$71.1M | +0.04 | −$17.8M |
-| R8 | A | +$158.5M | +0.04 | +$112.1M |
-| R8 | C | +$48.7M | +0.00 | +$15.2M |
-| R9 | A | −$30.6M | -0.12 | +$6.9M |
-| R9 | C | +$81.8M | +0.10 | +$83.9M |
-| R10 | A | +$93.2M | +0.00 | +$60.7M |
-| R10 | C | +$163.0M | +0.04 | +$92.5M |
+| R1 | A | −$413.0M | -0.01 | −$231.8M |
+| R1 | C | −$7.3M | +0.00 | −$65.2M |
+| R2 | A | +$17.1M | +0.02 | +$11.7M |
+| R2 | C | −$286.1M | -0.02 | −$57.7M |
+| R3 | A | −$99.1M | +0.00 | −$36.2M |
+| R3 | C | −$350.4M | -0.05 | −$131.6M |
+| R4 | A | −$98.4M | -0.01 | −$76.1M |
+| R4 | C | −$358.1M | -0.02 | −$61.0M |
+| R5 | A | −$108.7M | +0.00 | −$16.1M |
+| R5 | C | −$52.1M | +0.00 | −$78.0M |
+| R6 | A | −$233.7M | -0.02 | −$66.3M |
+| R6 | C | −$187.1M | +0.00 | −$85.5M |
+| R7 | A | +$25.1M | +0.02 | +$14.8M |
+| R7 | C | −$146.8M | +0.00 | −$31.0M |
+| R8 | A | +$279.4M | +0.40 | +$10.7M |
+| R8 | C | +$307.9M | +0.39 | −$32.0M |
+| R9 | A | −$258.9M | -0.12 | −$89.3M |
+| R9 | C | +$125.8M | +0.28 | −$10.9M |
+| R10 | A | −$39.6M | +0.00 | −$30.9M |
+| R10 | C | +$140.2M | +0.00 | +$14.4M |
 
 **No dead levers: every round's options move terminal value by ≥0.5%.**
 

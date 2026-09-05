@@ -52,10 +52,18 @@ BOTS = ["aggressive_green", "extractive", "balanced"]  # chaotic excluded: rng-d
 # is future work, noted in the PLAN.
 PARADIGM = "legacy_abc"
 COMPOSITION = "DEFAULT_4_BU"
+# C-2 (owner calibration ruling, 2026-09-05): the reference strategies deploy
+# REFERENCE_CAPEX_FRAC of the CSF pool per round — the median substantive
+# allocation in the 241 stored real BU rows (0.20-1.00, median 0.50), not the
+# 10 % that made every reference row a serial greenwasher and, after SOC-4,
+# bankrupt by R6. The ladder keeps its low rungs on purpose: 5 % and 10 % are
+# under the greenwash bars (C-1: the team's share of the pool, 15 % full /
+# ≈10 % moderate) and show what that costs.
+REFERENCE_CAPEX_FRAC = 0.50
 CAPEX_LADDER = [0.05, 0.10, 0.20, 0.35, 0.60]
 
 
-def _register(name: str, choice_map: dict, capex_frac: float = 0.10) -> str:
+def _register(name: str, choice_map: dict, capex_frac: float = REFERENCE_CAPEX_FRAC) -> str:
     dry_run._EXTRA_STRATEGIES[name] = {
         "label": name, "capex_frac": capex_frac, "dividends": 0,
         "scorer": "balanced", "choice_map": choice_map,
@@ -117,10 +125,19 @@ def build_report() -> str:
     lines.append("  greenwasher by construction; a ladder at realistic ratios is the owner's")
     lines.append("  call. WP-21 itself (natural decay on each BU's own ratio) moves nothing")
     lines.append("  here: every bot gives all four BUs the same ratio.")
+    lines.append("- 2026-09-05 (owner calibration rulings C-1 / C-2): C-1 — the greenwash bar")
+    lines.append("  is the TEAM'S share of the CSF pool (sum of the BU ratios), not their")
+    lines.append("  average, which had made 15 % mean 60 % of the pool for a four-BU group;")
+    lines.append("  the archetypal real team (one BU at ~50 % of the pool, $1 elsewhere) is")
+    lines.append("  no longer a greenwasher. C-2 — the reference strategies deploy 50 % of")
+    lines.append("  the pool (the real median substantive allocation) instead of 10 %; the")
+    lines.append("  ladder keeps its 5 % / 10 % rungs to show the greenwash cliff. Every")
+    lines.append("  reference row therefore moved; the low rungs are the only rows that still")
+    lines.append("  greenwash, and they are meant to.")
     lines.append("")
 
     # ── 1. strategy outcomes ──
-    lines.append(f"## 1. Strategy outcomes ({COMPOSITION}, {PARADIGM}; capex 10% of CSF pool unless noted)")
+    lines.append(f"## 1. Strategy outcomes ({COMPOSITION}, {PARADIGM}; capex {REFERENCE_CAPEX_FRAC:.0%} of CSF pool unless noted)")
     lines.append("")
     lines.append("| Strategy | Terminal Value | M_R | Archetype | Final treasury | Bankrupt |")
     lines.append("|---|---|---|---|---|---|")
@@ -184,7 +201,7 @@ def build_report() -> str:
 
     # ── 3. lever sensitivity ──
     base = run_strategy("pure_B", PARADIGM)
-    lines.append(f"## 3. Lever sensitivity ({PARADIGM}, baseline pure_B @ 10% capex: "
+    lines.append(f"## 3. Lever sensitivity ({PARADIGM}, baseline pure_B @ {REFERENCE_CAPEX_FRAC:.0%} capex: "
                  f"TV ${_m(base['tv'])}, M_R {base['mr']:.2f})")
     lines.append("")
     lines.append("Switching ONE round away from all-B. A ~zero row is a dead lever for")
