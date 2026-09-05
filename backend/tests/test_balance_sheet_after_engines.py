@@ -73,16 +73,13 @@ def _cash_matches_treasury(body: dict, rnd: int):
         assert cash == pytest.approx(treasury, abs=0.01), f"R{rnd}: cash {cash} vs treasury {treasury}"
         assert std == pytest.approx(0.0, abs=0.01), f"R{rnd}: short-term debt {std} with positive treasury"
         return
-    # Negative treasury: cash is swept to short-term debt. The sweep then
-    # prices the deficit and charges that interest to the treasury AFTER the
-    # sync (balance_sheet._sweep_negative_cash — its pricing is audit item
-    # F-13); when a covenant surcharge fires the statement re-syncs once more
-    # without charging. So the swept figure is either -treasury exactly or
-    # -treasury less the interest charged after the sync — nothing else.
-    interest = float(diag.get("short_term_debt_interest_charged", 0.0) or 0.0)
+    # Negative treasury: cash is swept to short-term debt. F-13 (WP-12): the
+    # sweep no longer prices the deficit (the engine's debt service is the one
+    # price), so the swept figure is -treasury exactly and no interest is
+    # charged after the sync.
+    assert "short_term_debt_interest_charged" not in diag, f"R{rnd}: the revolver charged the deficit a second time"
     assert cash == pytest.approx(0.0, abs=0.01), f"R{rnd}: cash {cash} with negative treasury"
-    ok = abs(std - (-treasury)) < 0.01 or abs(std - (-treasury - interest)) < 0.01
-    assert ok, f"R{rnd}: swept {std} vs deficit {-treasury} (interest after sync {interest})"
+    assert std == pytest.approx(-treasury, abs=0.01), f"R{rnd}: swept {std} vs deficit {-treasury}"
 
 
 def test_statement_cash_equals_persisted_treasury_every_round():
@@ -101,7 +98,7 @@ def test_statement_follows_a_regulator_fine_in_the_same_round(monkeypatch):
 
     def fined(*a, **kw):
         out = real(*a, **kw)
-        gs = kw.get("gs") if "gs" in kw else a[0]
+        gs = kw.get("gs") if "gs" in kw else a[1]  # process_npc_tick(npc_state, gs, bus, …)
         gs["corporate_treasury"] = round(float(gs.get("corporate_treasury", 0.0)) - 9_000_000.0, 2)
         return out
 

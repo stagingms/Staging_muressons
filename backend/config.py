@@ -351,6 +351,11 @@ BRAINDRAIN_REPUTATION_THRESHOLD: float = float(_braindrain.get("reputation_thres
 BRAINDRAIN_PENALTY_MULTIPLIER:  float = float(_braindrain.get("penalty_multiplier", 1.5))
 BRAINDRAIN_BURNOUT_THRESHOLD:   float = float(_braindrain.get("burnout_threshold", 50.0))
 BRAINDRAIN_BURNOUT_OVERHEAD:    float = float(_braindrain.get("burnout_overhead_factor", 2.0))
+# FIN-10 (audit 2026-09-04): the uncapped multiplier reached ×2.975 per round
+# (rep 0 + burnout 100) on hospitals/clinics/software — attrition-driven cost
+# inflation in hospital systems runs 5–15% (agency/locum premiums). Calibration
+# call: cap the retention premium at +30% of OPEX per round.
+BRAINDRAIN_PENALTY_CAP:         float = float(_braindrain.get("penalty_cap", 1.30))
 
 # ── Overrun Risk Engine ──────────────────────────────────────────
 _overrun = _engine.get("overrun_risk", {})

@@ -137,17 +137,24 @@ _EXPECTED_RUNNER_FINGERPRINTS = {
     # computed twice in separate interpreters under different PYTHONHASHSEEDs
     # and matched before being pinned.
     ("DEFAULT_4_BU", "advanced_climate"): "c039fef396bfd7a2",
-    ("DEFAULT_4_BU", "un_sdg"): "020d13667d5e6d5d",
+    ("DEFAULT_4_BU", "brsr_ngrbc"): "020d13667d5e6d5d",
     ("DEFAULT_4_BU", "healthcare"): "020d13667d5e6d5d",
     ("SINGLE_BU_PHARMA", "advanced_climate"): "f8b44913c6fec8fa",
-    ("SINGLE_BU_PHARMA", "un_sdg"): "c039cbbb9198437b",
+    ("SINGLE_BU_PHARMA", "brsr_ngrbc"): "c039cbbb9198437b",
     ("SINGLE_BU_PHARMA", "healthcare"): "c039cbbb9198437b",
     ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "d1f5895bd742fec9",
-    ("VERTICAL_OIL_AND_GAS_SUB", "un_sdg"): "643d2b27f1dd4637",
+    ("VERTICAL_OIL_AND_GAS_SUB", "brsr_ngrbc"): "643d2b27f1dd4637",
     ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "643d2b27f1dd4637",
 }
 
-# WORTH KNOWING, and not a defect this commit fixes: `un_sdg` and `healthcare`
+# Audit 2026-09-04 (WP-12 harness debt): `un_sdg` is not a paradigm the
+# platform accepts (create_session rejects it) and `brsr_ngrbc` — which it
+# does — was missing, so the law was a statement about a paradigm nobody can
+# play and silent on one anybody can. The list now derives from
+# config.VALID_DECISION_PARADIGMS; the brsr_ngrbc pins were computed twice in
+# separate interpreters under different PYTHONHASHSEEDs before being pinned.
+#
+# WORTH KNOWING, and not a defect this commit fixes: `brsr_ngrbc` and `healthcare`
 # fingerprint IDENTICALLY to `legacy_abc` on all three compositions. Their
 # distinct mechanics are not in the financial layer this runner exercises —
 # healthcare's own BU composition (hospitals/clinics) is not in
@@ -161,7 +168,9 @@ _EXPECTED_RUNNER_FINGERPRINTS = {
 # (worst round -$253,141.94) through the unledgered internal carbon fee. Every
 # DECLARED paradigm is covered now, so a paradigm-gated treasury path cannot
 # hide behind a case list again.
-_PARADIGMS = ["legacy_abc", "multi_toggles", "advanced_climate", "un_sdg", "healthcare"]
+from config import VALID_DECISION_PARADIGMS as _VALID_PARADIGMS  # noqa: E402
+_PARADIGMS = sorted(_VALID_PARADIGMS)
+assert set(_PARADIGMS) == {"legacy_abc", "multi_toggles", "advanced_climate", "healthcare", "brsr_ngrbc"}, _PARADIGMS
 _CASES = [
     (comp, par)
     for comp in ("DEFAULT_4_BU", "SINGLE_BU_PHARMA", "VERTICAL_OIL_AND_GAS_SUB")

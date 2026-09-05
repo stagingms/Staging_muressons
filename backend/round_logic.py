@@ -1146,6 +1146,36 @@ def run_new_engines(
     # up to $24.5M, including the R10 statement the debrief projects). It now
     # runs after every state-mutating engine in this batch.
 
+    # ── FIN-10 (audit 2026-09-04): the treasury floor, enforced where the
+    # round's last writers have finished. FINANCIAL_TREASURY_FLOOR held only
+    # inside process_tick; NPC fines, agent hits, impact and biodiversity
+    # charges above wrote treasury afterwards and a healthcare cohort closed
+    # at −$538M against a −$460M floor. Same number the engine used
+    # (events.treasury_floor_effective: floor + ESG credit-line relief),
+    # evented and accumulated into treasury_floor_clamp_applied so the ledger
+    # can account for what the floor forgave. Runs BEFORE the balance sheet
+    # so statement cash equals the persisted treasury (F-08(b)).
+    try:
+        _floor_effective = events.get("treasury_floor_effective")
+        if _floor_effective is None:
+            from config import FINANCIAL_TREASURY_FLOOR as _FLOOR
+            _floor_effective = _FLOOR + float(events.get("_pre_austerity_avg_invest", 0) or 0) * 200_000_000
+        _floor_effective = float(_floor_effective)
+        _t_now = float(global_state.get("corporate_treasury", 0.0) or 0.0)
+        if _t_now < _floor_effective:
+            _relief = round(_floor_effective - _t_now, 2)
+            global_state["corporate_treasury"] = round(_floor_effective, 2)
+            extra["treasury_floor_clamp_post_tick"] = _relief
+            extra["treasury_floor_clamp_applied"] = round(
+                float(events.get("treasury_floor_clamp_applied", 0.0) or 0.0) + _relief, 2
+            )
+            extra["treasury_floor_clamp_because"] = (
+                f"Creditors will not extend losses below the treasury floor (${_floor_effective:,.0f}); "
+                f"${_relief:,.0f} of this round's post-decision charges were absorbed by the floor."
+            )
+    except Exception as exc:
+        _engine_failed(extra, "Treasury floor", exc)
+
     # ── SE-6: Balance Sheet Engine ────────────────────────────
     if _toggles.get("balance_sheet_enabled", True):
         try:
@@ -1190,6 +1220,8 @@ def run_new_engines(
                 # ledger) falls back to the persisted flag.
                 "capex_loan_balance":    _capex_loan_for_statement(events, global_state),
                 "loan_interest_payment": float(events.get("loan_interest_payment", 0.0) or 0.0),
+                # FIN-10: the floor the covenant surcharge may not breach
+                "treasury_floor_effective": events.get("treasury_floor_effective"),
             }
             _include_esg_on_bs = global_state.get("esg_bs_scholarly_mode", False)
             bs, bs_diag = process_balance_sheet_tick(
@@ -1198,6 +1230,15 @@ def run_new_engines(
             )
             global_state["balance_sheet"] = bs
             extra["balance_sheet"] = bs_diag
+            # FIN-10: a covenant surcharge the floor forgave joins the round's
+            # floor-clamp term so the treasury law still closes.
+            _forgiven = float(bs_diag.get("covenant_surcharge_forgiven_by_floor", 0.0) or 0.0)
+            if _forgiven > 0:
+                extra["treasury_floor_clamp_post_tick"] = round(
+                    float(extra.get("treasury_floor_clamp_post_tick", 0.0) or 0.0) + _forgiven, 2)
+                extra["treasury_floor_clamp_applied"] = round(
+                    float(extra.get("treasury_floor_clamp_applied",
+                                    events.get("treasury_floor_clamp_applied", 0.0)) or 0.0) + _forgiven, 2)
 
             # Covenant warning message for UI (surcharge already applied inside engine)
             # FIX-A: Removed duplicate surcharge block — balance_sheet.py Step 9

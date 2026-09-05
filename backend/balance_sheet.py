@@ -567,10 +567,16 @@ def process_balance_sheet_tick(
     # debt (cash floors at 0) BEFORE totals are derived, so total liabilities,
     # D/E, liquidity ratio and covenants read off a real statement. The
     # engine's corporate_treasury stays the single source of truth for cash
-    # resources (it may be negative); this is presentation-layer truth-telling,
-    # plus a priced consequence: half-year revolver interest on the drawn
-    # deficit is charged to the treasury so emergency funding is not free.
-    _sweep_negative_cash(bs, gs, diagnostics, charge_interest=True)
+    # resources (it may be negative); this is presentation-layer truth-telling.
+    #
+    # F-13 (audit 2026-09-04): the deficit is priced ONCE, by the engine's
+    # debt service (engine.py, "Debt Service Interest" on the waterfall, at the
+    # corporate cost of capital per round). This sweep used to charge a second
+    # half-year revolver interest on the same deficit — invisible to the
+    # player (no surface read short_term_debt_interest_charged) — so a
+    # negative treasury paid ≈22–33% per round and could not recover. The
+    # reclassification stays; the second price is gone.
+    _sweep_negative_cash(bs, gs, diagnostics, charge_interest=False)
 
     # ── Step 1: CAPEX Capitalisation (IAS 16) ──────────────────────────────
     # FIX-5: Record opening PPE BEFORE adding new CAPEX so depreciation in
@@ -896,7 +902,19 @@ def process_balance_sheet_tick(
     # Apply covenant surcharge to treasury (lender penalty for red/breached status)
     surcharge = covenant_diag.get("treasury_surcharge", 0.0)
     if surcharge > 0 and "corporate_treasury" in gs:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] - surcharge, 2)
+        # FIN-10 (audit 2026-09-04): the surcharge is the last writer of the
+        # round and used to push the treasury through FINANCIAL_TREASURY_FLOOR
+        # after round_logic had already enforced it. Whatever the floor
+        # forgives is disclosed here and folded into the round's floor-clamp
+        # ledger term by run_new_engines.
+        _floor = events.get("treasury_floor_effective")
+        _after = round(gs["corporate_treasury"] - surcharge, 2)
+        if _floor is not None and _after < float(_floor):
+            _forgiven = round(float(_floor) - _after, 2)
+            _after = round(float(_floor), 2)
+            surcharge = round(surcharge - _forgiven, 2)
+            diagnostics["covenant_surcharge_forgiven_by_floor"] = _forgiven
+        gs["corporate_treasury"] = _after
         bs["current_assets"]["cash_and_equivalents"] = gs["corporate_treasury"]
         diagnostics["covenant_surcharge_applied"] = surcharge
         # §3.1: the surcharge re-synced cash from the (possibly negative)

@@ -51,7 +51,7 @@ from config import (
     READINESS_DELTA_HIGH, READINESS_DELTA_MEDIUM, READINESS_DELTA_NONE,
     READINESS_LOW_THRESHOLD, READINESS_HIGH_THRESHOLD,
     BRAINDRAIN_REPUTATION_THRESHOLD, BRAINDRAIN_PENALTY_MULTIPLIER,
-    BRAINDRAIN_BURNOUT_THRESHOLD, BRAINDRAIN_BURNOUT_OVERHEAD,
+    BRAINDRAIN_BURNOUT_THRESHOLD, BRAINDRAIN_BURNOUT_OVERHEAD, BRAINDRAIN_PENALTY_CAP,
     OVERRUN_CAPEX_THRESHOLD, OVERRUN_DEFAULT_PROBABILITY, OVERRUN_DEFAULT_SEVERITY,
     TECH_DEBT_ROUNDS_THRESHOLD, TECH_DEBT_PENALTY_RATE,
     LOCKIN_ROUNDS_THRESHOLD, LOCKIN_PENALTY_RATE,
@@ -742,14 +742,20 @@ def calc_talent_braindrain(
     Talent_Penalty = 1 + MAX(0, (65 - Group_Reputation) / 100) * 1.5 + (Burnout_Index / 100)
     OPEX_Next = OPEX_Current * Talent_Penalty
 
+    FIN-10 (audit 2026-09-04): capped at BRAINDRAIN_PENALTY_CAP (1.30). The
+    uncapped formula reached ×2.975 per round at reputation 0 with burnout
+    100 — the amplifier that took a healthcare cohort from a reputation
+    collapse to −$538M, through the treasury floor.
+
     Returns (new_opex, penalty_multiplier).
     """
     penalty = 1.0 + max(0.0, (BRAINDRAIN_REPUTATION_THRESHOLD - group_reputation) / 100.0) * BRAINDRAIN_PENALTY_MULTIPLIER
-    
+
     # Scale OPEX up aggressively if the unit is suffering severe staff burnout
     if burnout_index > BRAINDRAIN_BURNOUT_THRESHOLD:
         penalty += ((burnout_index - BRAINDRAIN_BURNOUT_THRESHOLD) / 100.0) * BRAINDRAIN_BURNOUT_OVERHEAD  # agency/locum overhead
 
+    penalty = min(penalty, BRAINDRAIN_PENALTY_CAP)
     new_opex = round(opex_base * penalty, 2)
     return new_opex, round(penalty, 4)
 
@@ -4115,9 +4121,14 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     ctx.new_treasury           = round(ctx.new_treasury, 2)
     # FIX BUG-1A (final gate): Re-apply dynamic treasury floor after all operational
     # layer penalties (carbon fees, CBAM, fines) to maintain ESG-adjusted floor
+    # FIN-10 (audit 2026-09-04): publish the floor this round is entitled to, so
+    # round_logic.run_new_engines can enforce the SAME number after the
+    # post-tick writers (NPC fines, agent hits, impact, biodiversity) — the
+    # floor used to hold only inside process_tick.
+    _avg_inv_final = ctx.events.get("_pre_austerity_avg_invest", 0)
+    _final_floor = FINANCIAL_TREASURY_FLOOR + (_avg_inv_final * 200_000_000)
+    ctx.events["treasury_floor_effective"] = round(_final_floor, 2)
     if ctx.new_treasury < 0:
-        _avg_inv_final = ctx.events.get("_pre_austerity_avg_invest", 0)
-        _final_floor = FINANCIAL_TREASURY_FLOOR + (_avg_inv_final * 200_000_000)
         # DEEP-8 term 8 (2026-09-01): event the final-gate clamp too (see the
         # debt-service clamp above) — accumulate, both gates can fire in one round.
         _pre_clamp_final = ctx.new_treasury
