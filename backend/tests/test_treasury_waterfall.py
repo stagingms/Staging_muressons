@@ -132,21 +132,31 @@ _EXPECTED_RUNNER_FINGERPRINTS = {
     # they were dropped from impacts_applied before, so those events were
     # inert. Bit-identical across two interpreters under PYTHONHASHSEED=1
     # and 12345 before pinning. Unmoved cases are the ones no swan fires in.
-    ("DEFAULT_4_BU", "advanced_climate"): "6bcb02d976455f3e",
+    # C-1 (owner calibration ruling, 2026-09-05): the greenwash bar is the
+    # TEAM'S share of the CSF pool (Σ per-BU ratios), not their average. This
+    # runner gives every BU 10 % of the pool: a four-BU team therefore put 40 %
+    # of the pool behind each claim and was still a greenwasher on every full
+    # and moderate claim from R4 (average 10 % < 15 % / 10.05 %). Only the
+    # multi-BU compositions move (+2.28M … +2.85M treasury by R10 — the SLO
+    # penalty's brand/talent terms); the SINGLE_BU pins are byte-identical,
+    # and legacy_abc / healthcare now fingerprint IDENTICALLY to brsr_ngrbc,
+    # which is never greenwash-checked on this runner — i.e. that penalty was
+    # the whole difference. Bit-identical under PYTHONHASHSEED=1 and 12345.
+    ("DEFAULT_4_BU", "advanced_climate"): "c039fef396bfd7a2",
     ("DEFAULT_4_BU", "brsr_ngrbc"): "020d13667d5e6d5d",
-    ("DEFAULT_4_BU", "healthcare"): "3c8ce84c6e55c59a",
-    ("DEFAULT_4_BU", "legacy_abc"): "3c8ce84c6e55c59a",
-    ("DEFAULT_4_BU", "multi_toggles"): "a0c95779a95996b6",
+    ("DEFAULT_4_BU", "healthcare"): "020d13667d5e6d5d",
+    ("DEFAULT_4_BU", "legacy_abc"): "020d13667d5e6d5d",
+    ("DEFAULT_4_BU", "multi_toggles"): "8ed5dc35b55ae0b2",
     ("SINGLE_BU_PHARMA", "advanced_climate"): "f8b44913c6fec8fa",
     ("SINGLE_BU_PHARMA", "brsr_ngrbc"): "c039cbbb9198437b",
     ("SINGLE_BU_PHARMA", "healthcare"): "c039cbbb9198437b",
     ("SINGLE_BU_PHARMA", "legacy_abc"): "c039cbbb9198437b",
     ("SINGLE_BU_PHARMA", "multi_toggles"): "93273de34e6b5177",
-    ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "f8b8209cd014b2c8",
+    ("VERTICAL_OIL_AND_GAS_SUB", "advanced_climate"): "d1f5895bd742fec9",
     ("VERTICAL_OIL_AND_GAS_SUB", "brsr_ngrbc"): "643d2b27f1dd4637",
-    ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "01c9fe7938f44933",
-    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "01c9fe7938f44933",
-    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "0f420a5d01fc249c",
+    ("VERTICAL_OIL_AND_GAS_SUB", "healthcare"): "643d2b27f1dd4637",
+    ("VERTICAL_OIL_AND_GAS_SUB", "legacy_abc"): "643d2b27f1dd4637",
+    ("VERTICAL_OIL_AND_GAS_SUB", "multi_toggles"): "738085d5f2a14b37",
 }
 
 # Audit 2026-09-04 (WP-12 harness debt): `un_sdg` is not a paradigm the

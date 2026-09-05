@@ -780,7 +780,7 @@ To enable fair comparison across sessions with different pathways, M_R is normal
 - Strike probability override: 50% base chance (`round_configs.py` `strike_probability_override: 0.50`; burnout adds up to +20 pts, cap 95%) of a strike zeroing revenue for that round. *(Corrected 2026-09-02 — the text said 75%.)*
 
 ### Greenwashing Engine
-- Activates when the chosen option carries a green claim (`green_claim: full` — most A/C options — or `moderate`) without backing it: a full claim needs an average investment ratio ≥ 15 % of the CSF pool, a moderate claim ≈ 10 %; an average CapEx ≥ $3M per BU always passes.
+- Activates when the chosen option carries a green claim (`green_claim: full` — most A/C options — or `moderate`) without backing it: a full claim needs the team to put ≥ 15 % of the CSF pool behind it this round (the sum of the BU ratios — C-1 ruling, 2026-09-05; previously their average), a moderate claim ≈ 10 %; a total CapEx ≥ $3M always passes.
 - Penalty: −15 social licence on every BU (moderate claim: −7.5); the scandal is a betrayal for NPC/agent trust memory (SOC-4, 2026-09-05) and raises the whistleblower / SEC-rule black-swan odds (`greenwashing_detected`).
 - Moderate choices (B): lower threshold at 10%.
 

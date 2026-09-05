@@ -137,9 +137,9 @@ _DESCRIPTIONS: dict[tuple[str, str, str], tuple[str, str]] = {
     # ── engine_parameters.competitor ──
     ("engine_parameters", "competitor", "growth_rate"):             ("%/round",   "NPC competitor EBITDA growth rate per round"),
     # ── engine_parameters.greenwashing ──
-    ("engine_parameters", "greenwashing", "investment_threshold"):  ("%",         "Min investment ratio to back a green claim credibly"),
+    ("engine_parameters", "greenwashing", "investment_threshold"):  ("%",         "Team share of the CSF pool that backs a full green claim (C-1: sum of BU ratios, not their average)"),
     ("engine_parameters", "greenwashing", "slo_penalty"):           ("pts",       "SLO penalty per BU when greenwashing scandal fires"),
-    ("engine_parameters", "greenwashing", "moderate_threshold_scale"): ("factor", "Scaling for moderate greenwash threshold"),
+    ("engine_parameters", "greenwashing", "moderate_threshold_scale"): ("factor", "Scaling of the pool-share bar for a moderate green claim (0.67 → ≈10 %)"),
     ("engine_parameters", "greenwashing", "moderate_penalty_scale"): ("factor",   "Scaling for moderate greenwash penalty"),
     ("engine_parameters", "greenwashing", "bu_rep_penalty"):        ("pts",       "Per-BU reputation delta on greenwashing"),
     # ── engine_parameters.sbti_pathway ──

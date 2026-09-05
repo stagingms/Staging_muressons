@@ -4326,6 +4326,14 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
         "paradigm": paradigm or "legacy_abc",
         "ending_pathway": ending_pathway,
         "options_shuffled": bool(session_id),
+        # C-1 (2026-09-05): the cockpit advises on green-claim backing BEFORE the
+        # commit — the bar is the team's share of the CSF pool (engine.
+        # greenwash_backing); served from config so the advice equals the check.
+        "greenwash_bars": {
+            "full": _cfg.GREENWASH_INVESTMENT_THRESHOLD,
+            "moderate": round(_cfg.GREENWASH_INVESTMENT_THRESHOLD * _cfg.GREENWASH_MODERATE_THRESHOLD_SCALE, 4),
+            "abs_capex_floor": _cfg.GREENWASH_ABS_CAPEX_FLOOR,
+        },
     }
 
 

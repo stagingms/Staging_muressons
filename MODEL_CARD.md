@@ -110,8 +110,11 @@ magnitudes as before, minus the artefact.
    which drove group reputation to 0 by R4 in every scripted run. It now uses the
    same server-derived parameters as the router (F-07), so the report measures the
    deployed game.
-   Watch item: greenwash checks use a RELATIVE investment ratio, so healthier
-   treasuries raise the absolute investment needed to avoid scandal — monitor
+   Watch item: greenwash checks use a RELATIVE quantity — since the C-1 ruling
+   (2026-09-05) the team's share of the CSF pool (sum of the BU ratios; before
+   that their average, which made the 15 % bar mean 60 % of the pool for a
+   four-BU group) — so healthier treasuries raise the absolute investment
+   needed to avoid scandal; the $3M total-CapEx floor is the escape. Monitor
    greenwash frequency in the next cohort's telemetry.
 5. **M_R amplification** dominates terminal spread by design; instructors should present
    TV rankings as strategy quality, not market realism.

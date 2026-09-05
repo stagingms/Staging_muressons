@@ -678,6 +678,12 @@ if not (0.0 <= NATURAL_DECAY_MIN_ABS_CAPEX <= NATURAL_DECAY_GROWTH_ABS_CAPEX):
     _clamp("engine_parameters.slo_ramp.min_abs_capex", f"{NATURAL_DECAY_MIN_ABS_CAPEX:,.0f}", "100,000",
            f"must sit between 0 and growth_abs_capex ({NATURAL_DECAY_GROWTH_ABS_CAPEX:,.0f})")
     NATURAL_DECAY_MIN_ABS_CAPEX = 100_000.0
+# C-1 (owner ruling 2026-09-05): the greenwash bar is the TEAM'S share of the
+# CSF pool (Σ per-BU ratios) against investment_threshold, and this floor is
+# the team's TOTAL CapEx — a group claim is backed by the group's spend. Until
+# then both were per-BU averages, so the 15 % bar meant 60 % of the pool for a
+# four-BU group and the archetypal real team (one BU at ~50 % of the pool, $1
+# in the others) greenwashed on every full claim. engine.greenwash_backing.
 GREENWASH_ABS_CAPEX_FLOOR:      float = float(_slo_ramp.get("greenwash_abs_capex_floor", 3_000_000))
 NPC_SENTIMENT_BRIDGE_BASELINE:  float = float(_trust.get("sentiment_bridge_baseline", 0.15))
 

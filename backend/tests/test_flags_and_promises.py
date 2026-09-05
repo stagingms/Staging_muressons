@@ -145,8 +145,9 @@ def test_adaptive_crisis_severity_is_a_diagnostic_not_an_announcement():
 
 def _scandal_tick():
     bus = build_bu_states()
-    # R1 option_a is a full green claim; 5 % investment and $1M CapEx clear neither bar
-    return _tick(_gs(1), bus, decisions=_decisions(bus, "option_a", ratio=0.05, capex=1_000_000))
+    # R1 option_a is a full green claim; four BUs at 2 % of the pool put 8 % of the
+    # CSF pool behind it ($400k total) — under both bars (C-1: the TEAM's share)
+    return _tick(_gs(1), bus, decisions=_decisions(bus, "option_a", ratio=0.02, capex=100_000))
 
 
 def test_the_greenwashing_scandal_is_detected_a_betrayal_and_blocks_the_premiums():
@@ -187,12 +188,14 @@ def test_greenwashing_detected_is_the_record_and_greenwashing_scandal_the_verdic
 def test_greenwash_messages_state_the_claims_own_bar_and_the_absolute_escape():
     from config import GREENWASH_INVESTMENT_THRESHOLD, GREENWASH_MODERATE_THRESHOLD_SCALE, GREENWASH_ABS_CAPEX_FLOOR
     bus = build_bu_states()
-    moderate_fail = _tick(_gs(1), bus, decisions=_decisions(bus, "option_b", ratio=0.08, capex=1_000_000))["events"]
+    # four BUs at 2 % → 8 % of the pool, under the ≈10 % moderate bar (C-1: team share)
+    moderate_fail = _tick(_gs(1), bus, decisions=_decisions(bus, "option_b", ratio=0.02, capex=100_000))["events"]
     assert moderate_fail["greenwashing_scandal"] is True
     bar = round(GREENWASH_INVESTMENT_THRESHOLD * GREENWASH_MODERATE_THRESHOLD_SCALE, 4)
     assert moderate_fail["greenwashing_threshold"] == bar and "moderate green claim" in moderate_fail["greenwashing_message"]
     assert "required 15%" not in moderate_fail["greenwashing_message"]
-    escaped = _tick(_gs(1), bus, decisions=_decisions(bus, "option_a", ratio=0.12, capex=GREENWASH_ABS_CAPEX_FLOOR))["events"]
+    # 2 % per BU → 8 % of the pool, but $3M of real money in total: the absolute escape
+    escaped = _tick(_gs(1), bus, decisions=_decisions(bus, "option_a", ratio=0.02, capex=GREENWASH_ABS_CAPEX_FLOOR / 4))["events"]
     assert escaped["greenwashing_scandal"] is False
     assert "absolute floor" in escaped["greenwashing_message"] and "no green option" not in escaped["greenwashing_message"]
     assert escaped["greenwashing_claim_level"] == "full"
@@ -358,3 +361,49 @@ def test_a_running_cascade_is_read_from_the_persisted_flags_and_not_relaunched()
     relaunched = [c["action"] for c in evaluate_npc_cascades(floor, 7, live)]
     assert "divestment_campaign" not in relaunched
     assert "divestment_campaign" in [c["action"] for c in evaluate_npc_cascades(floor, 7, [])]
+
+
+# ── C-1 (owner calibration ruling, 2026-09-05) ──────────────────────────────
+
+def test_c1_a_green_claim_is_backed_by_the_teams_share_of_the_pool_not_the_bu_average():
+    """The archetypal real team: one BU at 50 % of the CSF pool, $1 in the other
+    three (169 of the 241 stored BU rows are $1). Average ratio 12.5 % — a
+    greenwasher on every full claim under the old rule; 50 % of the pool behind
+    the claim under C-1."""
+    from engine import calc_greenwashing_risk, greenwash_backing
+    real = [{"bu_id": "pharma", "investment_ratio": 0.5, "capex_allocated": 5_000_000}] + [
+        {"bu_id": b, "investment_ratio": 0.0, "capex_allocated": 1} for b in ("electronics", "consumer_goods", "software")]
+    share, total = greenwash_backing(real)
+    assert share == 0.5 and total == 5_000_003
+    assert calc_greenwashing_risk("option_a", real, claim_level="full") == (False, 0.0)
+    # the same 15 % bar means the same thing for a single-BU company …
+    one = [{"bu_id": "pharma", "investment_ratio": 0.12, "capex_allocated": 600_000}]
+    assert calc_greenwashing_risk("option_a", one, claim_level="full")[0] is True
+    # … and for a four-BU group spreading the same 12 % of the pool evenly
+    four = [{"bu_id": b, "investment_ratio": 0.03, "capex_allocated": 150_000} for b in ("a", "b", "c", "d")]
+    assert calc_greenwashing_risk("option_a", four, claim_level="full")[0] is True
+    # 15 % of the pool spread evenly clears; the moderate bar is ≈10 %
+    four_ok = [{"bu_id": b, "investment_ratio": 0.0375, "capex_allocated": 187_500} for b in ("a", "b", "c", "d")]
+    assert calc_greenwashing_risk("option_a", four_ok, claim_level="full") == (False, 0.0)
+    assert calc_greenwashing_risk("option_b", four, claim_level="moderate") == (False, 0.0)   # 12 % ≥ ≈10 %
+    # the absolute escape is the team's total CapEx
+    from config import GREENWASH_ABS_CAPEX_FLOOR
+    rich = [{"bu_id": b, "investment_ratio": 0.01, "capex_allocated": GREENWASH_ABS_CAPEX_FLOOR / 4} for b in ("a", "b", "c", "d")]
+    assert calc_greenwashing_risk("option_a", rich, claim_level="full") == (False, 0.0)
+
+
+def test_c1_the_tick_reports_the_pool_share_it_checked_and_austerity_cannot_fake_a_scandal():
+    bus = build_bu_states()
+    # one BU carries the claim: 50 % of the pool, $1 elsewhere
+    decs = _decisions(bus, "option_a", ratio=0.0, capex=1)
+    decs[0]["investment_ratio"] = 0.5; decs[0]["capex_allocated"] = 5_000_000
+    ev = _tick(_gs(1), bus, decisions=decs)["events"]
+    assert ev["greenwashing_scandal"] is False and ev["greenwashing_pool_share"] == 0.5
+    assert "50.0% of the CSF pool clears the 15.0% bar" in ev["greenwashing_message"]
+    # under the CFO clamp the pre-austerity share still counts
+    gs = _gs(1, cfo_austerity_active=True)
+    ev2 = _tick(gs, bus, decisions=decs)["events"]
+    assert ev2["greenwashing_scandal"] is False and ev2["greenwashing_pool_share"] == 0.5
+    # and the scandal message names the quantity, not an average
+    bad = _scandal_tick()["events"]
+    assert "8.0% of the CSF pool" in bad["greenwashing_message"] and "total CapEx" in bad["greenwashing_because"]

@@ -419,11 +419,11 @@ PILLAR_OPTIONS = {
                     },
                     "greenwash_risk": {
                         "title": "Marketing-Only Pledge",
-                        "description": "Issue a net-zero pledge without binding commitments. Low cost but activates the Greenwashing Engine if average investment ratio drops below 15%.",
+                        "description": "Issue a net-zero pledge without binding commitments. Low cost but activates the Greenwashing Engine if the team puts less than 15% of the CSF pool behind it.",
                         "cost": -200_000,
                         "impacts": {"reputation": -3, "governance_risk_delta": +5},
                         "flags_set": ["greenwash_risk"],
-                        "warning_badge": "\u26a0\ufe0f GREENWASH RISK: If avg investment ratio < 15%, the Greenwashing Engine deducts \u22128 Social Licence from ALL BUs.",
+                        "warning_badge": "\u26a0\ufe0f GREENWASH RISK: If the team allocates < 15% of the CSF pool, the Greenwashing Engine deducts \u22128 Social Licence from ALL BUs.",
                     },
                 },
             },

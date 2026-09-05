@@ -1179,6 +1179,27 @@ def resolve_green_claim(
         return None
 
 
+def greenwash_backing(decisions: list[dict]) -> tuple[float, float]:
+    """(pool_share, total_capex) behind this round's group-level claim.
+
+    C-1 calibration ruling (owner, 2026-09-05): a green claim is a GROUP
+    decision, so it is backed by the group's spend — the TEAM'S share of the
+    CSF pool (Σ capex_i / pool = Σ investment_ratio_i, each BU's ratio being
+    its capex over the same pool) and the team's total CapEx. Until this ruling
+    the check averaged the per-BU ratios, which made the same 15 % bar mean
+    60 % of the pool for a four-BU group and 15 % for a single-BU company,
+    and called the archetypal real team (one BU funded at ~50 % of the pool,
+    $1 in the others; 169 of 241 stored BU rows are $1) a greenwasher on
+    every full claim. Per-BU neglect has its own consequence — the natural-
+    decay tier, evaluated on each BU's own ratio since F-17 (WP-21)."""
+    share = 0.0
+    total = 0.0
+    for d in decisions or []:
+        share += float(d.get("investment_ratio", 0.0) or 0.0)
+        total += float(d.get("capex_allocated", 0.0) or 0.0)
+    return round(share, 6), round(total, 2)
+
+
 def calc_greenwashing_risk(
     choice: str,
     decisions: list[dict],
@@ -1188,9 +1209,9 @@ def calc_greenwashing_risk(
 ) -> tuple[bool, float]:
     """
     FEATURE 16 — ESG Greenwashing Risk:
-    If a player selects an option that makes a green/ESG claim but their
-    actual average investment ratio does not back it, a greenwashing
-    scandal is triggered.
+    If a player selects an option that makes a green/ESG claim but the team's
+    share of the CSF pool does not back it, a greenwashing scandal is
+    triggered.
 
     DEEP-6 (2026-08-31): classification is config-driven via `claim_level`
     (from resolve_green_claim). The old positional heuristic treated EVERY
@@ -1198,27 +1219,28 @@ def calc_greenwashing_risk(
     Immediate Closure and Divest could fire a *greenwashing* scandal for
     teams that made no green claim at all. claim_level=None → never checked.
 
-    "full"     → 15% threshold, full penalty (SDG-ORCH: 15.0)
-    "moderate" → 10% threshold, half penalty
+    C-1 (2026-09-05): the backing is the team's pool share and total CapEx
+    (greenwash_backing), not the average of per-BU ratios.
+
+    "full"     → 15% of the pool, full penalty (SDG-ORCH: 15.0)
+    "moderate" → ≈10% of the pool, half penalty
+    Either claim is backed by total CapEx ≥ GREENWASH_ABS_CAPEX_FLOOR.
     Returns (scandal_triggered, social_license_penalty).
     """
     if claim_level not in ("full", "moderate"):
         return False, 0.0
-    ratios = [d.get("investment_ratio", 0.0) for d in decisions]
-    avg_ratio = sum(ratios) / max(len(ratios), 1)
-    # EVAL rec 4 (2026-09-01): the bar is max(relative, absolute) — an average
-    # absolute capex at GREENWASH_ABS_CAPEX_FLOOR backs a green claim even when
-    # a large CSF pool makes the RATIO look thin. Real money is real backing.
-    capexes = [float(d.get("capex_allocated", 0.0) or 0.0) for d in decisions]
-    avg_capex = sum(capexes) / max(len(capexes), 1)
-    if avg_capex >= GREENWASH_ABS_CAPEX_FLOOR:
+    pool_share, total_capex = greenwash_backing(decisions)
+    # EVAL rec 4 (2026-09-01): the bar is max(relative, absolute) — real money
+    # at GREENWASH_ABS_CAPEX_FLOOR backs a green claim even when a large CSF
+    # pool makes the SHARE look thin. Real money is real backing.
+    if total_capex >= GREENWASH_ABS_CAPEX_FLOOR:
         return False, 0.0
     if claim_level == "full":
-        if avg_ratio < green_investment_threshold:
+        if pool_share < green_investment_threshold:
             return True, penalty
     else:
         moderate_threshold = green_investment_threshold * GREENWASH_MODERATE_THRESHOLD_SCALE  # ~10% for default 15%
-        if avg_ratio < moderate_threshold:
+        if pool_share < moderate_threshold:
             return True, round(penalty * GREENWASH_MODERATE_PENALTY_SCALE, 2)
     return False, 0.0
 
@@ -4057,32 +4079,39 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     )
     greenwash_hit, greenwash_penalty = calc_greenwashing_risk(
         primary_choice, ctx.decisions, claim_level=_claim_level)
-    # FIX-A: Use pre-austerity investment ratio for greenwashing check.
+    # FIX-A: Use the pre-austerity allocation for the greenwashing check.
     # Without this, good players entering austerity are falsely punished for
     # greenwashing every round (austerity zeroes their investment_ratio).
-    avg_inv_ratio = ctx.events.get("_pre_austerity_avg_invest", 0)
-    if avg_inv_ratio == 0:  # fallback for tests without pre-austerity tracking
-        avg_inv_ratio = sum(d.get("investment_ratio", 0) for d in ctx.decisions) / max(len(ctx.decisions), 1)
-    # Override greenwash_hit: if pre-austerity investment was above threshold,
+    # C-1 (2026-09-05): the quantity is the TEAM'S share of the CSF pool
+    # (Σ per-BU ratios), not their average — see greenwash_backing.
+    _pre_ratios = ctx.events.get("_pre_austerity_ratios") or {}
+    pool_share = round(sum(float(v or 0) for v in _pre_ratios.values()), 6)
+    if pool_share == 0:  # fallback for tests without pre-austerity tracking
+        pool_share, _ = greenwash_backing(ctx.decisions)
+    avg_inv_ratio = pool_share / max(len(ctx.decisions), 1)   # diagnostic only
+    # Override greenwash_hit: if the pre-austerity share was above the bar,
     # the team genuinely invested — austerity shouldn't trigger a false scandal
-    if avg_inv_ratio >= GREENWASH_INVESTMENT_THRESHOLD:
+    if pool_share >= GREENWASH_INVESTMENT_THRESHOLD:
         greenwash_hit = False
         greenwash_penalty = 0.0
     # SOC-7 (audit 2026-09-04, WP-24): the messages hard-coded "required 15%"
-    # and told teams that passed via the $3M/BU absolute floor that they had
+    # and told teams that passed via the absolute floor that they had
     # "selected no green option". Built from the claim level, the effective
     # bar (full 15 % / moderate ≈10 %) and the absolute escape.
     _gw_bar = (GREENWASH_INVESTMENT_THRESHOLD if _claim_level == "full"
                else round(GREENWASH_INVESTMENT_THRESHOLD * GREENWASH_MODERATE_THRESHOLD_SCALE, 4)
                if _claim_level == "moderate" else None)
     _gw_capexes = [float(d.get("capex_allocated", 0) or 0) for d in ctx.decisions]
-    _gw_avg_capex = sum(_gw_capexes) / max(len(_gw_capexes), 1)
-    _gw_abs_escape = _gw_avg_capex >= GREENWASH_ABS_CAPEX_FLOOR
+    _gw_total_capex = round(sum(_gw_capexes), 2)
+    _gw_avg_capex = _gw_total_capex / max(len(_gw_capexes), 1)
+    _gw_abs_escape = _gw_total_capex >= GREENWASH_ABS_CAPEX_FLOOR
     ctx.events["greenwashing_checked"]              = True
-    ctx.events["greenwashing_avg_investment_ratio"] = round(avg_inv_ratio, 4)
+    ctx.events["greenwashing_pool_share"]           = round(pool_share, 4)          # C-1: the quantity checked
+    ctx.events["greenwashing_avg_investment_ratio"] = round(avg_inv_ratio, 4)       # diagnostic (pre-C-1 quantity)
     ctx.events["greenwashing_threshold"]            = _gw_bar if _gw_bar is not None else GREENWASH_INVESTMENT_THRESHOLD
     ctx.events["greenwashing_claim_level"]          = _claim_level or "none"
     ctx.events["greenwashing_abs_capex_floor"]      = GREENWASH_ABS_CAPEX_FLOOR
+    ctx.events["greenwashing_total_capex"]          = _gw_total_capex
     ctx.events["greenwashing_avg_capex"]            = round(_gw_avg_capex, 2)
     ctx.events["greenwashing_risk_active"]          = greenwash_hit
     if greenwash_hit:
@@ -4106,31 +4135,31 @@ def _run_reporting_layer(ctx: TickContext) -> None:
         ctx.events["greenwashing_message"]      = (
             "Greenwashing scandal! Your green rhetoric doesn't match "
             "your actual investment allocation. Public trust plummets. "
-            f"Avg investment ratio: {avg_inv_ratio:.1%} vs. the {_gw_bar:.1%} bar for a "
-            f"{_gw_claim_word} green claim (or ${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M average CapEx per BU)."
+            f"Investment: {pool_share:.1%} of the CSF pool vs. the {_gw_bar:.1%} bar for a "
+            f"{_gw_claim_word} green claim (or ${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M total CapEx)."
         )
         ctx.events["greenwashing_because"]      = (
-            f"You made a {_gw_claim_word} green claim but allocated only {avg_inv_ratio:.1%} average "
-            f"investment (average CapEx ${_gw_avg_capex/1e6:.1f}M per BU). The market requires "
-            f"≥{_gw_bar:.1%} — or ≥${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M average CapEx per BU — to back it. "
+            f"You made a {_gw_claim_word} green claim but put only {pool_share:.1%} of the CSF pool "
+            f"behind it (${_gw_total_capex/1e6:.1f}M total CapEx). The market requires "
+            f"≥{_gw_bar:.1%} of the pool — or ≥${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M total CapEx — to back it. "
             f"SLO penalty: −{greenwash_penalty:g} per BU."
         )
         ctx.events["greenwashing_counterfactual"] = (
-            f"If you had allocated ≥{_gw_bar:.1%} average investment, or ≥${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M "
-            f"average CapEx per BU, this scandal would not have fired. Alternatively, choosing a "
+            f"If you had allocated ≥{_gw_bar:.1%} of the CSF pool, or ≥${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M "
+            f"total CapEx, this scandal would not have fired. Alternatively, choosing a "
             f"non-green option avoids the greenwashing check entirely."
         )
     else:
         ctx.events["greenwashing_scandal"] = False
         if _gw_bar is None:
             _gw_why = "no green claim was made, so there was nothing to check"
-        elif avg_inv_ratio >= _gw_bar:
-            _gw_why = f"{avg_inv_ratio:.1%} average investment clears the {_gw_bar:.1%} bar for a {'full' if _claim_level == 'full' else 'moderate'} claim"
+        elif pool_share >= _gw_bar:
+            _gw_why = f"{pool_share:.1%} of the CSF pool clears the {_gw_bar:.1%} bar for a {'full' if _claim_level == 'full' else 'moderate'} claim"
         elif _gw_abs_escape:
-            _gw_why = (f"{avg_inv_ratio:.1%} is below the {_gw_bar:.1%} bar, but ${_gw_avg_capex/1e6:.1f}M average "
-                       f"CapEx per BU clears the ${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M absolute floor")
+            _gw_why = (f"{pool_share:.1%} of the pool is below the {_gw_bar:.1%} bar, but ${_gw_total_capex/1e6:.1f}M total "
+                       f"CapEx clears the ${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M absolute floor")
         else:
-            _gw_why = f"{avg_inv_ratio:.1%} average investment"
+            _gw_why = f"{pool_share:.1%} of the CSF pool"
         ctx.events["greenwashing_message"] = f"Greenwashing check passed — {_gw_why}."
 
     # ── FEATURE 25: Turnaround Pathway ──────────────────────────

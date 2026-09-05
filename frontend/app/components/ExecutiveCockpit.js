@@ -101,6 +101,7 @@ import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
 import { currencySymbol, moneyM, price, atRate, money, localiseAuthored } from '../utils/format';
 import { lookupConsequence, isIgnoredKey } from './consequenceCatalog';
+import { greenClaimAdvice } from './greenClaimAdvice';
 
 // Phase D (player redesign): CANVAS-FIRST SHELL SWITCH — the one-line
 // rollback. true → the stage flow renders inline in the center column (the
@@ -3918,6 +3919,32 @@ export default function ExecutiveCockpit({
                     ⚠️ Over-allocated by {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0) - (csfPool || 0))}
                   </div>
                 )}
+                {/* C-1 (2026-09-05): green-claim backing, read BEFORE the commit.
+                    The engine checks the team's share of the CSF pool (or total
+                    CapEx at the floor); the bars come from the round config so
+                    this line and the engine cannot disagree. */}
+                {!isPillarMode && decisionChoice && !commitResults && (() => {
+                  const advice = greenClaimAdvice({
+                    option: options?.[decisionChoice], allocations, csfPool,
+                    bars: roundConfig?.greenwash_bars, fmtCurrency,
+                  });
+                  if (!advice) return null;
+                  return (
+                    <div
+                      data-testid="green-claim-advice"
+                      data-backed={advice.backed ? 'true' : 'false'}
+                      style={{
+                        padding: '4px 8px', borderRadius: 5, width: '100%', textAlign: 'center', lineHeight: 1.3,
+                        fontSize: '0.75rem',
+                        background: advice.backed ? 'var(--positive-soft)' : 'var(--caution-soft)',
+                        border: `1px solid ${advice.backed ? 'var(--positive)' : 'var(--caution)'}`,
+                        color: advice.backed ? 'var(--positive-text)' : 'var(--caution-text)',
+                      }}
+                    >
+                      {advice.backed ? '🌱' : '🎭'} {advice.message}
+                    </div>
+                  );
+                })()}
                 {/* ── Projected Impact Widget ──
                     SIGN. projectedCost is opt.impacts.treasury, and the engine
                     writes a COST as a NEGATIVE treasury delta. Every branch here
