@@ -6133,12 +6133,25 @@ async def get_leaderboard(request: Request, facilitator_id: Optional[str] = None
         total_opex = sum(bu["opex_base"] for bu in bus)
         synergy = gs.get("synergy_multiplier", 1.0)
 
-        # Terminal Value projection: Treasury + (Rev - OPEX) * Synergy * 5
-        terminal_value = round(
-            gs.get("corporate_treasury", 0)
-            + (total_revenue - total_opex) * synergy * 5,
-            2,
-        )
+        # Terminal Value: the AWARDED figure once the finale has run, else the
+        # mid-game projection (Treasury + (Rev - OPEX) * Synergy * 5).
+        # F-14 (audit 2026-09-04): this row only ever carried the projection —
+        # never flags.terminal_value — and the Trading Floor, the God-Mode
+        # leaderboard and the grading CSV sorted on it: served −$426.2M /
+        # −$82.0M / $122.5M against awarded $0 / $59.6M / $279.9M on three
+        # completed games, sign flips included. `terminal_value_source` says
+        # which one the row carries.
+        _flags_tv = (gs.get("active_event_flags") or {}).get("terminal_value")
+        if _flags_tv is not None:
+            terminal_value = round(float(_flags_tv), 2)
+            terminal_value_source = "awarded"
+        else:
+            terminal_value = round(
+                gs.get("corporate_treasury", 0)
+                + (total_revenue - total_opex) * synergy * 5,
+                2,
+            )
+            terminal_value_source = "projection"
 
         # Risk heatmap values
         avg_ncd = sum(bu.get("natural_capital_debt", 0) for bu in bus) / len(bus) if bus else 0
@@ -6218,6 +6231,13 @@ async def get_leaderboard(request: Request, facilitator_id: Optional[str] = None
             "decision_paradigm": _get_session_paradigm(sid),
             "round_number": latest["round_number"],
             "terminal_value": terminal_value,
+            "terminal_value_source": terminal_value_source,
+            # F-14: the finale's equity bridge and profile, so the Trading
+            # Floor's IPO delta and the CSV rank on what was awarded.
+            "price_per_share": (gs.get("active_event_flags", {}) or {}).get("price_per_share"),
+            "equity_value": (gs.get("active_event_flags", {}) or {}).get("equity_value"),
+            "regenerative_multiple": (gs.get("active_event_flags", {}) or {}).get("regenerative_multiple"),
+            "archetype": (gs.get("active_event_flags", {}) or {}).get("profile_title"),
             # F-17: the multiple this team is currently valued at (finale value
             # once played, else this round's server preview) so the trading
             # floor prices the NPC rival with the SAME multiple family.

@@ -192,6 +192,14 @@ export default function ReportsExport({ leaderboard = [] }) {
         round: s.round_number || 1,
         treasury: s.total_cash || 0,
         terminal_value: s.terminal_value || 0,
+        // F-14 (audit 2026-09-04): "awarded" once the finale has run (the
+        // figure on every player screen), "projection" mid-game. Grading
+        // must read the source column — a projection is not a score.
+        terminal_value_source: s.terminal_value_source || (s.round_number >= 10 && s.terminal_value ? 'awarded' : 'projection'),
+        price_per_share: s.price_per_share ?? null,
+        equity_value: s.equity_value ?? null,
+        regenerative_multiple: s.regenerative_multiple ?? null,
+        archetype: s.archetype || '',
         reputation: s.group_reputation || 0,
         avg_slo: s.avg_social_license || 0,
         avg_ncd: s.avg_natural_capital_debt || 0,
@@ -228,10 +236,15 @@ export default function ReportsExport({ leaderboard = [] }) {
         // AC-3 (UX audit #9): grading needs to distinguish a round the team
         // PLAYED from one the server auto-committed on their behalf (Option B,
         // $1/BU). Without these two columns the two are identical in the export.
-        const headers = ['Cohort', 'Session ID', 'Round', 'Terminal Value', 'Treasury', 'Reputation', 'Avg SLO', 'Avg NCD', 'Synergy', 'Bonus', 'Talent Risk', 'Auto-Committed Rounds', 'Auto-Committed Count', 'Ending', 'Difficulty', 'Facilitator'];
+        const headers = ['Cohort', 'Session ID', 'Round', 'Terminal Value', 'TV Source', 'Price per Share', 'Equity Value', 'M_R', 'Archetype', 'Treasury', 'Reputation', 'Avg SLO', 'Avg NCD', 'Synergy', 'Bonus', 'Talent Risk', 'Auto-Committed Rounds', 'Auto-Committed Count', 'Ending', 'Difficulty', 'Facilitator'];
         const rows = sorted.map(d => [
             `"${d.cohort}"`, d.session_id, d.round,
-            d.terminal_value.toFixed(0), d.treasury.toFixed(0),
+            d.terminal_value.toFixed(0), d.terminal_value_source,
+            d.price_per_share == null ? '' : Number(d.price_per_share).toFixed(2),
+            d.equity_value == null ? '' : Number(d.equity_value).toFixed(0),
+            d.regenerative_multiple == null ? '' : Number(d.regenerative_multiple).toFixed(2),
+            `"${d.archetype || ''}"`,
+            d.treasury.toFixed(0),
             d.reputation.toFixed(1), d.avg_slo.toFixed(1),
             d.avg_ncd.toFixed(0), d.synergy.toFixed(3),
             d.bonus, d.talent_risk ? 'YES' : 'no',

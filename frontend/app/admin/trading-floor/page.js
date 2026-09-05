@@ -246,7 +246,11 @@ export default function TradingFloorPage() {
                   <div style={S.barTrack}>
                     <div style={{ ...S.barFill, width: `${((t.terminal_value || 0) / maxTv) * 100}%` }} />
                   </div>
-                  <span style={S.value}>{fmtM(t.terminal_value)}</span>
+                  {/* F-14: the row carries the AWARDED value once the finale has run;
+                      a mid-game projection is marked so the room never reads it as a score */}
+                  <span style={S.value} title={t.terminal_value_source === 'awarded' ? 'Awarded terminal value' : 'Projection — the finale has not run'}>
+                    {fmtM(t.terminal_value)}{t.terminal_value_source === 'awarded' ? '' : ' ≈'}
+                  </span>
                   {/* WOW-2E: IPO delta */}
                   {closed && sharePrice > 0 && (
                     <span style={{ ...S.ipoDelta, color: deltaColor }}>

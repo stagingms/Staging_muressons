@@ -309,7 +309,9 @@ export default function LeaderboardMatrix({
                                     <td className={styles.mono}>{sess.round_number}/10</td>
                                     <td className={styles.mono}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span>{fmtM(sess.terminal_value)}</span>
+                                            <span title={sess.terminal_value_source === 'awarded' ? 'Awarded terminal value (finale)' : 'Mid-game projection — not the awarded value'}>
+                                                {fmtM(sess.terminal_value)}{sess.terminal_value_source === 'awarded' ? '' : ' ≈'}
+                                            </span>
                                             {sess.sparkline && sess.sparkline.length > 1 && (
                                                 <svg width="60" height="20" viewBox={`0 0 60 20`} style={{ overflow: 'visible' }}>
                                                     <polyline
