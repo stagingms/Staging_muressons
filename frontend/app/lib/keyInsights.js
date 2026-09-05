@@ -62,37 +62,60 @@ export function choiceLabel(h) {
   return m ? `Option ${m[1].toUpperCase()}` : raw;
 }
 
+/** How many rounds the plan runs; the closing state is what round FINAL_ROUND produced. */
+export const FINAL_ROUND = 10;
+
 /**
- * The full ten-round ledger: closing treasury per round and the change from
- * the previous close.
+ * The ten-round ledger, one row per round PLAYED: the call made in that
+ * round, the treasury it closed on, and the change that call produced.
  *
- * Round 1 gets `delta: null`, not 0. Its opening balance is not in `history`
- * (the first row is already a CLOSE), and the engine's starting treasury can
- * be inherited from a parent track, so assuming $50M would be a guess. A
- * missing number prints as "—"; it never competes to be the best or worst
- * decision.
+ * A dashboard history row K is the state ENTERING round K — row 1 is the
+ * seed, row K+1 is what round K's decision produced — the same convention
+ * the server's analytics and debrief use (SEAM-08/09, audit 2026-09-04).
+ * So round K's outcome is row K+1 minus row K, its choice is row K's own
+ * `choice_selected`, and round 1 has a real delta (the seed is its opening
+ * balance). The history never carries what round 10 produced: pass the
+ * closing state as `closing` (the game-over global_state, or the final
+ * report's final_treasury / group_reputation) and the last round gets its
+ * outcome. Without it — or for a round still being played — the round has
+ * nothing to report and is not listed.
+ *
+ * Before this the ledger read row K as the CLOSE of round K: every delta
+ * was the previous round's outcome under this round's choice, round 1 was
+ * printed as "no change", and round 10's actual result never appeared.
  */
-export function roundLedger(history) {
+export function roundLedger(history, closing = null) {
   if (!Array.isArray(history)) return [];
   const rows = history
+    .filter((h) => h && !h.is_final)
     .map((h) => ({ h, round: Number(h?.round_number) }))
     .filter((r) => Number.isFinite(r.round))
     .sort((a, b) => a.round - b.round);
-
-  let prev = null;
-  return rows.map(({ h, round }) => {
-    const treasury = rowTreasury(h);
-    const delta = prev !== null && treasury !== null ? treasury - prev : null;
-    if (treasury !== null) prev = treasury;
-    return {
+  const closingRow = closing
+    ? (closing.global_state ? closing : { global_state: closing })
+    : null;
+  const out = [];
+  for (let i = 0; i < rows.length; i += 1) {
+    const { h, round } = rows[i];
+    let next = null;
+    if (i + 1 < rows.length) next = rows[i + 1].h;
+    else if (closingRow && round >= FINAL_ROUND) next = closingRow;
+    if (!next) break; // the round in play — no outcome yet
+    const opening = rowTreasury(h);
+    const treasury = rowTreasury(next);
+    const delta = opening !== null && treasury !== null ? treasury - opening : null;
+    out.push({
       round,
       name: ROUND_NAMES[round] || null,
       choice: choiceLabel(h),
+      opening,
       treasury,
       delta,
-      reputation: rowReputation(h),
-    };
-  });
+      reputation_from: rowReputation(h),
+      reputation: rowReputation(next),
+    });
+  }
+  return out;
 }
 
 /**
@@ -106,32 +129,26 @@ export function roundLedger(history) {
  * Each of those was reachable before, and each produced a confidently-worded
  * claim about a round the numbers said nothing about.
  */
-export function deriveKeyInsights(history) {
-  const ledger = roundLedger(history);
+export function deriveKeyInsights(history, closing = null) {
+  const ledger = roundLedger(history, closing);
   const scored = ledger.filter((r) => Number.isFinite(r.delta));
   if (scored.length < 2) return null;
-
   const best = scored.reduce((a, b) => (b.delta > a.delta ? b : a), scored[0]);
   const worst = scored.reduce((a, b) => (b.delta < a.delta ? b : a), scored[0]);
   if (best.round === worst.round) return null;
   if (best.delta === worst.delta) return null;
-
-  // Reputation swing: real only if reputation was actually tracked and moved.
+  // Reputation swing: the round whose call moved reputation the most —
+  // real only if reputation was actually tracked and moved.
   let swing = null;
-  const repRows = ledger.filter((r) => Number.isFinite(r.reputation));
-  if (repRows.length >= 2) {
-    let prev = repRows[0];
-    let biggest = null;
-    for (let i = 1; i < repRows.length; i += 1) {
-      const d = repRows[i].reputation - prev.reputation;
-      if (biggest === null || Math.abs(d) > Math.abs(biggest.change)) {
-        biggest = { ...repRows[i], change: d, from: prev.reputation };
-      }
-      prev = repRows[i];
+  let biggest = null;
+  for (const r of ledger) {
+    if (!Number.isFinite(r.reputation) || !Number.isFinite(r.reputation_from)) continue;
+    const d = r.reputation - r.reputation_from;
+    if (biggest === null || Math.abs(d) > Math.abs(biggest.change)) {
+      biggest = { ...r, change: d, from: r.reputation_from };
     }
-    if (biggest && Math.abs(biggest.change) >= 0.5) swing = biggest;
   }
-
+  if (biggest && Math.abs(biggest.change) >= 0.5) swing = biggest;
   return { best, worst, swing, ledger };
 }
 

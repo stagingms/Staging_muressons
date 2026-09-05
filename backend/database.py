@@ -1131,7 +1131,7 @@ async def fetch_latest_rounds(session_ids: list[str]) -> dict[str, int]:
     return {str(r["session_id"]): int(r["rn"]) for r in rows if r["rn"] is not None}
 
 
-async def fetch_round_history(session_id: str, since_round: int | None = None) -> list[dict]:
+async def fetch_round_history(session_id: str, since_round: int | None = None, include_final: bool = False) -> list[dict]:
     """Return the rounds of a session (for the dashboard history), oldest first.
 
     F-27 (launch audit 2026-09-01): two changes for the 5-second dashboard poll.
@@ -1266,7 +1266,11 @@ async def fetch_round_history(session_id: str, since_round: int | None = None) -
                     for row in decs
                 ],
             })
-        return history
+        # SEAM-08 (audit 2026-09-04): parity with database_memory — row K = the
+        # state entering K, R10 included; the closing state as round 11 /
+        # is_final only when asked.
+        from history_semantics import splice_final_state
+        return splice_final_state(history, include_final=include_final)
 
 
 # ── Insert Next-Round State ────────────────────────────────────

@@ -394,9 +394,14 @@ async def get_platform_analytics(request: Request,
     global_states: dict = {}
     bu_states: dict = {}
     for _sid in all_sessions:
-        _hist = await db.fetch_round_history(_sid)
+        # SEAM-08 (audit 2026-09-04): the closing row rides along (round 11,
+        # is_final) so rounds[-1] is a finished run's final state — learning
+        # bonuses, flags — not the state it entered R10 with; the per-round
+        # trajectory below keeps to the ten entering states.
+        _hist = await db.fetch_round_history(_sid, include_final=True)
         global_states[_sid] = [
-            {**h["global_state"], "round_number": h.get("round_number", 1)} for h in _hist
+            {**h["global_state"], "round_number": h.get("round_number", 1), "is_final": bool(h.get("is_final"))}
+            for h in _hist
         ]
         bu_states[_sid] = {h.get("round_number", 1): h.get("business_units") or [] for h in _hist}
     decision_log = await db.fetch_all_decisions()
@@ -452,6 +457,8 @@ async def get_platform_analytics(request: Request,
         rounds = global_states.get(sid, [])
         trajectory = []
         for grs in rounds:
+            if grs.get("is_final"):
+                continue   # SEAM-08: the closing state is not an "R11" point
             rn = grs.get("round_number", 1)
             bus = bu_states.get(sid, {}).get(rn, [])
             avg_sl = sum(b.get("social_license_score", 50) for b in bus) / max(len(bus), 1)
@@ -607,7 +614,8 @@ async def get_player_analytics(session_id: str, request: Request):
     global_states: dict = {}
     bu_states: dict = {}
     for _sid in all_sessions:
-        _hist = await db.fetch_round_history(_sid)
+        # SEAM-08: entering-states 1..10 plus the closing state, so R9 and R10 deltas are real
+        _hist = await db.fetch_round_history(_sid, include_final=True)
         global_states[_sid] = [
             {**h["global_state"], "round_number": h.get("round_number", 1)} for h in _hist
         ]

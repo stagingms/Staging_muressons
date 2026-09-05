@@ -1061,7 +1061,7 @@ async def fetch_latest_rounds(session_ids: list[str]) -> dict[str, int]:
     return out
 
 
-async def fetch_round_history(session_id: str, since_round: int | None = None) -> list[dict]:
+async def fetch_round_history(session_id: str, since_round: int | None = None, include_final: bool = False) -> list[dict]:
     """
     Return the rounds of a session (for the dashboard history), oldest first.
     F-27: `since_round` keeps only rounds >= N — same contract as database.py.
@@ -1140,7 +1140,10 @@ async def fetch_round_history(session_id: str, since_round: int | None = None) -
         for _k, _v in (gs_out.get("active_event_flags") or {}).items():
             if _k not in gs_out:
                 gs_out[_k] = _v
-    return history
+    # SEAM-08 (audit 2026-09-04): row K = state entering K, R10 included; the
+    # closing state is appended as round 11 / is_final only when asked.
+    from history_semantics import splice_final_state
+    return splice_final_state(history, include_final=include_final)
 
 
 # ── Insert Next-Round State ────────────────────────────────────

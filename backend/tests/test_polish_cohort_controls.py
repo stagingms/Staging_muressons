@@ -205,7 +205,10 @@ def test_export_my_data_returns_history_without_credentials(monkeypatch):
                 "consent_given_at": "2026-07-01T00:00:00+00:00",
                 "allowed_player_ids": ["a"], "_internal": "hidden"}
 
-    async def _fake_history(sid):
+    seen = {}
+
+    async def _fake_history(sid, since_round=None, include_final=False):
+        seen["include_final"] = include_final
         return [{"round_number": 1, "global_state": {"corporate_treasury": 1.0}}]
 
     monkeypatch.setattr(router_mod, "_assert_player_owns_session", _fake_owner_check)
@@ -220,6 +223,9 @@ def test_export_my_data_returns_history_without_credentials(monkeypatch):
     assert "_internal" not in res["session"]
     assert res["round_history"][0]["round_number"] == 1
     assert res["consent_given_at"] == "2026-07-01T00:00:00+00:00"
+    # SEAM-08 (WP-19): the export asks for the closing state too, so a
+    # finished run exports what it ended on.
+    assert seen["include_final"] is True
 
 
 # ── Webhooks ─────────────────────────────────────────────────────────────────

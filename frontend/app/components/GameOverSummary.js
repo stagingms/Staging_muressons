@@ -381,9 +381,12 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     +$0.0M" and "Most Costly Mistake … $0.0M" for the SAME round.
                     deriveKeyInsights now reads the real balance AND returns null
                     when the run genuinely cannot separate a best from a worst,
-                    so a degenerate case prints nothing instead of a false claim. */}
+                    so a degenerate case prints nothing instead of a false claim.
+                    Row K is the state ENTERING round K, so round 10's outcome
+                    needs the closing state — globalState here, which the
+                    game-over path sets from the R10 commit (SEAM-08). */}
                 {isPlayerVisible('three_key_insights') && history && history.length > 0 && (() => {
-                    const ki = deriveKeyInsights(history);
+                    const ki = deriveKeyInsights(history, globalState);
                     if (!ki) return null;
                     const { best, worst, swing } = ki;
 

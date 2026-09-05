@@ -44,7 +44,9 @@ const {
   fmtDeltaM,
 } = require('../app/lib/keyInsights');
 
-/** The real dashboard row shape, with the real numbers from a played run. */
+/** The real dashboard row shape, with the real numbers from a played run.
+ *  Row K is the state ENTERING round K (row 1 = the seed); CLOSING is what
+ *  round 10 produced — the history never carries it (SEAM-08). */
 const REAL = [
   [1, 'option_b', 49500000.0, 47.0],
   [2, 'option_c', 39720216.88, 52.29],
@@ -62,6 +64,7 @@ const REAL = [
   business_units: [],
   global_state: { corporate_treasury, group_reputation },
 }));
+const CLOSING = { corporate_treasury: -200044427.86, group_reputation: 12.29 };
 
 describe('keyInsights — reads the real history shape', () => {
   test('the treasury comes from global_state, not the row top level', () => {
@@ -73,32 +76,63 @@ describe('keyInsights — reads the real history shape', () => {
   });
 
   test('deltas are real, not a column of zeroes', () => {
-    const led = roundLedger(REAL);
+    const led = roundLedger(REAL, CLOSING);
     const deltas = led.filter((r) => Number.isFinite(r.delta)).map((r) => r.delta);
-    expect(deltas).toHaveLength(9);
+    expect(deltas).toHaveLength(10);
     expect(deltas.every((d) => d === 0)).toBe(false);
-    expect(led[2].delta).toBeCloseTo(44515682.11 - 39720216.88, 2);
+    // Round 2's call: entered on row 2, produced row 3.
+    expect(led[1].round).toBe(2);
+    expect(led[1].delta).toBeCloseTo(44515682.11 - 39720216.88, 2);
+    expect(led[1].treasury).toBeCloseTo(44515682.11, 2);
+    expect(led[1].choice).toBe('Option C');
   });
 
-  test('round 1 carries no delta rather than a fabricated zero', () => {
-    // Its opening balance is not in `history` (row 1 is already a CLOSE), and
-    // the engine can inherit a starting treasury from a parent track — so any
-    // baseline here would be a guess.
-    const led = roundLedger(REAL);
+  test('round 1 has a real delta — the seed row is its opening balance', () => {
+    const led = roundLedger(REAL, CLOSING);
     expect(led[0].round).toBe(1);
-    expect(led[0].delta).toBeNull();
-    expect(led[0].treasury).toBe(49500000.0);
+    expect(led[0].opening).toBe(49500000.0);
+    expect(led[0].treasury).toBeCloseTo(39720216.88, 2);
+    expect(led[0].delta).toBeCloseTo(39720216.88 - 49500000.0, 2);
+  });
+
+  test('round 10 closes on the closing state, and is not listed without one', () => {
+    const led = roundLedger(REAL, CLOSING);
+    expect(led).toHaveLength(10);
+    expect(led[9].round).toBe(10);
+    expect(led[9].treasury).toBeCloseTo(CLOSING.corporate_treasury, 2);
+    expect(led[9].delta).toBeCloseTo(CLOSING.corporate_treasury - (-188544427.86), 2);
+    expect(led[9].reputation).toBeCloseTo(12.29, 2);
+    // The history alone says nothing about what round 10 produced.
+    const bare = roundLedger(REAL);
+    expect(bare).toHaveLength(9);
+    expect(bare[8].round).toBe(9);
+    // A game-over global_state (the dashboard shape) works as the closing state too.
+    expect(roundLedger(REAL, { global_state: CLOSING })[9].treasury).toBeCloseTo(CLOSING.corporate_treasury, 2);
+  });
+
+  test('a round still being played has no outcome and is not listed', () => {
+    // Mid-game: rows 1..5, the team is playing round 5. Passing the current
+    // global_state as "closing" must not manufacture a round-5 outcome.
+    const mid = REAL.slice(0, 5);
+    const led = roundLedger(mid, mid[4].global_state);
+    expect(led.map((r) => r.round)).toEqual([1, 2, 3, 4]);
+  });
+
+  test('an is_final row in the history is not a round of its own', () => {
+    const withFinal = [...REAL, { round_number: 11, is_final: true, global_state: CLOSING }];
+    const led = roundLedger(withFinal, CLOSING);
+    expect(led.map((r) => r.round)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   test('best and worst are different rounds with different, real figures', () => {
-    const ki = deriveKeyInsights(REAL);
+    const ki = deriveKeyInsights(REAL, CLOSING);
     expect(ki).not.toBeNull();
     expect(ki.best.round).not.toBe(ki.worst.round);
     expect(ki.best.delta).toBeGreaterThan(0);
     expect(ki.worst.delta).toBeLessThan(0);
-    // Round 3 is the only round that gained; round 10 is the collapse.
-    expect(ki.best.round).toBe(3);
-    expect(ki.worst.round).toBe(10);
+    // Round 2's call is the only one that gained; round 9's is the collapse.
+    expect(ki.best.round).toBe(2);
+    expect(ki.worst.round).toBe(9);
     expect(fmtDeltaM(ki.best.delta)).toBe('+$4.8M');
     expect(fmtDeltaM(ki.worst.delta)).toBe('−$145.9M');
   });
@@ -108,9 +142,9 @@ describe('keyInsights — reads the real history shape', () => {
     expect(choiceLabel({ choice_selected: null })).toBeNull();
   });
 
-  test('the reputation swing is a real move, with its from/to', () => {
-    const ki = deriveKeyInsights(REAL);
-    expect(ki.swing.round).toBe(5);          // 51.29 -> 22.95, the largest jump
+  test('the reputation swing is the round whose call moved it, with its from/to', () => {
+    const ki = deriveKeyInsights(REAL, CLOSING);
+    expect(ki.swing.round).toBe(4);          // round 4's call: 51.29 -> 22.95, the largest jump
     expect(ki.swing.from).toBeCloseTo(51.29, 2);
     expect(ki.swing.reputation).toBeCloseTo(22.95, 2);
     expect(ki.swing.change).toBeLessThan(0);
@@ -173,7 +207,10 @@ describe('tripwires', () => {
   test('both surfaces derive insights from the one shared module', () => {
     expect(gameOver).toMatch(/from '\.\.\/lib\/keyInsights'/);
     expect(frontPage).toMatch(/from '\.\.\/lib\/keyInsights'/);
-    expect(gameOverCode).toMatch(/deriveKeyInsights\(history\)/);
+    // …and the scorecard hands over the closing state (row K is the state
+    // ENTERING K, so round 10's outcome is not in the history — SEAM-08).
+    expect(gameOverCode).toMatch(/deriveKeyInsights\(history, globalState\)/);
+    expect(strip(frontPage)).toMatch(/roundLedger\(history, closing\)/);
   });
 
   test('the scorecard bails out when the derivation declines', () => {
@@ -267,7 +304,7 @@ const EVENTS = {
   total_revenue: 30117745.55,
   total_opex: 46904768.52,
   terminal_ebitda: -16964099.33,
-  final_treasury: 114251564.8,
+  final_treasury: -200044427.86,   // = CLOSING: what round 10 produced (the ledger's last close)
   exit_multiple: 6.0,
   shares_outstanding: 100000000,
   competitor_ebitda: 34384275.78,
@@ -363,8 +400,10 @@ describe('rendered edition', () => {
     // that cites it — which is itself the proof the two agree.
     expect(screen.getAllByText(/\+\$4\.8M/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/−\$145\.9M/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(/Best round — Round 3/)).toBeInTheDocument();
-    expect(screen.getByText(/Costliest round — Round 10/)).toBeInTheDocument();
+    expect(screen.getByText(/Best round — Round 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Costliest round — Round 9/)).toBeInTheDocument();
+    // Round 10 is in the ledger with what it produced (closing − entering R10).
+    expect(screen.getByText('−$11.5M')).toBeInTheDocument();
     expect(screen.queryByText(/\$0\.0M/)).toBeNull();
   });
 

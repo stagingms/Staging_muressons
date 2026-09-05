@@ -2039,7 +2039,9 @@ async def export_my_data(session_id: str, request: Request):
     meta = {k: v for k, v in sess.items() if k not in _EXCLUDE and not k.startswith("_")}
 
     try:
-        history = await db.fetch_round_history(session_id)
+        # SEAM-08: the closing state rides along as round 11 / is_final so a
+        # finished run exports what it ended on, not only what it entered R10 with.
+        history = await db.fetch_round_history(session_id, include_final=True)
     except Exception:
         history = []
 
@@ -3043,6 +3045,43 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         events.setdefault("engine_failures", []).append(
             {"engine": "run_new_engines (whole batch)", "error": f"{type(exc).__name__}: {exc}"[:300]})
 
+    # ── ENGAGEMENT 7.4: Board Pressure Events (R3, R6, R9) ───
+    # SEAM-10 (audit 2026-09-04): this ran AFTER the round was persisted, so
+    # the −3 reputation existed only in the commit response — the next
+    # dashboard poll put the 3 points back and analytics/debrief never saw
+    # the penalty the player was shown. It now runs before persistence.
+    if current_round in (3, 6, 9):
+        try:
+            baseline_ebitda = current_global.get("historical_ebitda", 0)
+            current_ebitda = sum(bu["revenue_base"] - bu["opex_base"] for bu in new_bus)
+            target_ebitda = baseline_ebitda * 1.05  # 5% improvement target
+            if current_ebitda < target_ebitda:
+                shortfall_pct = round(((target_ebitda - current_ebitda) / max(target_ebitda, 1)) * 100, 1)
+                events["board_pressure"] = {
+                    "triggered": True,
+                    "target_ebitda": target_ebitda,
+                    "actual_ebitda": current_ebitda,
+                    "shortfall_pct": shortfall_pct,
+                    "message": (
+                        f"⚠️ BOARD WARNING: EBITDA (${current_ebitda:,.0f}) is "
+                        f"{shortfall_pct}% below the board's target of ${target_ebitda:,.0f}. "
+                        f"The Chairman expects a credible improvement plan by next period. "
+                        f"Failure to deliver may result in a leadership review."
+                    ),
+                    "reputation_penalty": -3,
+                }
+                # Apply reputation penalty
+                new_global["group_reputation"] = max(0, round(
+                    new_global.get("group_reputation", 50) - 3, 2
+                ))
+            else:
+                events["board_pressure"] = {
+                    "triggered": False,
+                    "message": "✅ Board satisfied — EBITDA meets or exceeds target.",
+                }
+        except Exception as exc:
+            _log.warning(f"[WARN] Board pressure calculation failed: {exc}")
+
     # F-19 / F-36 (launch audit 2026-09-01): make engine failures VISIBLE.
     # Every engine in run_new_engines is individually isolated (a failing
     # balance sheet must not block a class), but until now a team could get a
@@ -3261,6 +3300,11 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     try:
         if current_round == 10:
             # R10: Update existing state in-place (don't insert new round 11)
+            # SEAM-08 (audit 2026-09-04): the row this overwrites is the state
+            # ENTERING round 10 — stash it so history keeps ten entering-states
+            # and the analytics/debrief R10 deltas exist (history_semantics).
+            from history_semantics import stash_entering_state
+            stash_entering_state(new_global, current["global_state"], current["bu_states"])
             await db.update_latest_global_state(
                 session_id=session_id,
                 global_state=new_global,
@@ -3380,39 +3424,6 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         events["ceo_diary"] = diary_entry
     except Exception as exc:
         _log.warning(f"[WARN] CEO Diary generation failed: {exc}")
-
-    # ── ENGAGEMENT 7.4: Board Pressure Events (R3, R6, R9) ───
-    if current_round in (3, 6, 9):
-        try:
-            baseline_ebitda = current_global.get("historical_ebitda", 0)
-            current_ebitda = sum(bu["revenue_base"] - bu["opex_base"] for bu in new_bus)
-            target_ebitda = baseline_ebitda * 1.05  # 5% improvement target
-            if current_ebitda < target_ebitda:
-                shortfall_pct = round(((target_ebitda - current_ebitda) / max(target_ebitda, 1)) * 100, 1)
-                events["board_pressure"] = {
-                    "triggered": True,
-                    "target_ebitda": target_ebitda,
-                    "actual_ebitda": current_ebitda,
-                    "shortfall_pct": shortfall_pct,
-                    "message": (
-                        f"⚠️ BOARD WARNING: EBITDA (${current_ebitda:,.0f}) is "
-                        f"{shortfall_pct}% below the board's target of ${target_ebitda:,.0f}. "
-                        f"The Chairman expects a credible improvement plan by next period. "
-                        f"Failure to deliver may result in a leadership review."
-                    ),
-                    "reputation_penalty": -3,
-                }
-                # Apply reputation penalty
-                new_global["group_reputation"] = max(0, round(
-                    new_global.get("group_reputation", 50) - 3, 2
-                ))
-            else:
-                events["board_pressure"] = {
-                    "triggered": False,
-                    "message": "✅ Board satisfied — EBITDA meets or exceeds target.",
-                }
-        except Exception as exc:
-            _log.warning(f"[WARN] Board pressure calculation failed: {exc}")
 
     # ── ENGAGEMENT 7.1: Decision Regret (Shadow Ticks) ────────
     try:
@@ -3648,9 +3659,15 @@ async def get_consequence_dna_data(session_id: str, request: Request):
     ]
 
     from consequence_dna_api import build_consequence_dna_data
+    # SEAM-11 (audit 2026-09-04): fetch_latest_state keeps round_number as a
+    # sibling key, not inside global_state, so the live graph was built at
+    # "round 1" for every session — flags with source_round > 1 dropped,
+    # links skipped, ignition impossible — while the R10 snapshot (built from
+    # new_global, which carries round_number) was right. Same one-line fix
+    # the final report already carries.
     dna_data = build_consequence_dna_data(
         session_id=session_id,
-        global_state=latest["global_state"],
+        global_state={**latest["global_state"], "round_number": latest["round_number"]},
         bu_states=latest["bu_states"],
         history=history,
     )
@@ -5565,8 +5582,13 @@ async def get_peer_leaderboard(session_id: str, request: Request):
     for sess in all_sessions:
         sid = sess.get("session_id")
         if sess.get("parent_cohort_id") == parent_id:
-            hist = await db.fetch_round_history(sid)
+            # SEAM-08 (audit 2026-09-04): hist[-1] is the team's CURRENT state
+            # only with the closing row included — without it a finished team
+            # ranks on the state it entered R10 with (the row R10 overwrote
+            # before; now restored). hist[-2] is then one round back, always.
+            hist = await db.fetch_round_history(sid, include_final=True)
             if hist:
+                from history_semantics import display_round as _display_round
                 gs = hist[-1].get("global_state", {})
                 prev_treasury = (
                     float(hist[-2].get("global_state", {}).get("corporate_treasury", 0))
@@ -5580,7 +5602,8 @@ async def get_peer_leaderboard(session_id: str, request: Request):
                     "reputation": float(gs.get("group_reputation", 50)),
                     "carbon": int(gs.get("tco2e_emissions", 0)),
                     "bonus_score": gs.get("bonus_score", 0),
-                    "round_number": hist[-1].get("round_number", 1),
+                    "round_number": _display_round(hist[-1]),
+                    "finished": bool(hist[-1].get("is_final")),
                     "synergy": float(gs.get("synergy_multiplier", 1.0)),
                     "stakeholder_accuracy": gs.get("stakeholder_map_accuracy", None),  # C21
                     "_prev_treasury": prev_treasury,

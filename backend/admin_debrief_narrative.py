@@ -47,6 +47,7 @@ def _series_from_history(history: list[dict]) -> list[dict]:
         _rep = gs.get("group_reputation")
         series.append({
             "round": item.get("round_number", 1),
+            "is_final": bool(item.get("is_final")),
             "treasury": float(gs.get("corporate_treasury", 0) or 0),
             "reputation": float(50.0 if _rep is None else _rep),
             "synergy": float(gs.get("synergy_multiplier", 1.0) or 1.0),
@@ -79,14 +80,19 @@ def _turning_point(series: list[dict]) -> dict | None:
 
 
 def _predicted_vs_actual(predictions: dict, by_round: dict[int, dict]) -> list[dict]:
-    """Pair each prediction with the KPI deltas of the round it predicted."""
+    """Pair each prediction with the KPI deltas of the round it predicted.
+
+    SEAM-09 (audit 2026-09-04): by_round[r] is the state ENTERING round r, and
+    a prediction is keyed by the round being played, so round r's outcome is
+    by_round[r+1] − by_round[r]. This paired it with by_round[r] − by_round[r−1]
+    — the PREVIOUS round's outcome (sign flips on reputation in the probe)."""
     pairs = []
     for key, text in sorted(predictions.items(), key=lambda kv: str(kv[0])):
         try:
             r = int(key)
         except (TypeError, ValueError):
             continue
-        cur, prev = by_round.get(r), by_round.get(r - 1)
+        cur, prev = by_round.get(r + 1), by_round.get(r)
         if cur and prev:
             actual = {
                 "treasury_delta": cur["treasury"] - prev["treasury"],
@@ -131,7 +137,9 @@ async def get_debrief_narrative(
         for sess in player_sessions:
             sid = sess["session_id"]
             name = sess.get("player_name") or sess.get("player_id") or sid[:10]
-            history = await db.fetch_round_history(sid)
+            # SEAM-08: ten entering-states plus the closing state (round 11,
+            # is_final) so the R10 outcome exists and "final" is the finale.
+            history = await db.fetch_round_history(sid, include_final=True)
             series = _series_from_history(history)
             by_round = {s["round"]: s for s in series}
 

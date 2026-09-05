@@ -6022,8 +6022,8 @@ async def get_leaderboard(request: Request, facilitator_id: Optional[str] = None
             rep = gs.get("group_reputation", 50)
             talent_penalty = round(1.0 + max(0.0, (threshold - rep) / 100.0) * 1.5, 4)
 
-        # Fetch history for inline sparkline
-        history = await db.fetch_round_history(sid)
+        # Fetch history for inline sparkline (SEAM-08: the closing state is the last point)
+        history = await db.fetch_round_history(sid, include_final=True)
         sparkline_data = []
         if history:
             for h in sorted(history, key=lambda x: x.get('round_number', 0)):
@@ -6045,6 +6045,8 @@ async def get_leaderboard(request: Request, facilitator_id: Optional[str] = None
         _auto_rounds = []
         try:
             for _h in (history or []):
+                if _h.get("is_final"):
+                    continue  # SEAM-08: the closing state is `latest`, counted below
                 if ((_h.get("global_state") or {}).get("active_event_flags") or {}).get("auto_committed"):
                     _auto_rounds.append(_h.get("round_number"))
             if flags.get("auto_committed") and latest["round_number"] not in _auto_rounds:
@@ -6479,7 +6481,10 @@ async def get_session_report(session_id: str, request: Request, _guard: None = D
                 })
 
     # ── Round-by-round history ─────────────────────────────────────
-    history = await db.fetch_round_history(session_id)
+    # SEAM-08 (audit 2026-09-04): rows 1..10 are the states ENTERING each
+    # round; a finished run also carries its closing state as round 11
+    # flagged is_final (the row the R10 commit used to overwrite).
+    history = await db.fetch_round_history(session_id, include_final=True)
     round_history = []
     if history:
         for h in sorted(history, key=lambda x: x.get("round_number", 0)):
@@ -6491,6 +6496,7 @@ async def get_session_report(session_id: str, request: Request, _guard: None = D
             h_tv = round(h_gs.get("corporate_treasury", 0) + (h_rev - h_op) * h_syn * 5, 2)
             round_history.append({
                 "round": h.get("round_number", 0),
+                "is_final": bool(h.get("is_final")),
                 "treasury": h_gs.get("corporate_treasury", 0),
                 "reputation": h_gs.get("group_reputation", 50),
                 "synergy": h_gs.get("synergy_multiplier", 1.0),
@@ -8410,7 +8416,9 @@ async def get_debrief(session_id: str, request: Request,
     best_history = []
     best_sid = session_id
     for sid in related_ids:
-        hist = await db.fetch_round_history(sid)
+        # SEAM-08: entering-states 1..10 plus the closing state (round 11,
+        # is_final), so the R10 card exists and the R9 card's deltas are R9's.
+        hist = await db.fetch_round_history(sid, include_final=True)
         if len(hist) > len(best_history):
             best_history = hist
             best_sid = sid
@@ -10295,13 +10303,16 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
             continue
         if is_self and has_children:
             continue  # prefer player sub-sessions over the parent shell
-        gs_list = await db.fetch_round_history(sid)
+        # SEAM-08: gs_list[-1] is the team's current state only with the
+        # closing row included (a finished team otherwise reads as entering R10).
+        gs_list = await db.fetch_round_history(sid, include_final=True)
         if not gs_list:
             continue
+        from history_semantics import display_round as _display_round
         latest = gs_list[-1].get("global_state", {})
         prev = gs_list[-2].get("global_state", {}) if len(gs_list) > 1 else None
         flags = latest.get("active_event_flags", {}) or {}
-        round_number = max(round_number, int(gs_list[-1].get("round_number", 1) or 1))
+        round_number = max(round_number, _display_round(gs_list[-1]))
         teams.append({
             "name": sess.get("player_name") or sess.get("cohort_name") or sid[:8],
             "ebitda": float(latest.get("historical_ebitda", 0) or 0),
@@ -11123,13 +11134,20 @@ async def get_complexity_events(session_id: str, request: Request):
     # Parity API: fetch_round_history reads the round history under BOTH the
     # memory and Postgres stores; a direct _global_states read returns {} under
     # Postgres. Each item is {round_number, global_state:{active_event_flags,…}}.
-    rounds = await db.fetch_round_history(session_id)
+    # SEAM-08 (audit 2026-09-04): row K is the state ENTERING K, so the events
+    # on it were produced by the round-(K-1) commit — the feed labels them by
+    # that round (the seed row carries no commit's events; the closing row,
+    # included here, carries R10's, which the in-place R10 persist used to lose).
+    from history_semantics import produced_by_round as _produced_by_round
+    rounds = await db.fetch_round_history(session_id, include_final=True)
     if not rounds:
         raise HTTPException(404, "No round data")
 
     feed = []
     for grs in rounds:
-        rn = grs.get("round_number", 1)
+        rn = _produced_by_round(grs)
+        if rn is None:
+            continue
         flags = grs.get("global_state", {}).get("active_event_flags", {})
         round_events = []
         for key, value in flags.items():
@@ -11180,19 +11198,22 @@ async def get_complexity_events_all(_guard: None = Depends(require_facilitator))
     # fetch_round_history so this works under Postgres, not just the memory store.
     all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
+    from history_semantics import produced_by_round as _produced_by_round, display_round as _display_round_all
     cohorts = []
     for sid, sess in all_sessions.items():
         # Skip player sub-sessions and deleted sessions
         if sess.get("player_id") or sess.get("deleted_at"):
             continue
 
-        rounds = await db.fetch_round_history(sid)
+        rounds = await db.fetch_round_history(sid, include_final=True)
         if not rounds:
             continue
 
         feed = []
         for grs in rounds:
-            rn = grs.get("round_number", 1)
+            rn = _produced_by_round(grs)   # SEAM-08: labelled by the commit that produced the row
+            if rn is None:
+                continue
             flags = grs.get("global_state", {}).get("active_event_flags", {})
             round_events = []
             for key, value in flags.items():
@@ -11232,7 +11253,7 @@ async def get_complexity_events_all(_guard: None = Depends(require_facilitator))
             cohorts.append({
                 "session_id": sid,
                 "cohort_name": sess.get("cohort_name", sid[:12]),
-                "round": latest_gs.get("round_number", 1),
+                "round": _display_round_all(latest_gs),
                 "total_events": sum(len(r["events"]) for r in feed),
                 "feed": feed,
             })
@@ -11821,7 +11842,12 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
         # Only player sessions whose parent cohort matches, or the cohort session itself
         parent = sess.get("parent_cohort_id")
         if parent == cohort_id or sid == cohort_id:
-            gs_list = await db.fetch_round_history(sid)
+            # SEAM-08 (audit 2026-09-04): the heat-map cells R1..R10 are the
+            # states ENTERING each round (rows 1..10); the "current" columns
+            # read the closing row once the team has finished — without it a
+            # finished team's pulse froze on the state it entered R10 with.
+            from history_semantics import display_round as _display_round, entering_rows as _entering_rows
+            gs_list = await db.fetch_round_history(sid, include_final=True)
             history = {}
             cumulative_carbon_fee = 0.0
 
@@ -11831,6 +11857,8 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
                 flags = _g.get("active_event_flags") or {}
                 fee_this_round = flags.get("internal_carbon_fee_deducted", 0) or 0
                 cumulative_carbon_fee += fee_this_round
+                if gs.get("is_final"):
+                    continue   # the closing state is not an "R11" cell
                 # Compute average SLO from BU states for this round
                 buses_for_round = gs.get("business_units", [])
                 avg_slo = (
@@ -11851,7 +11879,8 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
 
             latest_item = gs_list[-1] if gs_list else {}
             latest = latest_item.get("global_state", {})
-            latest_rn = latest_item.get("round_number", 1)
+            latest_rn = _display_round(latest_item) if latest_item else 1
+            _finished = bool(latest_item.get("is_final"))
             flags = latest.get("active_event_flags", {}) or {}
             total_fee = sum(
                 (gs.get("global_state", {}).get("active_event_flags", {}) or {}).get("internal_carbon_fee_deducted", 0) or 0
@@ -11887,6 +11916,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
                     "active_traps": active_traps,
                 },
                 "round": latest_rn,
+                "finished": _finished,
                 "tipping_point": bool(latest.get("tipping_point_active", False)),
                 # RB-2 (UX audit §7.2): control-room fields. All read-only over
                 # state the engine already produced — nothing sim-level changes.
@@ -11912,7 +11942,9 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
     committed_count = sum(1 for r in rounds_list if r >= target_round) if rounds_list else 0
     min_round = min(rounds_list) if rounds_list else None
     for t in teams:
-        t["committed"] = (not t["is_cohort_shell"]) and target_round is not None and t["round"] >= target_round
+        t["committed"] = (not t["is_cohort_shell"]) and (
+            t.get("finished") or (target_round is not None and t["round"] >= target_round)
+        )
 
     pacing_out = {}
     try:

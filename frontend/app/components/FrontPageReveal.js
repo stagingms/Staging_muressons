@@ -501,8 +501,14 @@ export default function FrontPageReveal({
 
   // The five-year decision ledger and the three key insights share one
   // derivation (../lib/keyInsights) with the scorecard.
-  const ledgerRows = useMemo(() => roundLedger(history), [history]);
-  const insights = useMemo(() => deriveKeyInsights(history), [history]);
+  // The history holds the ten ENTERING states; what round 10 produced is the
+  // closing state the report was stamped from (SEAM-08).
+  const closing = useMemo(() => ({
+    corporate_treasury: data.final_treasury,
+    group_reputation: data.group_reputation,
+  }), [data]);
+  const ledgerRows = useMemo(() => roundLedger(history, closing), [history, closing]);
+  const insights = useMemo(() => deriveKeyInsights(history, closing), [history, closing]);
 
   // Competitor desk.
   const competitor = useMemo(() => {
@@ -849,8 +855,8 @@ export default function FrontPageReveal({
                 </tbody>
               </table>
               <div className="fpr-cap">
-                Closing treasury after each round, as recorded by the group. Round 1 shows no
-                change because the period opens at that close.
+                Closing treasury after each round and the change that round&apos;s call produced,
+                as recorded by the group.
               </div>
             </section>
           )}
