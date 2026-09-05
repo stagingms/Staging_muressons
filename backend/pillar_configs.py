@@ -331,7 +331,7 @@ PILLAR_OPTIONS = {
                     },
                     "hybrid_transition": {
                         "title": "Hybrid Transition",
-                        "description": "Gradual shift to hybrid fleet over 3 rounds.",
+                        "description": "Shift to a hybrid fleet — a smaller, immediate carbon gain than full electrification, at less than half the cost.",
                         "cost": -2_000_000,
                         "impacts": {"revenue_delta": +100_000, "carbon_intensity_delta": -6, "reputation": +2},
                         "flags_set": ["hybrid_fleet"],

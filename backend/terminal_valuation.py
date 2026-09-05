@@ -683,11 +683,19 @@ FLAG_DEPENDENCY_GRAPH = [
 ]
 
 def get_flag_dependency_graph(active_flags=None):
+    # FLAG-4 (audit 2026-09-04, WP-24): this tested dict-key membership on the
+    # raw flag bag — option flags are list-held (rN_flags / rN_pillar_flags)
+    # so they read "inactive", and a present-but-False boolean (the R2 tier
+    # writes all three tier keys) read "active". Flatten the way every
+    # mechanic reader does.
+    if active_flags is not None:
+        from flag_utils import collect_all_flags
+        _flat = collect_all_flags(active_flags) if isinstance(active_flags, dict) else set(active_flags or ())
     graph = []
     for dep in FLAG_DEPENDENCY_GRAPH:
         entry = {**dep}
         if active_flags is not None:
-            entry["status"] = "active" if dep["flag"] in active_flags else "inactive"
+            entry["status"] = "active" if dep["flag"] in _flat else "inactive"
         graph.append(entry)
     cats = {}
     for e in graph:

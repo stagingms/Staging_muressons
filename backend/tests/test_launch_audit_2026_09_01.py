@@ -1252,20 +1252,29 @@ class TestF08StakeholderFatigue:
         """Never fired before (the derived group figure can't exceed the BU mean).
         Now: with a crisis on record, this tick's GAIN in a BU's stock is scaled
         by 1/(1 + 0.3 × crises); losses are untouched."""
+        # SOC-3 (audit 2026-09-04, WP-24): the old form of this test took its
+        # trivial else-branch in every configuration — nothing inside a tick
+        # raises reputation, so with the baseline captured AFTER reconciliation
+        # the dampener fired 0 times in 360 audited ticks. The gains a fatigued
+        # public discounts are the BETWEEN-tick recoveries (option impacts, NPC
+        # de-escalation, kept promises) that reconcile_reputation_stock folds
+        # into the BU stock at the start of the tick: stage one here.
         gs, bus = _tick_state()
+        gs["group_reputation"] = 75.0          # +15 recovery pending reconciliation
         gs["active_event_flags"]["crisis_count_lifetime"] = 2
-        # option_a in R1 raises reputation via the option impacts; compare with no-crisis run
         res_c = _tick(gs, bus, choice="option_a")
         gs0, bus0 = _tick_state()
+        gs0["group_reputation"] = 75.0
         res_0 = _tick(gs0, bus0, choice="option_a")
         gain_0 = sum(b["reputation_score"] for b in res_0["bu_states"]) - 120.0
         gain_c = sum(b["reputation_score"] for b in res_c["bu_states"]) - 120.0
-        if gain_0 > 0:
-            assert res_c["events"].get("stakeholder_fatigue_applied") is True
-            assert res_c["events"]["stakeholder_fatigue_efficiency"] == pytest.approx(1 / 1.6, abs=1e-3)
-            assert 0 < gain_c < gain_0
-        else:  # no positive movement in this configuration → nothing to dampen, nothing fired
-            assert res_c["events"].get("stakeholder_fatigue_applied") is None
+        assert gain_0 > 0, "the staged recovery did not reach the BU stock"
+        assert res_c["events"].get("stakeholder_fatigue_applied") is True
+        assert res_c["events"]["stakeholder_fatigue_efficiency"] == pytest.approx(1 / 1.6, abs=1e-3)
+        assert res_c["events"]["stakeholder_fatigue_forgone"] > 0
+        assert gain_c < gain_0
+        # losses are untouched: no crisis history → no dampening event
+        assert res_0["events"].get("stakeholder_fatigue_applied") is None
 
 
 class TestF09NoPositionalCarbonHeuristic:

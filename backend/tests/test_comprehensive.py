@@ -615,15 +615,18 @@ class TestR10Valuation:
         assert spun_off["opex_base"] == 0
 
     def test_divest_wipes_synergy(self):
-        """R10 Option C: synergy resets to 1.0."""
+        """R10 Option C: synergy is WIPED (0.0). VAL-07 (audit 2026-09-04,
+        WP-24): it used to reset to the START value 1.0, which sails through
+        the >=0.80 synergy gate and handed a decayed team the +0.15 premium."""
         gs = make_global(round_number=11, treasury=50_000_000, synergy=1.5)
         gs["active_event_flags"] = {}
         bus = make_bus()
         decs = make_decisions("option_c")
 
         extra = post_tick(10, gs, bus, decs, {}, {})
-        assert gs["synergy_multiplier"] == 1.0
+        assert gs["synergy_multiplier"] == 0.0
         assert extra.get("synergy_wiped") is True
+        assert extra.get("synergy_before_wipe") == 1.5
 
     def test_terminal_value_formula_correctness(self):
         """Verify: TV = EBITDA × Exit_Multiple × M_R."""

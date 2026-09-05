@@ -844,6 +844,7 @@ def get_agent_summary(agent_master_state: dict) -> list[dict]:
 
 _BETRAYAL_FLAGS = frozenset({
     "deny_and_deflect", "greenwash_risk", "greenwash_detected", "materiality_ignored",
+    "greenwashing_scandal", "greenwashing_detected",   # SOC-4 (audit 2026-09-04, WP-24)
 })
 
 # Per escalation stage, a small per-round SLO nudge to the BUs an agent watches

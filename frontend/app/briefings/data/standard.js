@@ -184,7 +184,7 @@ export const STANDARD_BRIEFINGS = {
       'The European Commission has published its <strong>Circular Economy Action Plan</strong> with binding targets: all companies operating in the EU must achieve <em>60% waste diversion</em> by next fiscal year. Non-compliance fines: <strong>$15 million</strong>. This regulation applies across {{regulation_scope_phrase}}, and the deadline is non-negotiable.',
       '{{bu_waste_intro}} distinct circular economy challenges — from hazardous process waste to electronic waste, single-use packaging, and data centre thermal output.',
       'This round introduces the concept of <strong>industrial symbiosis</strong> — the potential for {{symbiosis_scope}} waste-to-resource exchanges. Thermal waste can power cold chain logistics. Organic waste can feed bio-energy systems. Decommissioned hardware contains recoverable rare metals. The question is whether you invest in making these connections real.',
-      'A <strong>Waste-to-Energy partnership</strong> — while not the cheapest option — could unlock a critical <em>Synergy Multiplier boost (+0.35)</em> that amplifies your final Terminal Valuation. More importantly, it enables the "Resist & Integrate" option in Round 10, which is only available if your Synergy Score exceeds 80. This is a pivotal strategic fork.',
+      'A <strong>Waste-to-Energy partnership</strong> — while not the cheapest option — could unlock a critical <em>Synergy Multiplier boost (+0.30)</em> that amplifies your final Terminal Valuation. More importantly, it enables the "Resist & Integrate" option in Round 10, which is only available if your Synergy Score exceeds 80. This is a pivotal strategic fork.',
     ],
     objectives: [
       'Achieve regulatory compliance with EU circular economy mandates',
@@ -198,7 +198,7 @@ export const STANDARD_BRIEFINGS = {
       { icon: '⭐', label: 'Reputation' },
     ],
     warning: {
-      text: '<strong>🔗 Synergy Gate:</strong> Choosing Waste-to-Energy (Option C) adds <strong>+0.35</strong> to your Synergy Multiplier and <strong>unlocks "Resist & Integrate"</strong> in Round 10. Without sufficient synergy (>80), your best R10 option will be locked.',
+      text: '<strong>🔗 Synergy Gate:</strong> Choosing Waste-to-Energy (Option C) adds <strong>+0.30</strong> to your Synergy Multiplier and <strong>unlocks "Resist & Integrate"</strong> in Round 10. Without sufficient synergy (>80), your best R10 option will be locked.',
     },
   },
 
@@ -252,7 +252,7 @@ export const STANDARD_BRIEFINGS = {
       { icon: '⚖️', label: 'Governance Risk' },
     ],
     warning: {
-      text: '<strong>⚠️ Strike Risk:</strong> If you choose Immediate Closure AND your average Social License is below 50, there is a <strong>75% chance of a total strike</strong> — zeroing ALL BU revenue for this round. Managed Transition and Community Fund are safer.',
+      text: '<strong>⚠️ Strike Risk:</strong> If you choose Immediate Closure AND your average Social License is below 50, there is a <strong>50% chance of a total strike</strong> — zeroing ALL BU revenue for this round. Managed Transition and Community Fund are safer.',
     },
   },
 

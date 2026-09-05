@@ -41,6 +41,8 @@ _BETRAYAL_FLAGS: frozenset[str] = frozenset({
     "deny_and_deflect",
     "greenwash_risk",
     "greenwash_detected",
+    "greenwashing_scandal",    # SOC-4 (audit 2026-09-04, WP-24): the engine's own scandal key
+    "greenwashing_detected",
     "materiality_ignored",
 })
 

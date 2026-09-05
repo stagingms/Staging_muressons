@@ -220,8 +220,13 @@ class TestPostTick:
         decs = make_decisions("option_b")
 
         extra = post_tick(3, gs, bus, decs, {}, {})
+        # FLAG-10.3 (audit 2026-09-04, WP-24): "over 3 rounds" — 5 now, 5 at
+        # the R4 tick, 5 at the R5 tick (ncd_drop projects), 15 in total.
         for bu in bus:
-            assert bu["natural_capital_debt"] == 5  # 20 - 15
+            assert bu["natural_capital_debt"] == 15  # 20 - 5
+        drops = [p for p in gs["pending_capex_projects"] if p["type"] == "ncd_drop"]
+        assert sorted(p["rounds_remaining"] for p in drops) == [1, 2]
+        assert sum(p["amount"] for p in drops) == -10
 
     def test_r5_stochastic_event_with_hard_engineering(self):
         """R5 with roll < 0.75 should apply full damage because R5 resilience is delayed."""
@@ -534,7 +539,8 @@ class TestPostTick:
         assert extra["r10_choice"] == "option_b"
 
     def test_r10_option_c_divest_wipes_synergy(self):
-        """R10 Option C wipes synergy to 1.0 and adds treasury."""
+        """R10 Option C wipes synergy (0.0 — VAL-07, WP-24: a reset to 1.0
+        passed the synergy gate) and adds treasury."""
         gs = make_global(round_number=11, treasury=50_000_000, synergy=1.5)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -542,7 +548,7 @@ class TestPostTick:
 
         extra = post_tick(10, gs, bus, decs, {}, {})
         assert extra.get("synergy_wiped") is True
-        assert gs["synergy_multiplier"] == 1.0
+        assert gs["synergy_multiplier"] == 0.0
         assert gs["corporate_treasury"] == 50_000_000 + 25_000_000
 
 

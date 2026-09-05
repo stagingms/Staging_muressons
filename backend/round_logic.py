@@ -44,7 +44,7 @@ _ARCHETYPE_REVEAL_KEY = {
 }
 
 
-def solvency_gated_profile(profile: str, dmav: float) -> str:
+def solvency_gated_profile(profile: str, dmav: float, solvent: bool | None = None) -> str:
     """Value-destroyed companies (Double-Materiality Adjusted Value <= 0) cannot
     wear a flattering archetype, regardless of M_R. DMAV = final_treasury x M_R
     - NCD — the same figure the reveal screen shows the player.
@@ -55,7 +55,9 @@ def solvency_gated_profile(profile: str, dmav: float) -> str:
     (fragile-giant OR pragmatic-operator tier) becomes the 'stranded_relic'.
     The Pragmatic Operator is a *solvent* label, so an insolvent one is
     demoted to Stranded Relic just like the Fragile Giant."""
-    if dmav > 0:
+    # VAL-09 (WP-24): callers that know the single solvency verdict (DMAV > 0
+    # AND equity ≥ 0) pass it; the DMAV-only test remains for legacy callers.
+    if (solvent if solvent is not None else dmav > 0):
         return profile
     if profile in ("regenerative_titan", "derisked_safe_haven"):
         return "hollow_idealist"
@@ -359,7 +361,11 @@ def _equity_and_solvency(gs: dict, bus: list[dict], extra: dict, *, terminal_val
         "equity_wiped_out": equity_bridge.get("equity_wiped_out", equity_value < 0),
         "shares_outstanding": SHARES_OUTSTANDING,
         "dmav": _dmav,
-        "solvent": _dmav > 0,
+        # VAL-09 (audit 2026-09-04, WP-24): two solvency definitions — the
+        # reveal gated on DMAV, the scorecard/card on equity — let the same
+        # player be "Safe-Haven" on one screen and "equity wiped out" on the
+        # next. One gate: value-creating AND equity intact.
+        "solvent": _dmav > 0 and equity_value >= 0,
     }
 
 
@@ -630,7 +636,8 @@ def post_tick(
         extra_events.update(brsr_extra)
         
         # Save round-level flags set in active_event_flags for UI / audit consistency
-        _apply_option_flags(round_number, decisions, global_state, extra_events, bus=bu_states, decision_paradigm=decision_paradigm)
+        _apply_option_flags(round_number, decisions, global_state, extra_events, bus=bu_states,
+                            decision_paradigm=decision_paradigm, events=events)
         
         # Also run finalize/grand finale if round_number == 10
         if round_number == 10:
@@ -691,7 +698,7 @@ def post_tick(
     _apply_hr_mechanics(round_number, global_state, bu_states, events, extra_events)
 
     # Persist new flags from chosen option into active_event_flags
-    _apply_option_flags(round_number, decisions, global_state, extra_events, bus=bu_states)
+    _apply_option_flags(round_number, decisions, global_state, extra_events, bus=bu_states, events=events)
 
     # C7: Dynamic Salience Migration (Ackermann & Eden 2011)
     # Check if any stakeholders shift quadrants this round based on events/flags
@@ -1189,7 +1196,17 @@ def run_new_engines(
             adj_severity, sev_diag = calc_adaptive_crisis_severity(
                 base_severity, archetype_id, global_state, bu_states, round_number
             )
-            extra["adaptive_crisis_severity"] = sev_diag
+            # FLAG-5 (audit 2026-09-04, WP-24): `adj_severity` is computed AFTER
+            # the tick applied the scripted severity and was never fed back —
+            # yet the diagnostic reached the player as "The severity of this
+            # crisis was scaled to where you actually are". It is a
+            # facilitator-side diagnostic (underscore-prefixed: not a flag,
+            # not a catalogue entry) until an owner ruling wires it into
+            # pre_tick; the archetype branch_modifiers likewise have no
+            # consumer (branching_engine.py documents this).
+            sev_diag["applied"] = False
+            sev_diag["adjusted_severity_not_applied"] = adj_severity
+            extra["_adaptive_crisis_severity_diagnostic"] = sev_diag
         except Exception as exc:
             _engine_failed(extra, "Adaptive crisis severity", exc)
 
@@ -1856,9 +1873,15 @@ def _apply_hr_mechanics(
 
     # ── 3. Workforce readiness (global-level) ──
     current_readiness = gs.get("workforce_readiness", 50.0)
+    # VAL-05 (audit 2026-09-04, WP-24): readiness now survives the tick, so
+    # the atrophy term is live — but only where the team HAS an HR lever
+    # (pillar mode: the HR area exists whether or not it was used). In the
+    # legacy paradigms nothing can raise readiness, so it holds.
+    _hr_lever_available = (events.get("pillar_cost_applied") is not None) or bool(pillar_flags) or hr_choice is not None
     new_readiness, readiness_diag = calc_workforce_readiness(
-        current_readiness, hr_invested, hr_quality
+        current_readiness, hr_invested, hr_quality if _hr_lever_available else "no_lever"
     )
+    readiness_diag["hr_lever_available"] = _hr_lever_available
     gs["workforce_readiness"] = new_readiness
     extra["workforce_readiness_diagnostics"] = readiness_diag
 
@@ -2161,7 +2184,28 @@ def _post_r3_scope3(
             _apply_treasury_with_green_fund(gs, treasury_cost, extra)
 
         ncd_delta = impacts.get("natural_capital_debt_delta", 0)
-        if ncd_delta != 0:
+        # FLAG-10.3 (audit 2026-09-04, WP-24): the Green Bond promised "Lowers
+        # Natural Capital Debt over 3 rounds" and applied the whole −15 once.
+        # An option that declares natural_capital_debt_rounds = n applies 1/n
+        # now and queues the rest as ncd_drop projects maturing on the next
+        # n−1 ticks (the same queue R8's desalination drop uses).
+        _ncd_rounds = int(impacts.get("natural_capital_debt_rounds", 1) or 1)
+        if ncd_delta != 0 and _ncd_rounds > 1:
+            _per_round = round(ncd_delta / _ncd_rounds, 2)
+            for bu in bus:
+                bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + _per_round, 2))
+            extra["natural_capital_debt_applied_r3"] = _per_round  # guard: generic applier must skip R3
+            gs.setdefault("pending_capex_projects", [])
+            for _k in range(1, _ncd_rounds):
+                gs["pending_capex_projects"].append({
+                    "type": "ncd_drop", "bu_target": "all", "amount": _per_round,
+                    "rounds_remaining": _k,
+                    "description": f"Green Bond supplier transition — NCD {_per_round:+.1f} (tranche {_k + 1} of {_ncd_rounds})",
+                })
+            extra["natural_capital_debt_scheduled_r3"] = {
+                "per_round": _per_round, "rounds": _ncd_rounds, "total": ncd_delta,
+            }
+        elif ncd_delta != 0:
             for bu in bus:
                 bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
             extra["natural_capital_debt_applied_r3"] = ncd_delta  # guard: generic applier must skip R3
@@ -2628,9 +2672,14 @@ def _post_r10_grand_finale(
         weakest["revenue_base"] = 0
         weakest["opex_base"] = 0
 
-    # Option C: Divest — wipe synergy
+    # Option C: Divest — wipe synergy. VAL-07 (audit 2026-09-04, WP-24): this
+    # RESET the multiplier to its start value 1.0, which sails through the
+    # ≥0.80 synergy gate — so a team whose synergy had decayed to 0.7 earned
+    # the +0.15 Strategic Premium by divesting, while Spin-off (which keeps
+    # the real figure) did not. A wipe is a wipe: 0.0, and the gate fails.
     if impacts.get("synergy_wipe"):
-        gs["synergy_multiplier"] = 1.0
+        extra["synergy_before_wipe"] = round(float(gs.get("synergy_multiplier", 1.0) or 0.0), 4)
+        gs["synergy_multiplier"] = 0.0
         extra["synergy_wiped"] = True
 
     # ── Pathway-Specific Option Processing ───────────────────────────
@@ -2885,7 +2934,14 @@ def _stamp_finale_valuation(
     avg_burnout_r10 = round(
         sum(bu.get("staff_burnout_index", 0.0) for bu in bus) / len(bus), 2
     ) if bus else 0.0
-    workforce_readiness = gs.get("workforce_readiness", 50.0)
+    # VAL-05 (audit 2026-09-04, WP-24): the finale read workforce_readiness
+    # off the freshly assembled state — always 50 — before _apply_hr_mechanics
+    # ran. It is carried in ENGINE_STATE_KEYS now; read it, or the flag bag.
+    workforce_readiness = gs.get("workforce_readiness")
+    if workforce_readiness is None:
+        workforce_readiness = (gs.get("active_event_flags") or {}).get(
+            "workforce_readiness", prev_flags.get("workforce_readiness", 50.0))
+    workforce_readiness = float(workforce_readiness or 50.0)
     hr_investment_rounds = sum(
         1 for k, v in prev_flags.items()
         if isinstance(k, str) and k.startswith("hr_invested_r") and v is True
@@ -2897,7 +2953,13 @@ def _stamp_finale_valuation(
     pathway_bonuses: dict[str, float] = {}
     if ending_pathway == "climate_black_swan":
         from ending_pathways import calc_climate_black_swan_mr, calc_climate_exit_multiple
-        pathway_bonuses["pathway_mr_delta"] = calc_climate_black_swan_mr(bus, gs, all_flags, extra)
+        # VAL-08 (audit 2026-09-04, WP-24): the +0.15 Carbon Transition bonus
+        # needs the R1 baseline CI, which the sole caller never passed.
+        _baseline_ci = [float(b.get("ci_baseline_r1") or 0.0) for b in bus if b.get("ci_baseline_r1") is not None]
+        pathway_bonuses["pathway_mr_delta"] = calc_climate_black_swan_mr(
+            bus, gs, all_flags, extra,
+            baseline_ci=(sum(_baseline_ci) / len(_baseline_ci)) if _baseline_ci else None,
+        )
         # CI-based exit multiple haircut
         if special.get("exit_multiple_ci_haircut") and not extra.get("exit_multiple_overridden"):
             exit_multiple = calc_climate_exit_multiple(bus, exit_multiple)
@@ -3104,14 +3166,14 @@ def _stamp_finale_valuation(
         # AR-A: solvency gate. The ladder above chose on M_R alone; if the
         # company ended value-destroyed (DMAV <= 0, the figure the reveal shows,
         # computed above), it cannot keep a flattering label.
-        _gated = solvency_gated_profile(profile, _dmav)
+        _gated = solvency_gated_profile(profile, _dmav, solvent=_solvent)
         if _gated != profile:
             profile = _gated
             if profile == "hollow_idealist":
                 profile_title = "The Hollow Idealist"
                 profile_desc = (
                     "A regenerative story the balance sheet couldn't fund — "
-                    "enterprise value turned negative."
+                    "value destroyed or shareholder equity wiped out."
                 )
                 profile_icon = ""
                 profile_gradient = "linear-gradient(135deg, #a855f7, #7e22ce)"
@@ -3563,11 +3625,25 @@ def _apply_option_flags(
     extra_events: dict,
     bus: list[dict] = None,
     decision_paradigm: str | None = None,
+    events: dict | None = None,
 ):
     """
     Persist the flags_set from the chosen option into the
     active_event_flags on the global state.
+
+    FLAG-2 (audit 2026-09-04, WP-24): in multi_toggles the router translates
+    the pillar selections into a LEGACY proxy choice (by total spend) so the
+    round handlers can run — and this function then persisted that proxy
+    option's flags as if the team had chosen it. A team that left the R5
+    defence area untouched (spend ≤ $3M elsewhere → option_c) was stamped
+    `insurance_only` and lost the +0.20 Resilience premium for an option it
+    never saw; the R1 audit area → `electronics_blindspot` (crisis ×2), the R8
+    water area → `electronics_water_priority`. Pillar mode's record is
+    rN_pillar_flags (router); the proxy's flags are never persisted.
     """
+    if events is not None and events.get("pillar_cost_applied") is not None:
+        extra_events[f"proxy_option_flags_skipped_r{round_number}"] = True
+        return
     choice = _get_primary_choice(decisions)
     cfg_opts = _fetch_options_for_industry(round_number, bus or [], decision_paradigm=decision_paradigm)
     opt = cfg_opts.get(choice, {})

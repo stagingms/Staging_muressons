@@ -169,7 +169,10 @@ def _post_r5_climate(
                 f"{resilience_factor:.0%}) requires 2 rounds of construction time. "
                 f"It provides ZERO protection against a cyclone strike THIS round. "
                 f"Effective protection right now: 0%. Infrastructure will be "
-                f"operational from Round {gs.get('round_number', 5) + 2}."
+                # FLAG-10.6 (WP-24): gs is the already-advanced state, so +2 said
+                # "Round 8" while the option says Round 7 and the project matures
+                # at the R7 tick.
+                f"operational from Round {gs.get('round_number', 6) + 1}."
             )
 
         if ncd_delta != 0:

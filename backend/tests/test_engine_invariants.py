@@ -187,6 +187,16 @@ def test_configured_delta_is_applied_exactly_once(rnd, choice, imp):
         if ncd_cfg:
             assert any(p.get("type") == "ncd_drop" and p.get("amount") == ncd_cfg
                        for p in gs.get("pending_capex_projects", []))
+    elif imp.get("natural_capital_debt_rounds", 1) > 1:
+        # FLAG-10.3 (audit 2026-09-04, WP-24): an option that declares the
+        # spread ("over 3 rounds") applies 1/n now and queues the rest as
+        # ncd_drop projects — the total is still applied exactly once.
+        n = imp["natural_capital_debt_rounds"]
+        for bu in bus:
+            assert bu["natural_capital_debt"] == pytest.approx(50.0 + ncd_cfg / n), (
+                f"R{rnd} {choice}: first tranche should be {ncd_cfg / n}")
+        queued = [p["amount"] for p in gs.get("pending_capex_projects", []) if p.get("type") == "ncd_drop"]
+        assert sum(queued) == pytest.approx(ncd_cfg - ncd_cfg / n) and len(queued) == n - 1
     else:
         for bu in bus:
             assert bu["natural_capital_debt"] == pytest.approx(50.0 + ncd_cfg), (

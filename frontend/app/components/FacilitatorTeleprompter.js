@@ -1316,7 +1316,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     4: '💡 Teams that did deep audits in R1 will see base crisis severity (40). Surface scans face 80 (doubled!). Phased audits face 60 (1.5×).',
                     5: '💡 Insurance Only (C) provides ZERO physical protection. If the cyclone strikes, full $12M damage hits. Hard Engineering and Nature-Based both mitigate.',
                     6: '💡 Ethical AI Overhaul (B) sets the "ethical_ai_overhaul" flag that provides +0.15 to the Regenerative Multiple in R10. This is the "Truth Premium."',
-                    7: '💡 Waste-to-Energy (C) unlocks +0.35 synergy multiplier — the largest single boost. Teams above 1.20 synergy unlock "Resist & Integrate" in R10.',
+                    7: '💡 Waste-to-Energy (C) unlocks +0.30 synergy multiplier — the largest single boost (+0.10 more for early_decarboniser teams). Teams above 0.80 synergy unlock "Resist & Integrate" in R10.',
                     8: '💡 Desalination (C) completes at the Round 10 tick: −30 NCD and a single $5M revenue credit. Inside the game the $30M cost is $25M net — the plant\'s later years fall outside it.',
                     9: '💡 Strike probability is now 50% (reduced from 75%). Strike only fires if average Social License is below 50. Teams with good SLO are safe.',
                     10: '💡 The Regenerative Multiple (M_R) determines the profile: ≥1.8 = Regenerative Titan, ≥1.2 = De-Risked Safe Haven, ≥0.8 = Fragile Giant, <0.8 = Stranded Relic.',
@@ -1328,8 +1328,8 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     4: '🌍 Watch teams\' carbon intensity. If avg CI > 70 by R5, the CLIMATE TIPPING POINT activates — doubling all NCD hostility. Surface Scan (R1) teams face 2× crisis severity AND higher carbon costs.',
                     5: '🌍 CRITICAL ROUND: Tipping point evaluation happens now. Avg CI > 70 = irreversible. Teams should know: BUs with CI > 120 become "stranded assets", adding +1.5% to cost of capital permanently.',
                     6: '🌍 The carbon fee continues to accumulate. Check each team\'s Green Fund balance — teams paying high carbon fees should be using the fund to subsidise green CapEx. Ethical AI (B) provides the Truth Premium for R10.',
-                    7: '🌍 Green fund is consumed first for all treasury costs. Waste-to-Energy (C) unlocks +0.35 synergy AND reduces carbon intensity. Teams in tipping point territory should prioritise decarbonisation to trigger "managed retreat" (25% hostility reduction if avg CI < 50).',
-                    8: '🌍 NCD Forgiveness is now active: green CapEx reduces NCD by 0.5 per $1M invested. Teams in NCD death spirals can invest their way out. Desalination (C) generates $3M/round payback.',
+                    7: '🌍 Green fund is consumed first for all treasury costs. Waste-to-Energy (C) unlocks +0.30 synergy AND reduces carbon intensity. Teams in tipping point territory should prioritise decarbonisation to trigger "managed retreat" (25% hostility reduction if avg CI < 50).',
+                    8: '🌍 NCD Forgiveness is now active: green CapEx reduces every BU\'s NCD by 2 × ln(1 + CapEx in $M) per round (×1.25 for R2-A full materiality teams). Teams in NCD death spirals can invest their way out. Desalination (C) completes at the R10 tick: −30 NCD and a single $5M revenue credit.',
                     9: '🌍 If tipping point is active AND avg CI has dropped below 50, the managed retreat kicks in: hostility is 1.5× instead of 2×. This is the reward for aggressive mid-game decarbonisation.',
                     10: '🌍 FINAL ROUND: The Regenerative Multiple absorbs all climate decisions. Teams with low NCD, active green funds, and managed tipping points will score highest. Carbon tax paid to date is shown in the valuation.'
                 };

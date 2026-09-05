@@ -688,7 +688,12 @@ def calc_hostile_takeover_mr(
         extra["mr_strategic_integration_synergy"] = round(synergy, 3)
 
     # +0.20: Fortress Premium — EBITDA margin > 20% AND no scandal flags (GAME-2 ramped on margin)
-    scandal_flags = {"scandal_erupted", "whistleblower_investigation", "greenwash_exposed"}
+    # FLAG-9 (audit 2026-09-04, WP-24): scandal_erupted / greenwash_exposed
+    # are written nowhere; the engine's scandal is greenwashing_scandal (and,
+    # since WP-24, greenwashing_detected). The premium is blocked by the
+    # scandal that fires.
+    scandal_flags = {"scandal_erupted", "whistleblower_investigation", "greenwash_exposed",
+                     "greenwashing_scandal", "greenwashing_detected", "greenwash_detected"}
     _f = _ramp_fraction(ebitda_margin, 0.20, _BAND_MARGIN, "above") if not all_flags.intersection(scandal_flags) else 0.0
     if _f > 0:
         b = round(0.20 * _f, 4); mr_delta += b
@@ -739,7 +744,8 @@ def calc_regulatory_shutdown_mr(
     extra["pathway_ethical_score"] = round(ethical_score, 2)
 
     # +0.30: Regulatory Exemplar — ethical_score > 7 AND no scandal flags (GAME-2 ramped on score)
-    scandal_flags = {"scandal_erupted", "greenwash_exposed", "whistleblower_investigation"}
+    scandal_flags = {"scandal_erupted", "greenwash_exposed", "whistleblower_investigation",
+                     "greenwashing_scandal", "greenwashing_detected", "greenwash_detected"}  # FLAG-9 (WP-24)
     _f = _ramp_fraction(ethical_score, 7.0, _BAND_ETHICAL, "above") if not all_flags.intersection(scandal_flags) else 0.0
     if _f > 0:
         b = round(0.30 * _f, 4); mr_delta += b

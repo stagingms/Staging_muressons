@@ -237,13 +237,16 @@ ROUND_CONFIGS = {
                 "title": "Green Bond Investment",
                 "description": (
                     "Issue a green bond to fund supplier transition. Lowers "
-                    "Natural Capital Debt over 3 rounds."
+                    "Natural Capital Debt by 15 over 3 rounds (5 per round, R3–R5)."
                 ),
                 "flags_set": ["green_bond_active"],
                 "ci_routing": "scope3_weighted",  # I2: green bond targets supply chain
                 "impacts": {
                     "treasury": -2_000_000,
                     "natural_capital_debt_delta": -15,
+                    # FLAG-10.3 (WP-24): spread over three ticks via ncd_drop
+                    # projects (round_logic._post_r3_scope3), as the text says.
+                    "natural_capital_debt_rounds": 3,
                     "carbon_intensity_delta": -8,
                     "revenue_delta": +300_000,
                     "reputation": +4,
@@ -640,7 +643,7 @@ ROUND_CONFIGS = {
                 "title": "Immediate Closure",
                 "description": (
                     "Close factories now for maximum cost savings. If Social "
-                    "License is low, 75% chance of a strike that zeros revenue."
+                    "License is low, 50% chance of a strike that zeros revenue."
                 ),
                 "flags_set": ["immediate_closure"],
                 "climate_framing": "MALADAPTATION (short-term extraction)",

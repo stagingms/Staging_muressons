@@ -1596,13 +1596,11 @@ export const CONSEQUENCE_CATALOG = {
     icon: '🦠',
     explain: () => 'A reputation hit in one unit spread across the group — reputation is shared, even when the failure is not.',
   },
-  adaptive_crisis_severity: {
-    label: 'Crisis Severity Adapted',
-    mechanism: 'Crisis severity scales to your current position so the simulation stays challenging without being unwinnable.',
-    severity: 'neutral',
-    icon: '🎚️',
-    explain: () => 'The severity of this crisis was scaled to where you actually are, not to a fixed script.',
-  },
+  // FLAG-5 (audit 2026-09-04, WP-24): `adaptive_crisis_severity` was announced
+  // here every round from R6 ("scaled to where you actually are") while the
+  // computed value was never applied. The engine now emits it as a
+  // facilitator-side diagnostic (`_adaptive_crisis_severity_diagnostic`); no
+  // player-facing entry until an owner ruling wires it into pre_tick.
   crisis_multiplier: {
     label: 'Crisis Multiplier',
     mechanism: 'Prior blind spots and unresolved risks multiply the impact of the current crisis.',

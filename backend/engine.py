@@ -715,6 +715,13 @@ def calc_workforce_readiness(
         delta = READINESS_DELTA_HIGH
     elif hr_quality_tier == "medium":
         delta = READINESS_DELTA_MEDIUM
+    elif hr_quality_tier == "no_lever":
+        # VAL-05 (audit 2026-09-04, WP-24): the legacy paradigms have no HR
+        # lever (the HR area is a pillar-mode construct), so "no investment →
+        # atrophy" would be an unavoidable −10/round: readiness 0 by R5 and
+        # the Gen-Z employee agent walking out on every legacy team. The
+        # stock holds where there is nothing to pull.
+        delta = 0.0
     else:
         delta = READINESS_DELTA_NONE  # skills atrophy (6-month period)
 
@@ -3606,6 +3613,15 @@ def _run_operational_layer(ctx: TickContext) -> None:
         if total_green_capex > 0:
             green_capex_m     = total_green_capex / 1_000_000
             forgiveness_per_bu = round(NCD_FORGIVENESS_LOG_COEFF * math.log(1 + green_capex_m), 2)
+            # FLAG-10.5 (audit 2026-09-04, WP-24): R2-A promised "In Advanced
+            # Climate mode: unlocks CSRD/ESRS climate materiality bonus (NCD
+            # forgiveness +25%)" and no formula had the term. It does now:
+            # full_materiality_alignment (R2-A's flag) scales the forgiveness
+            # by 1.25 in this paradigm.
+            from flag_utils import collect_all_flags as _caf_ncd
+            if "full_materiality_alignment" in _caf_ncd(current_global.get("active_event_flags", {})):
+                forgiveness_per_bu = round(forgiveness_per_bu * 1.25, 2)
+                ctx.events["ncd_forgiveness_materiality_bonus"] = 1.25
             for bu in ctx.new_bus:
                 old_ncd = bu.get("natural_capital_debt", 0)
                 if old_ncd > 0 and forgiveness_per_bu > 0:
@@ -4042,37 +4058,62 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     if avg_inv_ratio >= GREENWASH_INVESTMENT_THRESHOLD:
         greenwash_hit = False
         greenwash_penalty = 0.0
+    # SOC-7 (audit 2026-09-04, WP-24): the messages hard-coded "required 15%"
+    # and told teams that passed via the $3M/BU absolute floor that they had
+    # "selected no green option". Built from the claim level, the effective
+    # bar (full 15 % / moderate ≈10 %) and the absolute escape.
+    _gw_bar = (GREENWASH_INVESTMENT_THRESHOLD if _claim_level == "full"
+               else round(GREENWASH_INVESTMENT_THRESHOLD * GREENWASH_MODERATE_THRESHOLD_SCALE, 4)
+               if _claim_level == "moderate" else None)
+    _gw_capexes = [float(d.get("capex_allocated", 0) or 0) for d in ctx.decisions]
+    _gw_avg_capex = sum(_gw_capexes) / max(len(_gw_capexes), 1)
+    _gw_abs_escape = _gw_avg_capex >= GREENWASH_ABS_CAPEX_FLOOR
     ctx.events["greenwashing_checked"]              = True
     ctx.events["greenwashing_avg_investment_ratio"] = round(avg_inv_ratio, 4)
-    ctx.events["greenwashing_threshold"]            = 0.15
+    ctx.events["greenwashing_threshold"]            = _gw_bar if _gw_bar is not None else GREENWASH_INVESTMENT_THRESHOLD
+    ctx.events["greenwashing_claim_level"]          = _claim_level or "none"
+    ctx.events["greenwashing_abs_capex_floor"]      = GREENWASH_ABS_CAPEX_FLOOR
+    ctx.events["greenwashing_avg_capex"]            = round(_gw_avg_capex, 2)
     ctx.events["greenwashing_risk_active"]          = greenwash_hit
     if greenwash_hit:
         for bu in ctx.new_bus:
             bu["social_license_score"] = max(0.0, round(bu["social_license_score"] - greenwash_penalty, 2))
         ctx.events["greenwashing_scandal"]      = True
+        # FLAG-9 (audit 2026-09-04, WP-24): black_swan_registry (whistleblower
+        # +15 pp, SEC climate rule +12 pp), regional_reporting and
+        # meadows_leverage read `greenwashing_detected`, which nothing wrote.
+        ctx.events["greenwashing_detected"]     = True
         ctx.events["greenwashing_penalty"]      = greenwash_penalty
+        _gw_claim_word = "full" if _claim_level == "full" else "moderate"
         ctx.events["greenwashing_message"]      = (
             "Greenwashing scandal! Your green rhetoric doesn't match "
             "your actual investment allocation. Public trust plummets. "
-            f"Avg investment ratio: {avg_inv_ratio:.1%} vs. required 15%."
+            f"Avg investment ratio: {avg_inv_ratio:.1%} vs. the {_gw_bar:.1%} bar for a "
+            f"{_gw_claim_word} green claim (or ${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M average CapEx per BU)."
         )
         ctx.events["greenwashing_because"]      = (
-            f"You chose a green option but allocated only {avg_inv_ratio:.1%} average "
-            f"investment. The market requires ≥15% to back a green claim. "
-            f"SLO penalty: −{greenwash_penalty:.0f} per BU."
+            f"You made a {_gw_claim_word} green claim but allocated only {avg_inv_ratio:.1%} average "
+            f"investment (average CapEx ${_gw_avg_capex/1e6:.1f}M per BU). The market requires "
+            f"≥{_gw_bar:.1%} — or ≥${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M average CapEx per BU — to back it. "
+            f"SLO penalty: −{greenwash_penalty:g} per BU."
         )
         ctx.events["greenwashing_counterfactual"] = (
-            f"If you had allocated ≥15% average investment, this scandal "
-            f"would not have fired. Alternatively, choosing a non-green option "
-            f"avoids the greenwashing check entirely."
+            f"If you had allocated ≥{_gw_bar:.1%} average investment, or ≥${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M "
+            f"average CapEx per BU, this scandal would not have fired. Alternatively, choosing a "
+            f"non-green option avoids the greenwashing check entirely."
         )
     else:
         ctx.events["greenwashing_scandal"] = False
-        ctx.events["greenwashing_message"] = (
-            f"Greenwashing check passed. Avg investment ratio: {avg_inv_ratio:.1%} "
-            f"({'above' if avg_inv_ratio >= 0.15 else 'below — no green option selected, hence no penalty'} "
-            f"the 15% threshold)."
-        )
+        if _gw_bar is None:
+            _gw_why = "no green claim was made, so there was nothing to check"
+        elif avg_inv_ratio >= _gw_bar:
+            _gw_why = f"{avg_inv_ratio:.1%} average investment clears the {_gw_bar:.1%} bar for a {'full' if _claim_level == 'full' else 'moderate'} claim"
+        elif _gw_abs_escape:
+            _gw_why = (f"{avg_inv_ratio:.1%} is below the {_gw_bar:.1%} bar, but ${_gw_avg_capex/1e6:.1f}M average "
+                       f"CapEx per BU clears the ${GREENWASH_ABS_CAPEX_FLOOR/1e6:.0f}M absolute floor")
+        else:
+            _gw_why = f"{avg_inv_ratio:.1%} average investment"
+        ctx.events["greenwashing_message"] = f"Greenwashing check passed — {_gw_why}."
 
     # ── FEATURE 25: Turnaround Pathway ──────────────────────────
     already_survival = current_global.get("active_event_flags", {}).get("survival_mode", False)
@@ -4542,9 +4583,19 @@ def _run_reporting_layer(ctx: TickContext) -> None:
             if _raw_stakeholders:
                 _sh_list = initialise_sentiment(_raw_stakeholders)
         if _sh_list:
+            # FLAG-3 (audit 2026-09-04, WP-24): the 58-flag sentiment rule map
+            # never received a decision flag — decisions carried no flags_set
+            # and the option/pillar flags are list-held. router.commit_turn now
+            # attaches the chosen option's (or the pillar aggregate's) flags_set
+            # to the decisions before the tick; the round's pillar_flags and the
+            # stored rN_pillar_flags are read as well for direct callers.
             _flags_this_round = []
             for _d in ctx.decisions:
-                _flags_this_round.extend(_d.get("flags_set", []))
+                _flags_this_round.extend(_d.get("flags_set", []) or [])
+            _flags_this_round.extend(ctx.events.get("pillar_flags", []) or [])
+            _flags_this_round.extend(
+                (current_global.get("active_event_flags") or {}).get(
+                    f"r{current_global.get('round_number', 1)}_pillar_flags", []) or [])
             _flags_this_round.extend([k for k, v in ctx.events.items() if v is True])
             _swans = [
                 {"event_id": e.get("id", e.get("event_id", "")), "title": e.get("title", "")}
@@ -4610,6 +4661,13 @@ ENGINE_STATE_KEYS: tuple[str, ...] = (
     "org_politics",
     "supply_chain",
     "regulatory_sandbox",
+    # VAL-05 (audit 2026-09-04, WP-24): round_logic._apply_hr_mechanics wrote
+    # workforce_readiness onto a state this assembly then rebuilt without it,
+    # so readiness restarted at 50 every round — the +0.10 Workforce
+    # Excellence premium and the <40 penalties were unreachable in every
+    # paradigm. Both HR stocks now cross the tick boundary.
+    "workforce_readiness",
+    "pillar_effectiveness_modifier",
 )
 
 
@@ -4823,11 +4881,17 @@ def process_tick(
     ctx.events["_pre_austerity_avg_invest"] = _pre_austerity_avg_invest
     # F-01: fold every between-tick group_reputation write into the BU stock
     # BEFORE contagion re-derives the group figure (see reconcile_reputation_stock).
+    # F-08 / SOC-3 (audit 2026-09-04, WP-24): the fatigue baseline was captured
+    # AFTER reconcile_reputation_stock folded the between-tick recoveries in,
+    # and nothing inside the tick raises reputation — so "gain" was never
+    # positive and the dampener fired 0 times in 360 audited ticks. The
+    # baseline is the stock BEFORE reconciliation: the option impacts, NPC
+    # de-escalations and kept promises that lifted reputation between ticks
+    # are what a fatigued public discounts.
+    ctx.rep_at_tick_start = {b.get("bu_id"): float(b.get("reputation_score", 50.0) or 0.0) for b in ctx.new_bus}
     _rep_carry = reconcile_reputation_stock(current_global, ctx.new_bus)
     if _rep_carry:
         ctx.events["reputation_carry_applied"] = _rep_carry
-    # F-08: the stock each BU carries into this tick (post-reconciliation).
-    ctx.rep_at_tick_start = {b.get("bu_id"): float(b.get("reputation_score", 50.0) or 0.0) for b in ctx.new_bus}
     # F-13 (launch audit 2026-09-01): `ci_baseline_r1` was read by the per-BU
     # SBTi pathway but never written, so the baseline was the CURRENT CI every
     # round and every BU was "off track" from round 2 whatever it did. Stamp the

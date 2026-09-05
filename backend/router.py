@@ -2918,6 +2918,23 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     else:
         _crisis_source = "baseline"
         _crisis_label = "✅ Baseline — Full audit completed"
+    # FLAG-3 (audit 2026-09-04, WP-24): the stakeholder-sentiment rule map
+    # (58 option/pillar flags → attitude deltas + narratives) reads
+    # decision["flags_set"], which nothing ever populated — attitudes moved
+    # only on black swans. Attach the chosen option's flags (or the pillar
+    # aggregate's) to the decisions the tick receives; the audit log stores
+    # explicit columns, so the extra key travels no further than the tick.
+    try:
+        if pillar_aggregation:
+            _opt_flags_this_round = list(pillar_aggregation.get("flags_set", []) or [])
+        else:
+            from round_logic import _fetch_options_for_industry as _ffo, _get_primary_choice as _gpc
+            _opt_flags_this_round = list(((_ffo(current_round, current_bus, decision_paradigm=paradigm)
+                                           .get(_gpc(decisions_raw)) or {}).get("flags_set", []) or []))
+    except Exception:
+        _opt_flags_this_round = []
+    if _opt_flags_this_round:
+        decisions_raw[0]["flags_set"] = _opt_flags_this_round
     # ── PHASE-1: Inject difficulty tier into engine input ─────
     _session_difficulty = (session_info or {}).get("difficulty_tier", "advanced")
     current_global.setdefault("active_event_flags", {})["difficulty_tier"] = _session_difficulty
@@ -2981,6 +2998,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     events = tick_result["events"]
     if _ped_ov:
         new_global["pedagogical_overrides"] = dict(_ped_ov)  # IMP-06b, see above
+    if _opt_flags_this_round:
+        events["option_flags_this_round"] = _opt_flags_this_round  # FLAG-3 (WP-24): what the sentiment rules saw
 
     # ── Crisis Multiplier KPI: expose severity source for UI display ──
     events["crisis_severity_effective"] = effective_crisis
@@ -3534,6 +3553,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 shadow_decisions = copy.deepcopy(decisions_raw)
                 for d in shadow_decisions:
                     d["choice_selected"] = alt_option
+                    d.pop("flags_set", None)   # FLAG-3: the chosen option's flags are not the alternative's
                 try:
                     import copy as _copy
                     shadow_result = process_tick(

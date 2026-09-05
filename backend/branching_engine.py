@@ -203,6 +203,13 @@ def classify_player_archetype(
 #  ADAPTIVE CRISIS SEVERITY (SE-3)
 # ═══════════════════════════════════════════════════════════════
 
+# FLAG-5 (audit 2026-09-04, WP-24): the ARCHETYPES `branch_modifiers`
+# (crisis_severity_multiplier, opportunity_frequency, stakeholder_support_bonus,
+# unique_crisis) and the value calc_adaptive_crisis_severity returns have NO
+# consumer in the tick — run_new_engines calls it after the scripted severity
+# has already been applied and keeps only the diagnostic. Until an owner
+# ruling moves the call into pre_tick, nothing here changes a number the
+# player sees; the diagnostic carries `applied: False`.
 def calc_adaptive_crisis_severity(
     base_severity: float,
     archetype_id: str,
