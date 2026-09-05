@@ -75,6 +75,21 @@ def test_alternatives_are_not_the_post_tick_gap_in_disguise():
         alts = regret["alternatives"]
         assert len(alts) == 2, alts
         deltas = [a["treasury_delta"] for a in alts.values()]
+        # WP-22: the two alternatives can LEGITIMATELY carry the same delta —
+        # R2's option_b and option_c both cost $0 against option_a's $2.5M, so
+        # when the canonical primary is option_a (the display order is shuffled
+        # per session) both read +2.5M, which is also the round's post-tick gap
+        # once nothing else in run_new_engines moves treasury. The heuristic
+        # below only passed on that case while the biodiversity invoice (F-19a)
+        # was still charging every round; skip it when the config itself
+        # prices the two alternatives identically.
+        from round_configs import get_round_config
+        _opts = (get_round_config(rnd) or {}).get("options", {})
+        _primary = ({"option_a", "option_b", "option_c"} - set(alts)).pop()
+        _expected = {k: (_opts.get(k, {}).get("impacts", {}).get("treasury", 0)
+                         - _opts.get(_primary, {}).get("impacts", {}).get("treasury", 0)) for k in alts}
+        if len(set(_expected.values())) == 1:
+            continue
         # The symptom: both alternatives equal to (engine final treasury - persisted treasury).
         wf_final = (ev.get("consequence_waterfall") or {}).get("final_treasury")
         persisted = body["global_state"]["corporate_treasury"]

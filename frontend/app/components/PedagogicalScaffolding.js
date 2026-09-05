@@ -644,6 +644,14 @@ export function DebriefProtocol() {
 }
 
 
+/* IMP-04 (audit 2026-09-04, WP-22): the R6/R7/R8 journey panels promised
+   effects (consequences that would "unfold", impacts that would "apply at
+   round resolution") that no engine ever applied, and posted the player's
+   answers to a super-admin settings route. They are reflection exercises: the note
+   below says so on every panel, and the answers go to the player
+   journey-response endpoint for the facilitator's debrief. */
+const REFLECTION_NOTE = "Reflection exercise — your answer is recorded for the facilitator's debrief. It does not change the simulation's numbers.";
+
 /* ═══════════════════════════════════════════════════════════════
    9. R6 REVELATION PANEL (Kolb 1984 Reflective Observation)
    Post-decision twist — whistleblower leak with micro-decisions.
@@ -682,7 +690,7 @@ export function R6RevelationPanel({ onMicroDecision, onVisible }) {
                 </div>
                 <div className={styles.pgSubmitted}>
                     <p className={styles.pgQuote}>{choice.icon} {choice.label}</p>
-                    <span className={styles.pgBadge}>✅ Your response has been recorded — consequences will unfold</span>
+                    <span className={styles.pgBadge}>✅ Response recorded for the debrief (reflection exercise — no engine impact)</span>
                 </div>
             </div>
         );
@@ -695,6 +703,7 @@ export function R6RevelationPanel({ onMicroDecision, onVisible }) {
                 <h4>{revelation.title}</h4>
             </div>
             <p className={styles.pgPrompt}>{revelation.narrative}</p>
+            <p className={styles.pgTheory} data-testid="journey-reflection-note">{revelation.note || REFLECTION_NOTE}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {Object.entries(revelation.micro_decisions).map(([key, dec]) => (
                     <button
@@ -794,7 +803,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                         </div>
                     ))}
                 </div>
-                <span className={styles.mmBadge}>✅ Allocation committed — impacts will apply at round resolution</span>
+                <span className={styles.mmBadge}>✅ Allocation recorded for the debrief (reflection exercise — no engine impact)</span>
             </div>
         );
     }
@@ -809,6 +818,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                 </span>
             </div>
             <p className={styles.mmPrompt}>{variant.instruction}</p>
+            <p className={styles.pgTheory} data-testid="journey-reflection-note">{variant.note || REFLECTION_NOTE}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {Object.entries(variant.initiatives).map(([key, init]) => (
                     <div key={key} style={{
@@ -834,7 +844,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                         />
                         {allocs[key] >= init.synergy_threshold && (
                             <div style={{ fontSize: 'var(--type-caption)', color: '#d97706', marginTop: 6, fontWeight: 600 }}>
-                                🎯 Synergy bonus threshold reached!
+                                🎯 Above the synergy threshold — worth defending in the debrief
                             </div>
                         )}
                     </div>
@@ -924,6 +934,7 @@ export function StakeholderTribunal({ onResponses, onVisible }) {
                 <span className={styles.brTheory}>Freeman (1984) Stakeholder Theory</span>
             </div>
             <p className={styles.pgPrompt} style={{ marginBottom: 12 }}>{variant.instruction}</p>
+            <p className={styles.pgTheory} data-testid="journey-reflection-note">{variant.note || REFLECTION_NOTE}</p>
 
             {/* Progress */}
             <div className={styles.brProgress}>

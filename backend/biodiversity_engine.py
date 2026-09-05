@@ -78,7 +78,14 @@ def calc_ecosystem_health_index(
     without active maintenance.
     """
     ncd_impact = ncd_delta * 0.5  # Positive NCD delta = degradation
-    deforest_impact = deforestation_rate * 2.0
+    # IMP-01 (audit 2026-09-04, WP-22): deforestation_rate has no writer (a
+    # constant 2.5 → −5.0/round) and the −1.5 "entropy" drift charged every
+    # team every round, so the greenest and the most extractive team drew the
+    # same EHI curve (65 → 2.5 by R10) and paid the same "Nature's Invoice".
+    # Neither is a consequence of a decision; both are gone. The index now
+    # moves with the levers that exist: this round's NCD change, carbon
+    # intensity above 50, habitat integrity, restoration and TNFD disclosure.
+    deforest_impact = 0.0
     habitat_support = (habitat_integrity - 0.5) * 5.0  # Positive if > 50% intact
     climate_stress = max(0, (carbon_intensity_avg - 50)) * 0.1
 
@@ -90,8 +97,8 @@ def calc_ecosystem_health_index(
         - climate_stress
     )
 
-    # Natural degradation drift (entropy)
-    natural_drift = -1.5  # Ecosystems degrade without intervention
+    # No unconditional drift (IMP-01)
+    natural_drift = 0.0
 
     new_ehi = max(0.0, min(100.0, round(current_ehi + delta + natural_drift, 2)))
 
@@ -475,8 +482,9 @@ def process_biodiversity_tick(
 
     bio_state["_prev_esv"] = new_esv
 
-    # 6. M_R bonus from TNFD disclosure
-    diagnostics["tnfd_mr_bonus"] = tnfd_mods["mr_bonus"]
+    # 6. TNFD disclosure credit (IMP-17: was labelled an M_R bonus that no
+    # M_R arbiter ever read — reported as what it is, a disclosure credit)
+    diagnostics["tnfd_disclosure_credit"] = tnfd_mods["mr_bonus"]
     diagnostics["tnfd_level"] = bio_state.get("tnfd_disclosure_level", "none")
 
     # History tracking

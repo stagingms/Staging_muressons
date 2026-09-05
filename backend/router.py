@@ -2362,6 +2362,10 @@ _PERSISTENT_FLAG_KEYS = (
     "difficulty_tier",       # round_logic covenant ratio (get_difficulty_config)
     "industry_vertical",     # stakeholder_map resolution
     "region_id",
+    # IMP-06 (audit 2026-09-04, WP-22): the four god-mode systemic-risk
+    # switches, stamped at commit (below) in one private bag and read by
+    # engine.py / round_logic through systemic_risk_engine.systemic_toggle_on.
+    "_systemic_toggles",
 )
 
 
@@ -2917,6 +2921,44 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # ── PHASE-1: Inject difficulty tier into engine input ─────
     _session_difficulty = (session_info or {}).get("difficulty_tier", "advanced")
     current_global.setdefault("active_event_flags", {})["difficulty_tier"] = _session_difficulty
+    # IMP-06 (audit 2026-09-04, WP-22): the god-mode "Systemic Risk Controls"
+    # (systemic_risk_enabled, black_swan_events_enabled, npc_cascading_enabled,
+    # foreshadowing_signals_enabled) — and their per-cohort overrides — had no
+    # reader anywhere: every switch was inert. They are stamped into one
+    # private bag on the flags the engine reads (underscore-prefixed: a
+    # setting is not a decision flag), from the effective (cohort → god-mode)
+    # settings already resolved for the freeze check above, and re-stamped
+    # every commit so a mid-game change takes effect on the next round.
+    # A cohort's pedagogical_overrides (the cohort toggles modal) win over the
+    # settings layer when they name a switch, as /global-settings resolves it.
+    from systemic_risk_engine import SYSTEMIC_RISK_TOGGLE_KEYS as _SRT_KEYS, SYSTEMIC_TOGGLES_FLAG as _SRT_FLAG
+    _ped_ov = (session_info or {}).get("pedagogical_overrides") or {}
+    if not _ped_ov and (session_info or {}).get("parent_cohort_id"):
+        try:
+            _ped_ov = ((await db.get_session_info(session_info["parent_cohort_id"]) or {})
+                       .get("pedagogical_overrides") or {})
+        except Exception:
+            _ped_ov = {}
+    _srt_bag = {}
+    for _tk in _SRT_KEYS:
+        _tv = _ped_ov.get(_tk)
+        if _tv is None:
+            _tv = _cohort_settings_now.get(_tk, True)
+        _srt_bag[_tk] = bool(_tv)
+    current_global["active_event_flags"][_SRT_FLAG] = _srt_bag
+    # IMP-06b (found while wiring IMP-06, WP-22): run_new_engines reads the
+    # cohort's engine toggles from global_state["pedagogical_overrides"] —
+    # which only dry_run.py ever set. In the live commit path the state never
+    # carried them, so the cohort toggles modal (biodiversity, board
+    # governance, NPC agents, supply chain, the F1–F6 stakeholder waves …)
+    # was inert: every engine ran at the platform default whatever the
+    # facilitator switched off — including the audit runbook's own
+    # mitigation for F-19. Hydrate the cohort's overrides onto the state the
+    # engines read (current_global for the tick, new_global for post_tick /
+    # run_new_engines); popped again before persistence so a settings blob
+    # never lands in the round's flag bag.
+    if _ped_ov:
+        current_global["pedagogical_overrides"] = dict(_ped_ov)
     # ── Run the tick engine ──────────────────────────────────
     tick_result = process_tick(
         current_global=current_global,
@@ -2937,6 +2979,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     new_global = tick_result["global_state"]
     new_bus = tick_result["bu_states"]
     events = tick_result["events"]
+    if _ped_ov:
+        new_global["pedagogical_overrides"] = dict(_ped_ov)  # IMP-06b, see above
 
     # ── Crisis Multiplier KPI: expose severity source for UI display ──
     events["crisis_severity_effective"] = effective_crisis
@@ -3209,6 +3253,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     merged_flags.update(new_global.get("active_event_flags", {}))
     merged_flags.update(events)
     new_global["active_event_flags"] = merged_flags
+    new_global.pop("pedagogical_overrides", None)  # IMP-06b: settings are not state
 
     # ── CHECK HIDDEN RESOURCE TRIGGERS ───────────────────────
     try:
@@ -3764,84 +3809,41 @@ async def get_sdg_dashboard(session_id: str, request: Request):
     # Compute group SDG score
     sdg_result = calc_group_sdg_score(bus, gs)
 
-    # Build per-BU detailed scores
+    # IMP-08 (audit 2026-09-04, WP-22): this endpoint used to re-implement the
+    # per-BU scoring with its own (unscaled, unweighted) formula, so the
+    # radar / heat-map / alerts and the headline group score in the SAME
+    # payload were two arbiters that disagreed (consumer goods 33 with a red
+    # "SDG 12 gap" beside a group score computed as if it scored 75). The
+    # engine result is the one arbiter; this shapes it for the UI.
     SDG_ICONS = {3: '💊', 6: '💧', 8: '⚡', 9: '💻', 10: '⚖️', 12: '♻️', 15: '🌿'}
-    SDG_COLORS = {3: '#4C9F38', 6: '#26BDE2', 8: '#A21942', 9: '#FD6925', 10: '#DD1367', 12: '#BF8B2E', 15: '#56C02B'}
     BU_LABELS = {'pharma': 'Pharma', 'electronics': 'Electronics', 'consumer_goods': 'Consumer Goods', 'software': 'Software'}
 
     bu_scores = {}
-    all_sdg_scores = {}  # sdg_num -> list of scores for heatmap
     all_gaps = []
-
-    for bu in bus:
-        # Use bu_id directly (e.g. "pharma") or fall back to deriving from name
-        bu_id = bu.get("bu_id") or bu.get("name", "").lower().replace(" ", "_").replace("muressons_", "")
-        mat = SDG_BU_MATERIALITY.get(bu_id, {})
-        sdg_entries = mat.get("sdgs", [])
-        linkage_rule = mat.get("linkage_rule", "")
-
-        sdg_details = []
-        bu_total = 0
-        for sdg_entry in sdg_entries:
-            # Support both dict-based format {sdg, metric_key, scoring, ...}
-            # and legacy int-based format (fall back gracefully)
-            if isinstance(sdg_entry, dict):
-                sdg_num = sdg_entry["sdg"]
-                mk = sdg_entry.get("metric_key")
-                scoring = sdg_entry.get("scoring", "higher_is_better")
-                icon = sdg_entry.get("icon") or SDG_ICONS.get(sdg_num, "🎯")
-                color = SDG_COLORS.get(sdg_num, "#888")
-            else:
-                sdg_num = sdg_entry
-                mk = None
-                scoring = "higher_is_better"
-                icon = SDG_ICONS.get(sdg_num, "🎯")
-                color = SDG_COLORS.get(sdg_num, "#888")
-
-            raw_val = bu.get(mk, 50.0) if mk else 50.0
-
-            # Normalize using scoring direction from engine definition
-            if scoring == "lower_is_better":
-                normalized = max(0, min(100, 100 - raw_val))
-            else:
-                normalized = max(0, min(100, raw_val))
-
-            sdg_details.append({
-                "sdg": sdg_num,
-                "icon": icon,
-                "color": color,
-                "raw_metric": round(raw_val, 2),
-                "metric_key": mk,
-                "normalized_score": round(normalized, 1),
-            })
-            bu_total += normalized
-
-            if sdg_num not in all_sdg_scores:
-                all_sdg_scores[sdg_num] = []
-            all_sdg_scores[sdg_num].append(normalized)
-
-        bu_avg = bu_total / max(len(sdg_entries), 1)
+    for bu_id, res in (sdg_result.get("bu_scores") or {}).items():
+        sdg_details = [{
+            "sdg": d["sdg"],
+            "icon": d.get("icon") or SDG_ICONS.get(d["sdg"], "🎯"),
+            "color": d.get("color", "#888"),
+            "raw_metric": d.get("raw_value"),
+            "metric_key": d.get("metric_key"),
+            "normalized_score": round(float(d.get("normalized_score", 0) or 0), 1),
+            "weight": d.get("weight"),
+        } for d in (res.get("sdg_details") or [])]
+        bu_avg = float(res.get("sdg_score", 0) or 0)
         bu_color = '#10b981' if bu_avg >= 60 else '#f59e0b' if bu_avg >= 40 else '#ef4444'
-
-        # Detect gaps (SDGs scoring below 40)
-        gaps = [
-            {"sdg": sd["sdg"], "gap_magnitude": round(40 - sd["normalized_score"], 1)}
-            for sd in sdg_details if sd["normalized_score"] < 40
-        ]
+        gaps = [{"sdg": g["sdg"], "gap_magnitude": round(float(g.get("gap_magnitude", 0) or 0), 1)}
+                for g in (res.get("gaps") or [])]
         all_gaps.extend(gaps)
-
         bu_scores[bu_id] = {
             "sdg_score": round(bu_avg, 1),
             "color": bu_color,
             "sdg_details": sdg_details,
             "gaps": gaps,
-            "linkage_rule": linkage_rule,
+            "linkage_rule": res.get("linkage_rule", ""),
         }
 
-    # Build SDG heatmap (average score per SDG across all BUs)
-    sdg_heatmap = {}
-    for sdg_num, scores in all_sdg_scores.items():
-        sdg_heatmap[sdg_num] = round(sum(scores) / len(scores), 1) if scores else 0
+    sdg_heatmap = {int(k): round(float(v), 1) for k, v in (sdg_result.get("sdg_heatmap") or {}).items()}
 
     # Build alerts
     alerts = []
@@ -7383,7 +7385,17 @@ async def leverage_analysis(session_id: str, request: Request):
         classify_learning_loop,
     )
 
-    decision_history = gs.get("decision_history", [])
+    # IMP-03 (audit 2026-09-04, WP-22): gs["decision_history"] has no writer,
+    # so every team was "LP12 · 0% · low-leverage". The history is the one the
+    # Consequence-DNA builder extracts from the round snapshots (the choice
+    # per round from the decisions or the rN_choice flags).
+    from consequence_dna_api import _extract_decision_history
+    _history_rows = await db.fetch_round_history(session_id, include_final=True)
+    decision_history = _extract_decision_history(
+        {**gs, "round_number": latest["round_number"]},
+        [{"round_number": h["round_number"], "global_state": h["global_state"], "decisions": h.get("decisions", [])}
+         for h in _history_rows if not h.get("is_final")],
+    )
     leverage = analyse_session_leverage_points(decision_history, gs, bus)
 
     flags = gs.get("active_event_flags", {})

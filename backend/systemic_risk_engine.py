@@ -345,13 +345,118 @@ MATERIALITY_SHOCKS = {
 _NPC_SHOCK_CEILING_DEFAULT: float = 0.08   # fallback if config import fails
 
 
+# ── IMP-07 (audit 2026-09-04, WP-22): the shock is a bet the team placed in R2 ──
+# The R2 double-materiality matrix (router.submit_materiality_matrix) persists a
+# per-issue record in global_state["materiality_issue_scores"] — placed quadrant
+# per issue id. A materiality shock is "about" one or more of those issues; the
+# team's own placement decides how hard it bites:
+#   anticipated — a related issue was placed as FINANCIALLY material (Q1/Q3):
+#                 the reallocation was budgeted → half the forced flow, warning.
+#   missed      — related issues exist and every one was placed Q2/Q4:
+#                 the full forced flow, critical.
+#   unassessed  — no matrix on file / the dictionary has no related issue:
+#                 the full forced flow (nothing to anticipate with).
+# Matched on issue id, title and ESRS reference, case-insensitive, so the
+# industry packs (materiality_packs) need no per-pack wiring.
+MATERIALITY_SHOCK_ISSUE_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "water_crisis": ("water", "drought", "aquifer", "esrs e3"),
+    "supply_chain_collapse": ("labor", "labour", "supply chain", "human rights",
+                              "living wage", "worker", "esrs s2"),
+    "biodiversity_tipping": ("biodiversity", "pollinator", "ecosystem", "deforest",
+                             "e-waste", "toxic", "esrs e4"),
+    "stranded_asset_reclassification": ("carbon", "scope 3", "stranded", "climate",
+                                        "emission", "esrs e1"),
+}
+_FINANCIALLY_MATERIAL_QUADRANTS = ("q1", "q3")
+MATERIALITY_SHOCK_FLOW_MULTIPLIER = {"anticipated": 0.5, "missed": 1.0, "unassessed": 1.0}
+
+
+def materiality_shock_posture(shock_id: str, materiality_issue_scores: dict | None) -> dict:
+    """How the team's own R2 matrix relates to this shock (see the note above).
+
+    Returns {"posture", "related_issues", "anticipated_issues", "flow_multiplier"}.
+    """
+    keywords = MATERIALITY_SHOCK_ISSUE_KEYWORDS.get(shock_id, ())
+    scores = materiality_issue_scores if isinstance(materiality_issue_scores, dict) else {}
+    related: list[str] = []
+    anticipated: list[str] = []
+    for iid, rec in scores.items():
+        if not isinstance(rec, dict):
+            continue
+        haystack = " ".join(str(x) for x in (
+            iid, rec.get("title", ""), rec.get("esrs_topic", ""), rec.get("esrs_reference", ""),
+        )).lower()
+        if not any(k in haystack for k in keywords):
+            continue
+        related.append(str(iid))
+        if str(rec.get("placed_quadrant", "")).lower() in _FINANCIALLY_MATERIAL_QUADRANTS:
+            anticipated.append(str(iid))
+    if not related:
+        posture = "unassessed"
+    elif anticipated:
+        posture = "anticipated"
+    else:
+        posture = "missed"
+    return {
+        "posture": posture,
+        "related_issues": related,
+        "anticipated_issues": anticipated,
+        "flow_multiplier": MATERIALITY_SHOCK_FLOW_MULTIPLIER[posture],
+    }
+
+
+# ── IMP-06 (audit 2026-09-04, WP-22): the god-mode "Systemic Risk Controls" ──
+# had no reader. router.commit_turn stamps the four switches (cohort override →
+# god mode) into active_event_flags[SYSTEMIC_TOGGLES_FLAG] — one private bag,
+# underscore-prefixed so flag_utils.collect_all_flags never reads a setting as
+# a decision flag — before the tick; the engines gate on them through this one
+# reader. Absent switch = ON (every pre-existing state).
+SYSTEMIC_TOGGLES_FLAG = "_systemic_toggles"
+SYSTEMIC_RISK_TOGGLE_KEYS: tuple[str, ...] = (
+    "systemic_risk_enabled",        # ESG-adjusted WACC + tipping points + materiality shocks
+    "black_swan_events_enabled",    # stochastic black swans (new draws and continuing flows)
+    "npc_cascading_enabled",        # NPC cascade reactions (round_logic)
+    "foreshadowing_signals_enabled",  # foreshadowing hints in the events payload
+)
+
+
+def systemic_toggle_on(global_state: dict | None, key: str) -> bool:
+    """Read one systemic-risk switch from a global state (or a bare flags dict).
+
+    Precedence: active_event_flags["_systemic_toggles"][key] (stamped at commit
+    from the effective cohort → god-mode settings) → global_state["pedagogical_overrides"][key]
+    (what direct process_tick callers — the goldens, the harnesses — set) →
+    ON. A missing switch never turns anything off.
+    """
+    if not isinstance(global_state, dict):
+        return True
+    flags = global_state.get("active_event_flags")
+    if not isinstance(flags, dict):
+        flags = global_state  # a bare flags dict was passed
+    bag = flags.get(SYSTEMIC_TOGGLES_FLAG)
+    value = bag.get(key) if isinstance(bag, dict) else None
+    if value is None:
+        ped = global_state.get("pedagogical_overrides")
+        if isinstance(ped, dict):
+            value = ped.get(key)
+    return True if value is None else bool(value)
+
+
 def evaluate_materiality_shocks(
     round_number: int,
-    difficulty_tier: str = "standard",
+    difficulty_tier: str = "advanced",
     active_event_flags: dict | None = None,
+    materiality_issue_scores: dict | None = None,
 ) -> list[dict]:
     """
     Evaluate which Double Materiality Shocks trigger this round.
+
+    IMP-07 (WP-22): each triggered shock carries the team's R2 posture
+    (materiality_shock_posture) and a `flow_multiplier`; engine.py turns
+    forced_reallocation_pct × multiplier × Σ OPEX into a ONE-ROUND OPEX flow
+    (ctx.record_transient) — the shock used to be a modal with no state effect.
+    The roll is seeded per cohort per shock, so every team faces the same
+    event; only its own matrix decides how hard it bites.
 
     Probability model (OI-2 refactor):
         effective_prob = min(NPC_SHOCK_MAX_PROB,
@@ -375,6 +480,9 @@ def evaluate_materiality_shocks(
         difficulty_tier:     Session difficulty tier ("standard"/"expert"/"practice").
         active_event_flags:  Mutable global flags dict. Updated in-place with
                              fired_materiality_shocks list for cool-down tracking.
+        materiality_issue_scores: the team's R2 matrix record (per issue id:
+                             placed_quadrant, title, esrs_*). None → read from
+                             active_event_flags["materiality_issue_scores"].
     """
     # ── Load config constants (lazy to avoid circular import at module top) ──
     try:
@@ -389,6 +497,8 @@ def evaluate_materiality_shocks(
     fired_this_session: list[str] = list(
         flags.get("fired_materiality_shocks", [])
     )
+    if materiality_issue_scores is None:
+        materiality_issue_scores = flags.get("materiality_issue_scores")
 
     triggered = []
     for shock_id, shock in MATERIALITY_SHOCKS.items():
@@ -416,10 +526,17 @@ def evaluate_materiality_shocks(
         # GAME-4: per-event seeded stream keyed on shock_id (deterministic per cohort).
         roll = event_rng(active_event_flags or {}, round_number, f"matshock:{shock_id}").random()
         if roll < effective_prob:
+            posture = materiality_shock_posture(shock_id, materiality_issue_scores)
             triggered.append({
                 "shock_id":                shock_id,
                 "issue":                   shock["issue"],
                 "narrative":               shock["narrative"],
+                # IMP-07: the team's own R2 bet on this issue
+                "posture":                 posture["posture"],
+                "related_issues":          posture["related_issues"],
+                "anticipated_issues":      posture["anticipated_issues"],
+                "flow_multiplier":         posture["flow_multiplier"],
+                "severity":                "warning" if posture["posture"] == "anticipated" else "critical",
                 "financial_materiality_jump": shock["financial_materiality_jump"],
                 "impact_materiality_jump":    shock["impact_materiality_jump"],
                 "forced_reallocation_pct":    shock["forced_reallocation_pct"],

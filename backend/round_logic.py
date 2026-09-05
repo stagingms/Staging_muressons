@@ -819,8 +819,17 @@ def run_new_engines(
                 global_state["biodiversity_state"] = create_initial_biodiversity_state()
 
             bio_state = global_state["biodiversity_state"]
+            # IMP-01 (audit 2026-09-04, WP-22): the engine's designed input is
+            # this round's NCD change, which post_tick records per round as
+            # natural_capital_debt_applied_r<N> — no code ever wrote the
+            # `natural_capital_debt_delta` key this read, so the wire was dead
+            # and the index moved with the round counter, not with play.
+            _ncd_delta_this_round = sum(
+                float(v) for k, v in events.items()
+                if k.startswith("natural_capital_debt_applied_r") and isinstance(v, (int, float)) and not isinstance(v, bool)
+            )
             bio_events = {
-                "natural_capital_debt_delta": events.get("natural_capital_debt_delta", 0),
+                "natural_capital_debt_delta": _ncd_delta_this_round,
                 "active_event_flags": global_state.get("active_event_flags", {}),
             }
             bio_state, bio_diag = process_biodiversity_tick(
@@ -829,10 +838,12 @@ def run_new_engines(
             global_state["biodiversity_state"] = bio_state
             extra["biodiversity"] = bio_diag
 
-            # Apply M_R bonus from TNFD disclosure
-            tnfd_mr = bio_diag.get("tnfd_mr_bonus", 0)
-            if tnfd_mr > 0:
-                extra["tnfd_mr_bonus"] = tnfd_mr
+            # IMP-17 (WP-22): the "TNFD M_R bonus" was written here and read by
+            # nothing — calculate_mr is the single M_R arbiter and never saw
+            # it. It is reported as a disclosure credit, not an M_R promise.
+            tnfd_credit = bio_diag.get("tnfd_disclosure_credit", 0)
+            if tnfd_credit > 0:
+                extra["tnfd_disclosure_credit"] = tnfd_credit
         except Exception as exc:
             _engine_failed(extra, "Biodiversity engine", exc)
 
@@ -945,7 +956,16 @@ def run_new_engines(
                         if _memory_on else ndata.get("satisfaction", 50)
                     )
                 active_cascades = events.get("active_npc_cascades", [])
-                cascades = evaluate_npc_cascades(npc_sats, round_number, active_cascades)
+                # IMP-06 (audit 2026-09-04, WP-22): the god-mode "NPC Cascading
+                # Reactions" switch had no reader. router.commit_turn stamps it
+                # onto active_event_flags (forwarded into this state); OFF =
+                # no cascade is detected or applied this round.
+                from systemic_risk_engine import systemic_toggle_on as _sys_on
+                if _sys_on(global_state, "npc_cascading_enabled"):
+                    cascades = evaluate_npc_cascades(npc_sats, round_number, active_cascades)
+                else:
+                    cascades = []
+                    extra["_npc_cascading_disabled"] = True
 
                 # ── PHASE-4 (F3): coalitions & salience contagion ──────
                 # Detect a coalition from the round's hostile tiers and apply

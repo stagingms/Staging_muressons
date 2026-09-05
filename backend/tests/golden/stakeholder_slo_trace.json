@@ -161,7 +161,7 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 57.49
+        "social_license_score": 67.5
       },
       {
         "bu_id": "electronics",
@@ -191,7 +191,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 56.0,
+        "satisfaction": 57.0,
         "trust": 50.0
       },
       "journalist": {
@@ -213,7 +213,7 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 20.0,
         "reputation_score": 60.0,
-        "social_license_score": 60.62
+        "social_license_score": 70.62
       },
       {
         "bu_id": "electronics",
@@ -243,7 +243,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 57.25,
+        "satisfaction": 58.25,
         "trust": 50.0
       },
       "journalist": {
@@ -265,7 +265,7 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 30.0,
         "reputation_score": 60.0,
-        "social_license_score": 41.74
+        "social_license_score": 51.75
       },
       {
         "bu_id": "electronics",
@@ -295,7 +295,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 58.5,
+        "satisfaction": 59.5,
         "trust": 50.0
       },
       "journalist": {
@@ -317,7 +317,7 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 32.0,
-        "social_license_score": 44.87
+        "social_license_score": 54.88
       },
       {
         "bu_id": "electronics",
@@ -347,7 +347,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 50.95,
+        "satisfaction": 51.95,
         "trust": 50.0
       },
       "journalist": {
@@ -369,7 +369,7 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 47.99
+        "social_license_score": 58.01
       },
       {
         "bu_id": "electronics",
@@ -399,7 +399,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 52.2,
+        "satisfaction": 53.2,
         "trust": 50.0
       },
       "journalist": {
@@ -421,7 +421,7 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 51.12
+        "social_license_score": 61.13
       },
       {
         "bu_id": "electronics",
@@ -451,7 +451,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 53.45,
+        "satisfaction": 54.45,
         "trust": 50.0
       },
       "journalist": {
@@ -473,7 +473,7 @@
         "bu_id": "consumer_goods",
         "governance_risk_score": 22.0,
         "reputation_score": 30.74,
-        "social_license_score": 54.24
+        "social_license_score": 64.25
       },
       {
         "bu_id": "electronics",
@@ -503,7 +503,7 @@
       },
       "community_leader": {
         "escalation_level": "watchful",
-        "satisfaction": 54.7,
+        "satisfaction": 55.7,
         "trust": 50.0
       },
       "journalist": {

@@ -141,8 +141,10 @@ def run_scenario_analysis(
         total_current_revenue += current_rev
 
         demand_mult = scenario["demand_shift"].get(bu_id, 1.0)
-        # Project revenue with compounding demand shift
-        annual_shift = demand_mult ** (1 / 5)  # Annualise the 10-year shift
+        # Project revenue with compounding demand shift. IMP-13 (audit
+        # 2026-09-04, WP-22): the shift is a 10-YEAR multiplier — annualised
+        # over 5 it was applied squared at the 10-year horizon.
+        annual_shift = demand_mult ** (1 / 10)
         projected_rev = round(current_rev * (annual_shift ** time_horizon_years), 2)
         total_projected_revenue += projected_rev
 
@@ -151,7 +153,7 @@ def run_scenario_analysis(
             "current_revenue": current_rev,
             "projected_revenue": projected_rev,
             "demand_multiplier": demand_mult,
-            "revenue_change_pct": round((projected_rev / current_rev - 1) * 100, 1),
+            "revenue_change_pct": round((projected_rev / max(current_rev, 1) - 1) * 100, 1),   # IMP-13: revenue 0 guard
         })
 
     results["bu_projections"] = bu_projections
@@ -161,8 +163,16 @@ def run_scenario_analysis(
 
     # ── 2. Carbon Cost Exposure ──
     avg_ci = sum(bu.get("carbon_intensity", 50) for bu in bus) / max(len(bus), 1)
-    total_emissions_proxy = avg_ci * len(bus) * 1000  # Simplified tCO2e
-    carbon_price = scenario["carbon_price_trajectory"][min(time_horizon_years // 2, 4)]
+    # IMP-02 (audit 2026-09-04, WP-22): CI is tCO2e per $1M of revenue, so
+    # `avg_ci × n × 1000` assumed $1B of revenue per BU — ~69× the engine's
+    # own tonnage — and the "annual carbon cost" read 85–120% of revenue. The
+    # emissions are the engine's arbiter (engine.py local_tco2e: Σ CI ×
+    # revenue / 1e6), and the price array is per DECADE, indexed by decade.
+    total_emissions_proxy = sum(
+        float(bu.get("carbon_intensity", 50) or 0) * float(bu.get("revenue_base", 0) or 0) / 1_000_000
+        for bu in bus
+    )
+    carbon_price = scenario["carbon_price_trajectory"][min(max(int(time_horizon_years) - 1, 0) // 10, 4)]
     carbon_cost = round(total_emissions_proxy * carbon_price, 2)
 
     results["carbon_exposure"] = {
@@ -180,8 +190,8 @@ def run_scenario_analysis(
     treasury = gs.get("corporate_treasury", 0)
     resilience = gs.get("active_event_flags", {}).get("active_resilience_factor", 0)
 
-    # Annual expected physical loss
-    base_physical_loss = treasury * 0.02  # 2% baseline
+    # Annual expected physical loss (IMP-13: a negative treasury is not a negative loss)
+    base_physical_loss = max(float(treasury or 0), 0.0) * 0.02  # 2% baseline
     scenario_physical_loss = round(base_physical_loss * phys_mult * (1 - resilience), 2)
 
     results["physical_risk"] = {
@@ -215,7 +225,8 @@ def run_scenario_analysis(
     # Opportunity score: how well positioned is the company?
     rep = gs.get("group_reputation", 50)
     avg_slo = sum(bu.get("social_license_score", 50) for bu in bus) / max(len(bus), 1)
-    readiness = gs.get("workforce_readiness", 50)
+    # IMP-13: workforce readiness lives on the flags (engine writes it there)
+    readiness = gs.get("active_event_flags", {}).get("workforce_readiness", gs.get("workforce_readiness", 50))
 
     opportunity_score = round(
         (rep / 100 * 0.3 + avg_slo / 100 * 0.3 + readiness / 100 * 0.2 + (100 - avg_ci) / 100 * 0.2) * 100,

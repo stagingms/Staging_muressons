@@ -537,7 +537,10 @@ def build_consequence_dna_data(
 
     try:
         from meadows_leverage import analyse_session_leverage_points
-        lp_analysis = analyse_session_leverage_points(decision_history)
+        # IMP-03 (audit 2026-09-04, WP-22): the call passed one argument to a
+        # three-argument function; the TypeError was swallowed and every
+        # session's "System Effectiveness" read 0%.
+        lp_analysis = analyse_session_leverage_points(decision_history, global_state, bu_states)
     except Exception:
         lp_analysis = {"effectiveness_score": 0, "dominant_leverage_point": 12}
 

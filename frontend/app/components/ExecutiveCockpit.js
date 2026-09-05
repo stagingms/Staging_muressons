@@ -409,6 +409,19 @@ export default function ExecutiveCockpit({
     setR8Pending(false); setR8Done(false);
   }, [roundNumber]);
   const journeyBlocksAdvance = (r6Pending && !r6Done) || (r7Pending && !r7Done) || (r8Pending && !r8Done);
+  // IMP-04 (audit 2026-09-04, WP-22): journey answers used to PATCH the
+  // super-admin /api/admin/global-settings route from the player's browser.
+  // They are debrief material — the player journey-response endpoint keeps
+  // them per session for the facilitator.
+  const postJourneyResponse = useCallback((key, data) => {
+    const sid = sim?.sessionId || sim?.session_id;
+    if (!sid) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sid}/journey-response`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
+      body: JSON.stringify({ key, data }),
+    }).catch(() => {});
+  }, [sim?.sessionId, sim?.session_id]);
 
   // B2: Per-round reflection box — stored locally per round, surfaced in debrief
   const reflectionsRef = useRef({});
@@ -5401,39 +5414,33 @@ export default function ExecutiveCockpit({
                 {pedToggles.mid_game_checkpoint_enabled && roundNumber === 5 && (
                   <MidGameCheckpoint checkpointData={checkpointData} />
                 )}
-                {roundNumber === 6 && pedToggles.r6_revelation_enabled !== false && (
+                {/* IMP-04 (WP-22): the three journey panels are reflection
+                    exercises (no engine effect) — OFF unless the facilitator
+                    switches them on; answers go to the player journey endpoint. */}
+                {roundNumber === 6 && pedToggles.r6_revelation_enabled === true && (
                   <R6RevelationPanel
                     onVisible={() => setR6Pending(true)}
                     onMicroDecision={(data) => {
                       setR6Done(true);
-                      fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`, {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ [`journey_r6_response_${sim?.sessionId || sim?.session_id}`]: data }),
-                      }).catch(() => {});
+                      postJourneyResponse('r6_response', data);
                     }} />
                 )}
                 {/* Journey: R7 Budget Allocation variant */}
-                {roundNumber === 7 && pedToggles.r7_budget_allocation_enabled !== false && (
+                {roundNumber === 7 && pedToggles.r7_budget_allocation_enabled === true && (
                   <BudgetAllocationPanel
                     onVisible={() => setR7Pending(true)}
                     onAllocate={(allocs) => {
                       setR7Done(true);
-                      fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`, {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ [`journey_r7_allocs_${sim?.sessionId || sim?.session_id}`]: allocs }),
-                      }).catch(() => {});
+                      postJourneyResponse('r7_allocs', allocs);
                     }} />
                 )}
                 {/* Journey: R8 Stakeholder Tribunal variant */}
-                {roundNumber === 8 && pedToggles.r8_tribunal_enabled !== false && (
+                {roundNumber === 8 && pedToggles.r8_tribunal_enabled === true && (
                   <StakeholderTribunal
                     onVisible={() => setR8Pending(true)}
                     onResponses={(responses) => {
                       setR8Done(true);
-                      fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`, {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ [`journey_r8_responses_${sim?.sessionId || sim?.session_id}`]: responses }),
-                      }).catch(() => {});
+                      postJourneyResponse('r8_responses', responses);
                     }} />
                 )}
               </div>

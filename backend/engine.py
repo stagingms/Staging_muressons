@@ -2595,6 +2595,10 @@ class TickContext:
 # Macro Rate → FX Risk → DSO / Working Capital → Cash Conversion →
 # Macroeconomic Inflation + Macro Noise
 
+class _SystemicRiskOff(Exception):
+    """IMP-06 (WP-22): raised inside the systemic-risk block when the switch is off."""
+
+
 def _run_stochastic_layer(ctx: TickContext) -> None:
     """
     Stage 1 — stochastic market forces that adjust BU revenue/OPEX
@@ -2605,6 +2609,7 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
     # ── PHASE-1: Black Swan Evaluation — stochastic disruptions ──
     try:
         from black_swan_registry import evaluate_black_swans, apply_black_swan_impacts
+        from systemic_risk_engine import systemic_toggle_on
         _session_tier = current_global.get("active_event_flags", {}).get("difficulty_tier", "advanced")
         _active_swans = current_global.get("active_event_flags", {}).get("active_black_swans", [])
         _forced_swan  = current_global.get("active_event_flags", {}).get("forced_black_swan", None)
@@ -2613,13 +2618,23 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
             or current_global.get("active_event_flags", {}).get("region_id", "")
             or ""
         )
-        _swan_result = evaluate_black_swans(
-            current_global, ctx.new_bus, current_global["round_number"],
-            difficulty_tier=_session_tier,
-            active_black_swans=_active_swans,
-            forced_event_id=_forced_swan,
-            region_id=_region_id or None,
-        )
+        # IMP-06 (audit 2026-09-04, WP-22): the god-mode "Black Swan Events"
+        # switch had no reader. OFF = no new draw and no continuing flow this
+        # round; the active list is carried untouched so a facilitator who
+        # pauses the swans mid-event and resumes gets the event back.
+        _swans_on = systemic_toggle_on(current_global, "black_swan_events_enabled")
+        if _swans_on:
+            _swan_result = evaluate_black_swans(
+                current_global, ctx.new_bus, current_global["round_number"],
+                difficulty_tier=_session_tier,
+                active_black_swans=_active_swans,
+                forced_event_id=_forced_swan,
+                region_id=_region_id or None,
+            )
+        else:
+            _swan_result = {"total_new_events": 0, "events_triggered": [], "narratives": [],
+                            "events_continuing": []}
+            ctx.events["_black_swan_events_disabled"] = True
         if _swan_result["total_new_events"] > 0:
             # IMP-05 (audit 2026-09-04, WP-23): the revenue / OPEX percentages
             # were written into the persisted BU base — permanent erosion,
@@ -2654,8 +2669,11 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
                 ctx.events["black_swan_continuing_flows"] = [
                     {"bu_id": b, "field": f, "delta": d} for b, f, d in _flows]
         _all_active = _continuing + _swan_result.get("events_triggered", [])
-        ctx.events["active_black_swans"] = [e for e in _all_active if e.get("rounds_remaining", 0) > 0]
-        if _forced_swan:
+        ctx.events["active_black_swans"] = (
+            [e for e in _all_active if e.get("rounds_remaining", 0) > 0]
+            if _swans_on else list(_active_swans or [])
+        )
+        if _forced_swan and _swans_on:
             ctx.events["forced_black_swan"] = None
     except ImportError:
         pass  # Graceful degradation if black_swan_registry not available
@@ -3481,7 +3499,12 @@ def _run_operational_layer(ctx: TickContext) -> None:
 
     # ── PHASE-1: ESG-Adjusted WACC ───────────────────────────────
     try:
-        from systemic_risk_engine import calc_esg_adjusted_wacc, calc_supply_chain_transparency, calc_employer_brand, get_foreshadowing_for_round
+        from systemic_risk_engine import (
+            calc_esg_adjusted_wacc, calc_supply_chain_transparency, calc_employer_brand,
+            get_foreshadowing_for_round, systemic_toggle_on,
+        )
+        # IMP-06 (WP-22): "ESG-Adjusted WACC + Tipping Points" switch.
+        _systemic_on = systemic_toggle_on(current_global, "systemic_risk_enabled")
         n_bu      = max(len(ctx.new_bus), 1)
         _avg_ci   = avg_ci
         _avg_gov  = sum(bu.get("governance_risk_score", 20) for bu in ctx.new_bus) / n_bu
@@ -3496,11 +3519,14 @@ def _run_operational_layer(ctx: TickContext) -> None:
             sum(bu.get("water_dependency", 0) for bu in ctx.new_bus) / n_bu / 100.0))
         _sct       = current_global.get("active_event_flags", {}).get("supply_chain_transparency", 30)
 
-        esg_wacc, esg_wacc_diag = calc_esg_adjusted_wacc(
-            ctx.corporate_cost_of_capital, _avg_ci, _avg_gov, _avg_slo, _avg_water, _sct
-        )
-        ctx.corporate_cost_of_capital  = esg_wacc
-        ctx.events["esg_adjusted_wacc"] = esg_wacc_diag
+        if _systemic_on:
+            esg_wacc, esg_wacc_diag = calc_esg_adjusted_wacc(
+                ctx.corporate_cost_of_capital, _avg_ci, _avg_gov, _avg_slo, _avg_water, _sct
+            )
+            ctx.corporate_cost_of_capital  = esg_wacc
+            ctx.events["esg_adjusted_wacc"] = esg_wacc_diag
+        else:
+            ctx.events["_systemic_risk_disabled"] = True
 
         _sct_new, _sct_diag = calc_supply_chain_transparency(
             _sct, current_global.get("active_event_flags", {}), current_global["round_number"]
@@ -3534,11 +3560,13 @@ def _run_operational_layer(ctx: TickContext) -> None:
                 ),
             }
 
-        _foreshadowing = get_foreshadowing_for_round(
-            current_global["round_number"], current_global.get("active_event_flags", {})
-        )
-        if _foreshadowing:
-            ctx.events["foreshadowing_signals"] = _foreshadowing
+        # IMP-06 (WP-22): "Foreshadowing Signals" switch.
+        if systemic_toggle_on(current_global, "foreshadowing_signals_enabled"):
+            _foreshadowing = get_foreshadowing_for_round(
+                current_global["round_number"], current_global.get("active_event_flags", {})
+            )
+            if _foreshadowing:
+                ctx.events["foreshadowing_signals"] = _foreshadowing
     except ImportError:
         pass
 
@@ -4304,8 +4332,15 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     # ── PHASE-1: Systemic Tipping Point Evaluation ───────────────
     systemic_tipping_state = {}
     try:
-        from systemic_risk_engine import evaluate_tipping_points, evaluate_materiality_shocks
+        from systemic_risk_engine import (
+            evaluate_tipping_points, evaluate_materiality_shocks, systemic_toggle_on,
+        )
         _current_tipped = current_global.get("active_event_flags", {}).get("systemic_tipping_state", {})
+        # IMP-06 (WP-22): the whole systemic-risk block — tipping gates and
+        # materiality shocks — answers to the "ESG-Adjusted WACC + Tipping
+        # Points" switch. OFF carries the tipping state untouched.
+        if not systemic_toggle_on(current_global, "systemic_risk_enabled"):
+            raise _SystemicRiskOff()
         _tp_result      = evaluate_tipping_points(current_global, ctx.new_bus, _current_tipped)
         systemic_tipping_state = _tp_result["tipping_state"]
         ctx.events["systemic_tipping"] = _tp_result
@@ -4324,13 +4359,60 @@ def _run_reporting_layer(ctx: TickContext) -> None:
             active_event_flags=_active_flags_ms,   # OI-2: enables once-per-session gate & config routing
         )
         if _shocks:
+            # IMP-07 (audit 2026-09-04, WP-22): the shock used to be a blocking
+            # "critical" modal with NO state effect and no link to the team's own
+            # R2 matrix. It is now a ONE-ROUND OPEX flow — forced_reallocation_pct
+            # × Σ OPEX × the team's posture multiplier (½ when the team placed the
+            # issue as financially material in R2) × the tier's impact multiplier
+            # — pro-rata over the BUs and recorded as a transient, so the base is
+            # restored at tick end and the cash leaves through the post-CSF flow
+            # ledger term. Severity is "critical" only when the team missed it.
+            try:
+                from black_swan_registry import get_difficulty_config as _gdc
+                _tier_mult = float(_gdc(_session_tier_ms).get("impact_multiplier", 1.0) or 1.0)
+            except Exception:
+                _tier_mult = 1.0
+            _total_opex = sum(float(b.get("opex_base", 0.0) or 0.0) for b in ctx.new_bus)
+            _shock_cost_total = 0.0
+            for shock in _shocks:
+                _hit = round(_total_opex * float(shock.get("forced_reallocation_pct", 0.0))
+                             * float(shock.get("flow_multiplier", 1.0)) * _tier_mult, 2)
+                _applied = 0.0
+                if _hit > 0 and _total_opex > 0:
+                    for bu in ctx.new_bus:
+                        _delta = round(_hit * float(bu.get("opex_base", 0.0) or 0.0) / _total_opex, 2)
+                        if not _delta:
+                            continue
+                        bu["opex_base"] = round(bu["opex_base"] + _delta, 2)
+                        ctx.record_transient(bu, "opex_base", _delta)  # one-round flow
+                        _applied += _delta
+                shock["forced_reallocation_cost"] = round(_applied, 2)
+                shock["tier_impact_multiplier"] = _tier_mult
+                _shock_cost_total += _applied
+                _posture = shock.get("posture", "unassessed")
+                if _posture == "anticipated":
+                    _because = (f" Your R2 materiality matrix placed this as financially material "
+                                f"({', '.join(shock.get('anticipated_issues', []))}) — the contingency "
+                                f"budget absorbs half: ${_applied:,.0f} of forced reallocation this round.")
+                elif _posture == "missed":
+                    _because = (f" Your R2 materiality matrix judged this immaterial "
+                                f"({', '.join(shock.get('related_issues', []))}) — the full forced "
+                                f"reallocation lands this round: ${_applied:,.0f}.")
+                else:
+                    _because = (f" No materiality assessment covered this issue — the full forced "
+                                f"reallocation lands this round: ${_applied:,.0f}.")
+                shock["narrative"] = shock["narrative"] + _because
             ctx.events["materiality_shocks"] = _shocks
+            ctx.events["materiality_shock_cost"] = round(_shock_cost_total, 2)
             for shock in _shocks:
                 ctx.events.setdefault("custom_black_swans", []).append({
                     "title":     f"📊 MATERIALITY SHOCK — {shock['issue']}",
                     "narrative": shock["narrative"],
-                    "icon": "📊", "severity": "critical",
+                    "icon": "📊", "severity": shock.get("severity", "critical"),
                 })
+    except _SystemicRiskOff:
+        systemic_tipping_state = _current_tipped or {}
+        ctx.events["_systemic_risk_disabled"] = True
     except ImportError:
         pass
     ctx.events["_systemic_tipping_state_internal"] = systemic_tipping_state

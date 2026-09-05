@@ -477,6 +477,8 @@ def analyse_session_leverage_points(
     point_counts = {i: 0 for i in range(1, 13)}
     point_examples = {i: [] for i in range(1, 13)}
 
+    best_available = 0   # IMP-03: the denominator is what THIS history could have scored
+    option_points: list[int] = []   # IMP-03: the leverage point of each strategic CHOICE (not the allocation marks)
     for decision in decision_history:
         round_num = decision.get("round_number", 0)
         choice = decision.get("primary_choice", "")
@@ -487,6 +489,7 @@ def analyse_session_leverage_points(
             # Investment amount adjustments = LP12
             point_counts[12] += 1
             point_examples[12].append(f"R{round_num}: CapEx allocation adjustment")
+            best_available += 1
 
         # Specific round classifications
         round_lp_map = {
@@ -522,23 +525,37 @@ def analyse_session_leverage_points(
             },
         }
 
-        if round_num in round_lp_map and choice in round_lp_map[round_num]:
-            lp, desc = round_lp_map[round_num][choice]
-            point_counts[lp] += 1
-            point_examples[lp].append(f"R{round_num}: {desc}")
+        if round_num in round_lp_map:
+            best_available += max(13 - lp for lp, _ in round_lp_map[round_num].values())
+            if choice in round_lp_map[round_num]:
+                lp, desc = round_lp_map[round_num][choice]
+                point_counts[lp] += 1
+                point_examples[lp].append(f"R{round_num}: {desc}")
+                option_points.append(lp)
 
     # Calculate effectiveness score
-    # Weighted sum: higher leverage points count more
+    # Weighted sum: higher leverage points count more. IMP-03 (audit
+    # 2026-09-04, WP-22): the denominator used to be "two of every leverage
+    # point" (156), which no ten-round game can reach — the best possible
+    # history scored 38%. It is now the best THIS history could have scored:
+    # the highest-leverage option in every mapped round it played.
     weighted_score = sum(
         (13 - lp) * count for lp, count in point_counts.items()
     )
-    max_possible = sum((13 - lp) for lp in range(1, 13)) * 2  # Assume max 2 per LP
+    max_possible = best_available
     effectiveness = round(min(1.0, weighted_score / max(max_possible, 1)), 3)
 
-    # Determine dominant leverage level
-    active_points = {lp: c for lp, c in point_counts.items() if c > 0}
-    if active_points:
-        dominant = max(active_points, key=active_points.get)
+    # Determine dominant leverage level. IMP-03 (audit 2026-09-04, WP-22):
+    # every round with a CapEx allocation counts one LP12 mark, so "most
+    # frequent" was LP12 for every history and the verdict never varied. The
+    # dominant mode is now the (lower) median leverage point of the team's
+    # strategic CHOICES — the allocation marks are not choices between
+    # leverage points, every round carries one. A team that picked the
+    # parameter-level option in most rounds reads LP11–12; one that picked
+    # rules, goals and mindsets reads LP2–5.
+    if option_points:
+        ordered = sorted(option_points)
+        dominant = ordered[(len(ordered) - 1) // 2]
     else:
         dominant = 12
 

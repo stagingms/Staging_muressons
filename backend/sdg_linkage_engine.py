@@ -130,7 +130,12 @@ _METRIC_RANGES = {
     "water_dependency_score":  {"min": 0, "max": 100, "default": 50},
     "staff_burnout_index":     {"min": 0, "max": 100, "default": 25},
     "carbon_intensity":        {"min": 0, "max": 100, "default": 50},
-    "natural_capital_debt":    {"min": 0, "max": 500_000, "default": 50_000},
+    # IMP-08 (audit 2026-09-04, WP-22): NCD is an INDEX (per-BU hard cap
+    # 5,000; R10 sums of 47–92 observed) — a 500,000 ceiling normalised every
+    # value to ~0 and SDG-12 read ~100 for every team. The range is the
+    # per-BU warn threshold (config ncd_parameters.warn_threshold = 1,000):
+    # at the threshold the SDG-12 score is 0.
+    "natural_capital_debt":    {"min": 0, "max": 1_000, "default": 20},
     "biodiversity_score":      {"min": 0, "max": 100, "default": 50},
     "workforce_readiness":     {"min": 0, "max": 100, "default": 50},
     "ai_bias_score":           {"min": 0, "max": 100, "default": 50},
@@ -199,18 +204,28 @@ def calc_bu_sdg_alignment(
         if raw_value is None and global_state:
             raw_value = global_state.get(key)
         if raw_value is None:
-            # Special case: biodiversity comes from nested state
+            # Special case: biodiversity comes from nested state. IMP-08:
+            # the state key is ecosystem_health_index (this read a key that
+            # never existed → constant 50); water is the BU's own
+            # water_dependency; workforce readiness lives on the flags.
             if key == "biodiversity_score" and global_state:
                 bio = global_state.get("biodiversity_state", {})
-                raw_value = bio.get("biodiversity_health_index", 50)
-            elif key == "water_dependency_score" and global_state:
-                bio = global_state.get("biodiversity_state", {})
-                raw_value = bio.get("water_stress_index", 0.5) * 100
+                raw_value = bio.get("ecosystem_health_index", bio.get("biodiversity_health_index", 50))
+            elif key == "water_dependency_score":
+                if bu_state.get("water_dependency") is not None:
+                    raw_value = bu_state.get("water_dependency")
+                elif global_state:
+                    bio = global_state.get("biodiversity_state", {})
+                    raw_value = bio.get("water_stress_index", 0.5) * 100
+            elif key == "workforce_readiness" and global_state:
+                raw_value = (global_state.get("active_event_flags") or {}).get("workforce_readiness")
             elif key == "ai_bias_score":
                 # AI bias: derive from governance risk for Software BU
                 raw_value = bu_state.get("governance_risk_score", 30)
             else:
                 raw_value = _METRIC_RANGES.get(key, {}).get("default", 50)
+        if raw_value is None:
+            raw_value = _METRIC_RANGES.get(key, {}).get("default", 50)
 
         normalized = _normalize_metric(raw_value, key, scoring)
         contribution = round(normalized * weight, 2)

@@ -1426,9 +1426,11 @@ async def get_scaffolding_status():
         ("debrief_protocol_enabled", "🎭 Debrief", False, "Enable structured post-round debrief protocols with guided reflection prompts"),
         ("briefing_theory_enabled", "📚 Briefing Theory", False, "Show academic framing on PLAYER round briefings (theory card + narrative citations). OFF by default; facilitator teleprompter keeps the pedagogy either way"),
         ("self_learning_mode", "🎓 Self-Learn", False, "Solo/self-paced mode — unlocks all rounds and disables facilitator gating"),
-        ("r6_revelation_enabled", "🚨 R6 Twist", True, "Round 6 narrative twist — reveals hidden supply chain consequences from earlier decisions"),
-        ("r7_budget_allocation_enabled", "♻️ R7 Budget", True, "Round 7 sustainability budget allocation challenge with constrained capital"),
-        ("r8_tribunal_enabled", "⚖️ R8 Tribunal", True, "Round 8 stakeholder tribunal — students defend decisions under cross-examination"),
+        # IMP-04 (audit 2026-09-04, WP-22): reflection exercises with no engine
+        # effect — OFF by default; the panels say so and file to the debrief.
+        ("r6_revelation_enabled", "🚨 R6 Twist", False, "Round 6 narrative twist — a reflection exercise recorded for the debrief (no engine effect)"),
+        ("r7_budget_allocation_enabled", "♻️ R7 Budget", False, "Round 7 circular-economy budget allocation — a reflection exercise recorded for the debrief (no engine effect)"),
+        ("r8_tribunal_enabled", "⚖️ R8 Tribunal", False, "Round 8 stakeholder tribunal — a reflection exercise recorded for the debrief (no engine effect)"),
         # New Engine Toggles
         ("decision_timer_enabled", "⏱️ Timer", False, "Enforce countdown timers on decisions — simulates real boardroom time pressure"),
         ("biodiversity_engine_enabled", "🌿 Biodiversity", True, "Track biodiversity impact scores and natural capital depletion across BUs"),

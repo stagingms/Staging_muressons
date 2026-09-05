@@ -132,8 +132,15 @@ def should_split_r1(difficulty_tier: str) -> bool:
 #  twist that sustains engagement through the mid-game.
 # ═════════════════════════════════════════════════════════════════
 
+# IMP-04 (audit 2026-09-04, WP-22): the R6/R7/R8 panels are reflection
+# exercises. Their `impacts` describe the stylised trade-off for discussion;
+# no engine applies them. `engine_impact: False` + `note` say so to the player.
+JOURNEY_REFLECTION_NOTE = "Reflection exercise — your answer is recorded for the facilitator's debrief. It does not change the simulation's numbers."
+
 R6_REVELATION_MECHANIC = {
     "enabled": True,
+    "engine_impact": False,
+    "note": JOURNEY_REFLECTION_NOTE,
     "revelation_trigger": "post_decision",
     "title": "🚨 Breaking: Whistleblower Leak",
     "narrative": (
@@ -226,13 +233,16 @@ def get_r6_revelation() -> dict[str, Any]:
 
 R7_BUDGET_ALLOCATION_VARIANT = {
     "enabled": True,
+    "engine_impact": False,
+    "note": JOURNEY_REFLECTION_NOTE,
     "mechanic": "budget_allocation",
     "title": "Circular Economy Budget Allocation",
     "instruction": (
         "You have a $15M circular economy budget. Distribute it across "
-        "three initiatives. Each dollar generates different returns depending "
+        "three initiatives. Each dollar would generate different returns depending "
         "on allocation balance. There is no single 'right answer' — the "
-        "optimal split depends on your current BU health."
+        "optimal split depends on your current BU health. Your allocation is "
+        "discussed in the debrief; it is not applied by the engine."
     ),
     "total_budget": 15_000_000,
     "initiatives": {
@@ -287,6 +297,8 @@ R7_BUDGET_ALLOCATION_VARIANT = {
 
 R8_STAKEHOLDER_TRIBUNAL_VARIANT = {
     "enabled": True,
+    "engine_impact": False,
+    "note": JOURNEY_REFLECTION_NOTE,
     "mechanic": "stakeholder_tribunal",
     "title": "Stakeholder Water Tribunal",
     "instruction": (
