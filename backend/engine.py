@@ -14,6 +14,7 @@ from rng_util import event_rng, event_seed  # GAME-4: deterministic per-cohort R
 from config import (
     SIM_ROUNDS,
     CSF_POOL_FLOOR,
+    CSF_POOL_TREASURY_FRACTION,
     ECONOMIC_CARBON_PRICE_BASE,
     ECONOMIC_CARBON_PRICE_GROWTH,
     CONSTRAINT_MAX_CARBON_EMISSIONS,
@@ -3071,16 +3072,33 @@ def _run_financial_layer(ctx: TickContext) -> None:
     ctx.events["capex_loan_balance"]   = loan_closing     # persisted stock (flags)
     ctx.events["capex_loan_rounds_remaining"] = max(0, rounds_remaining - 1)
 
-    emergency_credit_interest = 0.0
+    # ── Emergency credit line (FIN-05, audit 2026-09-04, Wave 3) ──────────
+    # Until Wave 3 this charged $140K/round of interest on a $1M line that was
+    # NEVER credited, from a server threshold ($25M) five times the one the
+    # cockpit announced ($5M). It is now a real facility: when the treasury
+    # is below the trigger the router derives (treasury × pool fraction <
+    # the line, i.e. $5M) and nothing is outstanding, $1M is DRAWN into cash
+    # this round; the balance is carried in active_event_flags.
+    # emergency_credit_balance (an evented stock, like the CapEx loan),
+    # charged interest at the prevailing rate + 2 % on the OUTSTANDING
+    # balance each round, and repaid in full the first round the treasury
+    # can cover it and still clear the trigger — or at round 10, since
+    # nothing outlives the game. Drawn, repaid and interest are ledger terms
+    # (test_treasury_waterfall) and waterfall entries.
     _EMERGENCY_CREDIT_AMOUNT  = FINANCIAL_EMERGENCY_CREDIT_AMOUNT
-    if ctx.emergency_credit_used:
-        base_loan_rate            = current_global.get("active_event_flags", {}).get("loan_interest_rate", FINANCIAL_DEFAULT_LOAN_RATE)
-        emergency_rate            = base_loan_rate + FINANCIAL_EMERGENCY_RATE_SPREAD
-        emergency_credit_interest = round(_EMERGENCY_CREDIT_AMOUNT * emergency_rate, 2)
+    _ec_opening               = round(max(0.0, float(_flags_fin.get("emergency_credit_balance", 0.0) or 0.0)), 2)
+    _ec_trigger               = (_EMERGENCY_CREDIT_AMOUNT / CSF_POOL_TREASURY_FRACTION) if CSF_POOL_TREASURY_FRACTION > 0 else _EMERGENCY_CREDIT_AMOUNT
+    base_loan_rate            = _flags_fin.get("loan_interest_rate", FINANCIAL_DEFAULT_LOAN_RATE)
+    emergency_rate            = base_loan_rate + FINANCIAL_EMERGENCY_RATE_SPREAD
+    emergency_credit_interest = round(_ec_opening * emergency_rate, 2) if _ec_opening > 0 else 0.0
+    emergency_credit_drawn    = _EMERGENCY_CREDIT_AMOUNT if (ctx.emergency_credit_used and _ec_opening <= 0) else 0.0
+    emergency_credit_repaid   = 0.0
+    if _ec_opening > 0 or emergency_credit_drawn > 0:
         ctx.events["emergency_credit_used"]     = True
         ctx.events["emergency_credit_amount"]   = _EMERGENCY_CREDIT_AMOUNT
         ctx.events["emergency_credit_rate"]     = emergency_rate
         ctx.events["emergency_credit_interest"] = emergency_credit_interest
+        ctx.events["emergency_credit_drawn"]    = emergency_credit_drawn
 
     if loan_principal > 0 or loan_opening > 0:
         ctx.events["loan_principal"]        = round(loan_principal, 2)
@@ -3088,7 +3106,15 @@ def _run_financial_layer(ctx: TickContext) -> None:
         ctx.events["loan_interest_payment"] = loan_interest_payment
 
     total_interest   = loan_interest_payment + emergency_credit_interest
-    ctx.new_treasury = round(base_treasury + csf - equity_capex - loan_repayment - total_interest, 2)
+    ctx.new_treasury = round(base_treasury + csf - equity_capex - loan_repayment - total_interest + emergency_credit_drawn, 2)
+    _ec_balance = round(_ec_opening + emergency_credit_drawn, 2)
+    if _ec_balance > 0 and emergency_credit_drawn <= 0:      # never in the round it was drawn
+        if ctx.new_treasury - _ec_balance >= _ec_trigger or _round_no >= SIM_ROUNDS:
+            emergency_credit_repaid = _ec_balance
+            ctx.new_treasury = round(ctx.new_treasury - emergency_credit_repaid, 2)
+            _ec_balance = 0.0
+            ctx.events["emergency_credit_repaid"] = emergency_credit_repaid
+    ctx.events["emergency_credit_balance"] = _ec_balance   # persisted stock (flags), 0.0 once repaid
     ctx.csf_banked   = True   # F-04b: later flow transients must debit treasury directly
 
     # ── REC-1: Waterfall entries for core treasury movement ─────
@@ -3124,11 +3150,25 @@ def _run_financial_layer(ctx: TickContext) -> None:
             because=f"Interest at {loan_interest_rate*100:.0f}% on the ${loan_opening:,.0f} CapEx loan outstanding.",
             counterfactual="If total CapEx stayed inside the allowance, no loan interest would be charged.",
         )
+    if emergency_credit_drawn > 0:
+        ctx.record_waterfall(
+            "Emergency credit drawn", emergency_credit_drawn,
+            because=(f"Treasury fell below ${_ec_trigger:,.0f}; the ${_EMERGENCY_CREDIT_AMOUNT:,.0f} emergency line was drawn "
+                     f"at {emergency_rate*100:.0f}% (prevailing rate + 2%). It is repaid automatically once the treasury "
+                     f"can cover it and clear ${_ec_trigger:,.0f}, or at round {SIM_ROUNDS}."),
+            counterfactual="A treasury kept above the trigger never draws the line and pays no interest on it.",
+        )
     if emergency_credit_interest > 0:
         ctx.record_waterfall(
             "Emergency Credit Interest", -emergency_credit_interest,
-            because=f"Emergency credit line of $1M activated at {ctx.events.get('emergency_credit_rate', 0)*100:.0f}% (prevailing rate + 2%).",
+            because=f"Interest at {emergency_rate*100:.0f}% (prevailing rate + 2%) on the ${_ec_opening:,.0f} emergency credit outstanding.",
             counterfactual="Without the emergency credit line, this interest charge would not apply.",
+        )
+    if emergency_credit_repaid > 0:
+        ctx.record_waterfall(
+            "Emergency credit repaid", -emergency_credit_repaid,
+            because=(f"The treasury can now cover the ${emergency_credit_repaid:,.0f} emergency line and clear the "
+                     f"${_ec_trigger:,.0f} trigger" + (", or the game is ending" if _round_no >= SIM_ROUNDS else "") + "."),
         )
 
     # ── FEATURE 13: Talent Allocation Pressure ───────────────────

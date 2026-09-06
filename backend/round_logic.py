@@ -326,11 +326,13 @@ def _equity_and_solvency(gs: dict, bus: list[dict], extra: dict, *, terminal_val
     _ncl = _bs.get("non_current_liabilities", {})
     _cl = _bs.get("current_liabilities", {})
     _capex_loan = float((gs.get("active_event_flags") or {}).get("capex_loan_balance", 0.0) or 0.0)
+    _ec_line = float((gs.get("active_event_flags") or {}).get("emergency_credit_balance", 0.0) or 0.0)
     total_financial_debt = (
         _ncl.get("revolving_credit_facility", 50_000_000)
         + _ncl.get("green_bonds_outstanding", 0.0)
         + max(_ncl.get("capex_term_loan", 0.0), _capex_loan)
         + _cl.get("short_term_debt", 0.0)
+        + max(_cl.get("emergency_credit_line", 0.0), _ec_line)   # FIN-05
     )
     treasury_cash = gs.get("corporate_treasury", 0.0)
     net_debt = round(total_financial_debt - treasury_cash, 2)
@@ -1439,6 +1441,9 @@ def run_new_engines(
                 # ledger) falls back to the persisted flag.
                 "capex_loan_balance":    _capex_loan_for_statement(events, global_state),
                 "loan_interest_payment": float(events.get("loan_interest_payment", 0.0) or 0.0),
+                # FIN-05 (Wave 3): the emergency credit line outstanding
+                "emergency_credit_balance": float(events.get("emergency_credit_balance",
+                                                  (global_state.get("active_event_flags") or {}).get("emergency_credit_balance", 0.0)) or 0.0),
                 # FIN-10: the floor the covenant surcharge may not breach
                 "treasury_floor_effective": events.get("treasury_floor_effective"),
             }

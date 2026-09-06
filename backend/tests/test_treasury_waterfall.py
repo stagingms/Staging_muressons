@@ -247,6 +247,11 @@ def _residual(ledger) -> float:
         - ledger.carbon_offset_purchase
         - ledger.carbon_retribution_levy
         + ledger.emergency_bailout
+        # FIN-05 (Wave 3): the emergency credit line is a real facility — the
+        # draw is a credit, the repayment a charge; the interest term above
+        # now prices the OUTSTANDING balance.
+        + ledger.emergency_credit_drawn
+        - ledger.emergency_credit_repaid
     )
     return ledger.treasury_end - expected
 

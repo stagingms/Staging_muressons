@@ -2880,7 +2880,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     _server_decay = _cfg.DEFAULT_IMITATION_DECAY_RATE   # CFG-05: call-time read
     # The cockpit's rule for the emergency credit line: the 20% CSF allowance
     # has fallen below the $5M floor — computed here from the same numbers.
-    _server_emergency = bool((_treasury * _cfg.CSF_POOL_TREASURY_FRACTION) < _cfg.CSF_POOL_FLOOR)
+    # FIN-05 (Wave 3): the trigger the cockpit announces — treasury × pool fraction
+    # below the $1M line, i.e. treasury under $5M — not the $25M pool floor.
+    _server_emergency = bool((_treasury * _cfg.CSF_POOL_TREASURY_FRACTION) < _cfg.FINANCIAL_EMERGENCY_CREDIT_AMOUNT)
     if (body.crisis_severity not in (0.0, _server_crisis)
             or abs(body.imitation_decay_rate - _server_decay) > 1e-9
             or body.emergency_credit_used != _server_emergency):
@@ -7693,26 +7695,33 @@ async def get_balance_sheet(session_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Session not found")
     gs = latest["global_state"]
     bs = gs.get("balance_sheet")
+    preview = False
     if not bs or not bs.get("total_assets"):
-        # Initialize balance sheet from current BU states so dashboard shows data pre-commit
+        # FIN-04 (audit 2026-09-04, Wave 3): a GET used to run a balance-sheet
+        # tick and PERSIST it — every cockpit issues this GET on mount, so round
+        # 1 was depreciated twice (PPE −$1.10M, ROU −$0.89M, RE −$1.93M) and
+        # the year-by-year table carried two "Round 1" columns; the tick could
+        # even debit treasury from a read. The pre-commit statement is now a
+        # pro-forma PREVIEW computed on copies and never written; the R1 commit
+        # creates the real one.
         try:
+            import copy as _copy
             from balance_sheet import create_initial_balance_sheet, process_balance_sheet_tick
             bus = latest["bu_states"]
-            bs = create_initial_balance_sheet(bus)
-            # Sync cash from treasury
-            bs["current_assets"]["cash_and_equivalents"] = gs.get("corporate_treasury", 0)
-            # Run one tick to populate totals
+            gs_copy, bus_copy = _copy.deepcopy(gs), _copy.deepcopy(bus)
+            bs = create_initial_balance_sheet(bus_copy)
+            bs["current_assets"]["cash_and_equivalents"] = gs_copy.get("corporate_treasury", 0)
             bs, _ = process_balance_sheet_tick(
-                bs, gs, bus,
+                bs, gs_copy, bus_copy,
                 {"csf_this_round": 0, "total_capex_allocated": 0, "dividends_paid": 0,
                  "remediation_events": [], "tipping_tier": "none"},
                 latest.get("round_number", 1),
             )
-            gs["balance_sheet"] = bs
-            await db.update_latest_global_state(session_id, gs, bus)
+            bs["balance_sheet_history"] = []          # a preview has no history of its own
+            preview = True
         except Exception:
             bs = {}
-    return {"balance_sheet": bs}
+    return {"balance_sheet": bs, "preview": preview}
 
 
 @router.get(

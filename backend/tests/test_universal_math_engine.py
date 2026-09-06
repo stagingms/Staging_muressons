@@ -385,6 +385,10 @@ class RoundLedger:
     carbon_offset_purchase: float = 0.0     # engine _run_operational_layer, offset/forward market
     carbon_retribution_levy: float = 0.0    # engine _run_operational_layer, un_sdg interlinkage
     emergency_bailout: float = 0.0          # engine _run_reporting_layer, distress credit
+    # FIN-05 (audit 2026-09-04, Wave 3): the emergency credit line is a real
+    # facility — drawn into cash (credit) and repaid (charge); both evented.
+    emergency_credit_drawn: float = 0.0
+    emergency_credit_repaid: float = 0.0
     # BU-level snapshots
     bu_revenues: dict[str, float] = field(default_factory=dict)
     bu_opex: dict[str, float] = field(default_factory=dict)
@@ -532,6 +536,8 @@ def run_deterministic_simulation(
             (_offset_mkt.get("actual_cost_paid", 0.0) or 0.0) if isinstance(_offset_mkt, dict) else 0.0)
         carbon_retribution_levy = float(events.get("carbon_retribution_penalty", 0.0) or 0.0)
         emergency_bailout = float(events.get("bailout_applied", 0.0) or 0.0)
+        emergency_credit_drawn = float(events.get("emergency_credit_drawn", 0.0) or 0.0)
+        emergency_credit_repaid = float(events.get("emergency_credit_repaid", 0.0) or 0.0)
 
         ledgers.append(RoundLedger(
             round_number=rnd,
@@ -557,6 +563,8 @@ def run_deterministic_simulation(
             carbon_offset_purchase=carbon_offset_purchase,
             carbon_retribution_levy=carbon_retribution_levy,
             emergency_bailout=emergency_bailout,
+            emergency_credit_drawn=emergency_credit_drawn,
+            emergency_credit_repaid=emergency_credit_repaid,
             bu_revenues={bu["bu_id"]: bu["revenue_base"] for bu in new_bus},
             bu_opex={bu["bu_id"]: bu["opex_base"] for bu in new_bus},
             bu_carbon_intensities={

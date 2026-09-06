@@ -284,18 +284,26 @@ export default function InvestmentMatrix({
                         </span>
                     </div>
                 )}
-                {/* Emergency Credit Active: +$1M at prevailing rate + 2% */}
-                {/* Only show when treasury is a real loaded value (not null/undefined) and critically low */}
-                {globalState?.corporate_treasury != null && (globalState.corporate_treasury * 0.20 < 1_000_000) && (
-                    <div className={styles.loanWarning} style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.06)' }}>
+                {/* Emergency credit line (FIN-05, Wave 3): a real facility. Drawn
+                    automatically ($1M into cash) when treasury × 20% falls below
+                    $1M — the same trigger the server derives — interest on the
+                    outstanding balance at prevailing + 2%, repaid once the
+                    treasury recovers or at round 10. Outstanding → say so. */}
+                {globalState?.corporate_treasury != null
+                  && ((globalState.corporate_treasury * 0.20 < 1_000_000) || (globalState?.active_event_flags?.emergency_credit_balance > 0)) && (
+                    <div className={styles.loanWarning} style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.06)' }} data-testid="emergency-credit-banner">
                         <span className={styles.loanIcon}>🚨</span>
                         <span style={{ fontSize: '0.68rem' }}>
-                            Emergency Credit Facility: <strong>{sym}1.0M</strong> available at{' '}
+                            {globalState?.active_event_flags?.emergency_credit_balance > 0 ? (
+                                <>Emergency credit line <strong>drawn</strong>: <strong>{sym}{(globalState.active_event_flags.emergency_credit_balance / 1_000_000).toFixed(1)}M</strong> outstanding at{' '}</>
+                            ) : (
+                                <>Emergency Credit Facility: <strong>{sym}1.0M</strong> will be drawn this round at{' '}</>
+                            )}
                             <span className={styles.loanAmount}>
                                 {((globalState?.active_event_flags?.loan_interest_rate || 0.12) * 100 + 2).toFixed(1)}%
                             </span>{' '}
                             <span style={{ color: "var(--text-muted)" }}>
-                                (prevailing rate + 2% premium)
+                                (prevailing rate + 2%; repaid automatically once treasury clears {sym}5M, or at round 10)
                             </span>
                         </span>
                     </div>

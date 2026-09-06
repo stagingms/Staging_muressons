@@ -227,6 +227,7 @@ def create_initial_balance_sheet(bus: list[dict]) -> dict[str, Any]:
             "tax_provisions": 0.0,          # FIX-1: Zero at opening — no P&L yet recognised
             "accrued_remediation": 0.0,
             "short_term_debt": 0.0,
+            "emergency_credit_line": 0.0,   # FIN-05: drawn $1M line, repaid when the treasury recovers
         },
 
         # ── EQUITY ──
@@ -751,6 +752,12 @@ def process_balance_sheet_tick(
     if "capex_loan_balance" in events:
         bs["non_current_liabilities"]["capex_term_loan"] = round(
             float(events.get("capex_loan_balance") or 0.0), 2
+        )
+    # FIN-05 (Wave 3): the emergency credit line is a real current liability
+    bs["current_liabilities"].setdefault("emergency_credit_line", 0.0)
+    if "emergency_credit_balance" in events:
+        bs["current_liabilities"]["emergency_credit_line"] = round(
+            float(events.get("emergency_credit_balance") or 0.0), 2
         )
 
     # Green bonds tracking (issued by player decision, e.g. Round 3 Scope 3 option)
