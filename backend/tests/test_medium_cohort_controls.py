@@ -206,9 +206,13 @@ _FINALE_STATE = {
     "global_state": {
         "corporate_treasury": 30e6, "group_reputation": 55,
         "synergy_multiplier": 1.0, "game_over": True,
-        "final_report_canonical": {"headline": "SECRET NARRATIVE"},
+        # VAL-11c (Wave 3): /final-report derives `terminal_valuation` from the
+        # canonical record (nothing ever wrote gs["terminal_valuation"]); the
+        # numbers live here, the headline is the narrative that "summary" withholds.
+        "final_report_canonical": {"headline": "SECRET NARRATIVE", "terminal_value": 123.0,
+                                   "regenerative_multiple": 1.1, "archetype": "pragmatic_operator"},
         "turnaround_amended_report": {"headline": "AMENDED NARRATIVE"},
-        "terminal_valuation": 123.0, "archetype": "pragmatic_operator",
+        "archetype": "pragmatic_operator",
         "active_event_flags": {},
     },
     "bu_states": [],
@@ -238,8 +242,9 @@ def test_report_default_full_is_unchanged(monkeypatch):
         res = _final_report(monkeypatch)
         assert res.get("locked") is not True
         assert res["report_access"] == "full"
-        assert res["final_report_canonical"] == {"headline": "SECRET NARRATIVE"}
-        assert res["terminal_valuation"] == 123.0
+        assert res["final_report_canonical"]["headline"] == "SECRET NARRATIVE"
+        assert res["terminal_valuation"]["terminal_value"] == 123.0
+        assert res["terminal_valuation"]["source"] == "final_report_canonical"
     finally:
         cohort_settings.pop(_RP, None)
 
@@ -250,7 +255,7 @@ def test_report_summary_withholds_narrative_keeps_numbers(monkeypatch):
         res = _final_report(monkeypatch)
         assert res["final_report_canonical"] is None
         assert res["turnaround_amended_report"] is None
-        assert res["terminal_valuation"] == 123.0
+        assert res["terminal_valuation"]["terminal_value"] == 123.0      # the numbers survive the summary cut
         assert res["archetype"] == "pragmatic_operator"
     finally:
         cohort_settings.pop(_RP, None)
