@@ -205,3 +205,23 @@ def test_carbon_futures_market_opens_for_a_list_held_carbon_deferred_flag():
     bus = make_bus()
     _, _, ev = _tick(gs, bus, paradigm="advanced_climate")
     assert "carbon_offset_market" in ev, sorted(k for k in ev if "carbon" in k)[:12]
+
+
+# ── Wave 3 (WAVE2 residual): a modifier flag counts by TRUTH, not key membership ──
+
+def test_a_false_valued_flag_does_not_raise_the_probability():
+    """Since FIN-13 the engine writes some flags every tick with a False value.
+    `mod["flag"] in flags` would have counted them as set."""
+    from black_swan_registry import evaluate_black_swans
+    bus = [{"bu_id": "pharma", "carbon_intensity": 30, "governance_risk_score": 20, "social_license_score": 55,
+            "revenue_base": 2e7, "opex_base": 1.2e7}]
+
+    def prob(flag_value):
+        gs = {"corporate_treasury": 5e7, "group_reputation": 60,
+              "active_event_flags": {"stochastic_seed": "bs-truth", "greenwashing_detected": flag_value}}
+        out = evaluate_black_swans(gs, bus, 5, forced_event_id="whistleblower_scandal")
+        ev = next(e for e in out["events_triggered"] if e["event_id"] == "whistleblower_scandal")
+        return ev["probability"]
+
+    assert prob(True) > prob(False)
+    assert prob(False) == prob(None)          # a False key is the same as no key

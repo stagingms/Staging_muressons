@@ -58,6 +58,13 @@ def _start():
                     json={"player_name": "AUD", "decision_paradigm": "legacy_abc"})
     assert r.status_code in (200, 201), r.text[:300]
     sid = r.json()["session_id"]
+    # Wave 3 hygiene: every solo session rolled its swans, overruns and NPC
+    # moves from its OWN seed, so a two-session comparison (option B vs C below)
+    # compared luck as well as decisions and was red about once in ten runs.
+    # One seed for the whole file: the comparisons are decision-only.
+    for _st in dbm._global_states.get(sid, []):
+        _st.setdefault("active_event_flags", {})["stochastic_seed"] = "r2-materiality-audit"
+        _st["stochastic_seed"] = "r2-materiality-audit"
     bus = client.get(f"/api/simulations/{sid}/dashboard").json()["business_units"]
     return sid, bus
 

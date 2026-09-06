@@ -683,7 +683,10 @@ def evaluate_black_swans(
             elif "flag" in mod:
                 flag_set = flags.get("flags_set", [])
                 flag_list = flag_set if isinstance(flag_set, list) else []
-                if mod["flag"] in flags or mod["flag"] in flag_list or mod["flag"] in _held_flags:
+                # Wave 3 (WAVE2 residual): TRUTH, not key membership — since FIN-13
+                # the engine writes some flags every tick with a False value, and
+                # `mod["flag"] in flags` would have counted them as set.
+                if bool(flags.get(mod["flag"])) or mod["flag"] in flag_list or mod["flag"] in _held_flags:
                     effective_prob += mod["probability_add"]
 
         # ── Hard probability ceiling: max 12% regardless of penalty stacking ─
