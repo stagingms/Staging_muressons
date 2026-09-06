@@ -294,6 +294,7 @@ def test_a_volume_seeded_by_an_intermediate_build_is_migrated_at_boot(tmp_path):
     assert line, f"no report line:\nSTDOUT:{out.stdout[-1500:]}\nSTDERR:{out.stderr[-1500:]}"
     rep = json.loads(line[4:])
     migrated = {m["key"]: (m["old"], m["new"]) for m in rep["migrated"]}
+    assert all(m["kind"] == "migrated" for m in rep["migrated"])
     assert migrated == {
         "engine_parameters.cbam.surcharge_rate": (100000, 100),
         "engine_parameters.imitation_decay.default_rate": (0.1, 0.05),
@@ -319,7 +320,7 @@ def test_a_volume_seeded_by_an_intermediate_build_is_migrated_at_boot(tmp_path):
     # /health carries the migration record; the boot log announces it
     assert {m["key"] for m in rep["health_migrated"]} == set(migrated)
     assert "[config] MIGRATED engine_parameters.slo_ramp.growth_ratio: 0.5 -> 0.3" in out.stdout
-    assert "superseded value(s) the volume was seeded with were migrated at boot" in out.stdout
+    assert "superseded value(s) the volume was seeded with migrated" in out.stdout
     # a second boot on the migrated file is a no-op
     out2 = subprocess.run([sys.executable, "-c", "import json, config; print('JSON' + json.dumps(config.CONFIG_MIGRATIONS))"],
                           env=env, capture_output=True, text=True, timeout=120, cwd=str(_BACKEND_DIR))
@@ -353,3 +354,56 @@ def test_file_ahead_message_no_longer_claims_the_file_lives_in_the_image():
     src = inspect.getsource(ci.check_file_ahead_of_process)
     assert "lives in the image" not in src
     assert "data volume" in src
+
+
+def test_a_volume_seeded_before_a_key_existed_gets_the_image_value(tmp_path):
+    """CFG-10, second shape (production, 2026-09-06 01:00 UTC): the volume was
+    seeded by the 2026-09-02 build, which had NO slo_ramp block — config.py ran
+    its code defaults (equal to the shipped values) while /health listed the
+    four keys as differing after every boot. An absent key is seeded from the
+    image copy; nothing that IS on the volume is touched."""
+    import json
+    import subprocess
+    image = json.loads((_BACKEND_DIR.parent / "simulation_config.json").read_text(encoding="utf-8"))
+    vol = json.loads(json.dumps(image))
+    del vol["engine_parameters"]["slo_ramp"]                       # the whole block, as on production
+    del vol["terminal_valuation"]["shares_outstanding"]            # a single leaf
+    vol["engine_parameters"]["synergy"]["max_reduction_per_round"] = 0.045   # deliberate tuning, must survive
+    path = tmp_path / "simulation_config.json"
+    path.write_text(json.dumps(vol), encoding="utf-8")
+    env = {**os.environ, "MURESSONS_DATA_DIR": str(tmp_path), "USE_MEMORY_DB": "true",
+           "MURESSONS_NO_LEGACY_MIGRATION": "1", "PYTHONPATH": str(_BACKEND_DIR)}
+    code = (
+        "import json, config, config_introspect as ci\n"
+        "from fastapi.testclient import TestClient\n"
+        "import main\n"
+        "with TestClient(main.app) as c: h = c.get('/api/health').json()\n"
+        "r = ci.live_config_report(include_values=True)\n"
+        "print('JSON' + json.dumps({'applied': config.CONFIG_MIGRATIONS,"
+        " 'diff_keys': [d['key'] for d in r['image_vs_volume'].get('differences', [])],"
+        " 'growth': config.NATURAL_DECAY_GROWTH_RATIO, 'shares': config.TV_SHARES_OUTSTANDING,"
+        " 'health_differs': h['config']['volume_differs_from_image_on']}))\n"
+    )
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True,
+                         timeout=180, cwd=str(_BACKEND_DIR))
+    line = next((l for l in out.stdout.splitlines() if l.startswith("JSON")), None)
+    assert line, f"no report line:\nSTDOUT:{out.stdout[-1500:]}\nSTDERR:{out.stderr[-1500:]}"
+    rep = json.loads(line[4:])
+    seeded = {m["key"]: m["new"] for m in rep["applied"] if m["kind"] == "seeded"}
+    assert seeded == {
+        "engine_parameters.slo_ramp.no_decay_ratio": 0.15,
+        "engine_parameters.slo_ramp.mid_ratio": 0.2,
+        "engine_parameters.slo_ramp.growth_ratio": 0.3,
+        "engine_parameters.slo_ramp.min_abs_capex": 100000,
+        "terminal_valuation.shares_outstanding": 6500000,
+    }
+    assert all(m["old"] == "«absent»" for m in rep["applied"])
+    assert (rep["growth"], rep["shares"]) == (0.3, 6500000)
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    assert on_disk["engine_parameters"]["slo_ramp"] == image["engine_parameters"]["slo_ramp"]
+    assert on_disk["engine_parameters"]["synergy"]["max_reduction_per_round"] == 0.045
+    # the deliberate tuning is the only difference left, on both surfaces
+    assert rep["diff_keys"] == ["engine_parameters.synergy.max_reduction_per_round"]
+    assert rep["health_differs"] == ["engine_parameters.synergy.max_reduction_per_round"]
+    assert "[config] SEEDED engine_parameters.slo_ramp.growth_ratio = 0.3" in out.stdout
+    assert "key(s) the image carries and the volume lacked seeded" in out.stdout

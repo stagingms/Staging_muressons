@@ -167,8 +167,11 @@ holding a KNOWN superseded value (the table in `backend/config_migrations.py`
 — the pre-launch economy, the 2026-09-03 natural-decay tiers, the 100,000,000
 share count) is rewritten to the current value before `config.py` reads it,
 announced in the boot log as `[config] MIGRATED <key>: <old> -> <new>` and
-listed in `/api/health` under `config.migrated`. After such a boot
-`volume_differs_from_image_on` is empty and nothing below is needed. A value
+listed in `/api/health` under `config.migrated`; a key the image carries and
+the volume lacks (seeded by a build that predates the key) is filled with the
+image's value and announced as `[config] SEEDED <key> = <value>` (kind
+"seeded" in the same list). After such a boot `volume_differs_from_image_on`
+is empty and nothing below is needed. A value
 that is neither superseded nor current is a deliberate tuning: it is left
 alone and keeps showing as `image_vs_volume` — that is the case for the
 manual steps below. Do them after any deploy that touched

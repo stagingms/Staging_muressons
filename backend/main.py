@@ -376,8 +376,12 @@ async def lifespan(app: FastAPI):
         except Exception:  # noqa: BLE001
             _mig = []
         if _mig:
-            print(f"[config] {len(_mig)} superseded value(s) the volume was seeded with were migrated at boot "
-                  "(CFG-10, config_migrations.py): " + ", ".join(m["key"] for m in _mig)
+            _mm = [m["key"] for m in _mig if m.get("kind", "migrated") == "migrated"]
+            _ms = [m["key"] for m in _mig if m.get("kind") == "seeded"]
+            print("[config] CFG-10 (config_migrations.py) at boot: "
+                  + (f"{len(_mm)} superseded value(s) the volume was seeded with migrated ({', '.join(_mm)})" if _mm else "")
+                  + ("; " if _mm and _ms else "")
+                  + (f"{len(_ms)} key(s) the image carries and the volume lacked seeded ({', '.join(_ms)})" if _ms else "")
                   + ". The engine runs the current values; no restart or shell step needed.")
     except Exception as _cfg_exc:
         print(f"[config] boot report skipped (non-fatal): {_cfg_exc}")

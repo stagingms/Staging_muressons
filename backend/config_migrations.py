@@ -22,11 +22,22 @@ WHAT IT DOES
     deliberate tuning and is left alone: config_introspect keeps reporting it
     as image_vs_volume, which is the owner's signal, not ours to override.
 
+ABSENT KEYS
+    The first production read after CFG-10 showed the other shape of the same
+    problem: a volume seeded by the 2026-09-02 build (ad8ccf6) has NO slo_ramp
+    keys at all — the tiers were added to the JSON a day later — so config.py
+    ran its code defaults (which happen to equal the shipped values) while
+    /health listed the four keys as differing forever. A key the image JSON
+    carries and the volume lacks was simply never seeded: it is filled with
+    the image's value (what a fresh volume would hold), announced as
+    `[config] SEEDED <key> = <value>` and recorded with kind "seeded". This
+    cannot undo a deliberate tuning — there is no value to undo.
+
 WHAT IT NEVER DOES
-    Touch a key that is absent (config.py's default applies), touch the
-    in-image copy, raise (a failure is announced and the boot continues on
-    the file as it is), or run twice on the same value — a migrated value
-    equals the current value, so the row is a no-op afterwards.
+    Rewrite a value that is neither a known superseded value nor absent,
+    touch the in-image copy, raise (a failure is announced and the boot
+    continues on the file as it is), or run twice on the same value — a
+    migrated value equals the current value, so the row is a no-op afterwards.
 
 The table is the single source patch_volume_config.py also applies, so the
 manual and the automatic paths cannot disagree.
@@ -92,12 +103,60 @@ def plan_migrations(cfg: dict) -> list[dict]:
     return plan
 
 
-def apply_known_migrations(config_path: "Path | str | None") -> list[dict]:
-    """Rewrite known superseded values on the volume file in place.
+def _image_config_path(volume_path: Path) -> "Path | None":
+    """The copy this build ships, or None when the process reads it directly."""
+    try:
+        from runtime_paths import _CONFIG_IMAGE_DEFAULTS
+        image = _CONFIG_IMAGE_DEFAULTS.get("simulation_config.json")
+    except Exception:
+        return None
+    if not image:
+        return None
+    image = Path(image)
+    try:
+        if image.resolve() == volume_path.resolve():
+            return None
+    except OSError:
+        if str(image) == str(volume_path):
+            return None
+    return image if image.exists() else None
 
-    Returns the list of migrations applied ([{key, old, new}]); an empty list
-    when nothing was superseded, the file is absent, unreadable, or not
-    writable. Never raises."""
+
+def plan_seeds(cfg: dict, image: dict, prefix: tuple[str, ...] = ()) -> list[dict]:
+    """Leaf keys the image JSON carries that `cfg` lacks. Pure."""
+    plan = []
+    for key, value in image.items():
+        path = prefix + (str(key),)
+        if isinstance(value, dict):
+            sub = cfg.get(key) if isinstance(cfg, dict) else None
+            if isinstance(sub, dict):
+                plan.extend(plan_seeds(sub, value, path))
+            elif not isinstance(cfg, dict) or key not in cfg:
+                # a whole missing branch: seed its leaves one by one
+                plan.extend(plan_seeds({}, value, path))
+        elif not isinstance(cfg, dict) or key not in cfg:
+            plan.append({"key": ".".join(path), "old": "«absent»", "new": value, "kind": "seeded", "_path": path})
+    return plan
+
+
+def _set_path(cfg: dict, path: tuple[str, ...], value) -> None:
+    node = cfg
+    for seg in path[:-1]:
+        nxt = node.get(seg)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            node[seg] = nxt
+        node = nxt
+    node[path[-1]] = value
+
+
+def apply_known_migrations(config_path: "Path | str | None") -> list[dict]:
+    """Rewrite known superseded values on the volume file in place and seed
+    keys the image carries that the volume lacks.
+
+    Returns the list applied ([{key, old, new, kind}], kind "migrated" or
+    "seeded"); an empty list when nothing was superseded or absent, the file
+    is absent, unreadable, or not writable. Never raises."""
     applied: list[dict] = []
     if not config_path:
         return applied
@@ -109,21 +168,33 @@ def apply_known_migrations(config_path: "Path | str | None") -> list[dict]:
             cfg = json.load(f)
         if not isinstance(cfg, dict):
             return applied
-        plan = plan_migrations(cfg)
+        plan = [dict(row, kind="migrated") for row in plan_migrations(cfg)]
+        image_path = _image_config_path(path)
+        if image_path is not None:
+            try:
+                with open(image_path, "r", encoding="utf-8") as f:
+                    image = json.load(f)
+                if isinstance(image, dict):
+                    plan.extend(plan_seeds(cfg, image))
+            except Exception as exc:
+                print(f"[config] image copy unreadable, absent keys not seeded: {type(exc).__name__}: {exc}")
         if not plan:
             return applied
         for row in plan:
-            node, _ = _walk(cfg, row["_path"])
-            node[row["_path"][-1]] = row["new"]
+            _set_path(cfg, row["_path"], row["new"])
         tmp = path.with_name(path.name + ".migrating")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2, ensure_ascii=False)
             f.write("\n")
         os.replace(tmp, path)
         for row in plan:
-            applied.append({"key": row["key"], "old": row["old"], "new": row["new"]})
-            print(f"[config] MIGRATED {row['key']}: {row['old']!r} -> {row['new']!r} "
-                  "(a superseded value the volume was seeded with; config_migrations.py)")
+            applied.append({"key": row["key"], "old": row["old"], "new": row["new"], "kind": row["kind"]})
+            if row["kind"] == "seeded":
+                print(f"[config] SEEDED {row['key']} = {row['new']!r} (absent on the volume; the image's value, "
+                      "which is what a fresh volume would hold; config_migrations.py)")
+            else:
+                print(f"[config] MIGRATED {row['key']}: {row['old']!r} -> {row['new']!r} "
+                      "(a superseded value the volume was seeded with; config_migrations.py)")
     except Exception as exc:  # the boot continues on the file as it is
         print(f"[config] migration skipped for {config_path}: {type(exc).__name__}: {exc}")
     return applied
