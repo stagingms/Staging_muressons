@@ -3044,6 +3044,17 @@ def _stamp_finale_valuation(
         pathway_bonuses["pathway_option_penalty"] = extra["pathway_mr_penalty_from_option"]
 
     _mr_flags = {f: True for f in all_flags}
+    # VAL-11h (Wave 3): brsr_net_positive_dividend is a NUMERIC flag (+0.05,
+    # written by the BRSR side track as a float). _collect_all_flags keeps
+    # bools/lists only, so a non-BRSR finale never added the dividend the
+    # dependency graph and the teleprompter promise — and had it been
+    # collected as True, calculate_mr would have added +1.0. Same handling as
+    # the BRSR finale (rl:~427).
+    _brsr_div_numeric = (gs.get("active_event_flags") or {}).get("brsr_net_positive_dividend", 0) \
+        or prev_flags.get("brsr_net_positive_dividend", 0)
+    _mr_flags.pop("brsr_net_positive_dividend", None)
+    if isinstance(_brsr_div_numeric, (int, float)) and not isinstance(_brsr_div_numeric, bool) and _brsr_div_numeric:
+        _mr_flags["brsr_net_positive_dividend"] = float(_brsr_div_numeric)
     mr_result = calculate_mr(
         _mr_flags,
         avg_slo=avg_sl,
@@ -3057,7 +3068,11 @@ def _stamp_finale_valuation(
     # Hostile-takeover Option C cap applies after the arbiter; the global
     # floor still holds underneath it.
     if extra.get("mr_cap") is not None and mr > extra["mr_cap"]:
-        mr = round(max(mr_result["mr_floor"], min(mr, extra["mr_cap"])), 4)
+        _capped = round(max(mr_result["mr_floor"], min(mr, extra["mr_cap"])), 4)
+        # VAL-11f (Wave 3): the cap is a line in the breakdown, so the printed
+        # components sum to the M_R that was awarded, not to a larger number.
+        mr_result["breakdown"]["hostile_takeover_cap"] = round(_capped - mr, 4)
+        mr = _capped
         extra["mr_capped_at"] = extra["mr_cap"]
     mr = round(mr, 4)
 
@@ -3348,7 +3363,12 @@ def _stamp_finale_valuation(
         hr_mr_value += 0.10
     if extra.get("mr_wellbeing_bonus"):
         hr_mr_value += 0.05
-    hr_terminal_uplift = round(terminal_ebitda * exit_multiple * hr_mr_value, 2) if hr_mr_value > 0 else 0
+    # VAL-11a (audit 2026-09-04, Wave 3): the uplift is on the TERMINAL VALUE
+    # formula actually used — floored EBITDA × the effective (Gordon) multiple ×
+    # M_SDG — not the config 12× on un-floored EBITDA (legacy run: $13.03M
+    # reported, $14.44M implied by the TV that was awarded).
+    hr_terminal_uplift = (round(ebitda_for_tv * effective_exit_multiple * m_sdg * hr_mr_value, 2)
+                          if hr_mr_value > 0 else 0)
 
     extra["hr_roi_report"] = {
         "avg_burnout_r10": avg_burnout,

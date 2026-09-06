@@ -2161,9 +2161,19 @@ async def get_final_report(session_id: str, request: Request):
         "final_report_canonical": None if _withhold_narrative else gs.get("final_report_canonical"),
         "turnaround_amended_report": None if _withhold_narrative else gs.get("turnaround_amended_report"),
         "turnaround_offer": _turnaround_offer,
-        "terminal_valuation": gs.get("terminal_valuation"),
-        "regenerative_multiple": gs.get("regenerative_multiple"),
-        "archetype": gs.get("archetype"),
+        # VAL-11c (Wave 3): nothing ever wrote gs["terminal_valuation"] — it was
+        # always null beside a populated canonical record. Serve the awarded figures.
+        "terminal_valuation": (
+            {
+                "terminal_value": (gs.get("final_report_canonical") or {}).get("terminal_value", flags.get("terminal_value")),
+                "regenerative_multiple": (gs.get("final_report_canonical") or {}).get("regenerative_multiple", flags.get("regenerative_multiple")),
+                "archetype": (gs.get("final_report_canonical") or {}).get("archetype", flags.get("profile")),
+                "source": "final_report_canonical" if gs.get("final_report_canonical") else "flags",
+            }
+            if (gs.get("final_report_canonical") or flags.get("terminal_value") is not None) else None
+        ),
+        "regenerative_multiple": gs.get("regenerative_multiple", flags.get("regenerative_multiple")),
+        "archetype": gs.get("archetype", flags.get("profile")),
         "ending_pathway": flags.get("ending_pathway", "activist_ultimatum"),
         "corporate_treasury": gs.get("corporate_treasury"),
         "group_reputation": gs.get("group_reputation"),
@@ -7830,6 +7840,12 @@ _FP_TEMPLATES = {
         "subhead": "Five years of extraction leave a {mr}× multiple and a valuation under pressure at {tv}M",
         "quote": "A cautionary tale of value destroyed one deferred decision at a time.",
     },
+    # VAL-11g: the solvency-gated archetype the reveal shows
+    "hollow": {
+        "headline": "MURESSONS' GREEN STORY OUTRUNS ITS BALANCE SHEET",
+        "subhead": "A {mr}× regenerative multiple could not fund itself — equity wiped out despite a {tv}M headline",
+        "quote": "Purpose without solvency is a press release, not a strategy.",
+    },
 }
 
 
@@ -7867,6 +7883,12 @@ async def get_front_page(session_id: str, request: Request):
     tv = f"${tv_raw / 1_000_000:.1f}"
     mr_str = f"{mr:.2f}"
     band = _fp_band(mr)
+    # VAL-11g (Wave 3): the finale's solvency gate (AR-A) can demote a titan /
+    # safe-haven M_R to the Hollow Idealist; the front page followed the M_R
+    # band alone and printed the "crowned leader" copy over a wiped-out equity.
+    _profile = str(flags.get("profile") or "")
+    if _profile == "hollow_idealist":
+        band = "hollow"
 
     # Deterministic fallback
     tpl = _FP_TEMPLATES.get(band, _FP_TEMPLATES["fragile"])

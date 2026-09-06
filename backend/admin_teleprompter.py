@@ -714,6 +714,12 @@ _TELEPROMPTER_SCRIPTS = {
             "Option C (Divest) gives +$25M cash but WIPES synergy to 1.0 — destroying all R7 value",
             "Terminal Value formula: V_T = (Terminal EBITDA + Green Fund) × Exit Multiple (WACC-coupled, 6-18×, 12× at baseline) × M_R",
             "Max M_R achievable: 1.93 legacy / 2.02 pillar (pinned by test_mr_ceilings_unchanged; global clamp 2.05)",
+            # VAL-10 (audit 2026-09-04, Wave 3): say it before the reveal, not after.
+            "TITAN IS CONDITIONAL: the Regenerative Titan band (M_R ≥ 1.8) is reachable only WITHOUT the "
+            "instability discount — with it the ceilings are 1.53 legacy / 1.62 pillar. The discount ramps in "
+            "below an R10 average social licence of 75 (full −0.40 under 70). Check the cohort's average SLO "
+            "before the finale: if every team sits under 70, tell the room the top rung is out of reach this run "
+            "and debrief on WHY the licence fell (natural decay on token allocations, greenwashing, cascades).",
         ],
         "key_teaching_moment": "💡 USE THE SPREAD: Regenerative Titan (~$700M) vs Stranded Relic (~$27M) = 25× difference. This 25× gap is driven ENTIRELY by ESG decisions across 10 rounds. No single decision caused it — it's the compound effect of consistent strategic alignment.",
         "mr_breakdown_guide": {
@@ -725,7 +731,7 @@ _TELEPROMPTER_SCRIPTS = {
             "just_transition_bonus": {"value": 0.12, "source": "R9: Chose managed transition (if no community fund)"},
             "workforce_bonus": {"value": 0.10, "source": "Cumulative HR: Workforce readiness ≥ 75 at R10"},
             "wellbeing_bonus": {"value": 0.05, "source": "Cumulative HR: Average burnout < 20 at R10"},
-            "instability_discount": {"value": -0.40, "source": "Penalty: Average social license < 75"},
+            "instability_discount": {"value": -0.40, "source": "Penalty: ramps in below an R10 average social licence of 75, full −0.40 under 70 (GAME-2). Fired in 10 of 11 balance-report runs and 6 of 6 audit probe games — VAL-10: expect it unless the team protected its licence."},
         },
         "capstone_discussion": {
             "titan_vs_relic": "Display the highest and lowest terminal values in the cohort. Ask: 'What decisions separated the Regenerative Titan from the Stranded Relic?' Walk through the M_R breakdown for both.",
