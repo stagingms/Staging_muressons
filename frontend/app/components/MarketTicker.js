@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
+import { moneyM, price as fmtPrice, currencySymbol } from '../utils/format';   // SEAM-14
 
 /**
  * MarketTicker — Enhanced scrolling stock ticker bar.
@@ -91,13 +92,13 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
     // MURS — real share price (macro valuation engine) vs last committed round
     const prevPrice = prev ? prev.price : IPO_PRICE;
     const dPrice = pct(cur.price, prevPrice);
-    out.push({ symbol: 'MURS', price: `$${cur.price.toFixed(2)}`, change: fmtPct(dPrice), rising: (dPrice ?? 0) >= 0, good: (dPrice ?? 0) >= 0 });
+    out.push({ symbol: 'MURS', price: fmtPrice(cur.price), change: fmtPct(dPrice), rising: (dPrice ?? 0) >= 0, good: (dPrice ?? 0) >= 0 });
     // ESG Sentiment Index — reputation-scaled composite (rep 50 = 1,000)
     const dEsg = prev ? pct(cur.reputation, prev.reputation) : null;
     out.push({ symbol: 'ESG Index', price: Math.round(cur.reputation * 20).toLocaleString(), change: fmtPct(dEsg), rising: (dEsg ?? 0) >= 0, good: (dEsg ?? 0) >= 0 });
     // Internal carbon fee actually charged by the engine each round
     const dFee = prev ? pct(cur.carbonFee, prev.carbonFee) : null;
-    out.push({ symbol: 'Carbon $/t', price: `$${Number(cur.carbonFee).toFixed(2)}`, change: fmtPct(dFee), rising: (dFee ?? 0) >= 0, good: (dFee ?? 0) <= 0 });
+    out.push({ symbol: `Carbon ${currencySymbol()}/t`, price: fmtPrice(Number(cur.carbonFee)), change: fmtPct(dFee), rising: (dFee ?? 0) >= 0, good: (dFee ?? 0) <= 0 });
     // WACC print — falling is good (rating-linked cost of capital)
     const dWacc = prev ? (cur.wacc - prev.wacc) * 10000 : null;
     out.push({ symbol: 'WACC', price: `${(cur.wacc * 100).toFixed(1)}%`, change: dWacc == null ? null : `${dWacc >= 0 ? '+' : ''}${Math.round(dWacc)}bps`, rising: (dWacc ?? 0) >= 0, good: (dWacc ?? 0) <= 0 });
@@ -106,13 +107,13 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
     out.push({ symbol: 'CPI', price: `${(cur.inflation * 100).toFixed(1)}%`, change: dCpi == null ? null : `${dCpi >= 0 ? '+' : ''}${dCpi.toFixed(1)}pp`, rising: (dCpi ?? 0) >= 0, good: (dCpi ?? 0) <= 0 });
     // Green Transition Fund balance (accrues from internal carbon taxation)
     const dGf = prev ? pct(cur.greenFund, prev.greenFund) : null;
-    out.push({ symbol: 'Green Fund', price: `$${(cur.greenFund / 1_000_000).toFixed(1)}M`, change: fmtPct(dGf), rising: (dGf ?? 0) >= 0, good: (dGf ?? 0) >= 0 });
+    out.push({ symbol: 'Green Fund', price: moneyM(cur.greenFund), change: fmtPct(dGf), rising: (dGf ?? 0) >= 0, good: (dGf ?? 0) >= 0 });
     // Group emissions — falling is good (pill colour inverts)
     const dCo2 = prev ? pct(cur.tco2e, prev.tco2e) : null;
     out.push({ symbol: 'tCO₂e', price: Math.round(cur.tco2e).toLocaleString(), change: fmtPct(dCo2), rising: (dCo2 ?? 0) >= 0, good: (dCo2 ?? 0) <= 0 });
     // Group EBITDA print
     const dEb = prev ? pct(cur.ebitda, prev.ebitda) : null;
-    out.push({ symbol: 'EBITDA', price: `$${(cur.ebitda / 1_000_000).toFixed(1)}M`, change: fmtPct(dEb), rising: (dEb ?? 0) >= 0, good: (dEb ?? 0) >= 0 });
+    out.push({ symbol: 'EBITDA', price: moneyM(cur.ebitda), change: fmtPct(dEb), rising: (dEb ?? 0) >= 0, good: (dEb ?? 0) >= 0 });
 
     return [...out, ...out]; // duplicate for seamless scroll
   }, [globalState, businessUnits, history]);

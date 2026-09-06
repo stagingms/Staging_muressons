@@ -12,11 +12,16 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Dialog from './Dialog';
+import { moneyM } from '../utils/format';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-const money = (v) => `${v < 0 ? '-' : ''}$${Math.abs((v || 0) / 1_000_000).toFixed(1)}M`;
-const signedMoney = (v) => `${v >= 0 ? '+' : '-'}$${Math.abs((v || 0) / 1_000_000).toFixed(1)}M`;
+// SEAM-14 (audit 2026-09-04, Wave 3): the cohort's currency symbol AND rate,
+// from the one source every player surface uses — this panel used to print a
+// literal "$" at rate 1 while the room's cockpits showed ₹ at 83.
+const money = (v) => moneyM(v || 0);
+const signedMoney = (v) => `${(v || 0) >= 0 ? '+' : ''}${moneyM(v || 0)}`;
 const signedRep = (v) => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}`;
 
 const C = {
@@ -117,6 +122,8 @@ export default function DebriefNarrative({ sessionId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { loadSessionCurrency } = useCurrency();
+  useEffect(() => { if (sessionId) loadSessionCurrency(sessionId); }, [sessionId, loadSessionCurrency]);   // SEAM-14
 
   const load = useCallback(async () => {
     if (!sessionId) return;

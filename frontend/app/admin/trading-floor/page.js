@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { RIVAL, rivalBenchmarkEV } from '../../components/rivalIntel';
 import { useConfirm } from '../../components/ConfirmModal';
+import { moneyM } from '../../utils/format';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 /**
  * Trading-Floor Finale (Feature 1) — a full-screen projector view for the room.
@@ -14,7 +16,8 @@ import { useConfirm } from '../../components/ConfirmModal';
  * Open this on the room's main screen:  /admin/trading-floor
  */
 
-const fmtM = (v) => `$${((Number(v) || 0) / 1_000_000).toFixed(2)}M`;
+// SEAM-14 (Wave 3): the cohort's symbol and rate, not a literal "$" at rate 1
+const fmtM = (v) => moneyM(Number(v) || 0, { dp: 2 });
 
 function bell() {
   // Self-contained "closing bell" via Web Audio — no asset needed.
@@ -62,6 +65,8 @@ export default function TradingFloorPage() {
 
   // F-9 (v3): distinguish "signed out" (fix: sign in, reload) from "backend
   // down" (fix: check the server). error is false | 'auth' | 'net'.
+  const { loadSessionCurrency } = useCurrency();
+  const currencyLoadedFor = useRef(null);
   const load = useCallback(() => {
     fetch('/api/admin/leaderboard', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'auth' : 'http'))))
@@ -70,9 +75,16 @@ export default function TradingFloorPage() {
         rows.sort((a, b) => (b.terminal_value || 0) - (a.terminal_value || 0));
         setTeams(rows);
         setError(false);
+        // SEAM-14: money on this board is in the currency of the cohort whose
+        // bell this page rings (the same cohort ringBell resolves).
+        const cohortId = rows.find((t) => t.parent_cohort_id)?.parent_cohort_id;
+        if (cohortId && currencyLoadedFor.current !== cohortId) {
+          currencyLoadedFor.current = cohortId;
+          loadSessionCurrency(cohortId);
+        }
       })
       .catch((e) => setError(e && e.message === 'auth' ? 'auth' : 'net'));
-  }, []);
+  }, [loadSessionCurrency]);
 
   // Poll the live leaderboard while enabled and not yet closed.
   useEffect(() => {

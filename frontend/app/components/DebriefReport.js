@@ -8,6 +8,8 @@ import {
 import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
 import TCFDScenarioDashboard from './TCFDScenarioDashboard';
 import styles from './DebriefReport.module.css';
+import { moneyM, moneyMScaled } from '../utils/format';   // SEAM-14: cohort symbol + rate
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -38,8 +40,8 @@ const METRIC_CONFIG = {
     corporate_treasury: {
         label: 'Treasury',
         tooltip: 'Corporate cash reserves available for CapEx, dividends, and loan repayments. Revenue minus costs each round.',
-        format: (v) => `$${(v / 1e6).toFixed(1)}M`,
-        deltaFormat: (v) => `${v >= 0 ? '+' : ''}$${(v / 1e6).toFixed(1)}M`,
+        format: (v) => moneyM(v),
+        deltaFormat: (v) => `${v >= 0 ? '+' : ''}${moneyM(v)}`,
     },
     group_reputation: {
         label: 'Reputation',
@@ -84,8 +86,8 @@ function generateCriticalAnalysis(latestSnapshot, trendHistory) {
         title: 'Treasury Performance',
         health: treasuryDelta > 0 ? 'good' : treasuryDelta > -5e6 ? 'warn' : 'bad',
         text: treasuryDelta >= 0
-            ? `Treasury grew by $${(treasuryDelta / 1e6).toFixed(1)}M since Round 1 — steady capital accumulation despite CapEx obligations.`
-            : `Treasury declined by $${(Math.abs(treasuryDelta) / 1e6).toFixed(1)}M since Round 1 — costs and CapEx are outpacing revenue generation.`,
+            ? `Treasury grew by ${moneyM(treasuryDelta)} since Round 1 — steady capital accumulation despite CapEx obligations.`
+            : `Treasury declined by ${moneyM(Math.abs(treasuryDelta))} since Round 1 — costs and CapEx are outpacing revenue generation.`,
     });
 
     // Reputation trajectory
@@ -140,6 +142,8 @@ function generateCriticalAnalysis(latestSnapshot, trendHistory) {
 
 // ────────────────────────────────────────────────────────────
 export default function DebriefReport({ sessionId }) {
+    const { loadSessionCurrency } = useCurrency();
+    useEffect(() => { if (sessionId) loadSessionCurrency(sessionId); }, [sessionId, loadSessionCurrency]);   // SEAM-14
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [expandedRounds, setExpandedRounds] = useState(new Set());
@@ -514,8 +518,8 @@ function TrendsSection({ trendHistory }) {
                             <AreaChart data={chartData} margin={{ top: 5, right: 15, bottom: 5, left: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                 <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#64748b' }} />
-                                <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `$${v.toFixed(0)}M`} />
-                                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`$${v.toFixed(1)}M`, 'Treasury']} />
+                                <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => moneyMScaled(v, { dp: 0 })} />
+                                <Tooltip contentStyle={tooltipStyle} formatter={(v) => [moneyMScaled(v), 'Treasury']} />
                                 <Area type="monotone" dataKey="treasuryM" stroke="#3b82f6" fill="rgba(59,130,246,0.1)" strokeWidth={2.5} dot={{ r: 4, fill: '#3b82f6' }} />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -686,7 +690,7 @@ function AnalysisSection({ analysis, trendHistory, regulatoryInstruments = [], r
                                     <td style={{ fontSize: '0.78rem', color: '#64748b', fontStyle: 'italic' }}>{reg.theory}</td>
                                     <td>{reg.activated_round != null ? `Round ${reg.activated_round}` : '—'}</td>
                                     <td className={styles.summaryValue} style={{ color: reg.treasury_impact < 0 ? '#ef4444' : '#10b981' }}>
-                                        {reg.treasury_impact !== 0 ? `$${(reg.treasury_impact / 1e6).toFixed(1)}M` : '—'}
+                                        {reg.treasury_impact !== 0 ? moneyM(reg.treasury_impact) : '—'}
                                     </td>
                                 </tr>
                             ))}

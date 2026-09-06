@@ -1,6 +1,8 @@
 'use client';
 import { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { moneyM } from '../../utils/format';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 /**
  * Projector view (UX audit §9 — projector view).
@@ -23,7 +25,8 @@ import { useSearchParams } from 'next/navigation';
  */
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
-const fmtM = (v) => `$${((Number(v) || 0) / 1_000_000).toFixed(1)}M`;
+// SEAM-14 (Wave 3): the cohort's symbol and rate, not a literal "$" at rate 1
+const fmtM = (v) => moneyM(Number(v) || 0);
 const clock = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 /* ---------- cohort chooser (no ?cohort= in the URL) ---------- */
@@ -63,6 +66,8 @@ function CohortChooser() {
 
 /* ---------- live board ---------- */
 function ProjectorBoard({ cohortId }) {
+  const { loadSessionCurrency } = useCurrency();
+  useEffect(() => { if (cohortId) loadSessionCurrency(cohortId); }, [cohortId, loadSessionCurrency]);   // SEAM-14
   const [data, setData] = useState(null);       // last GOOD payload — kept on failure
   const [stale, setStale] = useState(false);
   const [lastOk, setLastOk] = useState(null);   // Date of last successful fetch
