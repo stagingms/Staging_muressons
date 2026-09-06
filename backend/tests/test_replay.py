@@ -206,3 +206,40 @@ def test_no_premature_mismatch_verdict():
         "replay emits MISMATCH while it still covers only part of the pipeline"
     )
     assert 'report["verdict"] = "PARTIAL"' in src
+
+
+# ── RNG-4 (audit 2026-09-04, Wave 3): reachable, read-only, honest ────────────
+
+def test_the_facilitator_can_reach_replay_and_it_writes_nothing():
+    """replay.py was reachable from nothing but this file. The endpoint is
+    facilitator-gated, returns the module's verdict vocabulary with its scope
+    stated, and leaves the session exactly as it found it."""
+    import copy
+    import httpx
+    from httpx import ASGITransport
+    import config
+    import database as db
+    from main import app
+
+    out = _run(db.create_session(cohort_name=_unique("REPLAY-door"), facilitator_id="god_mode"))
+    sid = out.get("session_id") or out.get("id")
+    before = copy.deepcopy(_run(db.fetch_latest_state(sid)))
+
+    async def go():
+        async with httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            anon = await ac.get(f"/api/admin/sessions/{sid}/replay")
+            login = await ac.post("/api/admin/facilitators/login",
+                                  json={"facilitator_id": "god_mode", "password": config.MASTER_PASSWORD})
+            assert login.status_code == 200, login.text[:200]
+            return anon, await ac.get(f"/api/admin/sessions/{sid}/replay", cookies=login.cookies)
+
+    anon, r = _run(go())
+    assert anon.status_code in (401, 403)
+    assert r.status_code == 200, r.text[:300]
+    body = r.json()
+    assert body["verdict"] in ("VERIFIED", "DRIFT", "PARTIAL", "INSUFFICIENT")
+    assert body["scope"].startswith("core tick")
+    assert "run_new_engines" in " ".join(body["stages_not_replayed"])
+    assert "MISMATCH" not in body["verdict"]
+    after = _run(db.fetch_latest_state(sid))
+    assert after["global_state"] == before["global_state"] and after["bu_states"] == before["bu_states"]

@@ -150,6 +150,21 @@ export default function DebriefReport({ sessionId }) {
     const [activeTab, setActiveTab] = useState('rounds'); // 'rounds' | 'trends' | 'analysis' | 'dna' | 'tcfd'
     const [dnaData, setDnaData] = useState(null);
     const [tcfdEnabled, setTcfdEnabled] = useState(false);
+    // RNG-4 (Wave 3): the replay verifier, reachable from the debrief. Read-only on the server.
+    const [replay, setReplay] = useState(null);
+    const [replayBusy, setReplayBusy] = useState(false);
+    const runReplay = async () => {
+        if (!sessionId || replayBusy) return;
+        setReplayBusy(true);
+        try {
+            const r = await fetch(`${API}/api/admin/sessions/${sessionId}/replay`, { credentials: 'include' });
+            setReplay(r.ok ? await r.json() : { verdict: 'UNAVAILABLE', notes: [`HTTP ${r.status}`] });
+        } catch (e) {
+            setReplay({ verdict: 'UNAVAILABLE', notes: [String(e?.message || e)] });
+        } finally {
+            setReplayBusy(false);
+        }
+    };
 
     const fetchDebrief = useCallback(async () => {
         if (!sessionId) return;
@@ -245,7 +260,24 @@ export default function DebriefReport({ sessionId }) {
                 {data?.cohort_name && (
                     <span className={styles.cohortBadge}>{data.cohort_name}</span>
                 )}
+                <button type="button" onClick={runReplay} disabled={replayBusy} data-testid="replay-verify"
+                        title="Re-run the recorded rounds through the core tick and report whether they reproduce (read-only)"
+                        style={{ marginLeft: 'auto', fontSize: '0.75rem', padding: '4px 10px', borderRadius: 6, cursor: 'pointer' }}>
+                    {replayBusy ? 'Verifying…' : '🔁 Verify reproducibility'}
+                </button>
             </div>
+            {replay && (
+                <div data-testid="replay-verdict" style={{ fontSize: '0.8rem', padding: '8px 12px', margin: '0 0 8px', borderRadius: 6,
+                                                            border: '1px solid var(--border, #334155)', opacity: 0.95 }}>
+                    <strong>Replay verdict: {replay.verdict}</strong>
+                    {typeof replay.rounds_checked === 'number' && (
+                        <span> · {replay.rounds_checked} round transition{replay.rounds_checked === 1 ? '' : 's'} checked · {(replay.differences || []).length} difference{(replay.differences || []).length === 1 ? '' : 's'}</span>
+                    )}
+                    {replay.scope && <div style={{ opacity: 0.8 }}>Scope: {replay.scope}</div>}
+                    {replay.reading_guide && <div style={{ opacity: 0.8, marginTop: 4 }}>{replay.reading_guide}</div>}
+                    {(replay.notes || []).map((n, i) => <div key={i} style={{ opacity: 0.8, marginTop: 2 }}>• {n}</div>)}
+                </div>
+            )}
 
             {/* Tab Navigation */}
             <nav className={styles.tabNav}>

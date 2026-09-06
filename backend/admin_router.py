@@ -13191,6 +13191,54 @@ async def reorder_pillar_areas(
 
 
 # ═════════════════════════════════════════════════════════════════
+#  REPLAY VERIFIER (RNG-4, audit 2026-09-04, Wave 3)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get(
+    "/sessions/{session_id}/replay",
+    summary="Re-run a session's recorded rounds through the core tick and report the verdict",
+)
+async def get_session_replay(
+    session_id: str, request: Request,
+    _guard: None = Depends(require_facilitator),
+):
+    """RNG-4: replay.py existed since 4.9 and was reachable from nothing but a
+    test — "can this grade be defended?" had a tool and no door. This is the
+    door. READ-ONLY: replay never writes a session, advances a round or
+    touches the audit log.
+
+    The verdict vocabulary is the module's: VERIFIED / DRIFT / PARTIAL /
+    INSUFFICIENT — and PARTIAL is the expected answer for a real run, because
+    replay covers pre_tick + process_tick while the live commit path also runs
+    pillar aggregation, engagement, post-tick and the new-engines batch. A
+    definitive MISMATCH needs the commit pipeline extracted into one pure
+    function both paths call (replay.py docstring, KNOWN LIMIT); that refactor
+    of the hottest path is deliberately not done here. `scope` and
+    `stages_not_replayed` say so in the payload, so the facilitator reads the
+    report for what it is: reproducibility by seed + recorded decisions, with
+    the core tick checked field by field.
+    """
+    await _assert_session_visible(request, session_id)  # F-21: cross-cohort access
+    from replay import replay as _replay
+    report = await _replay(session_id)
+    report["stages_not_replayed"] = [
+        "pillar aggregation (multi_toggles / brsr_ngrbc)",
+        "engagement actions",
+        "round_logic.run_post_tick (round-specific mechanics, R10 finale)",
+        "round_logic.run_new_engines (NPCs, agents, balance sheet, biodiversity, tipping penalties)",
+        "router resync + treasury bridge",
+    ]
+    report["reading_guide"] = (
+        "VERIFIED: every core-tick field reproduced. DRIFT: config/code moved since the run — "
+        "differences are expected. PARTIAL: differences exist in fields a stage replay does not run "
+        "may own; not evidence against the engine. INSUFFICIENT: the run predates the provenance/"
+        "envelope work. Reproducibility for this class rests on the cohort seed plus the recorded "
+        "commit envelopes; this report checks the core tick against them."
+    )
+    return report
+
+
+# ═════════════════════════════════════════════════════════════════
 #  REGIONAL ESG REPORT ENDPOINT (Phase 4.2)
 # ═════════════════════════════════════════════════════════════════
 
