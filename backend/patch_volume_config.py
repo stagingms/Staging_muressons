@@ -26,21 +26,19 @@ DRY = "--dry-run" in sys.argv
 PATH = args[0] if args else os.path.join(
     os.environ.get("MURESSONS_DATA_DIR", "/data"), "simulation_config.json")
 
-PATCH = [
-    (["engine_parameters", "cbam", "surcharge_rate"],              100),
-    (["engine_parameters", "imitation_decay", "default_rate"],     0.05),
-    (["engine_parameters", "regulatory_ratchet", "baseline"],      20.0),
+# CFG-10 (2026-09-06): the table lives in config_migrations.py, which the boot
+# also applies automatically (a volume holding a KNOWN superseded value is
+# rewritten before config.py reads it). This script remains the manual path —
+# it sets every listed key to its current value whatever the volume holds,
+# which is the right tool when the value is neither current nor a known
+# superseded one and you have decided it should be current.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from config_migrations import MIGRATIONS  # noqa: E402
+PATCH = [(list(path), new) for path, _olds, new in MIGRATIONS] + [
+    # keys whose only history is "absent" (config.py default applied); pinned
+    # here so a volume that never had them gets the shipped value explicitly.
     (["engine_parameters", "synergy", "max_reduction_per_round"],  0.06),
-    (["ncd_parameters", "hard_cap"],                               5000),
-    (["ncd_parameters", "warn_threshold"],                         1000),
     (["ncd_parameters", "opex_penalty_per_unit"],                  1000),
-    # slo_ramp: the shipped natural-decay tiers (278365d) — see config.py NATURAL_DECAY_*
-    (["engine_parameters", "slo_ramp", "no_decay_ratio"],          0.15),
-    (["engine_parameters", "slo_ramp", "mid_ratio"],               0.2),
-    (["engine_parameters", "slo_ramp", "growth_ratio"],            0.3),
-    (["engine_parameters", "slo_ramp", "min_abs_capex"],           100000),
-    # F-20 (audit 2026-09-04): reveal share-price scale — see config.py TV_SHARES_OUTSTANDING
-    (["terminal_valuation", "shares_outstanding"],                 6500000),
 ]
 
 print(f"file: {PATH}")

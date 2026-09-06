@@ -137,6 +137,13 @@ from pathlib import Path
 # is configured (local dev, CI) — see runtime_paths.config_file.
 from runtime_paths import config_file as _config_file  # noqa: E402
 CONFIG_PATH = _config_file("simulation_config.json")
+# CFG-10 (2026-09-06): a volume seeded by an intermediate build carries that
+# build's transient values forever; known superseded values are rewritten to
+# the current ones BEFORE the file is read — see config_migrations.py. Recorded
+# here for /health (`config.migrated`) and reset on reload like every other
+# module-level value.
+from config_migrations import apply_known_migrations as _apply_known_migrations  # noqa: E402
+CONFIG_MIGRATIONS: list[dict] = _apply_known_migrations(CONFIG_PATH)
 SIMULATION_CONFIG = {}
 if CONFIG_PATH.exists():
     try:

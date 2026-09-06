@@ -217,8 +217,12 @@ def test_stale_volume_end_to_end_in_a_fresh_process(tmp_path):
     import subprocess
     image = json.loads((_BACKEND_DIR.parent / "simulation_config.json").read_text(encoding="utf-8"))
     stale = json.loads(json.dumps(image))
-    stale["engine_parameters"]["regulatory_ratchet"]["baseline"] = 10.0
-    stale["engine_parameters"]["imitation_decay"]["default_rate"] = 0.1
+    # CFG-10 (2026-09-06): 10.0 / 0.1 are KNOWN superseded values and are now
+    # migrated at boot before the clamp can see them (see the migration test
+    # below); an unknown legacy value still reaches the clamp — which is what
+    # this test pins.
+    stale["engine_parameters"]["regulatory_ratchet"]["baseline"] = 8.0
+    stale["engine_parameters"]["imitation_decay"]["default_rate"] = 0.09
     (tmp_path / "simulation_config.json").write_text(json.dumps(stale), encoding="utf-8")
     env = {**os.environ, "MURESSONS_DATA_DIR": str(tmp_path), "USE_MEMORY_DB": "true",
            "MURESSONS_NO_LEGACY_MIGRATION": "1", "PYTHONPATH": str(_BACKEND_DIR)}
@@ -244,7 +248,101 @@ def test_stale_volume_end_to_end_in_a_fresh_process(tmp_path):
     assert ("medium", "image_vs_volume") in kinds
     assert all(k != "inert_tunable" for _, k in kinds)
     # and the deploy log line the runbook tells the operator to look for
-    assert "[CONFIG] WARNING: engine_parameters.regulatory_ratchet.baseline=10.0" in out.stdout
+    assert "[CONFIG] WARNING: engine_parameters.regulatory_ratchet.baseline=8.0" in out.stdout
+
+
+def test_a_volume_seeded_by_an_intermediate_build_is_migrated_at_boot(tmp_path):
+    """CFG-10 (2026-09-06). Production's volume was seeded on 2026-09-03 while the
+    JSON briefly carried slo_ramp 0.10 / 0.25 / 0.50 + $500k and 100,000,000
+    shares; the volume wins, so the engine ran those for two deploys while
+    /health named the drift and the runbook's shell step went unrun. Known
+    superseded values are now rewritten before config.py reads the file; a
+    value that is neither superseded nor current is a deliberate tuning and is
+    left alone (still reported as image_vs_volume)."""
+    import json
+    import subprocess
+    image = json.loads((_BACKEND_DIR.parent / "simulation_config.json").read_text(encoding="utf-8"))
+    vol = json.loads(json.dumps(image))
+    sr = vol["engine_parameters"]["slo_ramp"]
+    sr["no_decay_ratio"], sr["mid_ratio"], sr["growth_ratio"], sr["min_abs_capex"] = 0.1, 0.25, 0.5, 500000
+    vol["terminal_valuation"]["shares_outstanding"] = 100000000
+    vol["engine_parameters"]["regulatory_ratchet"]["baseline"] = 10.0     # pre-launch value
+    vol["engine_parameters"]["imitation_decay"]["default_rate"] = 0.1
+    vol["engine_parameters"]["cbam"]["surcharge_rate"] = 100000
+    vol["engine_parameters"]["synergy"]["max_reduction_per_round"] = 0.045  # a deliberate tuning
+    path = tmp_path / "simulation_config.json"
+    path.write_text(json.dumps(vol), encoding="utf-8")
+    env = {**os.environ, "MURESSONS_DATA_DIR": str(tmp_path), "USE_MEMORY_DB": "true",
+           "MURESSONS_NO_LEGACY_MIGRATION": "1", "PYTHONPATH": str(_BACKEND_DIR)}
+    code = (
+        "import json, config, config_introspect as ci\n"
+        "from fastapi.testclient import TestClient\n"
+        "import main\n"
+        "with TestClient(main.app) as c: h = c.get('/api/health').json()\n"   # startup runs → config_boot on app.state
+        "r = ci.live_config_report(include_values=True)\n"
+        "print('JSON' + json.dumps({'migrated': config.CONFIG_MIGRATIONS, 'clamps': config.CONFIG_CLAMPS,"
+        " 'ivv': r['image_vs_volume']['status'],"
+        " 'diff_keys': [d['key'] for d in r['image_vs_volume'].get('differences', [])],"
+        " 'kinds': sorted({(p['severity'], p['kind']) for p in r['problems']}),"
+        " 'growth': config.NATURAL_DECAY_GROWTH_RATIO, 'floor': config.NATURAL_DECAY_MIN_ABS_CAPEX,"
+        " 'shares': config.TV_SHARES_OUTSTANDING, 'baseline': config.REG_RATCHET_BASELINE,"
+        " 'health_migrated': h['config'].get('migrated'), 'health_differs': h['config']['volume_differs_from_image_on']}))\n"
+    )
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True,
+                         timeout=180, cwd=str(_BACKEND_DIR))
+    line = next((l for l in out.stdout.splitlines() if l.startswith("JSON")), None)
+    assert line, f"no report line:\nSTDOUT:{out.stdout[-1500:]}\nSTDERR:{out.stderr[-1500:]}"
+    rep = json.loads(line[4:])
+    migrated = {m["key"]: (m["old"], m["new"]) for m in rep["migrated"]}
+    assert migrated == {
+        "engine_parameters.cbam.surcharge_rate": (100000, 100),
+        "engine_parameters.imitation_decay.default_rate": (0.1, 0.05),
+        "engine_parameters.regulatory_ratchet.baseline": (10.0, 20.0),
+        "engine_parameters.slo_ramp.no_decay_ratio": (0.1, 0.15),
+        "engine_parameters.slo_ramp.mid_ratio": (0.25, 0.2),
+        "engine_parameters.slo_ramp.growth_ratio": (0.5, 0.3),
+        "engine_parameters.slo_ramp.min_abs_capex": (500000, 100000),
+        "terminal_valuation.shares_outstanding": (100000000, 6500000),
+    }
+    # the engine runs the current values, nothing was clamped, and the file on the
+    # volume now says what the engine runs
+    assert rep["clamps"] == []
+    assert (rep["growth"], rep["floor"], rep["shares"], rep["baseline"]) == (0.3, 100000.0, 6500000, 20.0)
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    assert on_disk["engine_parameters"]["slo_ramp"]["growth_ratio"] == 0.3
+    assert on_disk["terminal_valuation"]["shares_outstanding"] == 6500000
+    # the deliberate tuning is untouched and is the ONLY remaining difference
+    assert on_disk["engine_parameters"]["synergy"]["max_reduction_per_round"] == 0.045
+    assert rep["ivv"] == "differs" and rep["diff_keys"] == ["engine_parameters.synergy.max_reduction_per_round"]
+    assert rep["health_differs"] == ["engine_parameters.synergy.max_reduction_per_round"]
+    assert ("high", "clamped_value") not in rep["kinds"]
+    # /health carries the migration record; the boot log announces it
+    assert {m["key"] for m in rep["health_migrated"]} == set(migrated)
+    assert "[config] MIGRATED engine_parameters.slo_ramp.growth_ratio: 0.5 -> 0.3" in out.stdout
+    assert "superseded value(s) the volume was seeded with were migrated at boot" in out.stdout
+    # a second boot on the migrated file is a no-op
+    out2 = subprocess.run([sys.executable, "-c", "import json, config; print('JSON' + json.dumps(config.CONFIG_MIGRATIONS))"],
+                          env=env, capture_output=True, text=True, timeout=120, cwd=str(_BACKEND_DIR))
+    line2 = next((l for l in out2.stdout.splitlines() if l.startswith("JSON")), None)
+    assert line2 and json.loads(line2[4:]) == []
+
+
+def test_the_patcher_and_the_boot_migration_share_one_table():
+    from config_migrations import MIGRATIONS, plan_migrations
+    src = (_BACKEND_DIR / "patch_volume_config.py").read_text(encoding="utf-8")
+    assert "from config_migrations import MIGRATIONS" in src
+    # every row's current value is the committed JSON's value — the table cannot drift from the image
+    import json
+    image = json.loads((_BACKEND_DIR.parent / "simulation_config.json").read_text(encoding="utf-8"))
+    for path, olds, new in MIGRATIONS:
+        node = image
+        for seg in path:
+            node = node[seg]
+        assert node == new, f"{'.'.join(path)}: table says {new!r}, simulation_config.json says {node!r}"
+        assert new not in olds
+    # the committed image itself needs no migration; a bool is never migrated
+    assert plan_migrations(image) == []
+    assert plan_migrations({"engine_parameters": {"slo_ramp": {"growth_ratio": True}}}) == []
 
 
 def test_file_ahead_message_no_longer_claims_the_file_lives_in_the_image():

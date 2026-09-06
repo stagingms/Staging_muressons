@@ -34,8 +34,13 @@ def test_share_count_is_on_the_reveal_scale_everywhere():
     cfg = json.loads((_REPO / "simulation_config.json").read_text(encoding="utf-8"))
     assert cfg["terminal_valuation"]["shares_outstanding"] == 6_500_000
     # the volume patcher carries it to production's data volume
+    # CFG-10 (2026-09-06): the patcher takes its table from config_migrations,
+    # which the boot applies too — pin the row there and the patcher's import.
+    from config_migrations import MIGRATIONS
+    assert any(path == ("terminal_valuation", "shares_outstanding") and new == 6_500_000 and 100_000_000 in olds
+               for path, olds, new in MIGRATIONS)
     patcher = (_BACKEND_DIR / "patch_volume_config.py").read_text(encoding="utf-8")   # runs at import: read, don't import
-    assert '(["terminal_valuation", "shares_outstanding"],' in patcher and "6500000" in patcher
+    assert "from config_migrations import MIGRATIONS" in patcher
     # the two client-side copies match
     for rel in ("frontend/app/components/stockValuationEngine.js", "frontend/app/components/TerminalValuationCalc.js"):
         src = (_REPO / rel).read_text(encoding="utf-8")

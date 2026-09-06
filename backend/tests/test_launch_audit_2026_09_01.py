@@ -1141,12 +1141,27 @@ class TestF07ImitationDecayBound:
         assert rate == 0.05
 
     def test_a_stale_volume_value_is_clamped_and_says_so(self, decay_rate_on_volume, capsys):
-        """Branch 1: above the ceiling -> default, with a warning naming both."""
-        cfg = decay_rate_on_volume(0.10)
+        """Branch 1: above the ceiling -> default, with a warning naming both.
+        CFG-10 (2026-09-06): 0.10 is the KNOWN pre-launch value and is migrated
+        before the clamp can see it (next test); an unknown out-of-band value
+        still reaches the clamp."""
+        cfg = decay_rate_on_volume(0.09)
         assert cfg.DEFAULT_IMITATION_DECAY_RATE == pytest.approx(0.05)
         out = capsys.readouterr().out
         assert "imitation_decay.default_rate" in out
-        assert "0.1" in out and "0.08" in out and "0.05" in out
+        assert "0.09" in out and "0.08" in out and "0.05" in out
+
+    def test_the_known_pre_launch_value_is_migrated_not_clamped(self, decay_rate_on_volume, capsys):
+        """CFG-10: the volume held the value the JSON shipped before the launch
+        audit; the boot rewrites it to the current value, says so, and the
+        clamp never fires (the file now says what the engine runs)."""
+        cfg = decay_rate_on_volume(0.10)
+        assert cfg.DEFAULT_IMITATION_DECAY_RATE == pytest.approx(0.05)
+        assert [m["key"] for m in cfg.CONFIG_MIGRATIONS] == ["engine_parameters.imitation_decay.default_rate"]
+        assert cfg.CONFIG_CLAMPS == []
+        out = capsys.readouterr().out
+        assert "[config] MIGRATED engine_parameters.imitation_decay.default_rate: 0.1 -> 0.05" in out
+        assert "[CONFIG] WARNING" not in out
 
     def test_a_configured_value_within_the_bound_is_honoured(self, decay_rate_on_volume, capsys):
         """Branch 2: at or below the ceiling -> used as configured, silently.
@@ -1217,11 +1232,21 @@ class TestRatchetBaselineBound:
         assert cfg["engine_parameters"]["regulatory_ratchet"]["baseline"] == 20.0
 
     def test_a_stale_volume_value_is_clamped_and_says_so(self, config_key_on_volume, capsys):
-        cfg = config_key_on_volume(self._PATH, 10.0)
+        # CFG-10: 10.0 is the KNOWN pre-launch value (migrated, next test); 8.0 is not
+        cfg = config_key_on_volume(self._PATH, 8.0)
         assert cfg.REG_RATCHET_BASELINE == pytest.approx(20.0)
         out = capsys.readouterr().out
         assert "regulatory_ratchet.baseline" in out
-        assert "10.0" in out and "20.0" in out
+        assert "8.0" in out and "20.0" in out and "[CONFIG] WARNING" in out
+
+    def test_the_known_pre_launch_baseline_is_migrated_not_clamped(self, config_key_on_volume, capsys):
+        cfg = config_key_on_volume(self._PATH, 10.0)
+        assert cfg.REG_RATCHET_BASELINE == pytest.approx(20.0)
+        assert [m["key"] for m in cfg.CONFIG_MIGRATIONS] == ["engine_parameters.regulatory_ratchet.baseline"]
+        assert cfg.CONFIG_CLAMPS == []
+        out = capsys.readouterr().out
+        assert "[config] MIGRATED engine_parameters.regulatory_ratchet.baseline: 10.0 -> 20.0" in out
+        assert "[CONFIG] WARNING" not in out
 
     def test_a_stricter_baseline_is_honoured(self, config_key_on_volume, capsys):
         """The band ABOVE the legacy value is a legitimate tuning (a stricter regulator)."""

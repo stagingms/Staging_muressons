@@ -160,8 +160,20 @@ Tail the deploy logs and confirm:
 The data volume keeps its own `simulation_config.json` forever
 (`runtime_paths.config_file` seeds it once and never overwrites it), so a
 volume created before a build that changed a default silently runs the old
-numbers. Do this after any deploy that touched `simulation_config.json`, and
-before every class:
+numbers.
+
+**Since CFG-10 (2026-09-06) the boot does the common case itself:** a volume
+holding a KNOWN superseded value (the table in `backend/config_migrations.py`
+— the pre-launch economy, the 2026-09-03 natural-decay tiers, the 100,000,000
+share count) is rewritten to the current value before `config.py` reads it,
+announced in the boot log as `[config] MIGRATED <key>: <old> -> <new>` and
+listed in `/api/health` under `config.migrated`. After such a boot
+`volume_differs_from_image_on` is empty and nothing below is needed. A value
+that is neither superseded nor current is a deliberate tuning: it is left
+alone and keeps showing as `image_vs_volume` — that is the case for the
+manual steps below. Do them after any deploy that touched
+`simulation_config.json` and left `volume_differs_from_image_on` non-empty,
+and before every class:
 
 1. **Inspect** (from a Railway shell, or `railway ssh --`):
    ```

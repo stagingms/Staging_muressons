@@ -370,6 +370,15 @@ async def lifespan(app: FastAPI):
         for _c in _cfg_boot.get("clamped_values", []):
             print(f"[config] CLAMPED {_c['key']}: volume says {_c['configured']!r}, engine runs {_c['using']!r} "
                   f"({_c['reason']}). The file is NOT what the engine uses.")
+        try:
+            import config as _cfg_mod_boot
+            _mig = list(getattr(_cfg_mod_boot, "CONFIG_MIGRATIONS", []) or [])
+        except Exception:  # noqa: BLE001
+            _mig = []
+        if _mig:
+            print(f"[config] {len(_mig)} superseded value(s) the volume was seeded with were migrated at boot "
+                  "(CFG-10, config_migrations.py): " + ", ".join(m["key"] for m in _mig)
+                  + ". The engine runs the current values; no restart or shell step needed.")
     except Exception as _cfg_exc:
         print(f"[config] boot report skipped (non-fatal): {_cfg_exc}")
 
@@ -712,12 +721,16 @@ async def health_check(strict: bool = False):
     try:
         import config as _config_mod
         _clamped_now = [c.get("key") for c in getattr(_config_mod, "CONFIG_CLAMPS", []) or []]
+        # CFG-10: known superseded values the boot rewrote on the volume
+        _migrated_now = list(getattr(_config_mod, "CONFIG_MIGRATIONS", []) or [])
     except Exception:  # noqa: BLE001
         _clamped_now = []
+        _migrated_now = []
     _config_block = {
         "path": (_cfg or {}).get("path"),
         "fingerprint": (_cfg or {}).get("fingerprint"),
         "clamped_values": _clamped_now,
+        "migrated": _migrated_now,
         "volume_differs_from_image_on": [
             d["key"] for d in ((_cfg or {}).get("image_vs_volume") or {}).get("differences", [])
         ],
