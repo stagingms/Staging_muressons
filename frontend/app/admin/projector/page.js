@@ -88,6 +88,21 @@ function ProjectorBoard({ cohortId }) {
     return () => clearInterval(pollRef.current);
   }, [load]);
 
+  // ACC-5 (audit 2026-09-04, Wave 3): the console tabs refresh the facilitator
+  // JWT every 90 min and on focus; this tab did not, so a projector opened at
+  // 09:00 with an 8 h cookie went STALE at ~17:00 on a long day. Same refresh
+  // cadence here (the poll itself does not extend the cookie).
+  useEffect(() => {
+    const doRefresh = async () => {
+      try { await fetch(`${API}/api/admin/auth/refresh`, { method: 'POST', credentials: 'include' }); }
+      catch { /* silent — the poller stamps STALE if the cookie has really died */ }
+    };
+    const iv = setInterval(doRefresh, 90 * 60 * 1000);
+    const onFocus = () => doRefresh();
+    window.addEventListener('focus', onFocus);
+    return () => { clearInterval(iv); window.removeEventListener('focus', onFocus); };
+  }, []);
+
   // 1-second heartbeat for the countdown.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);

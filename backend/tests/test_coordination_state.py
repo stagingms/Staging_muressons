@@ -29,7 +29,27 @@ def _isolate_coordination_globals():
     make every later commit-turn return 503 once it is snapshotted to disk.
     """
     gm_saved = copy.deepcopy(a._god_mode_settings)
-    pacing_saved = copy.deepcopy(a._round_pacing)
+    # Wave 3 hygiene: a pacing test that ran earlier in the process can leave a
+    # live asyncio Task / TimerHandle in _round_pacing, which deepcopy cannot
+    # pickle — every test here then ERRORED at setup, order-dependently. Copy
+    # the plain values and keep the handles by reference.
+    def _copy_pacing(src):
+        out = {}
+        for k, v in src.items():
+            if isinstance(v, dict):
+                out[k] = {}
+                for kk, vv in v.items():
+                    try:
+                        out[k][kk] = copy.deepcopy(vv)
+                    except Exception:
+                        out[k][kk] = vv
+            else:
+                try:
+                    out[k] = copy.deepcopy(v)
+                except Exception:
+                    out[k] = v
+        return out
+    pacing_saved = _copy_pacing(a._round_pacing)
     try:
         yield
     finally:

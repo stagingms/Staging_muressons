@@ -124,7 +124,7 @@ def test_dashboard_solo_session_no_header_allowed():
 def test_commit_wrong_owner_forbidden():
     pid, sub = _new_player_session()
     client.cookies.clear()
-    payload = {"dividends_paid": 0, "decisions": []}
+    payload = {"dividends_paid": 0, "decisions": [], "expected_round": 1}
     r = client.post(f"/api/simulations/{sub}/commit-turn", json=payload,
                     headers=player_token_headers("00000000-0000-0000-0000-000000000000", "MUR-EVIL"))
     assert r.status_code == 403
@@ -136,7 +136,7 @@ def test_commit_correct_owner_clears_ownership_gate():
     # later validation / rate-limit / round-lock (any status), but never the
     # "not the owner" 403.
     pid, sub = _new_player_session()
-    payload = {"dividends_paid": 0, "decisions": []}
+    payload = {"dividends_paid": 0, "decisions": [], "expected_round": 1}
     r = client.post(f"/api/simulations/{sub}/commit-turn", json=payload,
                     headers={"X-Player-Id": pid})
     if r.status_code == 403:

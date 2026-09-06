@@ -154,7 +154,7 @@ def test_committing_a_round_auto_closes_an_open_room():
     router._commit_timestamps[psid] = 0.0
     body = {"decisions": [{"bu_id": b["bu_id"], "investment_ratio": 0.1,
                            "capex_allocated": 1, "choice_selected": "option_b"} for b in bus],
-            "dividends_paid": 0}
+            "dividends_paid": 0, "expected_round": 1}
     r = client.post(f"/api/simulations/{psid}/commit-turn", json=body, headers=hdr)
     assert r.status_code in (200, 201), r.text
 

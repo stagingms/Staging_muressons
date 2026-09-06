@@ -636,6 +636,19 @@ export default function useSimulation() {
                     // gate queue full / pool exhausted) — both mean "nothing was
                     // lost, try again shortly": auto-retry after the cooldown the
                     // server suggests (Retry-After, default 5s), max 2 retries.
+                    if (res.status === 503) {
+                        // FLOW-10 (Wave 3): a facilitator / god-mode freeze is a 503 with
+                        // detail.code === 'frozen'. It is not an outage: no retry, and the
+                        // player sees the facilitator's message in the waiting overlay.
+                        const frozen = await res.clone().json().catch(() => ({}));
+                        if (frozen?.detail?.code === 'frozen') {
+                            setRoundLockReason({ kind: 'facilitator', message: errorDetailText(frozen.detail, 'This cohort is paused by your facilitator.') });
+                            setRoundLocked(true);
+                            setLoading(false);
+                            commitInProgressRef.current = false;
+                            return null;
+                        }
+                    }
                     if (res.status === 429 || res.status === 503) {
                         const retryCount = payload._retryCount || 0;
                         const retryAfterS = Math.min(30, Math.max(1, Number(res.headers.get('Retry-After')) || 5));

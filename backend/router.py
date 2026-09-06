@@ -573,7 +573,9 @@ def _auto_commit_request(global_state: dict, bu_states: list, round_number: int,
             # answered" case — recording 'majority' here was the fiction.
             team_consensus="not_recorded", pillar_decisions=None,
         ))
-    return CommitTurnRequest(dividends_paid=0.0, decisions=decisions)  # engine params are server-derived (F-07)
+    # FLOW-08 (Wave 3): the server's own auto-commit carries the round it is
+    # committing, like every current client does — expected_round is required now.
+    return CommitTurnRequest(dividends_paid=0.0, decisions=decisions, expected_round=round_number)  # engine params are server-derived (F-07)
 
 
 async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int:
@@ -2524,10 +2526,17 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         _scope = "System is currently frozen for maintenance" if _global_frozen \
             else "This cohort is currently paused by your facilitator"
         _msg = _cohort_settings_now.get("freeze_message") or ""
+        # FLOW-10 (audit 2026-09-04, Wave 3): the client treated every 503 as
+        # "server busy" and retried twice before saying so — a facilitator's
+        # pause read as an outage. The detail carries a code the client keys on.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(f"{_scope}. Please wait for your facilitator to resume."
-                    + (f" — {_msg}" if _msg else "")),
+            detail={
+                "code": "frozen",
+                "scope": "system" if _global_frozen else "cohort",
+                "message": (f"{_scope}. Please wait for your facilitator to resume."
+                            + (f" — {_msg}" if _msg else "")),
+            },
         )
 
     # ── Fetch current state ──────────────────────────────────
@@ -2588,15 +2597,17 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         )
 
     # ── ITEM 1: Optimistic locking — expected_round guard ────
-    # Enforced whenever the client sends it. Deliberately still optional in the
-    # model: making it mandatory would 422 any browser tab running a cached
-    # bundle, which is a run-day failure mode, and the double-advance this
-    # guards against originates in the CLIENT's 429 retry loop — so shipping
-    # useSimulation.js's expected_round is what actually closes it. Set
-    # REQUIRE_EXPECTED_ROUND=true once the warning below stops appearing.
+    # Enforced whenever the client sends it. Still optional in the MODEL (a
+    # missing field must not 422 into a generic validation error); FLOW-08
+    # (audit 2026-09-04, Wave 3): REQUIRED by default at this gate. The client
+    # has sent it since 2026-08-02, the server's own auto-commit sends it, and a
+    # tab still running an older bundle is the one case that can double-commit
+    # after a lost response (probe B3: a stale re-post advanced the round
+    # again) — it now gets a 400 that says to refresh, with its draft safe on
+    # the server. REQUIRE_EXPECTED_ROUND=false restores the warning-only mode.
     expected_round = getattr(body, 'expected_round', None)
     if expected_round is None:
-        if _os.getenv("REQUIRE_EXPECTED_ROUND", "").strip().lower() in ("true", "1", "yes"):
+        if _os.getenv("REQUIRE_EXPECTED_ROUND", "true").strip().lower() not in ("false", "0", "no"):
             if commit_lock.locked(): commit_lock.release()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
