@@ -131,7 +131,13 @@ def get_benchmarks(
     Returns percentile rankings and contextual insights.
     """
     n = len(bu_states) or 1
-    avg_ci = sum(bu.get("carbon_intensity", 0) for bu in bu_states) / n
+    # SEAM-15 (audit 2026-09-04, Wave 3): the label says tCO2e per $M revenue,
+    # so the figure is the group's emissions over the group's revenue — the
+    # revenue-weighted intensity the emissions total is built from — not the
+    # mean of the BU figures (which let a divested $1M BU at CI 0 pull a
+    # 6.87 group down to 4.64 and earn a top-quartile badge).
+    from engine import calc_revenue_weighted_avg_ci
+    avg_ci = calc_revenue_weighted_avg_ci(bu_states)
     avg_gov = sum(bu.get("governance_risk_score", 0) for bu in bu_states) / n
     avg_sl = sum(bu.get("social_license_score", 50) for bu in bu_states) / n
     avg_wd = sum(bu.get("water_dependency", 0) for bu in bu_states) / n
@@ -160,16 +166,17 @@ def get_benchmarks(
 
         # Generate insight
         if pctl >= 75:
-            insight = f"Top quartile — outperforming 75%+ of FTSE 100 peers"
+            # SEAM-15: the table is a static FTSE 100 reference, not this cohort's peers
+            insight = f"Top quartile against the FTSE 100 reference table (static, not your cohort)"
             badge = "🏆"
         elif pctl >= 50:
-            insight = f"Above median — performing better than most FTSE 100 peers"
+            insight = f"Above the FTSE 100 reference median (static table, not your cohort)"
             badge = "✅"
         elif pctl >= 25:
-            insight = f"Below median — room for improvement vs FTSE 100 peers"
+            insight = f"Below the FTSE 100 reference median (static table, not your cohort)"
             badge = "⚠️"
         else:
-            insight = f"Bottom quartile — significantly lagging FTSE 100 peers"
+            insight = f"Bottom quartile against the FTSE 100 reference table (static, not your cohort)"
             badge = "🔴"
 
         results[metric_id] = {

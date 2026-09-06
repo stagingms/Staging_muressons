@@ -507,8 +507,14 @@ export default function ExecutiveCockpit({
       ? rawTco2e
       : (businessUnits?.reduce((acc, bu) => acc + ((bu.carbon_intensity || 0) * (bu.revenue_base || 0)) / 1_000_000, 0) || 0)
   );
+  // SEAM-15 (audit 2026-09-04, Wave 3): tCO₂e per $M revenue for the GROUP —
+  // emissions over revenue, the figure the tCO₂e total is built from — not the
+  // mean of the BU intensities, which a small or divested BU could pull down.
+  const totalRevenueForCi = businessUnits?.reduce((acc, bu) => acc + (bu.revenue_base || 0), 0) || 0;
   const avgCarbonIntensity = businessUnits?.length
-    ? (businessUnits.reduce((acc, bu) => acc + (bu.carbon_intensity || 0), 0) / businessUnits.length)
+    ? (totalRevenueForCi > 0
+        ? tco2e / (totalRevenueForCi / 1_000_000)
+        : businessUnits.reduce((acc, bu) => acc + (bu.carbon_intensity || 0), 0) / businessUnits.length)
     : 0;
   const vrio = globalState?.vrio_capabilities || { value: 50, rarity: 50, imitability: 100, organization: 80 };
   
@@ -1906,7 +1912,7 @@ export default function ExecutiveCockpit({
               {decisionParadigm === 'advanced_climate' && !isHealthcare && (
                 <div style={{ padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: '1px solid #334155' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Avg Carbon Intensity</span>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }} title="Group tCO₂e per $M revenue (revenue-weighted)">Carbon Intensity</span>
                     <span style={{ fontSize: '0.73rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: '#e2e8f0' }}>
                       {avgCarbonIntensity.toFixed(1)}
                     </span>

@@ -555,7 +555,8 @@ async def get_platform_analytics(request: Request,
             if not bus:
                 continue
             n = len(bus)
-            avg_carbon = round(sum(b.get("carbon_intensity", 0) for b in bus) / n, 2)
+            from engine import calc_revenue_weighted_avg_ci as _rw_ci
+            avg_carbon = round(_rw_ci(bus), 2)   # SEAM-15: tCO₂e per $M revenue, revenue-weighted
             avg_ncd = round(sum(b.get("natural_capital_debt", 0) for b in bus) / n, 2)
             avg_sl = round(sum(b.get("social_license_score", 50) for b in bus) / n, 2)
             avg_gov = round(sum(b.get("governance_risk_score", 0) for b in bus) / n, 2)

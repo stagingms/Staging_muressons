@@ -6426,7 +6426,9 @@ async def get_session_report(session_id: str, request: Request, _guard: None = D
         terminal_value = round(treasury + (total_rev - total_opex) * synergy * 5, 2)
     avg_slo = round(sum(bu.get("social_license_score", 50) for bu in bus) / max(len(bus), 1), 2)
     avg_ncd = round(sum(bu.get("natural_capital_debt", 0) for bu in bus) / max(len(bus), 1), 2)
-    avg_ci = round(sum(bu.get("carbon_intensity", 50) for bu in bus) / max(len(bus), 1), 2)
+    # SEAM-15 (Wave 3): the leaderboard's intensity is the group's tCO₂e per $M revenue
+    from engine import calc_revenue_weighted_avg_ci as _rw_ci
+    avg_ci = round(_rw_ci(bus), 2)
     total_tco2 = round(sum(bu.get("tco2e_emissions", 0) for bu in bus), 2)
     mr = round(flags.get("regenerative_multiple", gs.get("regenerative_multiple", 1.0)), 4)
     archetype = flags.get("profile_title", gs.get("profile_title", "In Progress"))
@@ -6520,9 +6522,7 @@ async def get_session_report(session_id: str, request: Request, _guard: None = D
                 "avg_slo": round(
                     sum(bu.get("social_license_score", 50) for bu in h_bus) / max(len(h_bus), 1), 2
                 ),
-                "avg_ci": round(
-                    sum(bu.get("carbon_intensity", 50) for bu in h_bus) / max(len(h_bus), 1), 2
-                ),
+                "avg_ci": round(_rw_ci(h_bus), 2),   # SEAM-15: revenue-weighted
                 "total_tco2": round(sum(bu.get("tco2e_emissions", 0) for bu in h_bus), 2),
             })
 
