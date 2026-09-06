@@ -129,7 +129,10 @@ function PeerBenchmarking({ data }) {
     return (
         <div className={styles.section}>
             <p className={styles.sectionDesc}>
-                Your percentile ranking vs {data.player_count} players at the same round
+                {/* SEAM-12 (Wave 3): the peer set is this cohort's teams — say so, and say when there are none */}
+                {data.peer_scope === 'solo' || (data.player_count || 0) <= 1
+                    ? 'Solo session — no cohort peers at this round; percentiles are against yourself.'
+                    : `Your percentile ranking vs the ${data.player_count} teams in your cohort at the same round`}
             </p>
             <div className={styles.benchGrid}>
                 {metrics.map(m => (

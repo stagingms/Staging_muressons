@@ -546,18 +546,20 @@ export default function ExecutiveCockpit({
   const esgWacc = events?.esg_adjusted_wacc || commitResults?.events?.esg_adjusted_wacc || null;
   const systemicTipping = events?.systemic_tipping || commitResults?.events?.systemic_tipping || {};
   const foreshadowingSignals = events?.foreshadowing_signals || commitResults?.events?.foreshadowing_signals || [];
-  const previousGlobalState = history?.length > 0 ? history[history.length - 1]?.global_state : {};
-
-  /* THE ACTUAL PREVIOUS ROUND. previousGlobalState above is history's LAST
-     entry, which is this round's own snapshot — so every delta computed from
-     it is zero. The belt printed "unchanged vs R1" across the board on a
-     screen where treasury had moved by millions, which is how the bug became
-     visible: the older KPI chips render nothing when d === 0, so they had
-     been silently showing no movement for as long as they have existed.
-     InvestmentMatrix already knew this — getPrevBu reads length - 2. */
+  /* THE ACTUAL PREVIOUS ROUND. history's LAST entry is this round's own
+     snapshot (row K = the state ENTERING round K), so a delta against it is
+     zero at rest and only flashed the right number during the advance→refetch
+     window. SEAM-17 (audit 2026-09-04, Wave 3): the KPI-belt chips and the BU
+     ticker now read the row before it — the change made by round N−1, the
+     same "vs R{N−1}" the FocusOverlay strip already shows. InvestmentMatrix
+     already knew this — getPrevBu reads length - 2. */
   const priorRoundState = history?.length > 1
     ? history[history.length - 2]?.global_state
     : null;
+  const priorRoundBUs = history?.length > 1
+    ? (history[history.length - 2]?.business_units || history[history.length - 2]?.bu_states || null)
+    : null;
+  const previousGlobalState = priorRoundState || {};   // SEAM-17: the belt's "previous" is the prior round
 
   // Regulatory Sandbox — active instruments visible to player as "Regulatory Environment"
   const sandboxState = globalState?.regulatory_sandbox || {};
@@ -1664,7 +1666,7 @@ export default function ExecutiveCockpit({
               <div className={styles.resourceLabel}>💰 Treasury</div>
               <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
               {(() => { const prev = previousGlobalState?.corporate_treasury; const d = prev != null ? treasury - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }} title={`vs R${Math.max(1, roundNumber - 1)} — the change made by the previous round`} data-testid="kpi-delta">{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
               {shadowDeltas?.treasury !== 0 && shadowDeltas?.treasury && (
                 <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.treasury < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
@@ -1699,7 +1701,7 @@ export default function ExecutiveCockpit({
                   occurrences moved to the token. */}
               <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>/100</span></div>
               {(() => { const prev = previousGlobalState?.group_reputation; const d = prev != null ? reputation - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }} title={`vs R${Math.max(1, roundNumber - 1)} — the change made by the previous round`} data-testid="kpi-delta">{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
               ) : null; })()}
               {shadowDeltas?.reputation !== 0 && shadowDeltas?.reputation && (
                 <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.reputation < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
@@ -1712,15 +1714,15 @@ export default function ExecutiveCockpit({
                 <div className={styles.resourceLabel}>🏭 Carbon</div>
                 <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginLeft: 2 }}>t</span></div>
                 {(() => { const prev = previousGlobalState?.tco2e_emissions; const d = prev != null ? tco2e - prev : 0; return d !== 0 ? (
-                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--positive-text)' : 'var(--danger-text)', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--positive-text)' : 'var(--danger-text)', marginTop: 1 }} title={`vs R${Math.max(1, roundNumber - 1)} — the change made by the previous round`} data-testid="kpi-delta">{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
                 ) : null; })()}
               </div>
             )}
             <div className={styles.resourceCard}>
               <div className={styles.resourceLabel}>📈 EBITDA</div>
               <div className={styles.resourceValue}>{fmtCurrency(ebitda)}</div>
-              {(() => { const prevBUs = previousGlobalState?.business_units || history?.[history?.length-1]?.business_units; const prevEbitda = prevBUs?.reduce((a,b) => a + (b.revenue_base||0) - (b.opex_base||0), 0); const d = prevEbitda != null ? ebitda - prevEbitda : 0; return Math.abs(d) > 0.01 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+              {(() => { const prevBUs = priorRoundBUs; const prevEbitda = prevBUs?.reduce((a,b) => a + (b.revenue_base||0) - (b.opex_base||0), 0); const d = prevEbitda != null ? ebitda - prevEbitda : 0; return Math.abs(d) > 0.01 ? (
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }} title={`vs R${Math.max(1, roundNumber - 1)} — the change made by the previous round`} data-testid="kpi-delta">{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
             </div>
             {isHealthcare && (
@@ -1876,11 +1878,23 @@ export default function ExecutiveCockpit({
               </div>
               <div style={{ padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: '1px solid #334155' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}>Cost of Capital</span>
+                  <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}
+                        title="The corporate cost of capital the engine charges on debt and negative treasury. The exit multiple is priced on the ESG-adjusted WACC below.">Cost of Capital (corporate)</span>
                   <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace' }}>
                     {((globalState?.cost_of_capital || 0.05) * 100).toFixed(1)}%
                   </span>
                 </div>
+                {/* SEAM-16 (Wave 3): two WACCs exist — say which one prices the exit multiple */}
+                {(() => {
+                  const w = esgWacc?.adjusted_wacc ?? globalState?.active_event_flags?.esg_adjusted_wacc?.adjusted_wacc ?? globalState?.esg_adjusted_wacc?.adjusted_wacc;
+                  return w != null ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }} data-testid="esg-wacc-row">
+                      <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600 }}
+                            title="ESG-adjusted WACC — the rate the terminal valuation's exit multiple is priced on (exit_multiple_wacc_used).">WACC (ESG-adj., prices the exit multiple)</span>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace' }}>{(Number(w) * 100).toFixed(2)}%</span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
               {/* Macro Rate Regime + FX Indicators */}
               {(() => {
@@ -3740,7 +3754,7 @@ export default function ExecutiveCockpit({
               {businessUnits.map((bu, idx) => {
                 const buId = bu.id || bu.bu_id;
                 const margin = bu.revenue_base > 0 ? ((bu.revenue_base - bu.opex_base) / bu.revenue_base * 100) : 0;
-                const prevBu = previousGlobalState?.business_units?.find(p => p.id === bu.id);
+                const prevBu = priorRoundBUs?.find(p => (p.id || p.bu_id) === buId);   // SEAM-17: the prior round's row
                 const revDelta = prevBu ? ((bu.revenue_base || 0) - (prevBu.revenue_base || 0)) : 0;
                 const isActive = isDeepDive && investigatedBU === buId;
                 const isDimmed = isDeepDive && investigatedBU !== buId;

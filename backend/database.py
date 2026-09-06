@@ -1764,6 +1764,17 @@ async def list_all_player_ids() -> set[str]:
 _PLAYER_ID_MINT_ATTEMPTS = 2000
 
 
+
+def _player_id_in_registry(player_id: str) -> bool:
+    """Wave 3 hygiene: the credential registry (admin_shared._player_registry) can
+    hold a record whose session no longer exists; minting that id again would
+    make change-password / login find the stale record first."""
+    try:
+        from admin_shared import _player_registry
+    except Exception:  # pragma: no cover — registry unavailable at import time
+        return False
+    return any(isinstance(p, dict) and p.get("player_id") == player_id for p in _player_registry)
+
 async def generate_player_id(session_id: str) -> Optional[str]:
     """Generate and register a player ID for the session that is unique across
     the WHOLE platform (F-40), not just within this cohort."""
@@ -1774,12 +1785,13 @@ async def generate_player_id(session_id: str) -> Optional[str]:
         return None
     allowed = info.get("allowed_player_ids", [])
     from config import PLAYER_ID_RANDOM_LETTERS
+    _sysrand = random.SystemRandom()   # Wave 3 hygiene: OS entropy, not the seedable process-global Random
     for _ in range(_PLAYER_ID_MINT_ATTEMPTS):
-        letters = ''.join(random.choices(string.ascii_uppercase, k=PLAYER_ID_RANDOM_LETTERS))
+        letters = ''.join(_sysrand.choices(string.ascii_uppercase, k=PLAYER_ID_RANDOM_LETTERS))
         pid = f"MUR-{letters}"
         if pid in allowed:
             continue
-        if not await player_id_in_use(pid):
+        if not await player_id_in_use(pid) and not _player_id_in_registry(pid):
             break
     else:  # pragma: no cover — id space effectively exhausted
         raise RuntimeError("Could not allocate a platform-unique player id; raise PLAYER_ID_RANDOM_LETTERS.")

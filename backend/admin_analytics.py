@@ -612,20 +612,35 @@ async def get_player_analytics(session_id: str, request: Request):
     # Railway audit §1.1: memory-shaped views via the parity db API (the old
     # getattr reads silently returned {} under Postgres, 404ing every player).
     all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    sess = all_sessions.get(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+
+    # SEAM-12 (audit 2026-09-04, Wave 3): "percentile ranking vs. the cohort"
+    # ranked against EVERY session on the server — cohort shells, solos, other
+    # cohorts, test runs (a 3-team cohort showed player_count 55 and a cohort
+    # average of −$67M). The peer set is the team sessions of THIS cohort; a
+    # solo session's peer set is itself. Histories are fetched for the peers
+    # only, which is also why this route stops walking the whole store.
+    _parent = sess.get("parent_cohort_id")
+    if _parent:
+        peer_ids = [sid for sid, s in all_sessions.items()
+                    if s.get("parent_cohort_id") == _parent and s.get("player_id")]
+        if session_id not in peer_ids:
+            peer_ids.append(session_id)
+    else:
+        peer_ids = [session_id]
     global_states: dict = {}
     bu_states: dict = {}
-    for _sid in all_sessions:
+    for _sid in peer_ids:
         # SEAM-08: entering-states 1..10 plus the closing state, so R9 and R10 deltas are real
         _hist = await db.fetch_round_history(_sid, include_final=True)
         global_states[_sid] = [
             {**h["global_state"], "round_number": h.get("round_number", 1)} for h in _hist
         ]
         bu_states[_sid] = {h.get("round_number", 1): h.get("business_units") or [] for h in _hist}
-    decision_log = await db.fetch_all_decisions()
-
-    sess = all_sessions.get(session_id)
-    if not sess:
-        raise HTTPException(404, "Session not found")
+    _peer_set = set(peer_ids)
+    decision_log = [d for d in await db.fetch_all_decisions() if d.get("session_id") in _peer_set]
 
     # F-11 (audit 2026-09-04): this was a plaintext X-Player-Id compare — a
     # forgeable header, not the signed player token every router.py player
@@ -681,6 +696,8 @@ async def get_player_analytics(session_id: str, request: Request):
         "reputation_percentile": percentile(player_reputation, all_reputations),
         "synergy_percentile": percentile(player_synergy, all_synergies),
         "player_count": len(all_treasuries),
+        "peer_scope": "cohort" if _parent else "solo",          # SEAM-12: what the percentile is against
+        "cohort_id": _parent,
         "cohort_avg": {
             "treasury": cohort_avg_treasury,
             "reputation": cohort_avg_reputation,

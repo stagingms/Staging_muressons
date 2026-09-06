@@ -117,7 +117,7 @@ function subTwelve(file) {
 }
 
 const TYPE_FLOOR_DEBT = {
-  'app/components/ExecutiveCockpit.js': 128,
+  'app/components/ExecutiveCockpit.js': 127,   // SEAM-16 (Wave 3): the Cost of Capital label moved to the 12px floor
   'app/components/ExecutiveCockpit.module.css': 0,
   'app/components/FocusOverlay.module.css': 8,
   'app/components/RoundBriefing.js': 12,

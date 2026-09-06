@@ -874,6 +874,17 @@ async def update_session_metadata(session_id: str, updates: dict) -> bool:
     return True
 
 
+
+def _player_id_in_registry(player_id: str) -> bool:
+    """Wave 3 hygiene: the credential registry (admin_shared._player_registry) can
+    hold a record whose session no longer exists; minting that id again would
+    make change-password / login find the stale record first."""
+    try:
+        from admin_shared import _player_registry
+    except Exception:  # pragma: no cover — registry unavailable at import time
+        return False
+    return any(isinstance(p, dict) and p.get("player_id") == player_id for p in _player_registry)
+
 def _player_id_in_use_sync(player_id: str) -> bool:
     for sess in list(_sessions.values()):
         if sess.get("player_id") == player_id:
@@ -913,10 +924,16 @@ async def generate_player_id(session_id: str) -> Optional[str]:
     
     allowed = session.setdefault("allowed_player_ids", [])
     from config import PLAYER_ID_RANDOM_LETTERS
+    # Wave 3 hygiene (found by an order-dependent test failure): the letters came
+    # from the process-global Random, which dry_run / validation_logic seed and
+    # the test harness restores per test — so ids REPEATED across tests, and the
+    # uniqueness scan did not look at the credential registry, which can hold a
+    # record whose session is gone. OS entropy, and the registry is checked too.
+    _sysrand = random.SystemRandom()
     for _ in range(2000):
-        letters = ''.join(random.choices(string.ascii_uppercase, k=PLAYER_ID_RANDOM_LETTERS))
+        letters = ''.join(_sysrand.choices(string.ascii_uppercase, k=PLAYER_ID_RANDOM_LETTERS))
         pid = f"MUR-{letters}"
-        if pid not in allowed and not _player_id_in_use_sync(pid):
+        if pid not in allowed and not _player_id_in_use_sync(pid) and not _player_id_in_registry(pid):
             break
     else:  # pragma: no cover
         raise RuntimeError("Could not allocate a platform-unique player id; raise PLAYER_ID_RANDOM_LETTERS.")
