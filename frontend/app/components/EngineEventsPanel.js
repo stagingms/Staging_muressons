@@ -340,7 +340,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
       color: ra.succeeded ? '#10b981' : 'var(--danger)',
       text: roundEvents.retraining_message || (ra.succeeded
         ? `Workforce retraining program SUCCEEDED (${ra.success_rate}% completion rate) — just transition benefits fully realised.`
-        : `Workforce retraining program FAILED — 30% of transition benefits clawed back (social licence: ${ra.social_license_factor}).`),
+        : `Workforce retraining program FAILED (social licence: ${ra.social_license_factor})${roundEvents.retraining_clawback ? ` — ${Number(roundEvents.retraining_clawback).toFixed(1)} reputation points clawed back` : ' — no transition benefit was booked to claw back'}.`),   // IMP-15
       tooltip: EVENT_TOOLTIPS.workforce_retraining,
     });
   }

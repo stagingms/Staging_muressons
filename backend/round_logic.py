@@ -821,6 +821,64 @@ def _capex_loan_for_statement(events: dict, global_state: dict) -> float:
     return round(float(flags.get("capex_loan_balance", 0.0) or 0.0), 2)
 
 
+def apply_tipping_penalties(global_state: dict, bu_states: list, events: dict, extra: dict, round_number: int) -> None:
+    """PHASE-1 systemic tipping-point penalties (called from run_new_engines).
+
+    IMP-16 (audit 2026-09-04, Wave 3): a helper so the once-only gating is
+    testable in isolation — see tests/test_imp_hygiene_wave3.py.
+    """
+    tipping_state = events.get("systemic_tipping", {}).get("tipping_state", {})
+    # IMP-16 (audit 2026-09-04, Wave 3): the penalties come from the one
+    # table the transition message quotes. Level shifts apply ONCE (gated
+    # by `<dim>_penalty_applied` in the persisted tipping state); ceilings
+    # and the financial flags are re-asserted every round while tipped.
+    # Before: +50% NCD, +5% OPEX and +4 pts cost of capital EVERY round.
+    from systemic_risk_engine import IRREVERSIBILITY_PENALTIES as _PEN
+    if tipping_state.get("climate_tipped"):
+        pen = _PEN["climate_tipped"]
+        if not tipping_state.get("climate_penalty_applied"):
+            for bu in bu_states:
+                ncd = bu.get("natural_capital_debt", 0)
+                bu["natural_capital_debt"] = round(ncd * (1.0 + pen["ncd_stock_uplift_once"]), 2)
+            tipping_state["climate_penalty_applied"] = round_number
+            extra["climate_tipping_level_shift_round"] = round_number
+        # Reputation ceiling (idempotent)
+        if global_state.get("group_reputation", 50) > pen["reputation_ceiling"]:
+            global_state["group_reputation"] = float(pen["reputation_ceiling"])
+        extra["climate_tipping_penalties_applied"] = True
+
+    if tipping_state.get("social_tipped"):
+        pen = _PEN["social_tipped"]
+        if not tipping_state.get("social_penalty_applied"):
+            for bu in bu_states:
+                bu["opex_base"] = round(bu["opex_base"] * (1.0 + pen["opex_surcharge_once"]), 2)
+            tipping_state["social_penalty_applied"] = round_number
+            extra["social_tipping_level_shift_round"] = round_number
+        # Social license ceiling (idempotent)
+        for bu in bu_states:
+            if bu.get("social_license_score", 50) > pen["social_license_ceiling"]:
+                bu["social_license_score"] = float(pen["social_license_ceiling"])
+        extra["social_tipping_penalties_applied"] = True
+
+    if tipping_state.get("financial_tipped"):
+        pen = _PEN["financial_tipped"]
+        if not tipping_state.get("financial_penalty_applied"):
+            coc = global_state.get("cost_of_capital", 0.05)
+            global_state["cost_of_capital"] = round(coc + pen["borrowing_premium_once"], 4)
+            tipping_state["financial_penalty_applied"] = round_number
+            extra["financial_tipping_level_shift_round"] = round_number
+        # The flags the engine reads next round (FIN-13): re-asserted while tipped
+        events["capex_cap_multiplier"] = pen["capex_cap_multiplier"]
+        events["dividend_suspended"] = pen["dividend_suspended"]
+        extra["financial_tipping_penalties_applied"] = True
+
+    # Persist tipping state for next round (both locations — the store's
+    # repack prefers the top-level copy)
+    if tipping_state:
+        events["systemic_tipping_state"] = tipping_state
+        global_state["systemic_tipping_state"] = tipping_state
+
+
 def run_new_engines(
     round_number: int,
     global_state: dict,
@@ -1192,40 +1250,7 @@ def run_new_engines(
     # After all engines run, apply irreversibility penalties from
     # tipping state computed in engine.py process_tick
     try:
-        tipping_state = events.get("systemic_tipping", {}).get("tipping_state", {})
-        if tipping_state.get("climate_tipped"):
-            # NCD interest multiplier: double NCD accrual
-            for bu in bu_states:
-                ncd = bu.get("natural_capital_debt", 0)
-                extra_ncd = round(ncd * 0.5, 2)  # +50% on top of existing accrual
-                bu["natural_capital_debt"] = round(ncd + extra_ncd, 2)
-            # Reputation ceiling: cap at 60
-            if global_state.get("group_reputation", 50) > 60:
-                global_state["group_reputation"] = 60.0
-            extra["climate_tipping_penalties_applied"] = True
-
-        if tipping_state.get("social_tipped"):
-            # Permanent OPEX surcharge: +5%
-            for bu in bu_states:
-                bu["opex_base"] = round(bu["opex_base"] * 1.05, 2)
-            # Social license ceiling: cap at 50
-            for bu in bu_states:
-                if bu.get("social_license_score", 50) > 50:
-                    bu["social_license_score"] = 50.0
-            extra["social_tipping_penalties_applied"] = True
-
-        if tipping_state.get("financial_tipped"):
-            # Borrowing premium: +4% to cost of capital
-            coc = global_state.get("cost_of_capital", 0.05)
-            global_state["cost_of_capital"] = round(coc + 0.04, 4)
-            # CapEx cap: 50% reduction
-            events["capex_cap_multiplier"] = 0.50
-            events["dividend_suspended"] = True
-            extra["financial_tipping_penalties_applied"] = True
-
-        # Persist tipping state for next round
-        if tipping_state:
-            events["systemic_tipping_state"] = tipping_state
+        apply_tipping_penalties(global_state, bu_states, events, extra, round_number)
     except Exception as exc:
         _engine_failed(extra, "Tipping penalty application", exc)
 

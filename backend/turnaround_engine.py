@@ -40,6 +40,9 @@ from engine import detect_distress
 # C = aggressive growth bet (bigger treasury swing, larger reputation cost).
 # Deltas are PLACEHOLDER calibration — they let the §2 gates be cleared from the
 # distressed floor but should be play-tested (see PLAN §11 gate-calibration risk).
+# IMP-14 (Wave 3): the treasury injections are rescue financing — apply_commit
+# accumulates them in gs.turnaround_rescue_financing and _finalize adds them
+# back to net debt, so the arc's cash does not become equity value.
 TURNAROUND_ROUNDS: dict[int, dict] = {
     1: {
         "title": "T1 — Triage", "phase_hint": "crisis",
@@ -122,6 +125,9 @@ def enter_arc(gs: dict, bus: list | None = None) -> dict:
         round_number=99, current_phase="none", deliberate_entry=True,
     )
     gs["turnaround_entry_treasury"] = gs.get("corporate_treasury", 0)  # for re-valuation
+    # IMP-14: the entry bailout and the levers' injections are rescue financing,
+    # carried as debt into the re-valuation (see apply_commit / _finalize).
+    gs["turnaround_rescue_financing"] = round(float(distress["bailout_amount"] or 0.0), 2)
     gs["turnaround_mode"] = True
     gs["turnaround_round"] = 1
     gs["game_over"] = False            # arc in progress; re-set True on finalize
@@ -157,6 +163,14 @@ def apply_commit(gs: dict, bus: list | None, choice: str) -> dict:
     imp = opt["impacts"]
     gs["corporate_treasury"] = round(
         gs.get("corporate_treasury", 0) + imp.get("treasury", 0), 2)
+    # IMP-14 (audit 2026-09-04, Wave 3): every lever injects cash ($34–70M over
+    # the arc into a company that started with $50M). That cash is RESCUE
+    # FINANCING — creditor / DIP money — not earnings: it is carried as debt so
+    # the re-valuation at the end of the arc does not turn free cash into
+    # equity value. The graduation gates (treasury, reputation) are unchanged.
+    _inj = float(imp.get("treasury", 0) or 0)
+    if _inj > 0:
+        gs["turnaround_rescue_financing"] = round(float(gs.get("turnaround_rescue_financing", 0.0) or 0.0) + _inj, 2)
     gs["group_reputation"] = max(0.0, min(
         100.0, gs.get("group_reputation", 0) + imp.get("reputation", 0)))
 
@@ -235,11 +249,14 @@ def _finalize(gs: dict, bus: list | None, graduated: bool) -> dict:
         premium = 0.0
         status = "expired"
 
-    # Recovered cash improves the net-debt position relative to R10.
+    # Recovered cash improves the net-debt position relative to R10 — net of
+    # the rescue financing that produced it (IMP-14): the arc's injections are
+    # debt the company now owes, so only cash recovered BEYOND them de-levers.
     entry_treasury = float(gs.get("turnaround_entry_treasury", 0.0) or 0.0)
     cash_recovered = round(float(gs.get("corporate_treasury", 0.0) or 0.0) - entry_treasury, 2)
+    rescue_financing = round(float(gs.get("turnaround_rescue_financing", 0.0) or 0.0), 2)
     r10_net_debt = float(flags.get("net_debt", 0.0) or 0.0)
-    net_debt_new = round(r10_net_debt - cash_recovered, 2)
+    net_debt_new = round(r10_net_debt - cash_recovered + rescue_financing, 2)
 
     exit_mult = float(flags.get("exit_multiple_applied", 12.0) or 12.0)
     carbon_tax = float(flags.get("carbon_tax_per_ton", FINANCIAL_SHADOW_CARBON_PRICE) or FINANCIAL_SHADOW_CARBON_PRICE)
@@ -269,6 +286,7 @@ def _finalize(gs: dict, bus: list | None, graduated: bool) -> dict:
         "recovered_treasury": gs.get("corporate_treasury"),
         "recovered_reputation": gs.get("group_reputation"),
         "cash_recovered": cash_recovered,
+        "rescue_financing": rescue_financing,            # IMP-14: carried as debt in the re-valuation
         "rounds_used": gs.get("turnaround_round"),
         "revalued": bool(reval),
         "source": "turnaround_arc",
@@ -302,6 +320,7 @@ def abort_arc(gs: dict, bus: list | None = None) -> dict:
     flags["turnaround_status"] = "aborted"
     gs.pop("turnaround_amended_report", None)
     gs.pop("turnaround_entry_treasury", None)
+    gs.pop("turnaround_rescue_financing", None)
     return {"status": "aborted", "canonical": gs.get("final_report_canonical")}
 
 

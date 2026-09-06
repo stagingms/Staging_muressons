@@ -97,7 +97,8 @@ FLAG_METRIC_SHIFTS = {
     "community_fund": [{"metric": "social_license", "label": "Community SLO ↑", "delta": 18}],
     "managed_transition": [{"metric": "social_license", "label": "Just Transition SLO ↑", "delta": 12}],
     "shareholder_alienated": [{"metric": "investor_confidence", "label": "Investor Confidence ↓", "delta": -15}],
-    "planet_expendable": [{"metric": "ecosystem", "label": "Ecosystem Resilience ↓", "delta": -12}],
+    # IMP-17 (Wave 3): "planet_expendable" was defined twice in this literal; the
+    # second entry (below, with the M_R note) was the one Python kept. One entry now.
     "governance_fragility": [{"metric": "regulatory", "label": "Regulatory Scrutiny ↑", "delta": -10}],
     "civil_water_priority": [{"metric": "social_license", "label": "Social License Protected", "delta": 10}],
     "electronics_water_priority": [{"metric": "production", "label": "Production Continuity", "delta": 5}],

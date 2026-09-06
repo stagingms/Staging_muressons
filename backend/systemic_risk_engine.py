@@ -143,10 +143,13 @@ TIPPING_THRESHOLDS = {
         "stressed": {"carbon_intensity_avg": 75, "ehi_below": 30},
         "tipped":   {"carbon_intensity_avg": 85, "ehi_below": 15},
     },
+    # IMP-10 (audit 2026-09-04, Wave 3): social collapse is LOW social licence
+    # AND high burnout. The keys read "avg_slo ≥ 15" for a decade — the tier
+    # fired for the best-SLO team in the room and never for SLO < 15.
     "social": {
-        "warning":  {"avg_slo": 35, "avg_burnout": 60},
-        "stressed": {"avg_slo": 25, "avg_burnout": 75},
-        "tipped":   {"avg_slo": 15, "avg_burnout": 90},
+        "warning":  {"avg_slo_below": 35, "avg_burnout": 60},
+        "stressed": {"avg_slo_below": 25, "avg_burnout": 75},
+        "tipped":   {"avg_slo_below": 15, "avg_burnout": 90},
     },
     "financial": {
         "warning":  {"covenant_status": "amber"},
@@ -155,25 +158,31 @@ TIPPING_THRESHOLDS = {
     },
 }
 
-# Once tipped, these permanent multipliers apply
+# Once tipped, these penalties apply. IMP-16 (audit 2026-09-04, Wave 3): this
+# table IS what round_logic applies — the one-off LEVEL shifts (`*_once`) land
+# on the round the dimension tips and are gated by `<dim>_penalty_applied` in
+# the tipping state; the ceilings and the financial flags are re-asserted every
+# round while tipped. Before, round_logic hard-coded its own numbers and applied
+# the level shifts as compounding per-round flows (+50% NCD/round, +5% OPEX/
+# round, +4 pts cost of capital/round), and two documented penalties
+# (strike_probability_floor, carbon_tax_multiplier) had no reader at all — they
+# are gone from the table so the docs describe the code.
 IRREVERSIBILITY_PENALTIES = {
     "climate_tipped": {
-        "ncd_interest_multiplier": 2.0,
-        "carbon_tax_multiplier": 1.5,
+        "ncd_stock_uplift_once": 0.50,        # natural-capital debt marked up once, on the tip
         "reputation_ceiling": 60,
-        "message": "🌡️ CLIMATE TIPPING POINT CROSSED: NCD costs permanently doubled.",
+        "message": "🌡️ CLIMATE TIPPING POINT CROSSED: natural-capital debt marked up 50%; group reputation capped at 60.",
     },
     "social_tipped": {
-        "strike_probability_floor": 0.30,
-        "opex_surcharge_pct": 0.05,
+        "opex_surcharge_once": 0.05,          # a permanent +5% step in the OPEX base, applied once
         "social_license_ceiling": 50,
-        "message": "✊ SOCIAL TIPPING POINT CROSSED: Permanent strike risk floor of 30%.",
+        "message": "✊ SOCIAL TIPPING POINT CROSSED: a permanent 5% OPEX surcharge; social licence capped at 50.",
     },
     "financial_tipped": {
-        "borrowing_premium": 0.04,
+        "borrowing_premium_once": 0.04,       # +4 pts cost of capital, applied once
         "capex_cap_multiplier": 0.50,
         "dividend_suspended": True,
-        "message": "🏦 FINANCIAL TIPPING POINT CROSSED: Lender acceleration triggered.",
+        "message": "🏦 FINANCIAL TIPPING POINT CROSSED: lender acceleration — +4 pts cost of capital, CapEx capped at 50%, dividends suspended.",
     },
 }
 

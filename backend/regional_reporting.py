@@ -235,7 +235,14 @@ def generate_regional_report(session_meta: dict, final_state: dict) -> dict:
     avg_carbon = round(sum(bu.get("carbon_intensity", 50) for bu in bus) / n, 1)
     avg_slo = round(sum(bu.get("social_license_score", 50) for bu in bus) / n, 1)
     avg_gov_risk = round(sum(bu.get("governance_risk_score", 30) for bu in bus) / n, 1)
-    total_tco2e = round(sum(bu.get("total_tco2e", 0) for bu in bus), 0)
+    # IMP-12 (audit 2026-09-04, Wave 3): the BU rows carry `absolute_emissions`
+    # (router resync, tCO₂e = CI × revenue / $1M); `total_tco2e` was a key
+    # nobody wrote, so this report printed Scope 1+2 = 0 tCO₂e (GREEN) for
+    # every cohort. Fall back to the same formula when a row has no figure.
+    total_tco2e = round(sum(
+        float(bu["absolute_emissions"]) if bu.get("absolute_emissions") is not None
+        else (bu.get("carbon_intensity", 0) or 0) * (bu.get("revenue_base", 0) or 0) / 1_000_000
+        for bu in bus), 0)
 
     reputation = gs.get("group_reputation", 50)
     treasury = gs.get("corporate_treasury", 0)

@@ -122,7 +122,8 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
             <Pill label="Ecosystem Health Index" value={`${(bio.ecosystem_health_index ?? 0).toFixed(1)} / 100`} good={(bio.ecosystem_health_index ?? 0) >= 60} />
             <Bar value={bio.ecosystem_health_index ?? 0} color="#34d399" />
             <Pill label="Habitat Integrity" value={`${((bio.habitat_integrity ?? 0) * 100).toFixed(0)}%`} good={(bio.habitat_integrity ?? 0) >= 0.6} />
-            <Pill label="Deforestation Rate" value={`${(bio.deforestation_rate ?? 0).toFixed(1)}%`} good={(bio.deforestation_rate ?? 0) < 2} />
+            {/* IMP-17 (Wave 3): the "Deforestation Rate" pill printed a constant 2.5 hectares/year as "2.5%", red,
+                forever — the field has no writer and no longer moves the index (IMP-01). Removed rather than mislabelled. */}
             <Pill label="Water Stress" value={`${((bio.water_stress_index ?? 0) * 100).toFixed(0)}%`} good={(bio.water_stress_index ?? 0) < 0.5} />
             {bio.tnfd_flags?.length > 0 && (
               <div style={{ marginTop: 6 }}>

@@ -277,6 +277,14 @@ def _post_r9_just_transition(
     else:
         extra["r9_pillar_bypass"] = True
         impacts = {}  # Standard impacts already applied by router
+        # IMP-15 (audit 2026-09-04, Wave 3): the router applied the pillar
+        # aggregate's reputation before this engine ran; the retraining
+        # clawback below reads reputation_applied_r9, which this branch never
+        # wrote — so the "30% clawed back" message was printed with nothing
+        # clawed back. Record what the pillars applied so the clawback is real.
+        _agg_rep = (events.get("pillar_aggregate_impacts") or {}).get("reputation", 0) or 0
+        if _agg_rep:
+            extra["reputation_applied_r9"] = float(_agg_rep)
 
     # ── Round-specific logic (runs for BOTH paradigms) ──
     # Determine if strike risk is active
@@ -383,15 +391,21 @@ def _post_r9_just_transition(
         }
         if not retrain_succeeded:
             clawback_pct = 0.30
-            r9_rep_gain = extra.get(f"reputation_applied_r9", 0) or extra.get("reputation_applied_r9", 0)
+            r9_rep_gain = extra.get("reputation_applied_r9", 0) or 0
             if r9_rep_gain > 0:
                 lost_rep = round(r9_rep_gain * clawback_pct, 2)
                 gs["group_reputation"] = max(0, round(gs["group_reputation"] - lost_rep, 2))
                 extra["retraining_clawback"] = lost_rep
+            # IMP-15: say what happened — the clawback sentence only when something was clawed back
+            _claw_txt = (
+                f" 30% of the transition's reputation benefit ({extra['retraining_clawback']:.1f} pts) has been clawed back."
+                if extra.get("retraining_clawback") else
+                " No transition benefit was booked this round, so there is nothing to claw back."
+            )
             extra["retraining_message"] = (
                 f"\u26a0\ufe0f Retraining Programme Partial Failure: Only {round(success_rate*100)}% "
-                f"of displaced workers completed the programme (social licence: {avg_sl:.0f}). "
-                f"30% of transition benefits have been clawed back."
+                f"of displaced workers completed the programme (social licence: {avg_sl:.0f})."
+                + _claw_txt
             )
         else:
             extra["retraining_message"] = (
