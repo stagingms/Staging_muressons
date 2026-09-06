@@ -106,6 +106,18 @@ export function buildWaterfall({ businessUnits = [], globalState = {}, events = 
   ];
 
   // ── Below EBITDA: what actually moved cash this round ──────────────────
+  // FIN-06 (audit 2026-09-04, Wave 3): when the engine's consequence waterfall
+  // is a closed bridge — opening treasury → every named movement → the
+  // treasury the round persisted (`bridge` present) — it IS the cash section:
+  // exact, complete, and the same figures the facilitator reads. The
+  // hand-picked key list below stays as the fallback for rounds committed
+  // before the bridge existed.
+  const bridged = bridgeSteps(bag.consequence_waterfall);
+  if (bridged) {
+    steps.push(...bridged.steps);
+    return { steps, ebitda, reconciles, treasury: bridged.treasury };
+  }
+
   // Every entry below is a REAL key, confirmed emitted in ordinary play.
   const cash = [];
   const push = (label, value, icon, opts = {}) => {
@@ -152,7 +164,42 @@ export function buildWaterfall({ businessUnits = [], globalState = {}, events = 
     });
   }
 
-  return { steps, ebitda, reconciles };
+  return { steps, ebitda, reconciles, treasury: null };
+}
+
+/**
+ * The treasury bridge from a FIN-06 consequence waterfall (one with `bridge`).
+ * Returns null for older waterfalls so the caller falls back to the key list.
+ *
+ * Steps: an opening total, one row per entry (the engine's own label and
+ * `because`), a closing total. `closes` is the engine's own verdict that
+ * opening + Σ entries == closing to the cent.
+ */
+export function bridgeSteps(wf) {
+  if (!wf || typeof wf !== 'object' || !wf.bridge || !Array.isArray(wf.entries)) return null;
+  const opening = Number(wf.initial_treasury);
+  const closing = Number(wf.final_treasury);
+  if (!Number.isFinite(opening) || !Number.isFinite(closing)) return null;
+  const rows = [];
+  rows.push({ label: 'Opening treasury', value: opening, type: 'total', icon: '🏦', section: 'cash' });
+  for (const e of wf.entries) {
+    const v = Number(e?.amount);
+    if (!Number.isFinite(v) || Math.abs(v) < 1) continue;
+    rows.push({
+      label: String(e.label || 'Movement'),
+      value: v,
+      type: v >= 0 ? 'positive' : 'negative',
+      icon: v >= 0 ? '▲' : '▼',
+      section: 'cash',
+      because: e.because || null,
+      stage: e.stage || 'tick',
+      severity: e.severity?.severity_tier || null,
+    });
+  }
+  rows.push({ label: 'Closing treasury', value: closing, type: 'total', icon: '🏦', section: 'cash' });
+  const summed = wf.entries.reduce((a, e) => a + (Number(e?.amount) || 0), 0);
+  const closes = wf.bridge.closes === true && Math.abs(opening + summed - closing) < 1;
+  return { steps: rows, treasury: { opening, closing, closes, unattributed: Number(wf.unattributed) || 0 } };
 }
 
 export default buildWaterfall;

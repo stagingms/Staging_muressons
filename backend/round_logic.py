@@ -836,6 +836,23 @@ def run_new_engines(
     """
     extra: dict[str, Any] = {}
 
+    # FIN-06 (audit 2026-09-04, Wave 3): every engine below may move the
+    # treasury outside the tick's waterfall. Record which one moved it by how
+    # much so the router can extend the waterfall to the PERSISTED treasury
+    # with the engine's name on the entry instead of a residual. The marks
+    # bracket each section: a mark closes the previous section's delta.
+    _wf_moves: list[dict] = []
+    _wf_cursor = {"label": "(before the engines)",
+                  "treasury": float(global_state.get("corporate_treasury", 0.0) or 0.0)}
+
+    def _wf_mark(label: str) -> None:
+        now = float(global_state.get("corporate_treasury", 0.0) or 0.0)
+        delta = round(now - _wf_cursor["treasury"], 2)
+        if abs(delta) >= 0.01:
+            _wf_moves.append({"engine": _wf_cursor["label"], "delta": delta})
+        _wf_cursor["treasury"] = now
+        _wf_cursor["label"] = label
+
     # Read pedagogical toggles for this session
     try:
         from pedagogical_engine import get_pedagogical_toggles
@@ -844,6 +861,7 @@ def run_new_engines(
     except Exception:
         _toggles = {}
 
+    _wf_mark("Biodiversity engine (restoration projects, Nature's Invoice)")
     # ── SE-4: Biodiversity Engine ──────────────────────────────
     if _toggles.get("biodiversity_engine_enabled", True):
         try:
@@ -883,6 +901,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Biodiversity engine", exc)
 
+    _wf_mark('Board governance engine')
     # ── SE-1: Board Governance ────────────────────────────────
     if _toggles.get("board_governance_enabled", True):
         try:
@@ -908,6 +927,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Board governance engine", exc)
 
+    _wf_mark('Organisational politics')
     # ── SI-5: Organisational Politics ─────────────────────────
     if _toggles.get("org_politics_enabled", True):
         try:
@@ -927,6 +947,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Org politics engine", exc)
 
+    _wf_mark('Supply-chain network')
     # ── SE-2: Supply Chain Network ────────────────────────────
     if _toggles.get("supply_chain_network_enabled", True):
         try:
@@ -946,6 +967,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Supply chain engine", exc)
 
+    _wf_mark('NPC stakeholders (enforcement fines, cascades)')
     # ── SI-2: NPC Stakeholders ────────────────────────────────
     if _toggles.get("npc_stakeholders_enabled", True):
         try:
@@ -1098,6 +1120,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "NPC stakeholders engine", exc)
 
+    _wf_mark('Stakeholder engagement action')
     # ── PHASE-3 (F5): Stakeholder engagement actions & promise ledger ──
     # Runs after the NPC tick (trust is set) and reads the persistent
     # npc_stakeholders sub-dict. Resolve promises maturing THIS round first (so a
@@ -1118,6 +1141,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Stakeholder engagement (F5)", exc)
 
+    _wf_mark('Autonomous stakeholder agents (triggered events)')
     # ── SI-2+: Autonomous Stakeholder Agents ──────────────────
     if _toggles.get("npc_stakeholders_enabled", True):
         try:
@@ -1161,6 +1185,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Autonomous agents engine", exc)
 
+    _wf_mark('Systemic tipping-point penalties')
     # ── PHASE-1: Systemic Tipping Point Penalty Application ──────
     # After all engines run, apply irreversibility penalties from
     # tipping state computed in engine.py process_tick
@@ -1202,6 +1227,7 @@ def run_new_engines(
     except Exception as exc:
         _engine_failed(extra, "Tipping penalty application", exc)
 
+    _wf_mark('Branching engine')
     # ── SI-1: Non-Linear Branching (R5 checkpoint) ────────────
     if _toggles.get("branching_enabled", True) and round_number == 5:
         try:
@@ -1216,6 +1242,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Branching engine", exc)
 
+    _wf_mark('Adaptive crisis severity')
     # ── SE-3: Adaptive Crisis Severity (R6+ with archetype) ───
     if _toggles.get("branching_enabled", True) and round_number > 5:
         try:
@@ -1239,6 +1266,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Adaptive crisis severity", exc)
 
+    _wf_mark('Dynamic case injection')
     # ── SE-8: Dynamic Case Injection ──────────────────────────
     if _toggles.get("dynamic_cases_enabled", True):
         try:
@@ -1251,6 +1279,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Dynamic cases engine", exc)
 
+    _wf_mark('Peer learning prompts')
     # ── QW-5: Peer Learning Prompts (R5, R6) ──────────────────
     if _toggles.get("peer_learning_prompts_enabled", True):
         try:
@@ -1261,6 +1290,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Peer learning prompts", exc)
 
+    _wf_mark('Decision timer config')
     # ── QW-1: Decision Timer Config ───────────────────────────
     if _toggles.get("decision_timer_enabled", False):
         try:
@@ -1269,6 +1299,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Decision timer config", exc)
 
+    _wf_mark('System archetypes')
     # ── Meadows / Senge: System Archetypes Detection ──────────
     if _toggles.get("system_archetypes_enabled", True):
         try:
@@ -1280,6 +1311,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "System archetypes detection", exc)
 
+    _wf_mark('Regulatory sandbox')
     # ── SE-7: Regulatory Sandbox Effects ──────────────────────
     # ARCHITECTURE: Middleware intercept runs FIRST (before values
     # finalize), then standard instrument effects, then agent cross-wiring.
@@ -1331,6 +1363,7 @@ def run_new_engines(
     # up to $24.5M, including the R10 statement the debrief projects). It now
     # runs after every state-mutating engine in this batch.
 
+    _wf_mark('Treasury floor (creditor relief)')
     # ── FIN-10 (audit 2026-09-04): the treasury floor, enforced where the
     # round's last writers have finished. FINANCIAL_TREASURY_FLOOR held only
     # inside process_tick; NPC fines, agent hits, impact and biodiversity
@@ -1361,6 +1394,7 @@ def run_new_engines(
     except Exception as exc:
         _engine_failed(extra, "Treasury floor", exc)
 
+    _wf_mark('Balance sheet (short-term debt interest)')
     # ── SE-6: Balance Sheet Engine ────────────────────────────
     if _toggles.get("balance_sheet_enabled", True):
         try:
@@ -1443,6 +1477,7 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Balance sheet engine", exc)
 
+    _wf_mark('Collaboration gap tracker')
     # ── Analytics: Collaboration Gap Tracker ─────────────────────
     # Measures the spread between financial accumulation and ESG
     # stewardship each round.  Pure analytics — result is merged into
@@ -1465,6 +1500,9 @@ def run_new_engines(
         except Exception as exc:
             _engine_failed(extra, "Collaboration gap analytics", exc)
 
+    _wf_mark("(after the engines)")
+    if _wf_moves:
+        extra["_treasury_moves"] = _wf_moves   # FIN-06: read by the router's waterfall bridge
     return extra
 
 

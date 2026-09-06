@@ -2618,6 +2618,38 @@ class TickContext:
             entry["counterfactual"] = counterfactual
         self.waterfall.append(entry)
 
+    def finalise_waterfall(self, close: bool = False) -> dict[str, Any]:
+        """FIN-06 (audit 2026-09-04, Wave 3): the waterfall's closing figures,
+        computed from the treasury as it stands NOW. Called once where the
+        reporting layer needs the bridge and again, with close=True, as the
+        last act of the tick, because the regulatory-ratchet fine and the
+        post-CSF flow surcharges move the treasury after the reporting layer —
+        the frozen copy used to disagree with the tick's own output by up to
+        $9.9M. With close=True any movement no entry accounts for is appended
+        as a NAMED residual, so `initial + Σ entries == final` always holds and
+        an incomplete ledger shows up as a labelled line, not a silent gap
+        (`unattributed` carries the amount for the tests that pin it at 0)."""
+        unattributed = 0.0
+        if close:
+            explained = round(self._waterfall_initial + sum(e["amount"] for e in self.waterfall), 2)
+            unattributed = round(self.new_treasury - explained, 2)
+            if abs(unattributed) >= 0.01:
+                self.record_waterfall(
+                    "Unattributed in-tick movement", unattributed,
+                    because="Treasury moved inside the tick through a path with no waterfall entry. "
+                            "A non-zero line here is an engine defect to report, not a fee.")
+        wf = {
+            "initial_treasury": round(self._waterfall_initial, 2),
+            "final_treasury":   round(self.new_treasury, 2),
+            "net_change":       round(self.new_treasury - self._waterfall_initial, 2),
+            "entries":          self.waterfall,
+            "entry_count":      len(self.waterfall),
+        }
+        if close:
+            wf["unattributed"] = unattributed if abs(unattributed) >= 0.01 else 0.0
+        self.events["consequence_waterfall"] = wf
+        return wf
+
 
 # ── Stage 1: Stochastic Layer ────────────────────────────────────
 # Black Swans → Revenue Cannibalization → Supply Chain Contagion →
@@ -2681,6 +2713,14 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
                 if _b["opex_base"] != _o0:
                     ctx.record_transient(_b, "opex_base", round(_b["opex_base"] - _o0, 2))
             ctx.events["black_swan_events"]      = _swan_result["events_triggered"]
+            # FIN-06: the direct cash hit lands on current_global BEFORE the
+            # tick's base treasury is read, so the waterfall never saw it.
+            _swan_cash = float((_swan_diag or {}).get("total_treasury_drain", 0.0) or 0.0)
+            if _swan_cash:
+                ctx.record_waterfall(
+                    "Black swan — direct treasury hit", -_swan_cash,
+                    because="One-off cash hit of the black-swan event(s) that fired this round "
+                            "(the revenue/OPEX percentages are flows, shown in the P&L, not here).")
             ctx.events["black_swan_narratives"]  = _swan_result["narratives"]
             ctx.events["black_swan_diagnostics"] = _swan_diag
             ctx.events.setdefault("custom_black_swans", []).extend([
@@ -3678,6 +3718,8 @@ def _run_operational_layer(ctx: TickContext) -> None:
                 cbam_surcharge        = round(cbam_tco2e * CBAM_SURCHARGE_RATE, 2)
                 ctx.new_treasury      = round(ctx.new_treasury - cbam_surcharge, 2)
                 ctx.events["cbam_surcharge_applied"] = cbam_surcharge
+                ctx.record_waterfall("EU CBAM border adjustment", -cbam_surcharge,   # FIN-06
+                                     because=f"{cbam_tco2e:,.0f} tCO₂e of embedded carbon at ${CBAM_SURCHARGE_RATE:,.0f}/t.")
                 ctx.events["cbam_message"] = (
                     f"EU CBAM border adjustment (R{round_number} supply chain/circularity): "
                     f"Scope1+2 avg CI {cbam_avg_ci_12:.1f} | Total Scope1+2 tCO₂e: {cbam_tco2e:.0f}. "
@@ -3840,6 +3882,8 @@ def _run_operational_layer(ctx: TickContext) -> None:
             else:
                 offset_actual = spot_price
             ctx.new_treasury     = round(ctx.new_treasury - offset_actual, 2)
+            ctx.record_waterfall("Carbon offset purchase", -offset_actual,   # FIN-06
+                                 because="Compliance offsets bought at this round's spot (or forward) price.")
             forward_offer_price  = round(500_000 * 1.20, 2)
             ctx.events["carbon_offset_market"] = {
                 "spot_price":          spot_price,
@@ -3937,6 +3981,8 @@ def _run_operational_layer(ctx: TickContext) -> None:
             loss_damage_levy     = CLIMATE_LOSS_DAMAGE_LEVY_TIPPED
             ctx.new_treasury     = round(ctx.new_treasury - loss_damage_levy, 2)
             ctx.events["loss_damage_levy_applied"] = loss_damage_levy
+            ctx.record_waterfall("Loss & Damage levy (tipped)", -loss_damage_levy,   # FIN-06
+                                 because="UNFCCC Loss & Damage Fund contribution after the climate tipping point.")
             ctx.events["loss_damage_message"]      = (
                 f"UNFCCC Loss & Damage Fund contribution: -${CLIMATE_LOSS_DAMAGE_LEVY_TIPPED/1e6:.0f}M. "
                 "Post-tipping economies bear the cost of climate inaction "
@@ -3946,6 +3992,8 @@ def _run_operational_layer(ctx: TickContext) -> None:
             loss_damage_levy     = CLIMATE_LOSS_DAMAGE_LEVY_STRESSED
             ctx.new_treasury     = round(ctx.new_treasury - loss_damage_levy, 2)
             ctx.events["loss_damage_levy_applied"] = loss_damage_levy
+            ctx.record_waterfall("Climate adaptation contribution (stressed)", -loss_damage_levy,   # FIN-06
+                                 because="Pre-tipping regulatory pressure mandates partial climate liability.")
             ctx.events["loss_damage_message"]      = (
                 "Climate adaptation contribution: -$500K. "
                 "Pre-tipping regulatory pressure mandates partial climate liability."
@@ -3991,6 +4039,8 @@ def _run_operational_layer(ctx: TickContext) -> None:
         if current_global["round_number"] <= 5 and global_emissions > 100:
             retribution_penalty     = round(ctx.tco2e_emissions * 3.0 * 1000, 2)
             ctx.new_treasury        = round(ctx.new_treasury - retribution_penalty, 2)
+            ctx.record_waterfall("UN SDG carbon retribution levy", -retribution_penalty,   # FIN-06
+                                 because=f"Group carbon intensity {global_emissions:.0f} exceeds 100 in the first five rounds.")
             ctx.events["carbon_retribution_multiplier"] = 3.0
             ctx.events["carbon_retribution_triggered"]  = True
             ctx.events["carbon_retribution_penalty"]    = retribution_penalty
@@ -4315,13 +4365,9 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     ctx.events["sdg_impact"] = sdg_report
 
     # ── REC-1: Consequence Waterfall — finalise ──────────────────
-    ctx.events["consequence_waterfall"] = {
-        "initial_treasury": round(ctx._waterfall_initial, 2),
-        "final_treasury":   round(ctx.new_treasury, 2),
-        "net_change":       round(ctx.new_treasury - ctx._waterfall_initial, 2),
-        "entries":          ctx.waterfall,
-        "entry_count":      len(ctx.waterfall),
-    }
+    # (re-finalised at the very end of the tick — FIN-06; this copy serves the
+    # reflection / top-causes readers below)
+    ctx.finalise_waterfall()
 
     # ── REC-6: Momentum Score ────────────────────────────────────
     momentum_history = list(current_global.get("momentum_history", []))
@@ -4512,6 +4558,12 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     if avg_gov_risk > regulatory_baseline:
         fine             = (avg_gov_risk - regulatory_baseline) * REG_RATCHET_FINE_PER_POINT
         ctx.new_treasury -= fine
+        # FIN-06: the fine used to leave the treasury without a waterfall entry
+        ctx.record_waterfall(
+            "Regulatory ratchet fine", -fine,
+            because=(f"Average governance risk {avg_gov_risk:.1f} exceeds the shifting industry "
+                     f"baseline {regulatory_baseline:.1f}; ${REG_RATCHET_FINE_PER_POINT:,.0f} per point."),
+        )
         ctx.events["regulatory_ratchet"] = {
             "active":   True,
             "baseline": regulatory_baseline,
@@ -5028,6 +5080,9 @@ def process_tick(
     # F-02: same for cost of capital (base stock + derived stamp).
     ctx.events[COC_BASE_KEY] = _coc_base
     ctx.events[COC_DERIVED_KEY] = ctx.corporate_cost_of_capital
+
+    # FIN-06: the waterfall closes on the treasury the tick actually returns.
+    ctx.finalise_waterfall(close=True)
 
     # ── 5. Assemble and return immutable output ──────────────────
     new_global = _assemble_global_state(ctx, initial_treasury)

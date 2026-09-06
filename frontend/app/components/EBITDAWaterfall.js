@@ -35,7 +35,7 @@ const fmt$ = (v) => {
 };
 
 export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, events = {}, commitResults = {}, isDark = true }) {
-  const { steps, reconciles } = useMemo(
+  const { steps, reconciles, treasury } = useMemo(
     () => buildWaterfall({ businessUnits, globalState, events, commitResults }),
     [businessUnits, globalState, events, commitResults],
   );
@@ -122,7 +122,9 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
               }}>
                 <span style={{ fontSize: 'var(--type-caption)', fontWeight: 800, letterSpacing: '0.09em',
                                textTransform: 'uppercase', color: colors.mutedColor }}>
-                  Below EBITDA — cash movements this round
+                  {treasury
+                    ? 'Below EBITDA — how treasury moved this round, opening to closing'
+                    : 'Below EBITDA — cash movements this round'}
                 </span>
               </div>
             )}
@@ -143,8 +145,8 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
               {/* Icon */}
               <span style={{ fontSize: '0.82rem', textAlign: 'center' }}>{bar.icon}</span>
 
-              {/* Label */}
-              <span style={{
+              {/* Label — the engine's own `because` rides on the title (FIN-06) */}
+              <span title={bar.because || undefined} style={{
                 fontSize: isTotal ? '0.75rem' : '0.72rem',
                 fontWeight: isTotal ? 800 : 600,
                 color: isTotal ? barColor : colors.labelColor,
@@ -186,6 +188,15 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
       {/* If the engine's own historical_ebitda stops matching revenue - opex,
           this chart is no longer telling the truth. Say so rather than draw a
           confident bar over a broken assumption. */}
+      {treasury && !treasury.closes && (
+        <div data-testid="treasury-bridge-open" style={{
+          marginTop: 10, padding: '6px 10px', borderRadius: 6,
+          background: 'rgba(249,115,22,0.10)', border: '1px dashed rgba(249,115,22,0.45)',
+          color: colors.mutedColor, fontSize: 'var(--type-caption)', fontWeight: 600,
+        }}>
+          ⚠ The treasury bridge does not close on the persisted treasury this round — report it to the facilitator.
+        </div>
+      )}
       {!reconciles && (
         <div style={{
           marginTop: 10, padding: '6px 10px', borderRadius: 6,

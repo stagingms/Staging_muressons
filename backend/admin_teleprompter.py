@@ -1642,13 +1642,14 @@ GAME_FEEL_GUIDANCE = {
     "consequence_waterfall": {
         "title": "📊 Consequence Waterfall — How to Debrief",
         "how_to_use": [
-            "The waterfall shows how treasury moved inside the engine tick — gross profit, "
-            "inflation, the NCD penalty, the flow surcharges. It is frozen before the round "
-            "handlers and the stakeholder engines (option costs, NPC fines, balance-sheet items) "
-            "post, so read it beside the round's events, not as the whole story (FIN-06).",
+            "The waterfall is the round's treasury bridge: it starts at the opening treasury, "
+            "names every movement in order — gross profit, CapEx, fines, the option's own cost, "
+            "the stakeholder engines (NPC fines, agent events, cascades, biodiversity, the floor, "
+            "balance-sheet interest) — and closes on the treasury the round saved (FIN-06, Wave 3). "
+            "The team sees the same rows under 'EBITDA Bridge & Cash Impact' on the results panel.",
             "Read it top-to-bottom with the team: 'You started at $50M. Gross profit added $13M. "
-            "Then inflation took $860K. Then NCD interest took $180K — and notice, that was "
-            "only $90K last round. It's compounding.'",
+            "CapEx took $4M. The regulator's fine took $3M. Your option cost $2M. You closed at $54M.' "
+            "A line called 'Unattributed in-tick movement' should never appear — if it does, report it.",
             "The 'because' field on each entry explains WHY. Read this out loud.",
             "The 'counterfactual' field shows what COULD have been different. "
             "Use this for the strongest teaching moments.",

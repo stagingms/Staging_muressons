@@ -2996,6 +2996,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     new_global = tick_result["global_state"]
     new_bus = tick_result["bu_states"]
     events = tick_result["events"]
+    # FIN-06: the treasury after each stage, for the waterfall bridge below
+    _wf_after_tick = float(new_global.get("corporate_treasury", 0.0) or 0.0)
     if _ped_ov:
         new_global["pedagogical_overrides"] = dict(_ped_ov)  # IMP-06b, see above
     if _opt_flags_this_round:
@@ -3095,6 +3097,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # is overridden.
     _forward_persistent_flags(current_global, new_global)
 
+    _wf_after_pillar = float(new_global.get("corporate_treasury", 0.0) or 0.0)   # FIN-06
+
     # ── POST-TICK: Round-specific state mutations ────────────
     post_events = post_tick(
         round_number=current_round,
@@ -3121,6 +3125,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # mutate new_global in place. Diffing the shadow against the fully
     # post-processed state made every alternative "worth" exactly the round's
     # later deductions, identical for both alternatives, to the cent.
+    _wf_after_post_tick = float(new_global.get("corporate_treasury", 0.0) or 0.0)   # FIN-06
     _regret_baseline = {
         "treasury": float(new_global.get("corporate_treasury", 0.0) or 0.0),
         "reputation": float(new_global.get("group_reputation", 50.0) or 0.0),
@@ -3158,6 +3163,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         _log.error(f"[ENGINE-FAILURE] New engines batch failed for {session_id} R{current_round}: {exc}", exc_info=True)
         events.setdefault("engine_failures", []).append(
             {"engine": "run_new_engines (whole batch)", "error": f"{type(exc).__name__}: {exc}"[:300]})
+
+    _wf_after_engines = float(new_global.get("corporate_treasury", 0.0) or 0.0)   # FIN-06
 
     # ── ENGAGEMENT 7.4: Board Pressure Events (R3, R6, R9) ───
     # SEAM-10 (audit 2026-09-04): this ran AFTER the round was persisted, so
@@ -3263,6 +3270,23 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         bu["absolute_emissions"] = round(
             (bu.get("carbon_intensity") or 0) * (bu.get("revenue_base") or 0) / 1_000_000, 2
         )
+
+    # ── FIN-06 (audit 2026-09-04, Wave 3): the consequence waterfall closes
+    # on the treasury this round PERSISTS. The tick's waterfall explained the
+    # tick; pillar costs, the option's treasury effect, the cyclone, NPC fines,
+    # agent events, cascades, biodiversity, the floor and the balance sheet
+    # then moved the treasury by up to $20M a round with no entry anywhere.
+    try:
+        from waterfall_bridge import bridge_waterfall
+        bridge_waterfall(
+            events,
+            after_tick=_wf_after_tick, after_pillar=_wf_after_pillar,
+            after_post_tick=_wf_after_post_tick, after_engines=_wf_after_engines,
+            stored=float(new_global.get("corporate_treasury", 0.0) or 0.0),
+        )
+    except Exception as exc:  # the bridge is reporting; it must never block a commit
+        _log.warning(f"[WARN] waterfall bridge failed for {session_id} R{current_round}: {exc}")
+    events.pop("_treasury_moves", None)   # consumed; not a flag
 
     # Ensure active_event_flags contains everything (preserve history)
     # Merge order: historical flags → post_tick flags (rN_flags) → events
