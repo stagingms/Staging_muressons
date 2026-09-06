@@ -762,7 +762,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 scope_3_threshold: scope3,
                 // Advanced cohort controls (HIGH-tier). Backend clamps/coerces
                 // these and stamps rng_seed onto the cohort's stochastic stream.
-                rng_seed: rngSeed.trim(),
+                // RNG-2 (Wave 3): a blank box is "leave the seed alone", not
+                // "un-seed the cohort" — the key is sent only when a seed was typed
+                // (the wizard never pre-fills it in edit mode, so sending '' on
+                // every save would strip the run's seed).
+                ...(rngSeed.trim() ? { rng_seed: rngSeed.trim() } : {}),
                 results_reveal_round: resultsRevealRound,
                 // Negotiation Rooms: sent ONLY by capability holders. Two traps
                 // this placement avoids: the pedagogical-settings PUT derives its

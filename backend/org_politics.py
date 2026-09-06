@@ -22,7 +22,6 @@ Game Mechanic:
 
 from __future__ import annotations
 from typing import Any
-import random
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -147,6 +146,13 @@ def evaluate_csuite_support(
     total_support = 0
     total_opposed = 0
 
+    # RNG-8 (audit 2026-09-04, Wave 3): the support roll was the process-global
+    # Random. It is the cohort's event stream, keyed by round and the decision
+    # being checked, so the same check returns the same coalition.
+    from rng_util import event_rng
+    _rng = event_rng(gs.get("active_event_flags") or {}, int(gs.get("round_number", 0) or 0),
+                     "coalition_check:" + ",".join(sorted(str(t) for t in (decision_tags or []))) + f":{cost}")
+
     for member in members:
         # Base support probability from satisfaction and trust
         base_prob = (member["satisfaction"] / 100.0) * 0.3 + (member["trust_in_player"] / 100.0) * 0.3
@@ -174,7 +180,7 @@ def evaluate_csuite_support(
 
         final_prob = max(0.1, min(0.95, base_prob + topic_modifier + cost_modifier + rep_modifier + 0.2))
 
-        supports = random.random() < final_prob
+        supports = _rng.random() < final_prob     # RNG-8: seeded stream
 
         if supports:
             total_support += 1

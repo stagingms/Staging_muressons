@@ -6,9 +6,26 @@ import uuid
 
 client = TestClient(app)
 
-def test_ceo_interview_llm_scoring():
+@pytest.fixture
+def injected_session():
+    """A hand-made session row. Wave 3 hygiene: it used to stay in _sessions after
+    the test, and any later test that scans the store (fetch_all_sessions,
+    solo-start) 500'd on the keys it lacks — an order-dependent failure that
+    only showed when this file ran before test_leaderboard_awarded_tv."""
     session_id = f"test_session_{uuid.uuid4().hex[:8]}"
+    yield session_id
+    _sessions.pop(session_id, None)
+    _global_states.pop(session_id, None)
+    _bu_states.pop(session_id, None)
+
+
+def test_ceo_interview_llm_scoring(injected_session):
+    session_id = injected_session
     _sessions[session_id] = {
+        "session_id": session_id,
+        "cohort_name": "CEO-TEST",
+        "facilitator_id": "test",
+        "start_time": None,
         "player_id": "test_player",
         "player_name": "Test Player",
         "industry": "test",

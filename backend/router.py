@@ -6814,11 +6814,14 @@ async def submit_interview_responses(request: Request, session_id: str, body: di
         _log.warning(f"[ceo-interview] LLM scoring failed: {e}")
 
     if not response_scores:
-        # Fallback: noise-based scoring
-        import random
+        # Fallback: noise-based scoring. RNG-5 (audit 2026-09-04, Wave 3): the
+        # ±1.0 noise came from the process-global Random — a different spider
+        # every time the same interview was scored, and a different cohort
+        # percentile. It is a stable per-session, per-dimension stream now.
+        from rng_util import stable_rng
         for dim_id in data_scores:
             base = data_scores[dim_id]
-            noise = random.uniform(-1.0, 1.0)
+            noise = stable_rng(session_id, "ceo_interview_fallback", dim_id).uniform(-1.0, 1.0)
             response_scores[dim_id] = round(min(10, max(1, base + noise)), 1)
 
     # Step 3: Blend scores (using trajectory-adjusted data scores)

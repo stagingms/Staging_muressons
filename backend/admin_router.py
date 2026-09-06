@@ -1176,28 +1176,34 @@ async def patch_cohort_settings(
     # RNG seed (GAME-4): stamp the cohort's stochastic_seed onto the live game
     # state so every engine roll is reproducible + identical across teams. Mirror
     # the ending_pathway/CEO-interview flag-propagation pattern (parent + children).
+    # RNG-2 (audit 2026-09-04, Wave 3): both stores unpack every flag to the top
+    # level on read and re-pack top-level keys back into the flags on write, so a
+    # flag-only write was silently reverted by the stale top-level copy — the
+    # typed seed never reached the game (the settings GET labelled it
+    # "divergent"). Write BOTH locations, like router does for ending_pathway.
+    def _stamp_seed(_gs: dict, _seed_value: str) -> None:
+        _fl = _gs.setdefault("active_event_flags", {})
+        if _seed_value:
+            _fl["stochastic_seed"] = _seed_value
+            _gs["stochastic_seed"] = _seed_value        # the top-level copy wins in the store repack
+        else:
+            _fl.pop("stochastic_seed", None)             # empty ⇒ back to non-deterministic
+            _gs.pop("stochastic_seed", None)
+
     if "rng_seed" in safe_body:
         _seed = (safe_body.get("rng_seed") or "").strip()
         try:
             latest = await db.fetch_latest_state(session_id)
             if latest:
                 gs = latest["global_state"]
-                flags = gs.setdefault("active_event_flags", {})
-                if _seed:
-                    flags["stochastic_seed"] = _seed
-                else:
-                    flags.pop("stochastic_seed", None)  # empty ⇒ back to non-deterministic
+                _stamp_seed(gs, _seed)
                 await db.update_latest_global_state(session_id, gs, latest["bu_states"])
                 for child in await db.get_child_sessions(session_id):
                     child_state = await db.fetch_latest_state(child["session_id"])
                     if not child_state:
                         continue
                     child_gs = child_state["global_state"]
-                    child_flags = child_gs.setdefault("active_event_flags", {})
-                    if _seed:
-                        child_flags["stochastic_seed"] = _seed
-                    else:
-                        child_flags.pop("stochastic_seed", None)
+                    _stamp_seed(child_gs, _seed)
                     await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
         except Exception as _e:  # never fail the settings write on a stamping hiccup
             _ar_log.warning(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
@@ -7645,11 +7651,14 @@ async def get_r2_bu_selection(session_id: str, request: Request):
     selected_bu = global_state.get("r2_selected_bu")
 
     if selected_bu is None:
-        # Auto-select from active BU composition (respects substitutions)
-        import random
+        # Auto-select from active BU composition (respects substitutions).
+        # RNG-8 (audit 2026-09-04, Wave 3): seeded from the session's event
+        # stream, so a seeded cohort's teams get the same R2 materiality BU
+        # (and a replay gets the same one), instead of the process-global Random.
+        from rng_util import event_rng
         subs = global_state.get("bu_substitutions", {})
         active_bus = get_active_bus(subs)
-        selected_bu = random.choice(active_bus)
+        selected_bu = event_rng(global_state.get("active_event_flags") or {}, 2, "r2_materiality_bu").choice(active_bus)
         global_state["r2_selected_bu"] = selected_bu
         await db.update_latest_global_state(session_id, global_state, current["bu_states"])
 

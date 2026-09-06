@@ -871,8 +871,11 @@ def _evaluate_exogenous_trigger(
         rep = gs.get("group_reputation", 50)
         if rep > conds.get("max_reputation_threshold", 40):
             return None
-        import random
-        if random.random() > conds.get("whistleblower_probability", 0.6):
+        # RNG-8 (audit 2026-09-04, Wave 3): the whistleblower roll gating a $30M
+        # fine was the process-global Random; it is the cohort's event stream.
+        from rng_util import event_rng
+        if event_rng(gs.get("active_event_flags") or {}, round_number, "sandbox:csddd_whistleblower").random() \
+                > conds.get("whistleblower_probability", 0.6):
             return None
 
         fine = effects.get("fine_amount", 30_000_000)

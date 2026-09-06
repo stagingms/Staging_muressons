@@ -18,7 +18,6 @@ Architecture:
 
 from __future__ import annotations
 from typing import Any
-import random
 import math
 
 
@@ -232,6 +231,15 @@ def simulate_board_vote(
     # Reputation context: high rep makes progressive resolutions easier to pass
     rep_modifier = (gs.get("group_reputation", 50) - 50) / 200.0
 
+    # RNG-8 (audit 2026-09-04, Wave 3): the per-director roll came from the
+    # process-global Random — unseeded, and shared with every other module's
+    # fallback draws. It is the cohort's event stream now (seeded when the
+    # session carries a stochastic_seed; system-seeded otherwise), keyed by
+    # round and resolution so a repeat vote on the same resolution is the same.
+    from rng_util import event_rng
+    _rng = event_rng(gs.get("active_event_flags") or {}, int(gs.get("round_number", 0) or 0),
+                     f"board_vote:{resolution.get('id', '')}")
+
     for director in directors:
         # Base probability of supporting = ESG alignment
         base_prob = director["esg_alignment"]
@@ -247,8 +255,8 @@ def simulate_board_vote(
 
         prob = max(0.05, min(0.95, prob))
 
-        # Stochastic vote
-        roll = random.random()
+        # Stochastic vote (RNG-8: seeded stream)
+        roll = _rng.random()
         voted_for = roll < prob
 
         if voted_for:

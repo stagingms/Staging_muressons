@@ -16,7 +16,6 @@ Architecture:
 
 from __future__ import annotations
 from typing import Any
-import random
 import math
 
 
@@ -480,15 +479,19 @@ def process_supply_chain_tick(
     scope3_diag = estimate_scope3_emissions(sc_state)
     diagnostics["scope3"] = scope3_diag
 
-    # Stochastic disruption risk (increases with low visibility)
+    # Stochastic disruption risk (increases with low visibility).
+    # RNG-8 (audit 2026-09-04, Wave 3): the roll and the target pick came from
+    # the process-global Random; they are the cohort's event stream now.
     if sc_state["overall_visibility"] < 0.40:
+        from rng_util import event_rng
+        _rng = event_rng(gs.get("active_event_flags") or {}, round_number, "supply_chain_disruption")
         disruption_prob = 0.15 + (0.40 - sc_state["overall_visibility"]) * 0.5
-        if random.random() < disruption_prob:
+        if _rng.random() < disruption_prob:
             # Select a random high-risk supplier for disruption
             risky = [s for s in all_suppliers if s["risk_score"] > 60]
             if risky:
-                target = random.choice(risky)
-                disrupt_result = simulate_disruption(sc_state, target["id"], random.uniform(0.3, 0.8))
+                target = _rng.choice(risky)
+                disrupt_result = simulate_disruption(sc_state, target["id"], _rng.uniform(0.3, 0.8))   # RNG-8
                 diagnostics["disruption_event"] = disrupt_result
                 sc_state["disruption_events"].append({
                     "round": round_number,
