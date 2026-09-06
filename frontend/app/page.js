@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { lastRoundSummary } from './components/lastRoundSummary';
 import styles from './page.module.css';
 import cockpitStyles from './components/ExecutiveCockpit.module.css';
 import dynamic from 'next/dynamic';
@@ -834,27 +835,46 @@ export default function CockpitPage() {
     }
   }, [sim, businessUnits, allocations, csfPool, decisionChoice, roundNumber]);
 
-  const handleSaveDecisions = useCallback(async () => {
-    if (!sim.sessionId) return;
-    try {
-      await sim.saveDecisions({
-        allocations,
-        decision_choice: decisionChoice,
-      });
-      setLastSavedAt(new Date());
-    } catch (err) {
-      console.error("Failed to save decisions:", err);
-    }
-  }, [sim, allocations, decisionChoice]);
-
-  // Periodic Auto-Save
+  // FLOW-05 (audit 2026-09-04, Wave 3): the draft used to be saved only by a
+  // 30 s interval that every slider change reset, and only once an option was
+  // chosen — a participant who kept adjusting for two minutes and then lost
+  // the tab (ChunkLoad, wifi, a reload) lost the whole draft, and a Force
+  // Advance then committed defaults, not their work, while the footer said
+  // "Your decisions are saved". The draft is now saved ~2 s after the last
+  // change (allocations OR option), and once more, keepalive, when the page is
+  // hidden or unloaded. Anything a participant has touched is worth keeping.
+  const draftRef = useRef({ allocations, decisionChoice });
+  useEffect(() => { draftRef.current = { allocations, decisionChoice }; }, [allocations, decisionChoice]);
+  const saveDraft = sim.saveDecisions;   // useCallback keyed on the session id — stable across polls
+  const hasDraft = !sim.gameOver && !!sim.sessionId
+    && (!!decisionChoice || Object.values(allocations || {}).some((v) => Number(v) > 0));
   useEffect(() => {
-    if (!sim.sessionId || sim.gameOver || (!decisionChoice && !globalState?.pillar_selections) || Object.keys(allocations).length === 0) return;
-    const interval = setInterval(() => {
-      handleSaveDecisions();
-    }, 30_000);
-    return () => clearInterval(interval);
-  }, [sim.sessionId, sim.gameOver, handleSaveDecisions, decisionChoice, globalState, allocations]);
+    if (!hasDraft) return;
+    const t = setTimeout(() => {
+      saveDraft({ allocations: draftRef.current.allocations, decision_choice: draftRef.current.decisionChoice }, { quiet: true })
+        .then(() => setLastSavedAt(new Date()))
+        .catch(() => { /* retried on the next change / on unload */ });
+    }, 2_000);
+    return () => clearTimeout(t);
+  }, [hasDraft, saveDraft, allocations, decisionChoice]);
+  useEffect(() => {
+    if (!hasDraft) return;
+    const flush = () => {
+      saveDraft(
+        { allocations: draftRef.current.allocations, decision_choice: draftRef.current.decisionChoice },
+        { quiet: true, keepalive: true },
+      ).catch(() => {});
+    };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [hasDraft, saveDraft]);
 
   // Universal Broadcast WebSocket — connects to /api/admin/ws/session/{id} for God Mode pushes
   useEffect(() => {
@@ -1436,7 +1456,7 @@ export default function CockpitPage() {
         businessUnits={businessUnits}
         sessionMeta={sim.sessionMeta}
         onProceed={handleProceedFromDesktop}
-        prevRoundData={sim.history?.[sim.history.length - 1]}
+        prevRoundData={lastRoundSummary(sim.history, roundNumber)}   /* FLOW-06: row N − row N−1, not a raw history row */
         activeFlags={Object.keys(globalState?.active_event_flags || {})}
         isPlayerVisible={isPlayerVisible}
         onLogout={sim.logout}

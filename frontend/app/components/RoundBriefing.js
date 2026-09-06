@@ -9,7 +9,7 @@ import { HEALTHCARE_BRIEFINGS } from '@/app/briefings/data/healthcare';
 import { SDG_BRIEFINGS }        from '@/app/briefings/data/sdg';
 import { deriveSimContext, resolveBriefing } from '@/app/briefings/resolver';
 import { stripPedagogy } from '@/app/briefings/stripPedagogy';
-import { currencySymbol, atRate, localiseAuthored } from '../utils/format';
+import { currencySymbol, atRate, localiseAuthored, moneyM } from '../utils/format';
 
 
 /**
@@ -419,7 +419,7 @@ export default function RoundBriefing({
                     <div className={styles.recapRow}>
                       <span className={styles.recapLabel}>Treasury Impact</span>
                       <span className={prevRoundData.treasury_delta >= 0 ? styles.recapValuePositive : styles.recapValueNegative}>
-                        {prevRoundData.treasury_delta >= 0 ? '+' : ''}{(prevRoundData.treasury_delta / 1_000_000).toFixed(1)}M
+                        {prevRoundData.treasury_delta >= 0 ? '+' : ''}{moneyM(prevRoundData.treasury_delta)}
                       </span>
                     </div>
                   )}
@@ -427,7 +427,7 @@ export default function RoundBriefing({
                     <div className={styles.recapRow}>
                       <span className={styles.recapLabel}>Reputation Change</span>
                       <span className={prevRoundData.reputation_delta >= 0 ? styles.recapValuePositive : styles.recapValueNegative}>
-                        {prevRoundData.reputation_delta >= 0 ? '+' : ''}{prevRoundData.reputation_delta}
+                        {prevRoundData.reputation_delta >= 0 ? '+' : ''}{Number(prevRoundData.reputation_delta).toFixed(1)}
                       </span>
                     </div>
                   )}

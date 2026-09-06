@@ -15,6 +15,33 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 //     session refuses requests without it (401, code player_token_required),
 //     so a forged header can no longer read or commit for another team.
 // Header-less requests still work for solo sessions and never block facilitators.
+/**
+ * FLOW-06 (audit 2026-09-04, Wave 3): the round-results screen lived only in
+ * React state, so a reload after "Commit" landed on the NEXT round's briefing
+ * and the participant never saw the round's outcome. The commit response is
+ * kept in sessionStorage (this tab, this session) until the player advances;
+ * resumeSession restores it when the server is still on the round after it.
+ */
+const PENDING_RESULTS_KEY = (sid) => `muressons_pending_results_${sid}`;
+export function readPendingResults(sid) {
+  try {
+    if (typeof window === 'undefined' || !sid) return null;
+    const raw = window.sessionStorage.getItem(PENDING_RESULTS_KEY(sid));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+export function writePendingResults(sid, results) {
+  try {
+    if (typeof window === 'undefined' || !sid || !results) return;
+    window.sessionStorage.setItem(PENDING_RESULTS_KEY(sid), JSON.stringify(results));
+  } catch { /* quota / private mode — the reload path simply falls back */ }
+}
+export function clearPendingResults(sid) {
+  try {
+    if (typeof window !== 'undefined' && sid) window.sessionStorage.removeItem(PENDING_RESULTS_KEY(sid));
+  } catch { /* nothing to clear */ }
+}
+
 export function playerIdHeader() {
     try {
         if (typeof window === 'undefined') return {};
@@ -670,12 +697,15 @@ export default function useSimulation() {
                 // roundNumber, globalState, businessUnits stay on the CURRENT round
                 // until the user clicks "Advance".
                 console.log(`[commitTurn] Success: current round ${roundNumber} → new round ${data.new_round_number}`);
-                setCommitResults({
+                const results = {
+                    roundCommitted: roundNumber,
                     newRoundNumber: data.new_round_number,
                     events: data.events || {},
                     globalState: data.global_state,
                     businessUnits: data.business_units,
-                });
+                };
+                setCommitResults(results);
+                writePendingResults(sessionId, results);   // FLOW-06: survives a reload
 
                 return data;
             } catch (err) {
@@ -691,10 +721,12 @@ export default function useSimulation() {
 
     // ── Save uncommitted decisions ────────────────────────────
     const saveDecisions = useCallback(
-        async (payload) => {
+        async (payload, { quiet = false, keepalive = false } = {}) => {
             if (!sessionId || sessionId === 'demo') return null;
-            setLoading(true);
-            setError(null);
+            // FLOW-05 (audit 2026-09-04, Wave 3): the debounced autosave and the
+            // unload save run in the background — no spinner, no error banner
+            // for a draft that will be retried on the next change.
+            if (!quiet) { setLoading(true); setError(null); }
             try {
                 const res = await fetch(
                     `${API_BASE}/api/simulations/${sessionId}/save-decisions`,
@@ -702,6 +734,8 @@ export default function useSimulation() {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
                         body: JSON.stringify(payload),
+                        // keepalive lets the request outlive the page on beforeunload
+                        keepalive,
                     }
                 );
                 if (!res.ok) {
@@ -722,10 +756,10 @@ export default function useSimulation() {
 
                 return data;
             } catch (err) {
-                setError(err.message);
+                if (!quiet) setError(err.message);
                 throw err;
             } finally {
-                setLoading(false);
+                if (!quiet) setLoading(false);
             }
         },
         [sessionId]
@@ -752,6 +786,7 @@ export default function useSimulation() {
         setGlobalState(commitResults.globalState);
         setBusinessUnits(commitResults.businessUnits);
         setCommitResults(null);
+        clearPendingResults(sessionId);   // FLOW-06: the player has seen the results
         setRoundChanged(true);
 
         try {
@@ -764,7 +799,7 @@ export default function useSimulation() {
         } finally {
             advanceInProgressRef.current = false;
         }
-    }, [commitResults, fetchRoundConfig, fetchDashboard]);
+    }, [commitResults, fetchRoundConfig, fetchDashboard, sessionId]);
 
     // ── Reset roundChanged flag after a render tick ────────────
     useEffect(() => {
@@ -895,6 +930,23 @@ export default function useSimulation() {
             if (data?.current_round && data.current_round <= 10) {
                 await fetchRoundConfig(data.current_round);
             }
+            // FLOW-06: a commit this tab made and never advanced past — put the
+            // results screen back exactly as it was: the committed round's
+            // pre-commit state (history row K = state entering K) under the
+            // commit response; Advance then brings the next briefing as usual.
+            const pending = readPendingResults(sid);
+            if (pending && data?.current_round === pending.newRoundNumber && !data?.global_state?.active_event_flags?.profile) {
+                const row = (data.history || []).find((h) => h.round_number === pending.roundCommitted);
+                if (row?.global_state) {
+                    setRoundNumber(pending.roundCommitted);
+                    setGlobalState(row.global_state);
+                    setBusinessUnits(row.business_units || data.business_units);
+                }
+                setCommitResults(pending);
+                prevRoundRef.current = pending.roundCommitted;
+                setRoundChanged(false);
+                return data;
+            }
             // Signal round change so the briefing page shows on session resume
             prevRoundRef.current = 0;
             setRoundChanged(true);
@@ -921,6 +973,7 @@ export default function useSimulation() {
             localStorage.removeItem('muressons_is_solo');
             localStorage.removeItem('muressons_player_token');
             localStorage.removeItem('muressons_ws_ticket');
+            clearPendingResults(sessionId);   // FLOW-06
         }
         // Reset all state to initial values
         setSessionId(null);
@@ -940,7 +993,7 @@ export default function useSimulation() {
         setPracticeReset(false);
         setMustChangePassword(false);
         setSessionMeta({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null });
-    }, []);
+    }, [sessionId]);
 
     return {
         // State
