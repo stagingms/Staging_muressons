@@ -1610,7 +1610,8 @@ async def reset_session_to_round1(session_id: str) -> bool:
     old_states = _global_states.get(session_id, [])
     loan_rate = 0.12
     if old_states:
-        loan_rate = old_states[0].get("active_event_flags", {}).get("loan_interest_rate", 0.12)
+        from config import FINANCIAL_DEFAULT_LOAN_RATE as _dlr   # FIN-11
+        loan_rate = old_states[0].get("active_event_flags", {}).get("loan_interest_rate", _dlr)
 
     new_state_id = str(uuid.uuid4())
     global_state = {

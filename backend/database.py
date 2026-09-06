@@ -1939,7 +1939,8 @@ async def reset_session_to_round1(session_id: str) -> bool:
     # Get loan interest rate from latest state if available
     latest = await fetch_latest_state(session_id)
     if latest:
-        loan_rate = latest.get("global_state", {}).get("active_event_flags", {}).get("loan_interest_rate", 0.12)
+        from config import FINANCIAL_DEFAULT_LOAN_RATE as _dlr   # FIN-11
+        loan_rate = latest.get("global_state", {}).get("active_event_flags", {}).get("loan_interest_rate", _dlr)
 
     global_state_id = str(uuid.uuid4())
     

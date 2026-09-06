@@ -2953,6 +2953,17 @@ def _run_financial_layer(ctx: TickContext) -> None:
     # FIX VULN-001: Clamp dividends to treasury
     base_treasury     = current_global["corporate_treasury"]
     clamped_dividends = min(ctx.dividends_paid, max(0.0, base_treasury))
+    # FIN-13 (audit 2026-09-04, Wave 3): a dividend suspension announced last
+    # round — by the insolvency notice, the financial tipping point or the
+    # turnaround arc (crisis / stabilisation: "Dividend payments remain
+    # suspended") — is enforced this round. The flags carry last tick's verdict.
+    _div_flags_prev = current_global.get("active_event_flags", {}) or {}
+    _div_suspended = bool(_div_flags_prev.get("dividend_suspended")) or (
+        bool(_div_flags_prev.get("survival_mode"))
+        and _div_flags_prev.get("turnaround_phase") in ("crisis", "stabilisation"))
+    if clamped_dividends > 0 and _div_suspended:
+        ctx.events["dividends_suspended_applied"] = clamped_dividends
+        clamped_dividends = 0.0
 
     # ── FEATURE 12: Dividend Ratchet ────────────────────────────
     last_dividends = current_global.get("active_event_flags", {}).get("last_dividends_paid", 0.0)
@@ -3035,6 +3046,30 @@ def _run_financial_layer(ctx: TickContext) -> None:
     # pool floor (the emergency credit line the cockpit already offers), so an
     # insolvent team can still make the minimum investment, loan-funded.
     capex_cap = max(CSF_POOL_FLOOR, base_treasury * FINANCIAL_CAPEX_CAP_MULTIPLE)
+    # FIN-13 (audit 2026-09-04, Wave 3): the insolvency notice announced
+    # "CapEx capped at 50%, dividend suspension in effect" and the turnaround
+    # phases carry their own capex_cap — no code read either. They apply here,
+    # to the round AFTER the notice (the flags carry last tick's verdict).
+    # The multiplier flag is written by the insolvency notice (0.50) and by the
+    # financial tipping point (0.50); the turnaround arc carries its phase cap
+    # in distress_detection (stabilisation 0.50). The crisis phase's 0.0 is
+    # deliberately NOT applied: the pool floor exists so an insolvent team can
+    # still make the minimum, loan-funded investment.
+    _fin_flags_prev = current_global.get("active_event_flags", {}) or {}
+    _cap_mult = 1.0
+    try:
+        _cap_mult = min(_cap_mult, float(_fin_flags_prev.get("capex_cap_multiplier", 1.0) or 1.0))
+    except (TypeError, ValueError):
+        pass
+    _turn = _fin_flags_prev.get("distress_detection")
+    if _fin_flags_prev.get("survival_mode") and isinstance(_turn, dict) and _turn.get("capex_cap_multiplier"):
+        try:
+            _cap_mult = min(_cap_mult, float(_turn["capex_cap_multiplier"]))
+        except (TypeError, ValueError):
+            pass
+    if 0 < _cap_mult < 1.0:
+        capex_cap = round(capex_cap * _cap_mult, 2)
+        ctx.events["capex_cap_multiplier_applied"] = _cap_mult
     if total_capex_requested > capex_cap:
         total_capex_requested      = capex_cap
         ctx.events["capex_capped"]     = True
@@ -3060,10 +3095,21 @@ def _run_financial_layer(ctx: TickContext) -> None:
     new_borrowing    = round(max(0.0, total_capex_requested - free_csf_limit), 2)
     rounds_remaining = max(1, SIM_ROUNDS - _round_no + 1)
     loan_repayment   = round(loan_opening / rounds_remaining, 2) if loan_opening > 0 else 0.0
+    loan_interest_payment = round(loan_opening * loan_interest_rate, 2)
     if _round_no >= SIM_ROUNDS:
         loan_repayment = loan_opening                      # bullet: nothing outlives the game
-    loan_interest_payment = round(loan_opening * loan_interest_rate, 2)
+        # FIN-13: a round-10 draw used to be interest-free and never repaid
+        # (the message promised "repayable over the remaining rounds"; there
+        # are none). It is priced for the round and repaid in it, so CapEx
+        # above the allowance in the last round costs its cash plus a
+        # round's interest — no debt outlives the game.
+        if new_borrowing > 0:
+            loan_interest_payment = round(loan_interest_payment + new_borrowing * loan_interest_rate, 2)
+            loan_repayment        = round(loan_repayment + new_borrowing, 2)
+            ctx.events["capex_loan_last_round_settled"] = new_borrowing
     loan_closing     = round(max(0.0, loan_opening - loan_repayment) + new_borrowing, 2)
+    if _round_no >= SIM_ROUNDS:
+        loan_closing = 0.0                                 # FIN-13: settled above
     loan_principal   = new_borrowing                       # this round's draw (legacy event name)
     ctx.events["capex_equity_funded"]  = equity_capex
     ctx.events["capex_loan_drawn"]     = new_borrowing
@@ -3569,6 +3615,13 @@ def _run_financial_layer(ctx: TickContext) -> None:
             )
             ctx.events["capex_cap_multiplier"] = 0.50
             ctx.events["dividend_suspended"]   = True
+    # FIN-13: the notice is this round's verdict — written every tick so the
+    # flags clear when the treasury recovers (a key written only when True
+    # would stay in force forever through the router's event→flag merge).
+    if not ctx.events.get("insolvency_active"):
+        ctx.events["insolvency_active"]    = False
+        ctx.events["capex_cap_multiplier"] = 1.0
+        ctx.events["dividend_suspended"]   = False
 
     # Store loan_principal on ctx so the reporting layer can check CFO austerity
     ctx.events["_loan_principal_internal"] = loan_principal

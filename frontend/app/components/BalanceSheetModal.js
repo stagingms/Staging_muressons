@@ -248,10 +248,12 @@ export default function BalanceSheetModal({ balanceSheet, isOpen, onClose, fmtCu
 
               {sectionHeader("Shareholders' Equity", '🏛️')}
               {lineRow('Share Capital', balanceSheet.share_capital, { indent: true })}
-              {lineRow('Retained Earnings', balanceSheet.retained_earnings, {
+              {lineRow('Retained Earnings (closing residual)', balanceSheet.retained_earnings, {
                 indent: true,
                 color: (balanceSheet.retained_earnings || 0) < 0 ? '#f87171' : (isScholarly ? '#fbbf24' : undefined),
               })}
+              {/* FIN-07 (Wave 3): the plug, named — and the part of the period's equity movement the P&L does not explain */}
+              {balanceSheet.re_bridge && lineRow('RE bridge residual (RE − [opening + NI − dividends])', balanceSheet.re_bridge.residual, { indent: true, color: 'var(--text-muted)' })}
               {isScholarly && (
                 <div style={{ fontSize: 'var(--type-caption)', color: '#92400e', fontStyle: 'italic', paddingLeft: 16, marginTop: -2, marginBottom: 2 }}>
                   ↑ Retained Earnings includes {fmtM(scholarlyTotal)} from ESG capital recognition

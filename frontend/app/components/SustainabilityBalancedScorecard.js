@@ -1092,7 +1092,9 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
                                     {sectionHeader("Shareholders' Equity", '🏛️')}
                                     {lineRow('Share Capital', balanceSheet.share_capital, { indent: true })}
-                                    {lineRow('Retained Earnings', balanceSheet.retained_earnings, { indent: true, color: (balanceSheet.retained_earnings || 0) < 0 ? '#f87171' : undefined })}
+                                    {lineRow('Retained Earnings (closing residual)', balanceSheet.retained_earnings, { indent: true, color: (balanceSheet.retained_earnings || 0) < 0 ? '#f87171' : undefined })}
+                                    {/* FIN-07 (Wave 3): RE balances the statement; it does not roll forward from net income */}
+                                    {balanceSheet.re_bridge && lineRow('RE bridge residual (unexplained by NI − dividends)', balanceSheet.re_bridge.residual, { indent: true, color: 'var(--text-muted)' })}
                                     {lineRow('Other Reserves', balanceSheet.other_reserves, { indent: true })}
                                     {lineRow('TOTAL EQUITY', totalEquity, { bold: true, topBorder: true, bottomBorder: true, color: '#a78bfa' })}
                                 </div>
@@ -1195,7 +1197,9 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     { label: 'TOTAL LIABILITIES', grand: true, get: s => s.total_liabilities },
                                     { section: "Shareholders' Equity" },
                                     { label: 'Share Capital', get: s => s.share_capital },
-                                    { label: 'Retained Earnings', get: s => s.retained_earnings },
+                                    { label: 'Retained Earnings (closing residual)', get: s => s.retained_earnings },
+                                    /* FIN-07 (Wave 3): the part of the equity movement the P&L does not explain */
+                                    { label: 'RE bridge residual (RE − [opening + NI − dividends])', get: s => s.re_bridge_residual },
                                     { label: 'Other Reserves', get: s => s.other_reserves },
                                     { label: 'TOTAL EQUITY', grand: true, get: s => (Number(s.share_capital) || 0) + (Number(s.retained_earnings) || 0) + (Number(s.other_reserves) || 0) },
                                     { section: 'Key Figures & Ratios' },

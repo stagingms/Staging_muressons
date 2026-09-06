@@ -219,7 +219,9 @@ class StartSessionRequest(BaseModel):
     facilitator_id: Optional[str] = None
     allowed_overrides: Optional[list[str]] = None
     allowed_swipes: Optional[list[str]] = None
-    loan_interest_rate: float = Field(0.12, ge=0.0)
+    # FIN-11 (Wave 3): the default is the config's, so an Excel edit of
+    # financial_parameters.default_loan_rate reaches new sessions.
+    loan_interest_rate: float = Field(default_factory=lambda: __import__("config").FINANCIAL_DEFAULT_LOAN_RATE, ge=0.0)
     decision_paradigm: str = "legacy_abc"  # 'legacy_abc' | 'multi_toggles'
     currency_symbol: Optional[str] = "$"   # Per-cohort display currency
     scenario_preset: Optional[str] = None  # Per-cohort engine preset id

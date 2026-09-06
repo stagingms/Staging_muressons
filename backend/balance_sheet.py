@@ -50,6 +50,7 @@ from typing import Any
 import copy
 import math
 from config import (
+    FINANCIAL_DEFAULT_LOAN_RATE,
     CONSTRAINT_MIN_LIQUIDITY_RATIO,
     FINANCIAL_CORPORATE_TAX_RATE,
     FINANCIAL_WACC_LENDER_THRESHOLD,
@@ -507,7 +508,7 @@ def _sweep_negative_cash(bs: dict, gs: dict, diagnostics: dict, charge_interest:
         bs["current_assets"]["cash_and_equivalents"] = 0.0
         diagnostics["negative_cash_swept_to_short_term_debt"] = deficit
         if charge_interest and "corporate_treasury" in gs:
-            rate = float((gs.get("active_event_flags") or {}).get("loan_interest_rate", 0.12) or 0.12)
+            rate = float((gs.get("active_event_flags") or {}).get("loan_interest_rate", FINANCIAL_DEFAULT_LOAN_RATE) or FINANCIAL_DEFAULT_LOAN_RATE)   # FIN-11
             interest = round(deficit * rate / 2.0, 2)
             if interest > 0:
                 gs["corporate_treasury"] = round(gs["corporate_treasury"] - interest, 2)
@@ -551,6 +552,10 @@ def process_balance_sheet_tick(
       scholarly tick are cleared so the toggle is fully reversible.
     """
     diagnostics: dict[str, Any] = {}
+    # FIN-07 (audit 2026-09-04, Wave 3): the opening retained earnings, so the
+    # closing plug can be bridged against net income − dividends and the gap
+    # reported instead of a hard-coded "balanced".
+    _re_open = float(bs.get("retained_earnings", 0.0) or 0.0)
 
     # ── Step 0: Extract key inputs ──────────────────────────────────────────
     n_bus = max(1, len(bus))
@@ -871,9 +876,28 @@ def process_balance_sheet_tick(
     bs["retained_earnings"] = round(bs["net_assets"] - fixed_equity, 2)
     total_equity = round(bs["net_assets"], 2)  # Always equals net_assets by construction
 
+    # FIN-07 (audit 2026-09-04, Wave 3): say what the plug does. A = L + E is
+    # enforced by deriving RE, so the identity is checked (it will hold) rather
+    # than asserted; and the RE roll-forward — RE_close vs RE_open + net income
+    # − dividends, the bridge a finance-literate participant computes — is
+    # reported with its residual instead of leaving Net Income printed beside a
+    # figure it does not explain (residuals reached $157M in one round).
+    _identity_gap = round(bs["total_assets"] - bs["total_liabilities"] - (fixed_equity + bs["retained_earnings"]), 2)
+    _re_expected = round(_re_open + net_income - dividends, 2)
+    _re_residual = round(bs["retained_earnings"] - _re_expected, 2)
+    bs["re_bridge"] = {
+        "opening": round(_re_open, 2), "net_income": net_income, "dividends": dividends,
+        "expected_closing": _re_expected, "closing": bs["retained_earnings"], "residual": _re_residual,
+        "articulates": abs(_re_residual) < 0.01,
+        "note": ("Retained earnings is the closing residual that balances the statement (hybrid cash-flow + "
+                 "accrual model); it does not roll forward from net income. The residual is the part of the "
+                 "period's equity movement the P&L does not explain."),
+    }
     diagnostics["equity_check"]           = round(total_equity, 2)
-    diagnostics["balance_sheet_balanced"] = True   # Always true after closing derivation
-    diagnostics["imbalance"]              = 0.0
+    diagnostics["balance_sheet_balanced"] = abs(_identity_gap) < 0.01
+    diagnostics["imbalance"]              = _identity_gap
+    diagnostics["re_bridge_residual"]     = _re_residual
+    diagnostics["re_articulates"]         = abs(_re_residual) < 0.01
     diagnostics["net_income_p_and_l"]     = net_income   # Income statement figure (preserved)
 
     # Leverage ratios
@@ -966,6 +990,7 @@ def process_balance_sheet_tick(
         "net_income":         net_income,
         "dividends":          dividends,
         "retained_earnings":  bs["retained_earnings"],
+        "re_bridge_residual": _re_residual,          # FIN-07
         "ebitda":             true_ebitda,
         "balance_sheet_balanced": diagnostics["balance_sheet_balanced"],
         # ── Full line-item snapshot ──

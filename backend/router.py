@@ -1780,7 +1780,7 @@ async def solo_start_simulation(body: SoloStartRequest):
         result = await db.create_session(
             cohort_name=cohort_name,
             facilitator_id=None,          # No facilitator required
-            loan_interest_rate=0.12,
+            loan_interest_rate=_cfg.FINANCIAL_DEFAULT_LOAN_RATE,   # FIN-11: config, not a literal
             player_id=None,
             parent_cohort_id=None,
             decision_paradigm=_req_paradigm,
@@ -3147,7 +3147,11 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # ── NEW ENGINES: Process all improvement modules ──────────
     # Inject data needed by balance sheet engine (CAPEX & dividends)
     events["decisions_raw"] = decisions_raw
-    events["dividends_paid"] = body.dividends_paid
+    # FIN-12 (audit 2026-09-04, Wave 3): the engine clamps a dividend the
+    # treasury cannot pay and writes the PAID amount; this line overwrote it
+    # with the REQUESTED amount, so the statement showed $5M distributed when
+    # $1M left the bank. Keep the engine's figure when it wrote one.
+    events.setdefault("dividends_paid", body.dividends_paid)
     # SPEC F5 — pass the round's optional engagement action to run_new_engines
     # (acted on only when stakeholder_engagement_enabled is on).
     events["engagement_action"] = body.engagement_action
