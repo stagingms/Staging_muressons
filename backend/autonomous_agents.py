@@ -23,6 +23,8 @@ from __future__ import annotations
 from typing import Any
 import math
 import random
+from flag_utils import collect_all_flags
+from rules import rule_on
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -881,7 +883,18 @@ def detect_betrayal(events: dict | None) -> bool:
     if not events:
         return False
     active = {k for k, v in events.items() if v is True}
-    active |= {str(x) for x in (events.get("flags_set") or [])}
+    # Shape C, and the SECOND copy of it: this function is duplicated verbatim in
+    # npc_stakeholders.py:50 and autonomous_agents.py:880, and so is
+    # _BETRAYAL_FLAGS. `events["flags_set"]` has no writer anywhere in the tick —
+    # the option layer writes r{N}_flags (round_logic.py:3770) — so the only
+    # betrayal flags this has ever detected are the ones the engine happens to
+    # write as top-level booleans. deny_and_deflect, the R4 option flag this list
+    # was built around, is not one of them.
+    # tests/test_flag_rule_switches.py asserts the two copies still agree.
+    if rule_on(events, "npc_betrayal_reads_option_flags"):
+        active |= set(collect_all_flags(events))
+    else:
+        active |= {str(x) for x in (events.get("flags_set") or [])}
     return bool(active & _BETRAYAL_FLAGS)
 
 

@@ -509,6 +509,7 @@ async def create_session(
     region_id: Optional[str] = None,
     simulation_mode: Optional[str] = None,
     industry_vertical: Optional[str] = None,
+    rules_version: Optional[str] = None,
 ) -> dict:
     """
     Create a new session and seed Round 1 state.
@@ -525,6 +526,7 @@ async def create_session(
         currency_symbol = "₹"
 
     from admin_shared import _god_mode_settings
+    from rules import CURRENT_VERSION as _CURRENT_RULES_VERSION
     # Determine industry/seed based on the requested decision paradigm.
     # Paradigm-specific seeds take priority over the global god-mode industry setting.
     _PARADIGM_INDUSTRY_MAP = {"healthcare": "healthcare"}
@@ -560,6 +562,11 @@ async def create_session(
         "scenario_preset": scenario_preset,
         "experience_level": experience_level,
         "difficulty_tier": difficulty_tier or "advanced",
+        # Phase 4 (dead-flag remediation): the rule set this session is
+        # pinned to for its whole life. Sessions created before this key
+        # existed have no value and resolve to rules.DEFAULT_RULES_VERSION,
+        # which IS the semantics they were played under.
+        "rules_version": rules_version or _CURRENT_RULES_VERSION,
         "created_by": created_by,
         "created_when": created_when,
         "start_date": start_date,

@@ -12,6 +12,8 @@ Feature is gated by: god-mode `ceo_interview_enabled: True`
 
 from __future__ import annotations
 from typing import Any
+from flag_utils import collect_all_flags
+from rules import rule_on
 
 # ═══════════════════════════════════════════════════════════════
 #  ASSESSMENT DIMENSIONS
@@ -150,6 +152,34 @@ def get_interview_questions(
 #  DATA-DRIVEN SCORING (from simulation metrics)
 # ═══════════════════════════════════════════════════════════════
 
+def _flag_view(all_flags: dict) -> dict:
+    """The flags this debrief can see, per the session's rule set.
+
+    2026.09 — the raw active_event_flags bag (router.py:7010). Option flags live
+    in the r{N}_flags LISTS, so a top-level .get() cannot see one: none of
+    ethical_ai_overhaul, community_fund or managed_transition has ever raised the
+    ethical_reasoning score or produced a citation, for any team.
+
+    2026.10 — the raw bag AUGMENTED with flag_utils.collect_all_flags. Augmented,
+    not replaced, because these functions also count and iterate non-flag keys
+    (:212), so the view has to be a superset rather than a substitution.
+
+    The reads themselves changed name in the same pass: three of them asked for
+    "deep_audit", which no configuration anywhere declares — the flag is
+    deep_audit_completed. That rename is behaviour-neutral under 2026.09 and
+    verified so: measured across the golden matrix, NEITHER name is ever a
+    top-level key, so both .get()s returned None before and after.
+    """
+    if not isinstance(all_flags, dict):
+        return {}
+    if not rule_on(all_flags, "debrief_reads_option_flags"):
+        return all_flags
+    view = dict(all_flags)
+    for name in collect_all_flags(all_flags):
+        view[name] = True
+    return view
+
+
 def calc_data_scores(
     extra: dict,
     global_state: dict,
@@ -161,6 +191,7 @@ def calc_data_scores(
     These scores are blended with LLM response scores (50/50) to produce
     the final spider diagram values.
     """
+    all_flags = _flag_view(all_flags)
     scores = {}
 
     # ── Strategic Thinking (from M_R and terminal value) ──
@@ -194,7 +225,7 @@ def calc_data_scores(
         ethical_score += 2.0
     elif all_flags.get("managed_transition"):
         ethical_score += 1.0
-    if all_flags.get("deep_audit"):
+    if all_flags.get("deep_audit_completed"):
         ethical_score += 1.0
     scores["ethical_reasoning"] = round(min(10, ethical_score), 1)
 
@@ -230,7 +261,11 @@ def generate_score_rationale(
     
     Returns {dimension_id: rationale_string} explaining *why* the score was given,
     referencing the actual simulation metrics that drove it.
+
+    all_flags is normalised through _flag_view for the same reason as
+    calc_data_scores: the option flags this reads are list-held.
     """
+    all_flags = _flag_view(all_flags)
     rationale = {}
 
     # ── Strategic Thinking ──
@@ -313,7 +348,7 @@ def generate_score_rationale(
         ethical_flags.append("Community Fund")
     elif all_flags.get("managed_transition"):
         ethical_flags.append("Managed Transition")
-    if all_flags.get("deep_audit"):
+    if all_flags.get("deep_audit_completed"):
         ethical_flags.append("Deep Audit")
     score = data_scores.get("ethical_reasoning", 5.0)
     flags_text = ", ".join(ethical_flags) if ethical_flags else "none triggered"
@@ -807,8 +842,8 @@ def calc_trajectory_modifiers(
     ethical_flags_by_round = {}
     for rh in round_history:
         rn = rh.get("round_number", 0)
-        flags = rh.get("global_state", {}).get("active_event_flags", {})
-        for key in ["ethical_ai_overhaul", "community_fund", "managed_transition", "deep_audit"]:
+        flags = _flag_view(rh.get("global_state", {}).get("active_event_flags", {}))
+        for key in ["ethical_ai_overhaul", "community_fund", "managed_transition", "deep_audit_completed"]:
             if flags.get(key) and key not in ethical_flags_by_round:
                 ethical_flags_by_round[key] = rn
 
@@ -902,13 +937,13 @@ def generate_evidence_citations(
     # Ethical Reasoning — cite specific ethical flag rounds
     for rh in round_history:
         rn = rh.get("round_number", 0)
-        flags = rh.get("global_state", {}).get("active_event_flags", {})
+        flags = _flag_view(rh.get("global_state", {}).get("active_event_flags", {}))
         if flags.get("ethical_ai_overhaul"):
             citations["ethical_reasoning"].append(f"Round {rn}: You invested in the Ethical AI Overhaul — demonstrating commitment to responsible technology governance.")
             break
     for rh in round_history:
         rn = rh.get("round_number", 0)
-        flags = rh.get("global_state", {}).get("active_event_flags", {})
+        flags = _flag_view(rh.get("global_state", {}).get("active_event_flags", {}))
         if flags.get("community_fund"):
             citations["ethical_reasoning"].append(f"Round {rn}: You established the Community Fund — prioritising just transition over cost minimisation.")
             break

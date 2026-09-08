@@ -11,6 +11,7 @@ import copy
 import math
 import random as _rng
 from rng_util import event_rng, event_seed  # GAME-4: deterministic per-cohort RNG
+from rules import rule_on          # Phase 4: versioned rule sets
 from config import (
     SIM_ROUNDS,
     CSF_POOL_FLOOR,
@@ -2134,6 +2135,26 @@ def calc_sdg_impact(bus: list[dict], flags: dict) -> dict:
         sum(base_weighted.values()) / max(total_weight, 1.0), 1
     )
 
+    # ── Phase 3.5: the Corporate SDG side track's contribution ────
+    # Until 2026.10 the simulation carried two SDG numbers that had never been
+    # connected: this index, computed every round and consumed by nothing but a
+    # report, and side_tracks/corporate_sdg's `sdg_impact_score`, which was the
+    # sole input to M_SDG and zero in every session without the track. Folding
+    # the track in HERE — additively, after the aggregate, clamped to the 0-100
+    # the index already lives in — makes the index the one SDG quantity while
+    # leaving a track-less session's index untouched, because the track scores 0.
+    track_score = 0.0
+    track_contribution = 0.0
+    if rule_on(flags, "sdg_single_quantity"):
+        from config import SDG_TRACK_WEIGHT as _TRACK_W
+        raw = (flags or {}).get("sdg_impact_score", 0)
+        if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+            track_score = float(raw)
+        if track_score:
+            track_contribution = round(track_score * _TRACK_W, 2)
+            aggregate = round(
+                min(100.0, max(0.0, aggregate + track_contribution)), 1)
+
     # ── Build final per-SDG output dict ──────────────────────────
     sdg_scores: dict[int, dict] = {}
     for sdg_num, cfg in _SDG_MAPPING.items():
@@ -2155,6 +2176,7 @@ def calc_sdg_impact(bus: list[dict], flags: dict) -> dict:
     return {
         "sdg_scores": sdg_scores,
         "sdg_index": aggregate,
+        "sdg_track_contribution": track_contribution,
         "sdg_grade": (
             "A+" if aggregate >= SDG_GRADE_A_PLUS else
             "A"  if aggregate >= SDG_GRADE_A else
@@ -4365,19 +4387,44 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     ctx.events["regulatory_floor_coc"] = max(historical_coc_max, ctx.corporate_cost_of_capital)
 
     # ── FEATURE 14: Fog of War ───────────────────────────────────
-    fog_active  = current_global.get("round_number", 1) <= 2
-    deep_audit  = "deep_audit_completed" in current_global.get("active_event_flags", {})
+    # 2026.09 computed fog_noise and DISCARDED it — nothing in the backend or the
+    # frontend ever read it, so the ±10% uncertainty this feature is named after
+    # has never existed; the flag gated a banner. The window and the amplitude
+    # were specified all along, in two facilitator tunables that reach nothing and
+    # carry CFG-08's inert ruling. 2026.10 reads them, fixes the shape-A exemption
+    # read, and router._bu_out applies the noise TO THE PLAYER'S VIEW ONLY.
+    _fog_flags = current_global.get("active_event_flags", {})
+    if rule_on(_fog_flags, "fog_of_war_display_noise"):
+        from admin_shared import _god_mode_settings as _fog_settings
+        from flag_utils import collect_all_flags as _caf_fog
+        try:
+            _fog_rounds = int(_fog_settings.get("fog_of_war_rounds", 3) or 3)
+        except (TypeError, ValueError):
+            _fog_rounds = 3
+        try:
+            _fog_range = abs(float(_fog_settings.get("fog_noise_range", 0.10) or 0.10))
+        except (TypeError, ValueError):
+            _fog_range = 0.10
+        deep_audit = "deep_audit_completed" in _caf_fog(_fog_flags)
+    else:
+        # Bug-for-bug: 2 rounds, ±0.10, and a top-level key test that a list-held
+        # option flag can never satisfy.
+        _fog_rounds, _fog_range = 2, 0.10
+        deep_audit = "deep_audit_completed" in _fog_flags
+    fog_active = current_global.get("round_number", 1) <= _fog_rounds
     if fog_active and not deep_audit:
         ctx.events["fog_of_war_active"] = True
         fog_noise: dict[str, dict] = {}
         for bu in ctx.new_bus:
             # GAME-4: per-BU seeded stream (fog of war noise identical per cohort).
-            _fog_rng = event_rng(current_global.get("active_event_flags", {}),
+            # Named per (seed, round, bu), so widening the window adds draws in a
+            # new round on a new stream and shifts no existing one.
+            _fog_rng = event_rng(_fog_flags,
                                  current_global["round_number"], f"fog:{bu['bu_id']}")
             fog_noise[bu["bu_id"]] = {
-                "natural_capital_debt_noise": round(_fog_rng.uniform(-0.10, 0.10), 4),
-                "social_license_noise":       round(_fog_rng.uniform(-0.10, 0.10), 4),
-                "governance_risk_noise":      round(_fog_rng.uniform(-0.10, 0.10), 4),
+                "natural_capital_debt_noise": round(_fog_rng.uniform(-_fog_range, _fog_range), 4),
+                "social_license_noise":       round(_fog_rng.uniform(-_fog_range, _fog_range), 4),
+                "governance_risk_noise":      round(_fog_rng.uniform(-_fog_range, _fog_range), 4),
             }
         ctx.events["fog_noise"] = fog_noise
     else:
@@ -4454,7 +4501,41 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     ctx.events["forecast"] = forecast
 
     # ── FEATURE 27: SDG Impact Report ────────────────────────────
-    sdg_report = calc_sdg_impact(ctx.new_bus, ctx.events)
+    # Shape B (Appendix B §B.13): calc_sdg_impact's only use of `flags` is the
+    # _SDG_FLAG_BONUSES loop at :2121-2122, and it was handed ctx.events — the
+    # bag this tick is still filling, initialised empty at :5055. The three
+    # bonuses it exists to apply (SDG 1 +10 community_fund, SDG 16 +15
+    # ethical_ai_overhaul, SDG 12 +15 circular_redesign) could not fire for any
+    # team on any path.
+    #
+    # 2026.10 hands it the flag namespace instead, through the one reader —
+    # mr_input_from_state layers this tick's events over the stored flags, which
+    # is exactly what the router will merge a moment later, so the report is
+    # computed on the flags the round actually ends with rather than on a bag
+    # that happens to be half-written.
+    #
+    # This moves NO GRADED NUMBER, which corrects the remediation plan §5.1.
+    # calc_sdg_impact returns `sdg_index`, whose only consumers are this event
+    # key and the narrative line at :4534. M_SDG comes from
+    # terminal_valuation.calculate_sdg_multiplier, which reads a DIFFERENT
+    # quantity — `sdg_impact_score`, written only by the Corporate SDG side track
+    # (side_tracks/corporate_sdg/track.py:310). The two have never been wired
+    # together. What changes here is the report a team is shown.
+    _sdg_flags = ctx.events
+    if rule_on(current_global, "sdg_flag_bonuses_live"):
+        from flag_utils import mr_input_from_state as _mr_input
+        _sdg_flags, _ = _mr_input(current_global, ctx.events)
+        # …plus the round's OWN choice. round_logic._apply_option_flags does not
+        # write r{N}_flags until post_tick, so a report computed here would show a
+        # team an SDG 12 score that ignored the Circular Redesign they took this
+        # round and only caught up next round. The decision carries its option's
+        # flags (router.py:2946-2960, FLAG-3) precisely so a same-round consumer
+        # can see them; the stakeholder-sentiment bridge at :4791 reads them the
+        # same way.
+        for _decision in ctx.decisions:
+            for _flag in (_decision.get("flags_set") or []):
+                _sdg_flags[str(_flag)] = True
+    sdg_report = calc_sdg_impact(ctx.new_bus, _sdg_flags)
     ctx.events["sdg_impact"] = sdg_report
 
     # ── REC-1: Consequence Waterfall — finalise ──────────────────

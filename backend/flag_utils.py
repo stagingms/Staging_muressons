@@ -18,6 +18,48 @@ from __future__ import annotations
 from typing import Any
 
 
+# ═══════════════════════════════════════════════════════════════════════
+#  The finale's re-run record is STORAGE, not a flag
+# ═══════════════════════════════════════════════════════════════════════
+# round_logic._stamp_finale_valuation has to be re-runnable on the CLOSING
+# state (audit F-08 / SEAM-05), so the R10 handler records the inputs it
+# resolved and router.commit_turn replays them after the engines. That record
+# carries `all_flags` — a snapshot of every flag in force at R10 — and it was
+# parked under a bare key in active_event_flags, which IS the flag namespace.
+#
+# collect_all_flags below recurses into any nested dict whose key is not
+# underscore-prefixed, and harvests every list under a key containing "flag".
+# So the record handed the whole game's flag history back to any consumer that
+# asked the R10 events bag what was set THIS round. Measured in Phase 5
+# (docs/verification/phase5_recalibration.md): npc_stakeholders.detect_betrayal
+# fired a third time at R10 on `deny_and_deflect`, a flag the team set once at
+# R4 — one decision, two trust scars — and the same record also contributed
+# `is_healthcare`, `brsr` and every boolean inside the pathway `special` config
+# as flag names. In the closing bag it resurrected flags the round had already
+# cleared (`insolvency_warning`, `phase_transition`, `micro_strike_triggered`).
+#
+# The convention for exactly this case is already stated below: an underscore
+# prefix marks a private state bag as storage rather than a flag. The record
+# now follows it. FINALE_INPUTS_LEGACY_KEY is read but never written, so a
+# session persisted before this change still restamps.
+FINALE_INPUTS_KEY = "_finale_inputs"
+FINALE_INPUTS_LEGACY_KEY = "finale_inputs"
+
+
+def finale_inputs_of(*bags: Any) -> dict:
+    """The finale's re-run record, from the first bag that carries it under
+    either key. Returns {} when the finale has not run — which is what
+    router.commit_turn and restamp_finale_valuation test for."""
+    for bag in bags:
+        if not isinstance(bag, dict):
+            continue
+        for key in (FINALE_INPUTS_KEY, FINALE_INPUTS_LEGACY_KEY):
+            record = bag.get(key)
+            if isinstance(record, dict) and record:
+                return record
+    return {}
+
+
 def collect_all_flags(flags_dict: dict) -> set[str]:
     """
     FIX AUDIT-008: Collect boolean keys and specific flag lists (e.g., rX_flags),

@@ -30,7 +30,10 @@ from config import (
 log = logging.getLogger(__name__)
 
 # ── Shares Outstanding (constant for all scenarios) ────────────────────────
-SHARES_OUTSTANDING: int = TV_SHARES_OUTSTANDING   # 100 million shares (IPO anchor)
+# Corrected 2026-09-08: the comment said 100 million for a value the config has
+# shipped as 6,500,000 (config.py:828) — a 15x error in every per-share figure
+# anyone read it and reasoned from.
+SHARES_OUTSTANDING: int = TV_SHARES_OUTSTANDING   # config engine_parameters.terminal_valuation.shares_outstanding
 IPO_PRICE_PER_SHARE: float = TV_IPO_PRICE       # Opening price at game start
 
 # ── Share-price floor ──────────────────────────────────────────────────────
@@ -67,14 +70,59 @@ MR_CEILING_BY_PARADIGM: dict[str, float] = {
 }
 
 
+# PHASE 5 (2026-09-08). The published ceilings above are indexed on the
+# PARADIGM, and measurement says the binding dimension is the ENDING PATHWAY.
+# Four of the five pathways run an M_R calculator whose bonuses sit OUTSIDE the
+# 1.93 base sum, and they are large. Analytic maxima, read off the positive terms
+# in ending_pathways.py:
+#
+#     activist_ultimatum   +0.00   no calculator — the platform default
+#     hostile_takeover     +0.60   0.25 integration + 0.20 fortress + 0.15 shareholder
+#     climate_black_swan   +0.65   0.30 leader + 0.20 adaptation + 0.15 transition
+#     stakeholder_revolt   +0.65   0.35 regeneration + 0.15 employee + 0.15 community
+#     regulatory_shutdown  +0.65   0.30 exemplar + 0.20 transparency + 0.15 compliance
+#
+# Corroborated on 3,300 sampled games: the highest PRE-CLAMP M_R observed was
+# 2.2300 on climate_black_swan and 2.0800 on stakeholder_revolt, against 1.5800
+# on activist_ultimatum, which never approaches its own ceiling. 99 of 3,300 runs
+# scored above the "maximum" the facilitator panel published (90 under 2026.10).
+# Against the corrected ceiling, zero do, under either rule set — and no run's
+# ceiling is now unreachably high for a reason other than the 2.05 clamp itself.
+#
+# The consequence was not cosmetic. admin_router's cross-paradigm comparison
+# divides a cohort's M_R by this number to report mr_efficiency_pct, so a
+# climate-pathway cohort could be shown an efficiency above 100%.
+#
+# NOT versioned, and deliberately so: this changes no player's score. It corrects
+# a number the facilitator panel reports and the debrief publishes, and it was
+# equally wrong under 2026.09 — versioning it would preserve a mistake rather
+# than a semantics.
+PATHWAY_MR_HEADROOM: dict[str, float] = {
+    "activist_ultimatum": 0.00,
+    "hostile_takeover":   0.60,
+    "climate_black_swan": 0.65,
+    "stakeholder_revolt": 0.65,
+    "regulatory_shutdown": 0.65,
+}
+
+
 def max_achievable_mr_for(flags: dict | None = None, hr_investment_rounds: int = 0) -> float:
-    """The ceiling this state can reach: JT scaling (pillar HR) → 2.02; the BRSR
-    dividend → 1.98; otherwise 1.93."""
+    """The ceiling this state can actually reach.
+
+    Base: JT scaling (pillar HR) → 2.02; the BRSR dividend → 1.98; else 1.93.
+    Plus the ending pathway's own headroom, and never above the hard clamp — a
+    ceiling a team cannot reach because MR_CEILING stops them first is not a
+    ceiling, it is a fiction with a decimal point.
+    """
     if hr_investment_rounds and hr_investment_rounds > 0:
-        return MR_PUBLISHED_CEILINGS["jt_scaled"]
-    if flags and flags.get("brsr_net_positive_dividend"):
-        return MR_PUBLISHED_CEILINGS["brsr"]
-    return MR_PUBLISHED_CEILINGS["base"]
+        base = MR_PUBLISHED_CEILINGS["jt_scaled"]
+    elif flags and flags.get("brsr_net_positive_dividend"):
+        base = MR_PUBLISHED_CEILINGS["brsr"]
+    else:
+        base = MR_PUBLISHED_CEILINGS["base"]
+    pathway = (flags or {}).get("ending_pathway") or "activist_ultimatum"
+    headroom = PATHWAY_MR_HEADROOM.get(str(pathway), 0.0)
+    return round(min(MR_CEILING, base + headroom), 4)
 
 
 # ── GAME-2: Threshold ramps (remove M_R knife-edges) ─────────────────────────
@@ -143,7 +191,12 @@ def calculate_mr(
         avg_burnout:         Group-average staff burnout index (0–100, lower is better).
         workforce_readiness: Workforce readiness score (0–100).
         synergy_multiplier:  Current VRIO synergy multiplier (1.0 at start; decays 10%/
-                             round, boosted +0.35 by R7 option_c Resist & Integrate).
+                             round, boosted +0.30 by R7 option_c "Waste-to-Energy
+                             Partnership"). Corrected 2026-09-08: this said "+0.35 by
+                             R7 option_c Resist & Integrate" — wrong magnitude and
+                             wrong option name. round_configs.py:527 ships 0.30, and
+                             R7 option_c is Waste-to-Energy; Resist & Integrate is R10
+                             option A and carries no synergy boost at all.
         hr_investment_rounds: Rounds with sustained HR investment (scales JT bonus).
         pathway_bonuses:     Optional dict of {label: delta} additional M_R adjustments
                              from the ending pathway (STRAT-004).
@@ -153,7 +206,11 @@ def calculate_mr(
 
     Synergy gate contract:
         The +0.15 Synergy Strategic Premium requires BOTH:
-          (a) flags["synergy_unlock"] is truthy  — R7 option_c "Resist & Integrate"
+          (a) flags["synergy_unlock"] is truthy  — R7 option_c "Waste-to-Energy
+              Partnership" (round_configs.py:520-525, which sets waste_to_energy
+              and synergy_unlock together). Corrected 2026-09-08: this said
+              "Resist & Integrate", which is R10 option A and sets a different
+              flag entirely.
           (b) synergy_multiplier >= 0.80         — the unlock must have been earned
               while the VRIO multiplier was still above the threshold.
         If only the flag is present but synergy_multiplier has decayed below 0.80,
@@ -206,7 +263,8 @@ def calculate_mr(
         bonuses.append("Materiality Governance — partial (+0.05)")
 
     # ── Synergy Strategic Premium gate ──────────────────────────────────────
-    # Condition A: R7 option_c "Resist & Integrate" set the synergy_unlock flag.
+    # Condition A: R7 option_c "Waste-to-Energy Partnership" set synergy_unlock
+    # (corrected 2026-09-08; "Resist & Integrate" is R10 option A).
     # Condition B: synergy_multiplier >= 0.80 — VRIO integration threshold.
     # BOTH must be satisfied; a flag earned while synergy had already decayed
     # below threshold does not qualify for the strategic optionality premium.
@@ -356,20 +414,37 @@ def calculate_dynamic_exit_multiple(
 
 
 # ── SDG Multiplier (M_SDG) ─────────────────────────────────────────────────
-def calculate_sdg_multiplier(sdg_impact_score: float = 0.0) -> dict:
+def calculate_sdg_multiplier(
+    sdg_impact_score: float = 0.0,
+    neutral: float = 0.0,
+    coeff: float | None = None,
+) -> dict:
     """
-    M_SDG = 1.0 + (SDG_Impact_Score / 100) × 0.25
+    M_SDG = 1.0 + ((score − neutral) / 100) × coeff
 
-    SDG Impact Score is accumulated from the Corporate SDG Side Track.
-    Range: -11 (all Option C) to 105 (all Option A).
-    M_SDG range: 0.97 to 1.26.
-    Sessions without the SDG Side Track default to score=0 → M_SDG=1.0 (neutral).
+    ONE formula, two inputs, chosen by the caller's rule set — because which
+    quantity deserves to be the SDG number is a design decision and the
+    arithmetic is not.
+
+    2026.09 (neutral=0, the default) — the score is the Corporate SDG Side
+    Track's `sdg_impact_score`, range −11 (all Option C) to 105 (all Option A),
+    giving M_SDG 0.97..1.26. A session without the track scores 0 and lands on
+    M_SDG=1.0. Bit-identical to the original single-argument form.
+
+    2026.10 — the score is engine.calc_sdg_impact's `sdg_index` with the side
+    track folded in, and `neutral` is config.SDG_INDEX_NEUTRAL. The neutral point
+    is what makes this safe: the index is ~73.5 for a team that has done nothing,
+    so anchoring at zero would hand every session in history a 22% terminal-value
+    uplift for standing still.
     """
-    m_sdg = round(1.0 + (sdg_impact_score / 100.0) * 0.25, 4)
+    from config import SDG_MULTIPLIER_COEFF as _COEFF
+    k = _COEFF if coeff is None else coeff
+    m_sdg = round(1.0 + ((sdg_impact_score - neutral) / 100.0) * k, 4)
     return {
         "m_sdg": m_sdg,
         "sdg_impact_score": sdg_impact_score,
-        "sdg_track_active": sdg_impact_score != 0.0,
+        "sdg_neutral": neutral,
+        "sdg_track_active": sdg_impact_score != neutral,
     }
 
 
@@ -395,7 +470,8 @@ def calculate_equity_bridge(
     Args:
         enterprise_value: Terminal Value computed as EBITDA × Exit × M_R
         net_debt: Total financial debt − cash (can be negative = net cash)
-        shares_outstanding: Fixed at 100M for this simulation
+        shares_outstanding: from the config (config.py:828), NOT the 100M this
+                            line claimed until 2026-09-08
         book_equity: Balance sheet net_assets (IAS 1)
         total_revenue: For EV/Revenue multiple
 

@@ -36,7 +36,13 @@ from flag_taxonomy import FLAG_TAXONOMY  # noqa: E402
 FRONTEND_APP = BACKEND.parent / "frontend" / "app"
 CORE_CONFIG_FILES = {"pillar_configs.py", "round_configs.py", "healthcare_configs.py", "round2_csrd.py"}
 
-_EXCLUDED_PARTS = ("tests", "__pycache__", ".git", "manual_tests", "db")
+# `flags/` is excluded for the same reason flag_taxonomy.py is: it is a
+# SPECIFICATION of the namespace, not a consumer of it. flags/registry.py quotes
+# every flag name by construction, and flags/flagset.py names several in its
+# docstring, so without this the sweep marks all 285 flags read and _UNREAD
+# collapses to the empty set — the sweep would go green by describing the
+# problem rather than by anyone fixing it.
+_EXCLUDED_PARTS = ("tests", "__pycache__", ".git", "manual_tests", "db", "flags")
 _EXCLUDED_NAMES = ("flag_taxonomy.py",)
 
 

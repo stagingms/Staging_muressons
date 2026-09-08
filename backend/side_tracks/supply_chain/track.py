@@ -20,6 +20,8 @@ from typing import Any
 from side_tracks.base_track import BaseSideTrack
 from side_tracks.supply_chain.configs import SUPPLY_CHAIN_ROUND_CONFIGS
 from side_tracks.bridge_schemas import DataBridgeInput, DataBridgeOutput
+from flag_utils import collect_all_flags
+from rules import rule_on
 
 
 class SupplyChainTrack(BaseSideTrack):
@@ -99,8 +101,17 @@ class SupplyChainTrack(BaseSideTrack):
         """
         completed_tracks = completed_tracks or {}
         main_flags = main_global.get("active_event_flags", {})
-        has_deep_audit = "deep_audit_completed" in main_flags
-        has_blockchain  = "blockchain_traceability" in main_flags
+        # Shape A: both flags are option flags and live inside the r{N}_flags
+        # LISTS (round_logic.py:3770), never as top-level keys, so these tests
+        # have always been False and this track has always started as though the
+        # cohort had done neither. 2026.10 asks the flattened reader instead.
+        if rule_on(main_global, "debrief_reads_option_flags"):
+            _held = collect_all_flags(main_flags)
+            has_deep_audit = "deep_audit_completed" in _held
+            has_blockchain = "blockchain_traceability" in _held
+        else:
+            has_deep_audit = "deep_audit_completed" in main_flags
+            has_blockchain  = "blockchain_traceability" in main_flags
         kpis = self._build_bridge_kpis(main_bus, main_global)
         return DataBridgeInput(
             treasury=main_global.get("corporate_treasury", 50_000_000),

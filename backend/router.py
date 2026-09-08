@@ -19,6 +19,8 @@ import database as db
 import materiality_db as mat_db
 from engine import process_tick
 from round_logic import pre_tick, post_tick, run_new_engines, base_crisis_severity_for_round
+from rules import (RULES_FLAG as _RULES_FLAG, DEFAULT_RULES_VERSION as _DEFAULT_RULES,
+                   rule_on as _rule_on)
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
 from config import MASTER_PASSWORD
@@ -104,19 +106,67 @@ VERTICAL_SLOT_MAP: dict[str, str] = {
 }
 
 
-def _bu_out(bu: dict) -> BUStateOut:
-    """Map a raw BU dict to the Pydantic output model."""
+def _fog_for(global_state: dict | None) -> dict:
+    """This round's per-BU display noise, or {} when the fog is off.
+
+    FEATURE 14 (Fog of War) was specified in two facilitator tunables and never
+    implemented: engine.py computed `fog_noise` and nothing read it, so the
+    uncertainty the feature is named after did not exist and completing the R1
+    deep forensic audit exempted a team from nothing. 2026.10 applies it HERE, at
+    the serialisation boundary, so the stored state stays true and no engine ever
+    reads a fogged number — which is what makes the whole mechanic free of
+    recalibration.
+    """
+    flags = (global_state or {}).get("active_event_flags") or {}
+    if not isinstance(flags, dict) or not _rule_on(flags, "fog_of_war_display_noise"):
+        return {}
+    noise = flags.get("fog_noise")
+    return noise if isinstance(noise, dict) else {}
+
+
+def _fogged(value, noise, lo: float | None = None, hi: float | None = None):
+    """Perturb one displayed metric. Returns the value untouched when there is no
+    noise for it, so a partial fog_noise dict degrades to the truth rather than to
+    zero."""
+    if noise is None or not isinstance(value, (int, float)) or isinstance(value, bool):
+        return value
+    out = round(float(value) * (1.0 + float(noise)), 2)
+    if lo is not None:
+        out = max(lo, out)
+    if hi is not None:
+        out = min(hi, out)
+    return out
+
+
+def _bu_out(bu: dict, fog: dict | None = None) -> BUStateOut:
+    """Map a raw BU dict to the Pydantic output model.
+
+    `fog` is this BU's entry from _fog_for(...): when present, the three metrics
+    Feature 14 names are perturbed FOR DISPLAY ONLY. Every player-facing read goes
+    through this function — the dashboard, the history endpoint and both commit
+    responses — because a fog a player can defeat by opening a different tab is
+    not a fog. Facilitator and admin views do not use this mapper and are
+    unaffected, which is deliberate: the person running the debrief needs the true
+    numbers.
+    """
     # Prefer bu_label (set by build_bu_states for verticals), then _BU_NAMES, then raw ID
     display_name = bu.get("bu_label") or _BU_NAMES.get(bu["bu_id"], bu["bu_id"])
+    fog = fog if isinstance(fog, dict) else None
     return BUStateOut(
         bu_id=bu["bu_id"],
         name=display_name,
         revenue_base=bu["revenue_base"],
         opex_base=bu["opex_base"],
-        natural_capital_debt=bu.get("natural_capital_debt", 0),
-        social_license_score=bu.get("social_license_score", 50),
+        natural_capital_debt=_fogged(
+            bu.get("natural_capital_debt", 0),
+            (fog or {}).get("natural_capital_debt_noise"), lo=0.0),
+        social_license_score=_fogged(
+            bu.get("social_license_score", 50),
+            (fog or {}).get("social_license_noise"), lo=0.0, hi=100.0),
         reputation_score=bu.get("reputation_score", 50),
-        governance_risk_score=bu.get("governance_risk_score", 0),
+        governance_risk_score=_fogged(
+            bu.get("governance_risk_score", 0),
+            (fog or {}).get("governance_risk_noise"), lo=0.0, hi=100.0),
         water_dependency=bu.get("water_dependency", 0),
         carbon_intensity=bu.get("carbon_intensity", 0),
         staff_burnout_index=bu.get("staff_burnout_index", 0),
@@ -1550,7 +1600,8 @@ async def start_simulation(body: StartSessionRequest, request: Request):
                 session_id=existing_state["session_id"],
                 round_number=existing_state["round_number"],
                 global_state=GlobalStateOut(**existing_state["global_state"]),
-                business_units=[_bu_out(bu) for bu in existing_state["bu_states"]],
+                business_units=[_bu_out(bu, _fog_for(existing_state["global_state"]).get(bu["bu_id"]))
+                                for bu in existing_state["bu_states"]],
             )
 
         # 1b. RBAC-R2 (2026-08-01): the ONE server-side rule for who may create
@@ -1709,7 +1760,8 @@ async def start_simulation(body: StartSessionRequest, request: Request):
         session_id=str(result["session_id"]),
         round_number=1,
         global_state=GlobalStateOut(**result["global_state"]),
-        business_units=[_bu_out(bu) for bu in result["business_units"]],
+        business_units=[_bu_out(bu, _fog_for(result["global_state"]).get(bu["bu_id"]))
+                        for bu in result["business_units"]],
     )
 
 
@@ -1862,7 +1914,8 @@ async def solo_start_simulation(body: SoloStartRequest):
         session_id=session_id,
         round_number=1,
         global_state=GlobalStateOut(**result["global_state"]),
-        business_units=[_bu_out(bu) for bu in result["business_units"]],
+        business_units=[_bu_out(bu, _fog_for(result["global_state"]).get(bu["bu_id"]))
+                        for bu in result["business_units"]],
     )
 
 
@@ -2263,7 +2316,8 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
         RoundSnapshot(
             round_number=h["round_number"],
             global_state=GlobalStateOut(**_slim_history_global_state(h["global_state"])),
-            business_units=[_bu_out(bu) for bu in h["business_units"]],
+            business_units=[_bu_out(bu, _fog_for(h["global_state"]).get(bu["bu_id"]))
+                           for bu in h["business_units"]],
             choice_selected=_choice_by_round.get(h["round_number"], ""),
         )
         for h in history_raw
@@ -2326,7 +2380,8 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
         session_id=session_id,
         current_round=latest["round_number"],
         global_state=GlobalStateOut(**_slim_latest_global_state(latest["global_state"])),
-        business_units=[_bu_out(bu) for bu in latest["bu_states"]],
+        business_units=[_bu_out(bu, _fog_for(latest["global_state"]).get(bu["bu_id"]))
+                        for bu in latest["bu_states"]],
         history=history,
     )
 
@@ -2378,6 +2433,11 @@ _PERSISTENT_FLAG_KEYS = (
     # switches, stamped at commit (below) in one private bag and read by
     # engine.py / round_logic through systemic_risk_engine.systemic_toggle_on.
     "_systemic_toggles",
+    # Phase 4 of the dead-flag remediation: which RULE SET produced this round.
+    # Carried for the same reason as the four above — the post-tick engines read
+    # behaviour off the flag bag, and a revival that fired in the tick but not in
+    # post_tick would be worse than one that never fired at all.
+    _RULES_FLAG,
 )
 
 
@@ -2961,6 +3021,13 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     # ── PHASE-1: Inject difficulty tier into engine input ─────
     _session_difficulty = (session_info or {}).get("difficulty_tier", "advanced")
     current_global.setdefault("active_event_flags", {})["difficulty_tier"] = _session_difficulty
+    # Phase 4: the session's rule set, stamped on the bag the engine reads. A
+    # session record with no rules_version — which is every record written before
+    # this existed — means the 2026.09 semantics it was actually played under, so
+    # the fallback here is the whole compatibility guarantee and must not become
+    # "whatever the current build defaults to".
+    current_global["active_event_flags"][_RULES_FLAG] = (
+        (session_info or {}).get("rules_version") or _DEFAULT_RULES)
     # IMP-06 (audit 2026-09-04, WP-22): the god-mode "Systemic Risk Controls"
     # (systemic_risk_enabled, black_swan_events_enabled, npc_cascading_enabled,
     # foreshadowing_signals_enabled) — and their per-cohort overrides — had no
@@ -3172,6 +3239,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             global_state=new_global,
             bu_states=new_bus,
             events=events,
+            # Same value post_tick receives. new_global's flag bag is this
+            # round's events (engine.py:4472); the history lives here.
+            previous_flags=current_global.get("active_event_flags", {}),
         )
         events.update(new_engine_events)
         # Audit F-08 / SEAM-05: the R10 finale ran inside post_tick, BEFORE the
@@ -3180,7 +3250,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         # final_treasury, group_reputation, net debt / equity / share price,
         # emissions, the solvency-gated profile and the canonical record are
         # the persisted numbers, not a mid-pipeline snapshot.
-        if events.get("finale_inputs"):
+        from flag_utils import finale_inputs_of
+        if finale_inputs_of(events):
             from round_logic import restamp_finale_valuation
             restamp_finale_valuation(new_global, new_bus, events,
                                      current_global.get("active_event_flags", {}))
@@ -3573,7 +3644,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             session_id=session_id,
             new_round_number=1,
             global_state=GlobalStateOut(**(reset_state["global_state"] if reset_state else new_global)),
-            business_units=[_bu_out(bu) for bu in (reset_state["bu_states"] if reset_state else new_bus)],
+            business_units=[_bu_out(bu, _fog_for(reset_state["global_state"] if reset_state else new_global)
+                                    .get(bu["bu_id"]))
+                            for bu in (reset_state["bu_states"] if reset_state else new_bus)],
             events=reset_events,
         )
 
@@ -3684,7 +3757,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         session_id=session_id,
         new_round_number=new_round,
         global_state=GlobalStateOut(**new_global),
-        business_units=[_bu_out(bu) for bu in new_bus],
+        business_units=[_bu_out(bu, _fog_for(new_global).get(bu["bu_id"]))
+                        for bu in new_bus],
         events=events,
     )
 

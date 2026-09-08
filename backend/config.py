@@ -755,6 +755,31 @@ SDG_GRADE_A:                   int   = int(_scoring.get("sdg_grade_a", 70))
 SDG_GRADE_B:                   int   = int(_scoring.get("sdg_grade_b", 55))
 SDG_GRADE_C:                   int   = int(_scoring.get("sdg_grade_c", 40))
 SDG_GRADE_D:                   int   = int(_scoring.get("sdg_grade_d", 25))
+# ── SDG multiplier, unified (Phase 4 of the dead-flag remediation) ──────────
+# The simulation carried TWO SDG numbers that had never been connected:
+# engine.calc_sdg_impact's `sdg_index` (0-100, computed every round from BU
+# metrics, and consumed by nothing but a report), and the Corporate SDG side
+# track's `sdg_impact_score` (-11..105, zero in any session without the track,
+# and the sole input to M_SDG). Under rules 2026.10 there is one quantity: the
+# index, with the track folded into it.
+#
+# SDG_INDEX_NEUTRAL is where M_SDG is 1.0. It must be the OPENING index, not
+# zero, because the index is ~73.5 for a team that has done nothing yet —
+# measured identical on six of the seven golden-matrix paths at R1. Anchoring at
+# zero instead is the naive wire, and it multiplies every session's terminal
+# value by about 1.22.
+SDG_INDEX_NEUTRAL:             float = float(_scoring.get("sdg_index_neutral", 73.5))
+# How much one point of index moves M_SDG. Left at the coefficient the original
+# design chose, so the only thing 2026.10 changes is WHAT it is applied to.
+# PROVISIONAL: the achievable spread is narrower than the old side-track lever's
+# (measured index range 45.4..92.1 gives M_SDG 0.930..1.047, against the old
+# 0.97..1.26), so Phase 5 owns the calibration.
+SDG_MULTIPLIER_COEFF:          float = float(_scoring.get("sdg_multiplier_coeff", 0.25))
+# What one point of side-track score adds to the index. At the track's maximum of
+# 105 this is +15.75 index points, bounded by the 0-100 clamp; a session without
+# the track scores 0 and the index is unchanged, which is the property that makes
+# the fold safe.
+SDG_TRACK_WEIGHT:              float = float(_scoring.get("sdg_track_weight", 0.15))
 CAROIC_GRADE_A_PLUS:           int   = int(_scoring.get("caroic_grade_a_plus", 25))
 CAROIC_GRADE_A:                int   = int(_scoring.get("caroic_grade_a", 15))
 CAROIC_GRADE_B:                int   = int(_scoring.get("caroic_grade_b", 10))

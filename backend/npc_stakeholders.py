@@ -23,7 +23,11 @@ Memory model / reconciliation decision (SPEC F1 §1.4, §7):
   a named NPC's `satisfaction` is blended toward its matching sentiment cohort's
   `attitude_score` (see `_matched_attitude` / `NPC_SENTIMENT_BRIDGE_WEIGHT`) so the
   two surfaces cannot drift (§1.4). Everything trust- and bridge-related is gated
-  on the `stakeholder_memory_enabled` toggle, which defaults OFF; with it off this
+  on the `stakeholder_memory_enabled` toggle, which defaults ON (corrected
+  2026-09-08: pedagogical_engine.py:719 sets it True and get_pedagogical_toggles
+  merges those defaults, so the `.get(..., False)` fallbacks in round_logic only
+  fire if the toggle machinery throws — measured True in every round of every
+  golden-matrix path); with it off this
   module behaves exactly as before.
 """
 
@@ -32,6 +36,8 @@ from typing import Any
 import random
 import math
 import hashlib
+from flag_utils import collect_all_flags
+from rules import rule_on
 
 
 # Flags that constitute a trust betrayal in a given round. Broken *promises*
@@ -52,7 +58,18 @@ def detect_betrayal(events: dict | None) -> bool:
     if not events:
         return False
     active = {k for k, v in events.items() if v is True}
-    active |= {str(x) for x in (events.get("flags_set") or [])}
+    # Shape C, and the SECOND copy of it: this function is duplicated verbatim in
+    # npc_stakeholders.py:50 and autonomous_agents.py:880, and so is
+    # _BETRAYAL_FLAGS. `events["flags_set"]` has no writer anywhere in the tick —
+    # the option layer writes r{N}_flags (round_logic.py:3770) — so the only
+    # betrayal flags this has ever detected are the ones the engine happens to
+    # write as top-level booleans. deny_and_deflect, the R4 option flag this list
+    # was built around, is not one of them.
+    # tests/test_flag_rule_switches.py asserts the two copies still agree.
+    if rule_on(events, "npc_betrayal_reads_option_flags"):
+        active |= set(collect_all_flags(events))
+    else:
+        active |= {str(x) for x in (events.get("flags_set") or [])}
     return bool(active & _BETRAYAL_FLAGS)
 
 
@@ -646,7 +663,9 @@ def process_npc_tick(
     Process all NPC stakeholders for this round.
     Returns (updated_state, diagnostics).
 
-    When `memory_enabled` (the `stakeholder_memory_enabled` toggle, default off),
+    When `memory_enabled` (the `stakeholder_memory_enabled` toggle, which
+    defaults ON — see the module docstring; this said "default off" until
+    2026-09-08 and it was never true of a real session),
     each NPC's persistent `trust` stock is integrated from its satisfaction and
     used to gate escalation; otherwise behaviour is unchanged (SPEC F1).
     When `uncertainty_enabled` (SPEC F4, default off), escalation thresholds are

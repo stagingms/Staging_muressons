@@ -1,0 +1,1041 @@
+[
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 32.6,
+        "natural_capital_debt": 49.75,
+        "opex_base": 9454442.2,
+        "revenue_base": 15389200.0
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 46.7,
+        "natural_capital_debt": 47.75,
+        "opex_base": 11561706.97,
+        "revenue_base": 18507040.01
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 27.9,
+        "natural_capital_debt": 45.75,
+        "opex_base": 12603558.46,
+        "revenue_base": 20585599.99
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 9.1,
+        "natural_capital_debt": 51.75,
+        "opex_base": 8397956.1,
+        "revenue_base": 22664160.01
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:dormant",
+        "the_institutional_investor:dormant",
+        "the_journalist:dormant",
+        "the_regulator:dormant"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:monitoring"
+      ],
+      "treasury_moves": []
+    },
+    "flags": [
+      "active",
+      "balance_sheet_balanced",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "fog_of_war_active",
+      "greenwashing_checked",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 67070118.44,
+      "cost_of_capital": 0.05,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 35128336.28,
+      "synergy_multiplier": 0.336,
+      "tco2e_emissions": 2146.5,
+      "total_ncd": 0.0
+    },
+    "round": 1,
+    "score": {
+      "group_reputation": 65.0,
+      "supply_chain_transparency": 27.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 73.5,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 57.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 50.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 27.64,
+        "natural_capital_debt": 46.49,
+        "opex_base": 9810481.17,
+        "revenue_base": 15980145.28
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 40.9,
+        "natural_capital_debt": 42.39,
+        "opex_base": 11979321.8,
+        "revenue_base": 19217710.35
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 23.23,
+        "natural_capital_debt": 38.29,
+        "opex_base": 13025552.6,
+        "revenue_base": 21376087.04
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 5.55,
+        "natural_capital_debt": 50.59,
+        "opex_base": 8728966.15,
+        "revenue_base": 23534463.76
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:watching",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:watching",
+        "the_journalist:watching",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:protest",
+        "journalist:critical",
+        "regulator:investigation"
+      ],
+      "treasury_moves": []
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "fog_of_war_active",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 92134774.87,
+      "cost_of_capital": 0.05,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 36564084.71,
+      "synergy_multiplier": 0.3226,
+      "tco2e_emissions": 1854.9,
+      "total_ncd": 0.0
+    },
+    "round": 2,
+    "score": {
+      "group_reputation": 70.0,
+      "supply_chain_transparency": 24.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 79.8,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 57.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 50.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 24.98,
+        "natural_capital_debt": 51.53,
+        "opex_base": 10181318.92,
+        "revenue_base": 16687390.8
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 37.45,
+        "natural_capital_debt": 45.19,
+        "opex_base": 12415114.85,
+        "revenue_base": 20047983.33
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 20.84,
+        "natural_capital_debt": 38.85,
+        "opex_base": 13465568.76,
+        "revenue_base": 22288378.34
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 4.22,
+        "natural_capital_debt": 57.88,
+        "opex_base": 9072573.37,
+        "revenue_base": 24528773.38
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:watching",
+        "the_journalist:watching",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:protest",
+        "journalist:critical",
+        "regulator:investigation"
+      ],
+      "treasury_moves": []
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "technology_lockin_penalty"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 121643772.99,
+      "cost_of_capital": 0.05,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 38417949.95,
+      "synergy_multiplier": 0.3097,
+      "tco2e_emissions": 1735.6,
+      "total_ncd": 0.0
+    },
+    "round": 3,
+    "score": {
+      "group_reputation": 67.0,
+      "supply_chain_transparency": 26.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 82.9,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 51.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 50.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 19.48,
+        "natural_capital_debt": 51.87,
+        "opex_base": 10585739.27,
+        "revenue_base": 16840201.52
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 31.2,
+        "natural_capital_debt": 43.15,
+        "opex_base": 12892541.85,
+        "revenue_base": 20332260.44
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 15.59,
+        "natural_capital_debt": 34.44,
+        "opex_base": 13949887.08,
+        "revenue_base": 22660299.7
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 60.61,
+        "opex_base": 9444294.38,
+        "revenue_base": 24988338.99
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:agitated",
+        "the_journalist:agitated",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:enforcement"
+      ],
+      "treasury_moves": [
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -6785688.05
+        ]
+      ]
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "deep_audit_protected",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "remediation_active",
+      "stakeholder_misanalysis_penalty",
+      "technology_lockin_penalty"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 135084106.41,
+      "cost_of_capital": 0.05,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 37948638.07,
+      "synergy_multiplier": 0.2973,
+      "tco2e_emissions": 1315.7,
+      "total_ncd": 0.0
+    },
+    "round": 4,
+    "score": {
+      "group_reputation": 35.63,
+      "supply_chain_transparency": 28.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 82.5,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 51.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 50.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 12.31,
+        "natural_capital_debt": 52.23,
+        "opex_base": 11043737.3,
+        "revenue_base": 18047489.98
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 23.33,
+        "natural_capital_debt": 40.99,
+        "opex_base": 13435145.9,
+        "revenue_base": 21686215.38
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 8.65,
+        "natural_capital_debt": 29.78,
+        "opex_base": 14502006.0,
+        "revenue_base": 24112032.28
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 63.51,
+        "opex_base": 9867033.8,
+        "revenue_base": 26537849.23
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:agitated",
+        "the_journalist:agitated",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:investigation"
+      ],
+      "treasury_moves": [
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -6785688.05
+        ]
+      ]
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "deep_audit_protected",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "nature_based_resilience",
+      "ncd_project_started",
+      "reflection_required",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "remediation_active",
+      "resilience_deferred_notice",
+      "resilience_project_started",
+      "stakeholder_fatigue_applied",
+      "stakeholder_misanalysis_penalty",
+      "technology_lockin_penalty"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 165916611.89,
+      "cost_of_capital": 0.05,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 41535663.87,
+      "synergy_multiplier": 0.2854,
+      "tco2e_emissions": 936.7,
+      "total_ncd": 0.0
+    },
+    "round": 5,
+    "score": {
+      "group_reputation": 78.22,
+      "supply_chain_transparency": 30.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 85.7,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 51.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 50.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 11.57,
+        "natural_capital_debt": 53.14,
+        "opex_base": 11543471.6,
+        "revenue_base": 18624253.94
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 21.93,
+        "natural_capital_debt": 39.12,
+        "opex_base": 14029186.51,
+        "revenue_base": 22419590.09
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 8.13,
+        "natural_capital_debt": 25.16,
+        "opex_base": 15108108.52,
+        "revenue_base": 24949814.15
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 67.22,
+        "opex_base": 10326634.67,
+        "revenue_base": 27480038.25
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:agitated",
+        "the_journalist:agitated",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:investigation"
+      ],
+      "treasury_moves": [
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -6785688.05
+        ]
+      ]
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "deep_audit_protected",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "nature_based_resilience",
+      "ncd_project_started",
+      "quiet_patch",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "remediation_active",
+      "resilience_deferred_notice",
+      "resilience_project_started",
+      "stakeholder_fatigue_applied",
+      "stakeholder_misanalysis_penalty",
+      "technology_lockin_penalty"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 203242110.51,
+      "cost_of_capital": 0.0503,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 42466295.13,
+      "synergy_multiplier": 0.274,
+      "tco2e_emissions": 910.0,
+      "total_ncd": 0.0
+    },
+    "round": 6,
+    "score": {
+      "group_reputation": 71.84,
+      "supply_chain_transparency": 32.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 87.3,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 41.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 40.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 0.88,
+        "natural_capital_debt": 33.55,
+        "opex_base": 10291028.37,
+        "revenue_base": 20483949.5
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 10.61,
+        "natural_capital_debt": 16.58,
+        "opex_base": 12497878.29,
+        "revenue_base": 24454478.37
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 0.44,
+        "natural_capital_debt": 0.0,
+        "opex_base": 13428590.42,
+        "revenue_base": 27101497.57
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 50.62,
+        "opex_base": 9223297.32,
+        "revenue_base": 29748516.82
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:agitated",
+        "the_journalist:agitated",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:monitoring"
+      ],
+      "treasury_moves": [
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -6785688.05
+        ]
+      ]
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "circular_redesign",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "deep_audit_protected",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "nature_based_resilience",
+      "ncd_project_started",
+      "quiet_patch",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "remediation_active",
+      "resilience_deferred_notice",
+      "resilience_project_started",
+      "stakeholder_fatigue_applied",
+      "stakeholder_misanalysis_penalty",
+      "technology_lockin_penalty"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 223784599.59,
+      "cost_of_capital": 0.0503,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 56347647.86,
+      "synergy_multiplier": 0.263,
+      "tco2e_emissions": 289.4,
+      "total_ncd": 0.0
+    },
+    "round": 7,
+    "score": {
+      "group_reputation": 79.84,
+      "supply_chain_transparency": 34.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 84.3,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 41.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 40.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 2.83,
+        "natural_capital_debt": 33.18,
+        "opex_base": 10753961.8,
+        "revenue_base": 20991798.14
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 11.97,
+        "natural_capital_debt": 13.1,
+        "opex_base": 13046619.88,
+        "revenue_base": 25138300.86
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 2.41,
+        "natural_capital_debt": 0.0,
+        "opex_base": 13982509.8,
+        "revenue_base": 27902635.94
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 2.0,
+        "natural_capital_debt": 53.41,
+        "opex_base": 9660974.27,
+        "revenue_base": 30666971.08
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:agitated",
+        "the_journalist:agitated",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:concerned",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:monitoring"
+      ],
+      "treasury_moves": [
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -6785688.05
+        ]
+      ]
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "circular_redesign",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "deep_audit_protected",
+      "electronics_water_priority",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "nature_based_resilience",
+      "ncd_project_started",
+      "quiet_patch",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "remediation_active",
+      "resilience_deferred_notice",
+      "resilience_project_started",
+      "stakeholder_fatigue_applied",
+      "stakeholder_misanalysis_penalty",
+      "technology_lockin_penalty"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 267399748.62,
+      "cost_of_capital": 0.0503,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 57255640.27,
+      "synergy_multiplier": 0.2525,
+      "tco2e_emissions": 488.9,
+      "total_ncd": 0.0
+    },
+    "round": 8,
+    "score": {
+      "group_reputation": 69.99,
+      "supply_chain_transparency": 36.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 87.4,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 41.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 40.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 32.95,
+        "opex_base": 11261564.66,
+        "revenue_base": 22328872.01
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 8.25,
+        "natural_capital_debt": 9.47,
+        "opex_base": 13653536.18,
+        "revenue_base": 26660474.61
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 0.0,
+        "opex_base": 14600851.2,
+        "revenue_base": 29548209.61
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 56.67,
+        "opex_base": 10135862.49,
+        "revenue_base": 32435944.68
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:agitated",
+        "the_journalist:agitated",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:supportive",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:monitoring"
+      ],
+      "treasury_moves": [
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -6785688.05
+        ]
+      ]
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "circular_redesign",
+      "community_fund",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "deep_audit_protected",
+      "electronics_water_priority",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "materiality_ignored",
+      "nature_based_resilience",
+      "ncd_project_started",
+      "quiet_patch",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "remediation_active",
+      "resilience_deferred_notice",
+      "resilience_project_started",
+      "retraining_succeeded",
+      "stakeholder_fatigue_applied",
+      "stakeholder_misanalysis_penalty",
+      "succeeded",
+      "technology_lockin_penalty"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 296314324.83,
+      "cost_of_capital": 0.0566,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 61321686.38,
+      "synergy_multiplier": 0.2424,
+      "tco2e_emissions": 219.9,
+      "total_ncd": 0.0
+    },
+    "round": 9,
+    "score": {
+      "group_reputation": 81.99,
+      "supply_chain_transparency": 38.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 86.9,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 41.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 40.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "bus": [
+      {
+        "bu_id": "consumer_goods",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 32.87,
+        "opex_base": 0.0,
+        "revenue_base": 1000000.0
+      },
+      {
+        "bu_id": "electronics",
+        "carbon_intensity": 4.75,
+        "natural_capital_debt": 5.64,
+        "opex_base": 14245320.05,
+        "revenue_base": 28793011.57
+      },
+      {
+        "bu_id": "pharma",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 0.0,
+        "opex_base": 15214264.46,
+        "revenue_base": 31803417.55
+      },
+      {
+        "bu_id": "software",
+        "carbon_intensity": 0.0,
+        "natural_capital_debt": 60.46,
+        "opex_base": 10609496.44,
+        "revenue_base": 34813823.62
+      }
+    ],
+    "escalations": {
+      "agents": [
+        "the_community_activist:dormant",
+        "the_gen_z_employee:watching",
+        "the_institutional_investor:hostile",
+        "the_journalist:agitated",
+        "the_regulator:watching"
+      ],
+      "npc": [
+        "activist_investor:supportive",
+        "community_leader:watchful",
+        "journalist:neutral",
+        "regulator:monitoring"
+      ],
+      "treasury_moves": [
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -6785688.05
+        ]
+      ]
+    },
+    "flags": [
+      "balance_sheet_balanced",
+      "carbon_deferred",
+      "circular_redesign",
+      "community_fund",
+      "compounding_prevented",
+      "deep_audit_completed",
+      "deep_audit_protected",
+      "electronics_water_priority",
+      "exit_multiple_dynamic",
+      "full_materiality_alignment",
+      "greenwashing_checked",
+      "just_transition_passed",
+      "materiality_ignored",
+      "mr_community_champion_bonus",
+      "mr_wellbeing_bonus",
+      "nature_based_resilience",
+      "ncd_project_started",
+      "quiet_patch",
+      "regulatory_floor_eroded",
+      "regulatory_ratchet_active",
+      "remediation_active",
+      "resilience_deferred_notice",
+      "resilience_project_started",
+      "resist_integrate",
+      "retraining_succeeded",
+      "stakeholder_fatigue_applied",
+      "stakeholder_misanalysis_penalty",
+      "succeeded",
+      "synergy_gate_blocked",
+      "technology_lockin_penalty",
+      "wellbeing_bonus_earned"
+    ],
+    "global": {
+      "avg_carbon_intensity": 0.0,
+      "avg_social_license": 0.0,
+      "corporate_treasury": 346145532.1,
+      "cost_of_capital": 0.0587,
+      "green_transition_fund": 0.0,
+      "historical_ebitda": 56341171.79,
+      "synergy_multiplier": 0.2327,
+      "tco2e_emissions": 136.8,
+      "total_ncd": 0.0
+    },
+    "round": 10,
+    "score": {
+      "group_reputation": 84.22,
+      "supply_chain_transparency": 40.0,
+      "workforce_readiness": 50.0
+    },
+    "sdg_index": 89.2,
+    "sentiment": {
+      "activist_fund": 50.0,
+      "cafeteria_vendors": 50.0,
+      "eu_regulators": 41.0,
+      "factory_employees": 50.0,
+      "gen_public": 50.0,
+      "local_communities": 50.0,
+      "local_media": 40.0,
+      "national_gov": 50.0,
+      "syndicate_banks": 50.0,
+      "tier3_miners": 50.0
+    }
+  },
+  {
+    "finale": {
+      "archetype": "SAFE_HAVEN",
+      "equity_value": 1542782071.29,
+      "equity_wiped_out": 0.0,
+      "exit_multiple_applied": 18.0,
+      "exit_multiple_wacc_used": 0.0587,
+      "mr_breakdown": {
+        "base": 1.0,
+        "community_champion_bonus": 0.18,
+        "max_achievable_mr": 1.93,
+        "wellbeing_bonus": 0.05
+      },
+      "net_debt": -296145532.1,
+      "price_per_share": 237.35,
+      "profile": "derisked_safe_haven",
+      "regenerative_multiple": 1.23,
+      "terminal_ebitda": 56306980.09,
+      "terminal_value": 1246636539.19
+    },
+    "terminal": {
+      "archetype": "derisked_safe_haven",
+      "bonuses_earned": [
+        "Community Champion (+0.18)",
+        "Wellbeing Champion (+0.05)"
+      ],
+      "m_r": 1.23,
+      "terminal_valuation": 831090903.62
+    }
+  }
+]

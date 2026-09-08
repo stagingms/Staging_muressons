@@ -144,8 +144,15 @@ ROUND_CONFIGS = {
                 # F-2: no tier flag here. materiality_aligned / materiality_partial /
                 # materiality_ignored are written ONLY by round_logic._post_r2_materiality,
                 # which combines this choice with the matrix accuracy at post-tick.
-                # full_materiality_alignment is a choice marker with no consumer —
-                # it records WHAT was chosen, never whether the premium was earned.
+                # full_materiality_alignment records WHAT was chosen, never whether
+                # the premium was earned — but it is NOT unconsumed. Corrected
+                # 2026-09-08: engine.py:3787 scales NCD forgiveness by the
+                # ac_bonus multiplier on the line below, in the advanced_climate
+                # paradigm only (the gate is engine.py:3763). On the default
+                # legacy_abc path the flag is inert, which is what the old wording
+                # was reaching for and stated too broadly. Measured: NCD
+                # forgiveness 1.23 -> 1.54 with the flag under advanced_climate,
+                # unchanged under legacy_abc.
                 "flags_set": ["full_materiality_alignment"],
                 "ac_bonus": {"ncd_forgiveness_multiplier": 1.25, "note": "CSRD climate materiality alignment"},
                 "impacts": {
@@ -526,7 +533,14 @@ ROUND_CONFIGS = {
                 "ci_routing": "scope3_weighted",  # I2: waste-to-energy primarily reduces operational Scope3
                 "impacts": {
                     "treasury": -7_000_000,
-                    "synergy_multiplier_boost": 0.30,  # Fix #4: harmonised to match M_R +0.30 in _post_r10
+                    # 0.30 is the SYNERGY MULTIPLIER boost and is current. The
+                    # trailing claim that it is "harmonised to match M_R +0.30"
+                    # went stale at STRAT-010, which cut the Synergy Strategic
+                    # Premium to +0.15 (terminal_valuation.py:216) because the
+                    # synergy OPEX saving already flows through terminal_ebitda.
+                    # The two numbers are different quantities and are no longer
+                    # meant to match. Corrected 2026-09-08.
+                    "synergy_multiplier_boost": 0.30,
                     "natural_capital_debt_delta": -4,
                     "carbon_intensity_delta": -6,
                     "revenue_delta": +400_000,

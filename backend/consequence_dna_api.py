@@ -351,11 +351,32 @@ def build_consequence_dna_data(
             })
 
     # ── 4b. SDG projection node ──
+    # The projection must read M_SDG from the SAME quantity the finale will —
+    # showing a team a multiplier derived from a number the award does not use is
+    # exactly the F-15 failure (the Mirror Debrief telling teams they had missed a
+    # lever they took). round_logic._sdg_multiplier_for is that choice; this
+    # mirrors it rather than duplicating the rule.
+    from terminal_valuation import calculate_sdg_multiplier
+    from rules import rule_on as _rule_on_sdg
     sdg_score = flags.get("sdg_impact_score", 0)
     sdg_track_active = flags.get("sdg_track_completed", False)
     sdg_projection = None
-    if sdg_track_active or sdg_score != 0:
-        from terminal_valuation import calculate_sdg_multiplier
+    if _rule_on_sdg(flags, "sdg_single_quantity"):
+        from config import SDG_INDEX_NEUTRAL as _SDG_NEUTRAL
+        _index = (flags.get("sdg_impact") or {}).get("sdg_index")
+        if not isinstance(_index, (int, float)) or isinstance(_index, bool):
+            _index = _SDG_NEUTRAL
+        sdg_result = calculate_sdg_multiplier(float(_index), neutral=float(_SDG_NEUTRAL))
+        # Under one SDG quantity the node is always meaningful: every session has
+        # an index, whether or not it played the side track.
+        sdg_projection = {
+            "id": "proj_sdg_multiplier",
+            "label": f"M_SDG: {sdg_result['m_sdg']:.4f}",
+            "m_sdg": sdg_result["m_sdg"],
+            "sdg_impact_score": round(float(_index), 1),
+            "type": "projection",
+        }
+    elif sdg_track_active or sdg_score != 0:
         sdg_result = calculate_sdg_multiplier(sdg_score)
         sdg_projection = {
             "id": "proj_sdg_multiplier",

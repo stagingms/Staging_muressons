@@ -18,6 +18,18 @@ from typing import Any
 from side_tracks.base_track import BaseSideTrack
 from side_tracks.ethics_sustainability.configs import ETHICS_ROUND_CONFIGS
 from side_tracks.bridge_schemas import DataBridgeInput, DataBridgeOutput, BridgeKPIDeltas
+from flag_utils import collect_all_flags
+from rules import rule_on
+
+
+def _deep_audit_held(flags: dict) -> bool:
+    """Whether the main game completed the R1 deep audit, per the session's
+    rule set. 2026.09 keeps the top-level test, which is never true."""
+    if not isinstance(flags, dict):
+        return False
+    if rule_on(flags, "debrief_reads_option_flags"):
+        return "deep_audit_completed" in collect_all_flags(flags)
+    return bool(flags.get("deep_audit_completed"))
 
 
 class EthicsSustainabilityTrack(BaseSideTrack):
@@ -92,7 +104,10 @@ class EthicsSustainabilityTrack(BaseSideTrack):
             kpis=kpis,
             extra_state={
                 # Track-specific initial scoring metrics
-                "ethical_governance":       15 + (10 if flags.get("deep_audit_completed") else 0),
+                # Shape A: deep_audit_completed is list-held (round_logic.py:3770),
+                # so this .get() has always been None and the +10 seed has never
+                # been awarded. 2026.10 asks the flattened reader.
+                "ethical_governance":       15 + (10 if _deep_audit_held(flags) else 0),
                 "human_rights_dd":          10 + (20 if has_sc_cobalt else 0),
                 "green_claims_integrity":   20,
                 "biodiversity_stewardship": 5,

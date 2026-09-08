@@ -11,6 +11,9 @@ from typing import Any
 import math, random
 from rng_util import event_rng  # GAME-4: deterministic per-cohort RNG
 
+from flag_utils import collect_all_flags
+from rules import rule_on, rule_value
+
 
 # ═══════════════════════════════════════════════════════════════
 #  1. ESG-ADJUSTED WACC
@@ -52,6 +55,49 @@ def calc_esg_adjusted_wacc(
 #  2. SUPPLY CHAIN TRANSPARENCY
 # ═══════════════════════════════════════════════════════════════
 
+def _transparency_flag_reader(flags: dict | None):
+    """The predicate this session's rule set uses to ask "is this flag held?".
+
+    A PREDICATE rather than a precomputed set, deliberately, for two reasons.
+
+    The 2026.09 branch has to be the ORIGINAL READ, not an equivalent of it. The
+    line it replaces was
+
+        if flag in flags or flag in (flags.get("flags_set", []) if ... else [])
+
+    and its author knew there were two storage shapes: option flags live in a
+    LIST under active_event_flags["r{N}_flags"] (round_logic.py:3770-3773), never
+    as top-level keys. They wrote a fallback for the second shape and guessed the
+    key name. Nothing in the core tick writes "flags_set" onto the flag bag, so
+    six of the eight boosts below have never once applied. Kept bug-for-bug,
+    because every session played to date was scored under it — and kept as a
+    per-flag membership test on the dict, because collapsing it to `set(flags)`
+    would be behaviourally identical and would make the read invisible to
+    tests/flag_probe.py, which is the only thing that can tell anyone it is still
+    broken.
+
+    The 2026.10 branch returns flag_utils.collect_all_flags' set UNWRAPPED, for
+    the same reason: under the probe that set is a recording set, and `name in
+    held` is what proves the revived read is reaching the flag. `set(...)` around
+    it would copy the recording away.
+
+    Note what does NOT change between the two: round_logic writes
+    materiality_aligned as a genuine top-level boolean, so it is visible to both
+    readers and its +5 has always applied. That is the evidence for the semantics
+    chosen here — the one flag in this table that reaches the function today
+    applies its boost in EVERY round, cumulative against the -3/round entropy, so
+    the revived flags do the same rather than firing once.
+    """
+    if not isinstance(flags, dict):
+        return lambda name: False
+    if rule_on(flags, "sct_flag_boosts_live"):
+        held = collect_all_flags(flags)
+        return lambda name: name in held
+    legacy = flags.get("flags_set")
+    legacy = legacy if isinstance(legacy, list) else []
+    return lambda name: name in flags or name in legacy
+
+
 def calc_supply_chain_transparency(
     current_score: float,
     flags: dict,
@@ -62,7 +108,8 @@ def calc_supply_chain_transparency(
     Improves via: deep audit (+20), blockchain (+15), materiality_aligned (+5)
     Degrades via: natural entropy (-3/round), scandal events (-25)
     """
-    delta = -3.0  # Natural entropy
+    delta = rule_value(flags if isinstance(flags, dict) else {},
+                       "sct_entropy_per_round")
 
     flag_boosts = {
         "deep_audit_completed": 20.0,
@@ -75,9 +122,21 @@ def calc_supply_chain_transparency(
         "epr_program": 3.0,
     }
 
-    applied_boosts = {}
+    # Which boosts have ALREADY been applied in an earlier round. The engine
+    # persists this function's own diag into the event bag
+    # (engine.py:3707-3708), the router merges it into the flags, and it arrives
+    # back here next round — so "have I already counted this?" is answerable
+    # without widening the signature or inventing new state.
+    already: dict = {}
+    if isinstance(flags, dict) and rule_on(flags, "sct_boosts_apply_once"):
+        prior = (flags.get("supply_chain_transparency_diag") or {}).get("boosts_applied")
+        if isinstance(prior, dict):
+            already = dict(prior)
+
+    applied_boosts = dict(already)
+    is_held = _transparency_flag_reader(flags)
     for flag, boost in flag_boosts.items():
-        if flag in flags or flag in (flags.get("flags_set", []) if isinstance(flags.get("flags_set"), list) else []):
+        if is_held(flag) and flag not in already:
             delta += boost
             applied_boosts[flag] = boost
 

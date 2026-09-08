@@ -23,6 +23,8 @@ Metrics:
 from __future__ import annotations
 from typing import Any
 import math
+from flag_utils import collect_all_flags
+from rules import rule_on
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -399,6 +401,47 @@ def process_restoration_projects(
 #  MAIN ROUND PROCESSOR
 # ═══════════════════════════════════════════════════════════════
 
+def _deep_audit_in_force(events: dict) -> bool:
+    """Whether the R1 deep forensic audit is in force, for the species-risk gate.
+
+    SHAPE E — STRING CONTAINMENT OVER THE REPR OF A NESTED DICT, and the only one
+    of the five shapes that FAILS OPEN. The others (Appendix B §B.0, remediation
+    plan §1.2) always return False, so their mechanic is simply absent. This one
+    returns True on unrelated grounds. The 2026.09 line is
+
+        "deep_audit" in str(events.get("active_event_flags", {}))
+
+    which asks whether the eleven characters "deep_audit" appear anywhere in the
+    STRINGIFIED flag bag — keys, values, and the insides of nested dicts and
+    lists alike — against a name no configuration declares (the flag is
+    deep_audit_completed). Measured across the golden matrix on the deep-audit
+    paths, it is True at exactly three rounds and for three different reasons:
+
+        R1   matches the repr of the r1_flags LIST, "['deep_audit_completed']"
+        R4   matches the KEY `deep_audit_protected` — a pre_tick pre_event, a
+             different flag entirely, set when the team took NEITHER the blindspot
+             nor the deferred audit
+        R10  matches inside the stringified `_finale_inputs` blob (the R10
+             finale's re-run record; it is storage, not flags, and str() does
+             not honour the private prefix that hides it from collect_all_flags)
+
+    and False in every other round. So turning the switch ON also turns the gate
+    OFF at R4 and R10: this is a behaviour change in both directions, which is
+    why it is versioned like the rest rather than fixed outright.
+
+    2026.10 asks the flattened reader for the flag by its real name, over a bag
+    that carries the history (round_logic passes previous_flags into the engine
+    batch for this), so the audit stays in force for the rest of the game as the
+    mechanic reads as though it always intended.
+    """
+    flags = events.get("active_event_flags") if isinstance(events, dict) else None
+    if not isinstance(flags, dict):
+        flags = {}
+    if rule_on(flags, "biodiversity_audit_gate_reads_flags"):
+        return "deep_audit_completed" in collect_all_flags(flags)
+    return "deep_audit" in str(flags)
+
+
 def process_biodiversity_tick(
     bio_state: dict,
     gs: dict,
@@ -439,7 +482,7 @@ def process_biodiversity_tick(
     diagnostics["ehi"] = ehi_diag
 
     # 2. Species Risk
-    audit_active = "deep_audit" in str(events.get("active_event_flags", {}))
+    audit_active = _deep_audit_in_force(events)
     new_risk, risk_diag = calc_species_risk(
         bio_state["species_risk_score"],
         new_ehi,

@@ -10,14 +10,19 @@ Architecture:
 """
 
 from __future__ import annotations
+import logging
 import random
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 from round_configs import get_round_config, get_round_options
 
 # ARCH-001: Import extracted handlers from impact_engine
 import impact_engine as _ie
 from config import SIM_ROUNDS, ECONOMIC_CIRCULAR_ECONOMY_BONUS
+# The finale re-run record is storage, not a flag — see flag_utils.
+from flag_utils import FINALE_INPUTS_KEY, finale_inputs_of
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -503,8 +508,8 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     
     # Calculate terminal value — F-12: same floor / M_SDG rules as the main
     # finale (terminal_valuation is the single formula).
-    from terminal_valuation import calculate_sdg_multiplier as _sdg_mult, EBITDA_FLOOR as _EB_FLOOR
-    _m_sdg = _sdg_mult(float((gs.get("active_event_flags") or {}).get("sdg_impact_score", 0.0) or 0.0))["m_sdg"]
+    from terminal_valuation import EBITDA_FLOOR as _EB_FLOOR
+    _m_sdg = _sdg_multiplier_for(gs)["m_sdg"]
     _ebitda_for_tv = max(_EB_FLOOR, terminal_ebitda)
     if terminal_ebitda < _EB_FLOOR:
         extra["ebitda_floored"] = True
@@ -582,7 +587,7 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     extra["exit_multiple_applied"] = exit_multiple
     # router.commit_turn re-runs this finale on the closing state (after the
     # NPC/agent engines and the R10 balance sheet) — see restamp_finale_valuation.
-    extra["finale_inputs"] = {"brsr": True, "choice": choice}
+    extra[FINALE_INPUTS_KEY] = {"brsr": True, "choice": choice}
 
     # Persist into global state flags
     gs["active_event_flags"]["terminal_value"] = terminal_value
@@ -670,7 +675,8 @@ def post_tick(
         handler(global_state, bu_states, decisions, events, extra_events, previous_flags)
 
     # I7: Reverse R5 hard engineering CI pulse after 2 rounds (construction phase ends R7)
-    _revert_r5_hard_engineering_pulse(global_state, bu_states, extra_events, round_number)
+    _revert_r5_hard_engineering_pulse(global_state, bu_states, extra_events, round_number,
+                                      previous_flags)
 
     # ITEM 14 / C-3: social-media velocity amplifier, escalating from R4 on.
     _apply_social_media_velocity(round_number, global_state, extra_events)
@@ -750,7 +756,13 @@ def post_tick(
     # ── F-2 guard: no flag may exist in dual form (boolean key + list entry) ──
     _dual = _find_dual_form_flags(global_state.get("active_event_flags", {}) or {})
     if _dual:
-        print(f"[round_logic] WARNING dual-form flags detected at R{round_number} post_tick: {sorted(_dual)}")
+        # Phase 5: a print here, once per run, is not a diagnostic — it is noise
+        # that a caller cannot turn off. It blew the output limit of a 550-game
+        # sweep and made the calibration tool unreadable. The durable signal is
+        # and always was the event key below, which is what consumers read; the
+        # human-facing half is now a log record like every other warning.
+        _log.warning("dual-form flags detected at R%s post_tick: %s",
+                     round_number, sorted(_dual))
         extra_events["dual_form_flags_detected"] = sorted(_dual)
 
     return extra_events
@@ -884,6 +896,7 @@ def run_new_engines(
     global_state: dict,
     bu_states: list[dict],
     events: dict,
+    previous_flags: dict | None = None,
 ) -> dict[str, Any]:
     """
     Process all new engine modules for this round.
@@ -893,6 +906,14 @@ def run_new_engines(
     ARCHITECTURE NOTE: This is separated from post_tick to maintain
     strict decoupling — new engines cannot break the core simulation.
     Each engine is wrapped in try/except: failure is logged, never fatal.
+
+    `previous_flags` is the STORED flag bag — the same value post_tick receives
+    (router.py:3132). It is optional so every existing caller keeps working, and
+    it exists because `global_state` here is the POST-TICK state, whose flag bag
+    engine._assemble_global_state set to this round's events: the history is not
+    otherwise reachable from inside this batch. That is the shape-D defect
+    (Appendix B §B.6) one level up, and this is where the next instance of it
+    would have appeared.
     """
     extra: dict[str, Any] = {}
 
@@ -942,9 +963,16 @@ def run_new_engines(
                 float(v) for k, v in events.items()
                 if k.startswith("natural_capital_debt_applied_r") and isinstance(v, (int, float)) and not isinstance(v, bool)
             )
+            _bio_flags = global_state.get("active_event_flags", {}) or {}
+            if isinstance(previous_flags, dict) and rule_on(
+                    _bio_flags, "biodiversity_audit_gate_reads_flags"):
+                # The post-tick bag holds THIS round's events; the flag history
+                # is in previous_flags. Merge for the read, history first so
+                # nothing this round produced is overwritten.
+                _bio_flags = {**previous_flags, **_bio_flags}
             bio_events = {
                 "natural_capital_debt_delta": _ncd_delta_this_round,
-                "active_event_flags": global_state.get("active_event_flags", {}),
+                "active_event_flags": _bio_flags,
             }
             bio_state, bio_diag = process_biodiversity_tick(
                 bio_state, global_state, bu_states, bio_events, round_number
@@ -2948,7 +2976,7 @@ def _post_r10_grand_finale(
     # "closing treasury" values on one team). The inputs the option phase
     # resolved are recorded on the flags so the re-run sees exactly what this
     # run saw.
-    extra["finale_inputs"] = {
+    extra[FINALE_INPUTS_KEY] = {
         "choice": choice,
         "ending_pathway": ending_pathway,
         "is_healthcare": is_healthcare,
@@ -2959,7 +2987,7 @@ def _post_r10_grand_finale(
         "all_flags": sorted(all_flags),
         "total_capex": float(sum(d.get("capex_allocated", 0) for d in decs) if decs else 0),
     }
-    _stamp_finale_valuation(gs, bus, extra, prev_flags, **extra["finale_inputs"])
+    _stamp_finale_valuation(gs, bus, extra, prev_flags, **extra[FINALE_INPUTS_KEY])
 
 
 def restamp_finale_valuation(gs: dict, bus: list[dict], extra: dict, prev_flags: dict) -> bool:
@@ -2967,8 +2995,8 @@ def restamp_finale_valuation(gs: dict, bus: list[dict], extra: dict, prev_flags:
 
     Called by router.commit_turn after run_new_engines. Returns False when the
     finale has not run this round (no finale_inputs on the flags)."""
-    inputs = extra.get("finale_inputs") or (gs.get("active_event_flags") or {}).get("finale_inputs")
-    if not isinstance(inputs, dict) or not inputs:
+    inputs = finale_inputs_of(extra, gs.get("active_event_flags"))
+    if not inputs:
         return False
     if inputs.get("brsr"):
         # WP-27: the BRSR finale is a pure function of the closing state and
@@ -3161,8 +3189,8 @@ def _stamp_finale_valuation(
     # burden above gross profit produced a NEGATIVE enterprise value; the
     # balance report showed TV −$2.0B). Both now follow the library:
     #   TV = max(0, EBITDA) + GreenFund) × multiple × M_R × M_SDG
-    _sdg_score = float((gs.get("active_event_flags") or {}).get("sdg_impact_score", 0.0) or 0.0)
-    _sdg = calculate_sdg_multiplier(_sdg_score)
+    _sdg = _sdg_multiplier_for(gs)
+    _sdg_score = _sdg["sdg_impact_score"]
     m_sdg = _sdg["m_sdg"]
     extra["sdg_multiplier"] = m_sdg
     extra["sdg_impact_score"] = _sdg_score
@@ -3506,22 +3534,78 @@ def _stamp_finale_valuation(
 
 
 
+def _sdg_multiplier_for(gs: dict) -> dict:
+    """WHICH SDG quantity M_SDG is computed from, per the session's rule set.
+
+    The arithmetic is one function (terminal_valuation.calculate_sdg_multiplier);
+    what is versioned is its input, because which number deserves to be the SDG
+    score is a design decision and the formula is not.
+
+    2026.09 — the Corporate SDG side track's `sdg_impact_score`, against a neutral
+    of zero. Zero in every session without the track, so M_SDG is 1.0 for almost
+    everyone and the whole dimension is inert unless the track is played.
+
+    2026.10 — engine.calc_sdg_impact's `sdg_index` with the track folded in,
+    against config.SDG_INDEX_NEUTRAL. The neutral point is load-bearing: the index
+    is ~73.5 for a team that has done nothing, so anchoring at zero would hand
+    every session a ~22% terminal-value uplift for standing still. A state with no
+    SDG report falls back to the neutral rather than to zero, for the same reason —
+    a missing report must read as "no opinion", not as a savage penalty.
+    """
+    from terminal_valuation import calculate_sdg_multiplier as _sdg_mult_fn
+    aef = gs.get("active_event_flags") or {}
+    if rule_on(aef, "sdg_single_quantity"):
+        from config import SDG_INDEX_NEUTRAL as _NEUTRAL
+        index = (aef.get("sdg_impact") or {}).get("sdg_index")
+        if not isinstance(index, (int, float)) or isinstance(index, bool):
+            index = _NEUTRAL
+        return _sdg_mult_fn(float(index), neutral=float(_NEUTRAL))
+    return _sdg_mult_fn(float(aef.get("sdg_impact_score", 0.0) or 0.0))
+
+
 def _revert_r5_hard_engineering_pulse(
-    gs: dict, bus: list[dict], extra: dict, round_number: int
+    gs: dict, bus: list[dict], extra: dict, round_number: int,
+    prev_flags: dict | None = None,
 ) -> None:
     """
     I7 — Reverse the +3 CI pulse from R5 Hard Engineering Defence after 2 rounds.
     Hard engineering (concrete/steel) causes a construction-phase CI increase
     that should revert once the infrastructure is complete.
     Triggers in R7 if hard_engineering flag is active and pulse not yet reverted.
+
+    SHAPE D — WRONG GENERATION OF THE CONTAINER (found 2026-09-08 by
+    tests/test_flag_reachability.py, recorded in Appendix B §B.6).
+
+    FLAG-8 / WP-23 fixed this function's READER — it replaced a top-level key
+    test with _collect_all_flags, and its comment below records why. It left the
+    CONTAINER wrong, so the fix changed nothing. `gs` here is the POST-TICK
+    state, and engine._assemble_global_state set its flag bag to THIS ROUND'S
+    EVENTS (engine.py:4472, :4905) plus the seven session keys
+    _forward_persistent_flags carries (router.py:2370-2392). r5_flags is not
+    among them. Measured at R7 on the all_a path, the collected set this function
+    sees is ['greenwashing_checked', 'technology_lockin_penalty'] — so the +3
+    construction pulse has always been permanent, which is exactly the defect
+    FLAG-8 believed it had removed.
+
+    The history is in `previous_flags`, which post_tick already receives and
+    which every OTHER flattened reader in this file uses (:423, :2195, :2507,
+    :2537, :2666, :2675, :2683, :2690). This function was the single exception,
+    and that asymmetry is what identified it.
+
+    2026.09 keeps the broken read, because every session played to date carries
+    the permanent pulse in its scored carbon intensity.
     """
     flags = gs.get("active_event_flags", {})
     # FLAG-8 (audit 2026-09-04, WP-23): the R5 option flag lives in the
     # r5_flags / r5_pillar_flags LIST; the top-level key test never fired,
     # so the +3 CI construction pulse was permanent.
     _held = _collect_all_flags(flags)
+    _already_reverted = bool(flags.get("hard_engineering_pulse_reverted"))
+    if rule_on(gs, "hard_engineering_pulse_revert_live") and isinstance(prev_flags, dict):
+        _held = _held | _collect_all_flags(prev_flags)
+        _already_reverted = _already_reverted or bool(prev_flags.get("hard_engineering_pulse_reverted"))
     if round_number == 7 and ("hard_engineering" in _held or flags.get("hard_engineering")) \
-            and not flags.get("hard_engineering_pulse_reverted"):
+            and not _already_reverted:
         revert_delta = -3.0  # Reverse the +3 from R5
         for bu in bus:
             bu["carbon_intensity"] = max(0.0, round(bu.get("carbon_intensity", 0) + revert_delta, 2))
@@ -3733,6 +3817,7 @@ def _find_dual_form_flags(flags_dict: dict) -> set[str]:
 
 
 from flag_utils import collect_all_flags as _collect_all_flags  # noqa: E402  (F-15: shared reading; see flag_utils)
+from rules import rule_on  # noqa: E402  (Phase 4: versioned rule sets)
 
 
 def _apply_option_flags(
