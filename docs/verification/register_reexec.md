@@ -804,7 +804,7 @@ reaches the valuation without passing through M_R.
 | Row | Why it was re-read | Outcome |
 |---|---|---|
 | M-005f | `materiality_aligned` +0.10 M_R | Unchanged. Tier message now at `round_logic.py:3708-3710`; the +0.10 / +0.05 / 0 table is untouched by Phase 5. |
-| M-018 | the terminal-value formula carries M_SDG | Formula unchanged (`terminal_valuation.py:605`). The M_SDG *input* changed — see M-020. The 6,500,000-vs-100,000,000 share-count discrepancy is unchanged and remains a print blocker. |
+| M-018 | the terminal-value formula carries M_SDG | Formula unchanged (`terminal_valuation.py:605`). The M_SDG *input* changed — see M-020. The share count is not an open item: 6,500,000 in code and in the manuscript since 4 September (Ch 14 §14.5.2, Ch 18 §18.2.8, both Student Manuals), so the discrepancy this row reported at `0ad1246` is closed. |
 | M-029 | Round 2 issue library | Unchanged; not a Phase 5 surface. Line drift only. |
 | M-033 | assurance stars, `is_ambiguous` | Unchanged; matched only on the word "biodiversity". |
 | M-045 | which dictionary a session scores against | Unchanged. |

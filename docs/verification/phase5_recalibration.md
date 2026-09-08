@@ -573,12 +573,22 @@ Passages and rows still open, including the ones this phase added:
 | 34 register rows with a citation that no longer resolves | real drift from Phases 0–4, plus checker false positives | NEEDS RE-READ |
 | Rows describing a switched mechanic without naming it | the twelve were found by claim text; that sweep can miss | OPEN |
 | Refuted row 12 — the NCD → WACC chain (Part 2 entries 2 and 17) | pre-existing, unaffected by Phase 5 | OUTSTANDING |
-| Share count: code `TV_SHARES_OUTSTANDING = 6_500_000` vs the book's 100,000,000 | per-share figures in Ch 14 / Ch 18 are off by ~15× | PRINT BLOCKER |
-| R5 cyclone: fires when the roll is **below** 0.75, i.e. 75% of the time; documented as 25% | documentation contradicts the code | PRINT BLOCKER |
-| Student Manual: synergy "decays 2%/round"; the engine uses 5% | documentation contradicts the code | OUTSTANDING |
+| Share count: 6,500,000 in code vs 100,000,000 in the book | **Listed here in error.** Closed on 4 September, before Phase 5: Ch 14 §14.5.2, Ch 18 §18.2.8 and both Student Manuals all read 6,500,000, and each records the change. Ch 14's own editorial note says "the second (share count) was closed on 4 September." | CLOSED — never a Phase 5 item |
+| R5 cyclone "fires below 0.75, documented as 25%" | **Listed here in error, and not a defect.** `CYCLONE_PROB_BASE = 0.75` is the configured design; the comparison is not inverted. The facilitator teleprompter already scripts "There is a 75% chance", and Ch 6 says "strikes with 75% odds". No document states 25%, and the Student Manual does not mention the cyclone at all. | WITHDRAWN |
+| VRIO advantage decay: both Student Manuals said "Decays 2%/round"; the engine uses 5% (`DEFAULT_IMITATION_DECAY_RATE = 0.05`, and `simulation_config.json` ships `0.05`) | Recorded here as *synergy* decay, which was wrong — it is VRIO. Ch 1 had corrected it and says so in its own draft notes; the student-facing document had not. | **FIXED 8 September** — both manual versions now read 5%/round scaled by the round's reinvestment, with the correction noted inline |
 | Published M_R ceilings quoted in the manuscript as 1.93 / 2.02 / 1.98 | §4.2 — the pathway headroom must be quoted alongside, or the figures read as maxima they are not | NEW, from this phase |
 | Supply-chain transparency described as a moving score | §4.1 — it was constant at 40.0 for every session graded under 2026.09 | NEW, from this phase |
 | Any passage quoting an M_R efficiency percentage | §4.2 — the denominator changed | NEW, from this phase |
+
+**On the three corrected rows above.** They were wrong when this report was first
+published, and all three failed the same way: carried forward from earlier phases'
+notes and never re-checked against the current documents. That is precisely the
+defect this remediation exists to fix — a claim recorded once and trusted
+thereafter — reappearing inside the record of the remediation itself. They were
+caught only because a reader asked for re-verification rather than taking the list
+at face value. The rows are corrected in place rather than deleted: a verification
+document that quietly drops its own errors teaches nothing, and the next person is
+entitled to know which parts of it were checked and which were merely remembered.
 
 ---
 
