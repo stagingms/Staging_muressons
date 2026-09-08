@@ -626,10 +626,20 @@ for both. `2026.09` is every session played to date and every unstamped record;
 
 | | rows | meaning |
 |---|---|---|
-| EXACT | 18 | every cited fragment is still at the cited line |
-| MOVED | 45 | every fragment is still in its file, at a different line — code moved beneath it, the claim did not |
-| NEEDS RE-READ | 34 | at least one fragment is no longer findable as quoted |
+| EXACT | 20 | every cited fragment is still at the cited line |
+| MOVED | 48 | every fragment is still in its file, at a different line — code moved beneath it, the claim did not |
+| NEEDS RE-READ | 29 | at least one fragment is no longer findable as quoted |
 | no EVIDENCE line | 2 | section headers, not claims |
+
+These are the corrected figures. The first run of the checker reported 18 / 45 /
+34, and was wrong: its citation pattern required a `backend/` prefix, and the
+register writes citations both ways — `backend/round_logic.py:3574` but also
+`round_configs.py:161`. **68 of 225 citations, 30% of the evidence, were never
+checked at all.** Worse than invisible: a fragment following a bare citation was
+attributed to the PREVIOUS file and looked for in the wrong source, so it came
+back unresolvable. Six rows were flagged for a human re-read on that basis alone
+(M-063, M-068, M-070, M-072, M-080, M-085); all six are clean. Fixed
+2026-09-08 — the prefix is now optional.
 
 The 34 include a known class of false positive: the register sometimes quotes a
 config path (`engine_parameters.imitation_decay = {...}`), a bare number, or a
@@ -821,9 +831,24 @@ moved are re-executed above, against both rule sets, with measurements. What is
 not done, and is not a line-number refresh:
 
 1. **45 rows carry drifted citations.** Mechanical, enumerated, reviewable.
-2. **34 rows have at least one citation that no longer resolves as quoted** and
-   need a human re-read. Some are false positives of the checker; the rest are
-   real drift from Phases 0–4.
+2. **29 rows had at least one citation that no longer resolved as quoted.**
+   RE-READ 2026-09-08, all 29. **Every claim holds.** Not one was substantive
+   drift. Every flagged citation is one of three things: a config constant that
+   still carries the quoted value but is cited in its JSON form or elided
+   (M-003, M-016, M-017, M-018, M-074, M-077, M-079, M-081); code that is still
+   present and has only moved line (M-005, M-005d, M-012, M-019, M-020, M-027,
+   M-033, M-038, M-039, M-041, M-042, M-043, M-049, M-052, M-057, M-067,
+   M-071); or a prose paraphrase, shell command or git invocation inside
+   backticks, which is not source and cannot be matched (M-005e, M-049, M-051,
+   M-082).
+
+   **What that does and does not establish.** It establishes that the evidence
+   each row cites still exists. It does NOT establish that the claims are true:
+   the checker asks "is the quoted line still there", never "does the number in
+   the claim match the number in the code". That distinction is not academic —
+   it is exactly how Ch 14's per-share figure survived, correct in every place
+   the share count was STATED and wrong in the one place it was USED. A claim
+   sweep against the 169 affected quantities is still owed.
 3. **Every row is now potentially two claims.** The register's contract was
    written when there was one rule set. A row needs a 2026.09 and a 2026.10
    statement if it quotes any of the 169 affected quantities — which is the rule

@@ -33,7 +33,14 @@ import re, sys, pathlib, collections
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 REG = ROOT / "docs" / "verification" / "register_reexec.md"
-CITE = re.compile(r"backend/([A-Za-z0-9_/]+\.py):(\d+)(?:-(\d+))?")
+# The `backend/` prefix is OPTIONAL. The register writes citations both ways —
+# "backend/round_logic.py:3574" and "round_configs.py:161" — and an earlier
+# version of this pattern required the prefix. That made 68 of 225 citations
+# (30%) invisible, and worse: a fragment following a bare citation was
+# attributed to the PREVIOUS file, so it was looked for in the wrong source and
+# reported as unresolvable. Two of the rows this tool flagged for a human
+# re-read were that bug, not drift.
+CITE = re.compile(r"(?<![/\w])(?:backend/)?((?:[a-z0-9_]+/)*[a-z0-9_]+\.py):(\d+)(?:-(\d+))?")
 FRAG = re.compile(r"`([^`]+)`")
 _cache: dict[str, tuple[str, list[int]]] = {}
 
