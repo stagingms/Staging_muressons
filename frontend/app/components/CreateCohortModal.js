@@ -7,6 +7,38 @@ import { PLAYER_VISIBILITY_CARDS, playerVisibilityGroups, visibilityForAudiences
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
+// FastAPI's `detail` is not always a string, and this form assumed it was.
+// A 422 returns an ARRAY of {loc, msg, type}; a structured raise returns a
+// dict. `new Error(detail)` coerces either to the literal text
+// "[object Object]", which is what the cohort form displayed instead of the
+// reason it could not save — the one piece of information the operator needed.
+// (React throws on an object child rather than printing it, so that string can
+// only have come from this coercion.) Returns a human sentence, and never an
+// empty one: an unreadable error is worse than a generic one.
+const formatApiError = (data, fallback) => {
+    const d = data && data.detail;
+    if (typeof d === 'string' && d.trim()) return d;
+    if (Array.isArray(d)) {
+        const parts = d.map((e) => {
+            if (typeof e === 'string') return e;
+            const field = Array.isArray(e && e.loc)
+                ? e.loc.filter((x) => x !== 'body').join('.')
+                : null;
+            const msg = (e && (e.msg || e.message)) || null;
+            if (field && msg) return `${field}: ${msg}`;
+            if (msg) return msg;
+            try { return JSON.stringify(e); } catch { return null; }
+        }).filter(Boolean);
+        if (parts.length) return parts.join('; ');
+    }
+    if (d && typeof d === 'object') {
+        if (typeof d.message === 'string' && d.message.trim()) return d.message;
+        if (typeof d.detail === 'string' && d.detail.trim()) return d.detail;
+        try { return JSON.stringify(d); } catch { /* fall through to fallback */ }
+    }
+    return fallback;
+};
+
 // Analytics-visibility catalog. Keys MUST stay in sync with the backend
 // _analytics_visibility dict in admin_analytics.py — the setter endpoints reject
 // any key not present there (add in both, same commit).
@@ -889,7 +921,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             });
             if (!subRes.ok) {
                 const errData = await subRes.json().catch(() => ({}));
-                throw new Error(errData.detail || `HTTP ${subRes.status}`);
+                throw new Error(formatApiError(errData, `HTTP ${subRes.status}`));
             }
             return { ...step, ok: true, error: null };
         } catch (err) {
@@ -959,7 +991,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             });
             if (!metaRes.ok) {
                 const d = await metaRes.json().catch(() => ({}));
-                throw new Error(d.detail || `Metadata update failed (${metaRes.status})`);
+                throw new Error(formatApiError(d, `Metadata update failed (${metaRes.status})`));
             }
 
             // 2. Re-apply all sub-configs via the shared pipeline (same
@@ -1039,7 +1071,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                throw new Error(data.detail || `Failed to create cohort (${res.status})`);
+                throw new Error(formatApiError(data, `Failed to create cohort (${res.status})`));
             }
 
             const newSession = await res.json();
