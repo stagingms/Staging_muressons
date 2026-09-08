@@ -92,9 +92,29 @@ Claude outputs/
 # session. Not files anyone wrote; they reappear and must never be committed.
 .fuse_hidden*
 
-# Documentation folder (42MB of .docx/.pptx/screenshots) — kept locally,
-# excluded from the repo so pushes stay light. Untracked 2026-07-18.
-docs/
+# Documentation folder — 147MB of .docx/.pptx/screenshots plus two manual backup
+# trees. Kept locally, excluded so pushes stay light. Untracked 2026-07-18.
+#
+# EXCEPTION (2026-09-08): the verification records and the figure-generation
+# source are TEXT, together under 1MB, and backend code cites the records by
+# path — rules.py and seven test modules name docs/verification/*.md, so a clone
+# without them has code pointing at documents that do not exist. Note the
+# `docs/*` form: git cannot re-include a file whose parent DIRECTORY is
+# excluded, so a bare `docs/` would make every negation below silently inert.
+docs/*
+!docs/verification/
+docs/verification/*
+!docs/verification/*.md
+!docs/figures/
+docs/figures/*
+!docs/figures/src/
+docs/figures/src/*
+!docs/figures/src/*.py
+
+# frontend/docs was never meant to be excluded. The rule above used to read a
+# bare `docs/`, which git matches at ANY depth, so a pattern written for the
+# 147MB manuscript folder was also hiding three accessibility records here —
+# including a VPAT draft. The `docs/*` form is root-anchored and does not.
 
 # Scratch/staging dirs for pending deletions — never commit
 _to_delete/
