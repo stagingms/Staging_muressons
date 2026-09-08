@@ -85,6 +85,13 @@ SETUP_STEPS.md
 # Large video assets — keep out of git (141MB); use LFS/external storage if needed
 videos/
 
+# Claude session scratch — working files, never source
+Claude outputs/
+
+# FUSE mount artefacts, created when this folder is mounted into a remote
+# session. Not files anyone wrote; they reappear and must never be committed.
+.fuse_hidden*
+
 # Documentation folder (42MB of .docx/.pptx/screenshots) — kept locally,
 # excluded from the repo so pushes stay light. Untracked 2026-07-18.
 docs/
