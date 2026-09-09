@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Dialog from './Dialog';
 import styles from './CreateCohortModal.module.css';
 import { CURRENCIES } from '../contexts/CurrencyContext';
 import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META } from '../lib/verticalCatalog';
 import { PLAYER_VISIBILITY_CARDS, playerVisibilityGroups, visibilityForAudiences } from '../config/playerVisibilityRegistry';
+import { toErrorText, describeHttpFailure } from '../lib/apiError';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -15,30 +16,6 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 // (React throws on an object child rather than printing it, so that string can
 // only have come from this coercion.) Returns a human sentence, and never an
 // empty one: an unreadable error is worse than a generic one.
-const formatApiError = (data, fallback) => {
-    const d = data && data.detail;
-    if (typeof d === 'string' && d.trim()) return d;
-    if (Array.isArray(d)) {
-        const parts = d.map((e) => {
-            if (typeof e === 'string') return e;
-            const field = Array.isArray(e && e.loc)
-                ? e.loc.filter((x) => x !== 'body').join('.')
-                : null;
-            const msg = (e && (e.msg || e.message)) || null;
-            if (field && msg) return `${field}: ${msg}`;
-            if (msg) return msg;
-            try { return JSON.stringify(e); } catch { return null; }
-        }).filter(Boolean);
-        if (parts.length) return parts.join('; ');
-    }
-    if (d && typeof d === 'object') {
-        if (typeof d.message === 'string' && d.message.trim()) return d.message;
-        if (typeof d.detail === 'string' && d.detail.trim()) return d.detail;
-        try { return JSON.stringify(d); } catch { /* fall through to fallback */ }
-    }
-    return fallback;
-};
-
 // Analytics-visibility catalog. Keys MUST stay in sync with the backend
 // _analytics_visibility dict in admin_analytics.py — the setter endpoints reject
 // any key not present there (add in both, same commit).
@@ -343,7 +320,16 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [openTab, setOpenTab] = useState('core');
 
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+    // Normalised at the boundary: `error` is a string or null, always. A call
+    // site cannot put an object here, so it cannot render as "[object Object]",
+    // and the raw value still reaches the console for whoever is debugging.
+    const [error, setErrorState] = useState(null);
+    const setError = useCallback((value) => {
+        if (value != null && typeof value !== 'string') {
+            console.error('[Cohort Setup] error:', value);
+        }
+        setErrorState(toErrorText(value));
+    }, []);
     const errorRef = useRef(null);
 
     // ═══ Phase R3 (V2-3): cohort setup integrity ════════════════════════
@@ -566,7 +552,8 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             // registry passes a real target facilitator id, prefill as before.)
             setFacilitatorId(currentFacilitatorId);
         }
-    }, [isOpen, currentFacilitatorId]);
+    // setError is a stable useCallback([]) — listed to keep the hook lint clean.
+    }, [isOpen, currentFacilitatorId, setError]);
 
     // Runs when the experience level changes AND once both fetches have landed.
     //
@@ -921,7 +908,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             });
             if (!subRes.ok) {
                 const errData = await subRes.json().catch(() => ({}));
-                throw new Error(formatApiError(errData, `HTTP ${subRes.status}`));
+                throw new Error(describeHttpFailure(step.name, subRes.status, errData));
             }
             return { ...step, ok: true, error: null };
         } catch (err) {
@@ -991,7 +978,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             });
             if (!metaRes.ok) {
                 const d = await metaRes.json().catch(() => ({}));
-                throw new Error(formatApiError(d, `Metadata update failed (${metaRes.status})`));
+                throw new Error(describeHttpFailure('Metadata update', metaRes.status, d));
             }
 
             // 2. Re-apply all sub-configs via the shared pipeline (same
@@ -1071,7 +1058,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                throw new Error(formatApiError(data, `Failed to create cohort (${res.status})`));
+                throw new Error(describeHttpFailure('Create cohort', res.status, data));
             }
 
             const newSession = await res.json();
