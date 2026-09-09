@@ -913,7 +913,16 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             return { ...step, ok: true, error: null };
         } catch (err) {
             console.error(`[Cohort Config] Failed to apply ${step.name}:`, err);
-            return { ...step, ok: false, error: err.message };
+            // Normalised here because the summary panel renders `st.error`
+            // directly — it is a second error surface that does not pass
+            // through setError. `err.message` was wrong twice over: it is
+            // undefined for any non-Error throw (a red cross with no text),
+            // and it pre-coerces the value before the normaliser can read it.
+            // The `|| ...` is not belt-and-braces: toErrorText returns null for a
+            // null/undefined throw, and a step chip with ok:false and no text is a
+            // red cross the facilitator cannot act on. A failed step always says
+            // something.
+            return { ...step, ok: false, error: toErrorText(err) || `${step.name} failed for an unknown reason.` };
         }
     };
 
@@ -993,7 +1002,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 onCreated({ session_id: sid, cohort_name: cohortName.trim() });
             }
         } catch (err) {
-            setError(err.message);
+            // Raw, not err.message — setError normalises, and `.message` is
+            // undefined for a non-Error throw.
+            setError(err);
         } finally {
             setLoading(false);
         }
@@ -1080,7 +1091,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 onCreated(newSession);
             }
         } catch (err) {
-            setError(err.message);
+            // Raw, not err.message — setError normalises, and `.message` is
+            // undefined for a non-Error throw.
+            setError(err);
         } finally {
             setLoading(false);
         }
