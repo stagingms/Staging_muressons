@@ -102,6 +102,16 @@ const ENGINE_MODULE_TOGGLES = [
     { key: 'stakeholder_intel_ui_enabled', label: 'Intel Rail', icon: '🔎', tooltip: 'F6 — surfaces demand / leverage / trend cards per stakeholder; raw satisfaction and trust numbers stay in the facilitator view.', default: false },
 ];
 
+/**
+ * The id list for an allow-list payload: ids that are actually non-empty
+ * strings, and nothing else. Anything the server cannot resolve to a record
+ * would only turn a valid request into a 422 naming that array index.
+ */
+const stringIds = (rows) =>
+    (Array.isArray(rows) ? rows : [])
+        .map((r) => (r && typeof r === 'object' ? r.id : r))
+        .filter((id) => typeof id === 'string' && id.length > 0);
+
 const AccordionItem = ({ id, title, summary, children, isOpen, onToggle }) => {
     return (
         <div className={`${styles.accordionItem} ${isOpen ? styles.open : ''}`}>
@@ -511,9 +521,20 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             .then(data => {
                 setMasterOverrides(data.overrides || []);
                 setMasterSwipes(data.swipes || []);
-                // By default, select all
-                setSelectedOverrides(data.overrides?.map(o => o.id) || []);
-                setSelectedSwipes(data.swipes?.map(s => s.id) || []);
+                // By default, select all.
+                //
+                // `.map(o => o.id)` alone is a trap: an entry without a usable
+                // id yields undefined, JSON.stringify writes that into the
+                // array as null, and StartSessionRequest types both of these
+                // fields as list[str] — so Pydantic rejects the whole create
+                // with ONE 422 error per bad element. That is the
+                // "[object Object],[object Object]" the facilitator sees: the
+                // number of repeats is the number of unusable ids, not two
+                // separate faults. An entry with no id cannot be referenced by
+                // the server anyway, so dropping it is the correct reading of
+                // "select all" rather than a silent workaround.
+                setSelectedOverrides(stringIds(data.overrides));
+                setSelectedSwipes(stringIds(data.swipes));
             })
             .catch(() => {});
 
@@ -1048,8 +1069,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     cohort_name: cohortName.trim() || `Cohort_${Date.now()}`,
                     facilitator_id: facilitatorId,
                     decision_paradigm: selectedParadigm,
-                    allowed_overrides: selectedOverrides,
-                    allowed_swipes: selectedSwipes,
+                    // Filtered again at the boundary, not only at load: the
+                    // checkbox handlers take their argument straight from the
+                    // master rows, so a row with no id can put undefined into
+                    // state on click. This is the last point before the wire.
+                    allowed_overrides: stringIds(selectedOverrides),
+                    allowed_swipes: stringIds(selectedSwipes),
                     currency_symbol: (CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0]).symbol,
                     scenario_preset: selectedExperienceLevel || null,
                     experience_level: selectedExperienceLevel || null,
