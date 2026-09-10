@@ -1,6 +1,7 @@
 'use client';
 import { useCallback } from 'react';
 import { currencySymbol, atRate } from '../utils/format';
+import { strategyReportRows } from './strategyReportModel';
 
 const fmt$ = (v) => {
   const abs = Math.abs(v || 0);
@@ -19,11 +20,18 @@ export default function StudentReportExport({ data = {}, globalState = {}, histo
     const treasury = globalState?.corporate_treasury || 0;
     const bs = globalState?.balance_sheet || {};
 
-    const roundRows = history.map((h, i) => {
-      const choice = h?.choice_title || h?.choice_label || h?.choice_selected || '—';
-      const treas = h?.treasury ?? h?.corporate_treasury ?? 0;
-      return `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-weight:600">R${i+1}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${choice}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace">${fmt$(treas)}</td></tr>`;
-    }).join('');
+    // F05 (audit 2026-09-09): rows come from the history model — round number,
+    // the decision made in that round, the treasury it started from and the
+    // treasury it produced (see strategyReportModel.js for the convention).
+    const cell = (extra = '') => `style="padding:6px 10px;border-bottom:1px solid #e2e8f0;${extra}"`;
+    const money = (v) => (v == null ? '—' : fmt$(v));
+    const signed = (v) => (v == null ? '—' : `${v >= 0 ? '+' : '−'}${fmt$(Math.abs(v))}`);
+    const roundRows = strategyReportRows(history, globalState).map((r) =>
+      `<tr><td ${cell('font-weight:600')}>R${r.round}</td><td ${cell()}>${r.choice}</td>` +
+      `<td ${cell('text-align:right;font-family:monospace')}>${money(r.opening)}</td>` +
+      `<td ${cell('text-align:right;font-family:monospace')}>${money(r.closing)}</td>` +
+      `<td ${cell(`text-align:right;font-family:monospace;color:${r.delta == null ? '#64748b' : r.delta >= 0 ? '#059669' : '#dc2626'}`)}>${signed(r.delta)}</td></tr>`
+    ).join('');
 
     const buRows = businessUnits.map(bu =>
       `<tr><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;font-weight:600">${bu.bu_name||bu.bu_id}</td><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;text-align:right">${fmt$(bu.revenue_base||0)}</td><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;text-align:right">${fmt$(bu.opex_base||0)}</td><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;text-align:right">${(bu.carbon_intensity||0).toFixed(1)}</td><td style="padding:4px 8px;border-bottom:1px solid #e2e8f0;text-align:right">${(bu.social_license_score||0).toFixed(1)}</td></tr>`
@@ -57,8 +65,9 @@ th{text-align:left;padding:6px 10px;font-size: var(--type-caption);font-weight:7
 </div>
 
 <h2>📋 Decision Timeline</h2>
-<table><thead><tr><th>Round</th><th>Decision</th><th style="text-align:right">Treasury</th></tr></thead>
-<tbody>${roundRows||'<tr><td colspan="3" style="padding:10px;color:#94a3b8;text-align:center">No decisions recorded</td></tr>'}</tbody></table>
+<table><thead><tr><th>Round</th><th>Decision</th><th style="text-align:right">Treasury entering</th><th style="text-align:right">Treasury after</th><th style="text-align:right">Change</th></tr></thead>
+<tbody>${roundRows||'<tr><td colspan="5" style="padding:10px;color:#94a3b8;text-align:center">No decisions recorded</td></tr>'}</tbody></table>
+<div style="font-size:.75rem;color:#64748b;margin-top:-4px">"Treasury entering" is the balance at the start of the round; "Treasury after" is the balance the round's decision and events produced (the next round's opening balance; the closing balance for the final round).</div>
 
 <h2>🏢 Business Unit Performance</h2>
 <table><thead><tr><th>BU</th><th style="text-align:right">Revenue</th><th style="text-align:right">OPEX</th><th style="text-align:right">CI</th><th style="text-align:right">SLO</th></tr></thead>
