@@ -444,6 +444,7 @@ def calculate_sdg_multiplier(
         "m_sdg": m_sdg,
         "sdg_impact_score": sdg_impact_score,
         "sdg_neutral": neutral,
+        "sdg_coeff": k,
         "sdg_track_active": sdg_impact_score != neutral,
     }
 

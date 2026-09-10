@@ -509,11 +509,15 @@ def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events:
     # Calculate terminal value — F-12: same floor / M_SDG rules as the main
     # finale (terminal_valuation is the single formula).
     from terminal_valuation import EBITDA_FLOOR as _EB_FLOOR
-    _m_sdg = _sdg_multiplier_for(gs)["m_sdg"]
+    _sdg_here = _sdg_multiplier_for(gs)
+    _m_sdg = _sdg_here["m_sdg"]
     _ebitda_for_tv = max(_EB_FLOOR, terminal_ebitda)
     if terminal_ebitda < _EB_FLOOR:
         extra["ebitda_floored"] = True
     extra["sdg_multiplier"] = _m_sdg
+    extra["sdg_impact_score"] = _sdg_here["sdg_impact_score"]
+    extra["sdg_neutral"] = _sdg_here["sdg_neutral"]
+    extra["sdg_coeff"] = _sdg_here["sdg_coeff"]
     extra["ebitda_used_for_tv"] = _ebitda_for_tv
     terminal_value = round(_ebitda_for_tv * exit_multiple * mr * _m_sdg, 2)
     
@@ -3230,6 +3234,11 @@ def _stamp_finale_valuation(
     m_sdg = _sdg["m_sdg"]
     extra["sdg_multiplier"] = m_sdg
     extra["sdg_impact_score"] = _sdg_score
+    # The finale screen prints the M_SDG line from these three keys (score,
+    # neutral, multiplier) — it must never recompute the multiplier, because
+    # which neutral applies is the rule set's decision (2026-09-10 rehearsal).
+    extra["sdg_neutral"] = _sdg["sdg_neutral"]
+    extra["sdg_coeff"] = _sdg["sdg_coeff"]
     ebitda_for_tv = max(EBITDA_FLOOR, terminal_ebitda)
     extra["ebitda_used_for_tv"] = ebitda_for_tv
     if terminal_ebitda < EBITDA_FLOOR:

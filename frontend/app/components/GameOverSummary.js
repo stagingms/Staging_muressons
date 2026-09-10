@@ -15,6 +15,7 @@ import ArchetypeCard from './ArchetypeCard';
 import FrontPageReveal from './FrontPageReveal';
 import CalibrationReport from './CalibrationReport';
 import { deriveKeyInsights, fmtDeltaM } from '../lib/keyInsights';
+import { sdgMultiplierRow } from '../lib/sdgMultiplierRow';
 
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
@@ -698,12 +699,16 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 {/* ── SDG Terminal Valuation Waterfall (Fix 7) ── */}
                 {(() => {
                     const flags = globalState?.active_event_flags || {};
-                    const sdgScore = flags.sdg_impact_score;
+                    const sdgScore = d.sdg_impact_score ?? flags.sdg_impact_score;
                     const sdgCompleted = flags.sdg_track_completed;
                     if (!sdgCompleted && sdgScore == null) return null;
 
-                    const safeScore = sdgScore ?? 0;
-                    const mSdg = 1.0 + (safeScore / 100.0) * 0.25;
+                    // The M_SDG the ENGINE used (sdg_multiplier / sdg_neutral / sdg_coeff
+                    // in the finale payload) — never recomputed here: which neutral
+                    // applies is the rule set's decision (2026-09-10 rehearsal finding).
+                    const sdgRow = sdgMultiplierRow(d, flags);
+                    const mSdg = sdgRow.mSdg;
+                    const safeScore = sdgRow.score;
                     const mR = d.regenerative_multiple || 1.0;
                     // F-17: the finale payload always carries exit_multiple; the fallback is
                     // the healthy-WACC Gordon value, not the retired fixed 12×.
@@ -752,10 +757,10 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     },
                                     {
                                         label: `M_SDG — Sustainability Multiplier`,
-                                        value: sdgCompleted ? ratio(mSdg) : 'not used this run',
-                                        color: sdgCompleted ? lineColor(mSdg, 1.1) : '#64748b', op: '×',
-                                        desc: `SDG Impact Score: ${safeScore}/105 → M_SDG = 1.0 + (${safeScore}/100) × 0.25`,
-                                        highlight: sdgCompleted,
+                                        value: sdgRow.used ? ratio(mSdg) : 'not used this run',
+                                        color: sdgRow.used ? lineColor(mSdg, 1.1) : '#64748b', op: '×',
+                                        desc: sdgRow.desc,
+                                        highlight: sdgRow.used,
                                     },
                                 ].map((row, i, arr) => (
                                     <div key={i} style={{
