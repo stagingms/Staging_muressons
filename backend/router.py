@@ -23,6 +23,36 @@ from rules import (RULES_FLAG as _RULES_FLAG, DEFAULT_RULES_VERSION as _DEFAULT_
                    rule_on as _rule_on)
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
+# N1 (EVAL_AuditResponse 2026-09-10, action 5): the BRSR paradigm is pillar
+# mode with its own content. These three existed since the track was written
+# and had no caller — the client fetched the multi_toggles config and the
+# commit path aggregated pillars for multi_toggles only, so a BRSR cohort
+# played through the real client committed choice '' into the track.
+from side_tracks.brsr_ngrbc.configs import (
+    BRSR_PILLAR_OPTIONS as _BRSR_PILLAR_OPTIONS,
+    get_brsr_pillar_config as _get_brsr_pillar_config,
+    aggregate_brsr_pillar_decisions as _aggregate_brsr_pillar_decisions,
+    translate_brsr_pillars_to_legacy_choice as _translate_brsr_pillars_to_legacy_choice,
+)
+
+# Paradigms the cockpit plays as pillar mode (page.js / ExecutiveCockpit.js
+# isPillarMode), with each one's config, aggregator and legacy translator.
+_PILLAR_PARADIGMS: dict[str, dict] = {
+    "multi_toggles": {
+        "config": get_pillar_config,
+        "aggregate": aggregate_pillar_decisions,
+        "translate": translate_pillars_to_legacy_choice,
+    },
+    "brsr_ngrbc": {
+        "config": lambda rn: (
+            {"title": _BRSR_PILLAR_OPTIONS[rn].get("title"),
+             "description": _BRSR_PILLAR_OPTIONS[rn].get("description"),
+             "areas": _get_brsr_pillar_config(rn)}
+            if rn in _BRSR_PILLAR_OPTIONS else None),
+        "aggregate": _aggregate_brsr_pillar_decisions,
+        "translate": _translate_brsr_pillars_to_legacy_choice,
+    },
+}
 from config import MASTER_PASSWORD
 # CFG-05 (audit 2026-09-04, WP-25): the CSF pool constants and the imitation
 # decay default are read off the config MODULE at call time, not bound here
@@ -2849,9 +2879,13 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         if parent_info:
             paradigm = parent_info.get("decision_paradigm", "legacy_abc")
 
-    # ── Pillar-mode: aggregate multi-toggle decisions ─────────
+    # ── Pillar-mode: aggregate the per-area decisions ─────────
+    # N1 (action 5): both pillar paradigms, each with its own aggregator and
+    # legacy translator (_PILLAR_PARADIGMS). The translated option is what
+    # round_logic / the BRSR track read for flags and round bookkeeping.
     pillar_aggregation = None
-    if paradigm == "multi_toggles":
+    if paradigm in _PILLAR_PARADIGMS:
+        _pillar_api = _PILLAR_PARADIGMS[paradigm]
         # Extract pillar_decisions from the first decision that has them
         pillar_choices = None
         for d in decisions_raw:
@@ -2860,15 +2894,30 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 break
 
         if pillar_choices:
-            pillar_aggregation = aggregate_pillar_decisions(current_round, pillar_choices)
+            pillar_aggregation = _pillar_api["aggregate"](current_round, pillar_choices)
 
             # Translate to legacy choice for round_logic compatibility
-            legacy_choice = translate_pillars_to_legacy_choice(current_round, pillar_choices)
+            legacy_choice = _pillar_api["translate"](current_round, pillar_choices)
             for d in decisions_raw:
                 d["choice_selected"] = legacy_choice
-        else:
+        elif paradigm == "multi_toggles":
             # Fallback: no pillar_decisions provided, treat as legacy
             paradigm = "legacy_abc"
+        else:
+            # brsr_ngrbc without pillars: the BRSR track needs a real option
+            # (its own A/B/C round configs — the Force-Advance fallback and
+            # the API tests post one). The cockpit's pillar-mode shape with
+            # no selections would otherwise commit choice '' into the track,
+            # which applies nothing and records an empty round (N1).
+            if not any((d.get("choice_selected") or "") in ("option_a", "option_b", "option_c")
+                       for d in decisions_raw):
+                if commit_lock.locked(): commit_lock.release()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"code": "brsr_pillars_required",
+                            "message": "A BRSR round is committed with pillar_decisions "
+                                       "(or an explicit option_a/b/c)."},
+                )
 
     # ── ANTI-GAMING: Deshuffle displayed choice → canonical key ──
     # The frontend sends back option_a/b/c based on the shuffled
@@ -3156,8 +3205,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         else:
             events["pillar_aggregates_skipped_r10"] = True
 
-        # Store pillar metadata in events
-        events["decision_paradigm"] = "multi_toggles"
+        # Store pillar metadata in events (N1: the paradigm that was played,
+        # not the literal "multi_toggles" — a BRSR pillar commit is BRSR)
+        events["decision_paradigm"] = paradigm
         events["pillar_selections"] = pillar_aggregation.get("per_area", {})
         events["pillar_flags"] = pillar_aggregation.get("flags_set", [])
         events["pillar_exclusivity_warnings"] = pillar_aggregation.get("exclusivity_warnings", [])
@@ -4606,14 +4656,25 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
 
 @router.get(
     "/pillar-config/{round_number}",
-    summary="Get strategic pillar options for a specific round (multi-toggles mode)",
+    summary="Get strategic pillar options for a specific round (pillar mode: multi_toggles or brsr_ngrbc)",
 )
-async def get_pillar_config_endpoint(round_number: int):
+async def get_pillar_config_endpoint(round_number: int, paradigm: str | None = None):
     """
     Returns the 5-area strategic pillar options for a round.
-    Used by the frontend StrategicPillarsWorkspace in multi_toggles mode.
+    Used by the frontend StrategicPillarsWorkspace in pillar mode.
+
+    N1 (action 5): `?paradigm=brsr_ngrbc` returns the BRSR areas
+    (BRSR_PILLAR_OPTIONS — "Board ESG Governance", …). The cockpit has sent
+    that parameter since the BRSR edition shipped; the endpoint ignored it
+    and every BRSR player saw the generic Energy / Operations tiles.
     """
-    cfg = get_pillar_config(round_number)
+    _paradigm = (paradigm or "multi_toggles").strip()
+    if _paradigm not in _PILLAR_PARADIGMS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{_paradigm}' is not a pillar paradigm. Valid: {sorted(_PILLAR_PARADIGMS)}",
+        )
+    cfg = _PILLAR_PARADIGMS[_paradigm]["config"](round_number)
     if cfg is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -4622,6 +4683,7 @@ async def get_pillar_config_endpoint(round_number: int):
 
     return {
         "round_number": round_number,
+        "paradigm": _paradigm,
         "title": cfg.get("title"),
         "description": cfg.get("description"),
         "areas": cfg.get("areas", {}),

@@ -17,6 +17,16 @@ WHAT IT PINS
     pillar area receives a choice (an omitted area silently inherits the legacy
     proxy option's flags — FLAG-2).
 
+    All three difficulty tiers (G06, audit 2026-09-09: the Wave 0 gate ran
+    advanced and expert only).
+
+    N1 (EVAL_AuditResponse 2026-09-10, action 5): a second game per pillar
+    paradigm posts THE CLIENT'S payload shape — choice_selected '' plus
+    pillar_decisions drawn from that paradigm's own pillar config — and asserts
+    that paradigm's own flags appear. The canonical-option shape above cannot
+    see a paradigm whose pillars are dropped on the floor, which is how the
+    BRSR edition shipped unplayable from the cockpit.
+
 WHAT IT DOES NOT PIN
     Model correctness (the golden traces do that) or the exact values.
 """
@@ -44,9 +54,10 @@ import config  # noqa: E402
 from main import app  # noqa: E402
 from router import _commit_timestamps  # noqa: E402
 from pillar_configs import get_pillar_config  # noqa: E402
+from side_tracks.brsr_ngrbc.configs import BRSR_PILLAR_OPTIONS  # noqa: E402
 
 _ROUNDS = config.SIM_ROUNDS
-_TIERS = ("advanced", "expert")
+_TIERS = ("foundation", "advanced", "expert")
 
 
 def _run(coro):
@@ -67,9 +78,13 @@ def _client():
     return httpx.AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-def _pillar_decisions(round_number: int) -> dict:
-    """First option of EVERY area — so no area is omitted (FLAG-2)."""
-    cfg = get_pillar_config(round_number) or {}
+def _pillar_decisions(round_number: int, paradigm: str = "multi_toggles") -> dict:
+    """First option of EVERY area — so no area is omitted (FLAG-2) — from the
+    paradigm's OWN pillar config."""
+    if paradigm == "brsr_ngrbc":
+        cfg = BRSR_PILLAR_OPTIONS.get(round_number) or {}
+    else:
+        cfg = get_pillar_config(round_number) or {}
     out = {}
     for area, spec in (cfg.get("areas") or {}).items():
         options = list((spec.get("options") or {}).keys())
@@ -78,8 +93,18 @@ def _pillar_decisions(round_number: int) -> dict:
     return out
 
 
-async def play_cohort(ac, paradigm: str, tier: str, rounds: int = _ROUNDS):
+def _pillar_flags(round_number: int, paradigm: str) -> set:
+    cfg = BRSR_PILLAR_OPTIONS.get(round_number) if paradigm == "brsr_ngrbc" else get_pillar_config(round_number)
+    return {f for a in (cfg or {}).get("areas", {}).values()
+            for o in a.get("options", {}).values() for f in o.get("flags_set", [])}
+
+
+_PILLAR_PARADIGMS = ("multi_toggles", "brsr_ngrbc")
+
+
+async def play_cohort(ac, paradigm: str, tier: str, rounds: int = _ROUNDS, client_shape: bool = False):
     """Facilitator creates the cohort; one player joins and plays every round.
+    client_shape=True posts what the cockpit posts in pillar mode (N1).
     Returns (cohort_sid, player_sid, per-round commit responses)."""
     r = await ac.post("/api/admin/facilitators/login",
                       json={"facilitator_id": "god_mode",
@@ -87,7 +112,7 @@ async def play_cohort(ac, paradigm: str, tier: str, rounds: int = _ROUNDS):
     assert r.status_code == 200, f"god_mode login: {r.status_code} {r.text[:200]}"
 
     r = await ac.post("/api/simulations/start",
-                      json={"cohort_name": f"smoke-{paradigm}-{tier}",
+                      json={"cohort_name": f"smoke-{paradigm}-{tier}{'-client' if client_shape else ''}",
                             "decision_paradigm": paradigm,
                             "difficulty_tier": tier})
     assert r.status_code == 201, f"start: {r.status_code} {r.text[:300]}"
@@ -111,7 +136,10 @@ async def play_cohort(ac, paradigm: str, tier: str, rounds: int = _ROUNDS):
         _commit_timestamps.pop(sid, None)   # clear the 5 s cooldown, as test_full_run_e2e does
         decision = {"investment_ratio": 0.4, "capex_allocated": 500_000,
                     "choice_selected": "option_a"}
-        if paradigm == "multi_toggles":
+        if client_shape and paradigm in _PILLAR_PARADIGMS:
+            decision["choice_selected"] = ""                      # page.js in pillar mode
+            decision["pillar_decisions"] = _pillar_decisions(rnd, paradigm)
+        elif paradigm == "multi_toggles":
             decision["pillar_decisions"] = _pillar_decisions(rnd)
         payload = {
             "decisions": [{"bu_id": b["bu_id"], **decision} for b in bus],
@@ -170,3 +198,31 @@ def test_a_cohort_game_completes_on_every_paradigm(paradigm, tier):
     assert _finite(flags["terminal_value"]) and _finite(flags["regenerative_multiple"])
     assert 0.0 <= flags["regenerative_multiple"] <= 2.05
     assert body["current_round"] == _ROUNDS
+
+
+@pytest.mark.parametrize("paradigm", _PILLAR_PARADIGMS)
+def test_a_pillar_paradigm_played_through_the_clients_shape_raises_its_own_flags(paradigm):
+    """N1: choice_selected '' + pillar_decisions from the paradigm's own
+    config, ten rounds; every commit is labelled with the paradigm, carries
+    pillar selections for every area, and the round's pillar flags are drawn
+    from THAT paradigm's options. Before action 5 a brsr_ngrbc game in this
+    shape committed '' into the BRSR track and raised no BRSR flag at all."""
+    async def go():
+        async with _client() as ac:
+            cohort_sid, sid, responses = await play_cohort(ac, paradigm, "advanced", client_shape=True)
+            final = await ac.get(f"/api/simulations/{sid}/dashboard")
+            return responses, final
+    responses, final = _run(go())
+    assert len(responses) == _ROUNDS
+    for rnd, body in enumerate(responses, start=1):
+        ev = body.get("events") or {}
+        assert ev.get("decision_paradigm") == paradigm, (rnd, ev.get("decision_paradigm"))
+        assert set(ev.get("pillar_selections") or {}) == set(_pillar_decisions(rnd, paradigm)), rnd
+        flags = set(ev.get("pillar_flags") or [])
+        assert flags and flags <= _pillar_flags(rnd, paradigm), (rnd, flags)
+    aef = final.json()["global_state"]["active_event_flags"]
+    assert set(aef.get("r1_pillar_flags") or []) <= _pillar_flags(1, paradigm)
+    if paradigm == "brsr_ngrbc":
+        assert aef.get("brsr_track_completed") is True
+        rc = (aef.get("_brsr_track_state") or {}).get("round_choices") or {}
+        assert len(rc) == _ROUNDS and all(v in ("option_a", "option_b", "option_c") for v in rc.values())

@@ -310,8 +310,23 @@ class BaseSideTrack(ABC):
         opt = opts.get(choice, {})
         impacts = opt.get("impacts", {})
 
+        # N1 (EVAL_AuditResponse 2026-09-10, action 5) — pillar mode. The
+        # router has already applied this round's pillar cost and aggregate
+        # impacts (the single impact source in pillar mode, the 2026-08-31
+        # ruling round_logic._apply_common_impacts follows), and the option
+        # this function sees is only the translated A/B/C proxy. The proxy's
+        # money and score impacts therefore do NOT apply on top — only its
+        # track-specific custom metrics (the BRSR dimension scores), which
+        # nothing else produces. Round 10 is the finale exception, as in the
+        # main sim: the router skips the aggregates and the ending's full
+        # impact set applies here.
+        pillar_mode = bool(events) and events.get("pillar_cost_applied") is not None
+        generic_bypassed = pillar_mode and round_number != 10
+        if generic_bypassed:
+            extra[f"st_{self.track_id}_generic_impacts_pillar_bypass_r{round_number}"] = True
+
         # Treasury
-        treasury_cost = impacts.get("treasury", 0)
+        treasury_cost = 0 if generic_bypassed else impacts.get("treasury", 0)
         if treasury_cost != 0:
             gs["corporate_treasury"] = round(
                 gs.get("corporate_treasury", 0) + treasury_cost, 2
@@ -319,7 +334,7 @@ class BaseSideTrack(ABC):
             extra[f"st_{self.track_id}_treasury_r{round_number}"] = treasury_cost
 
         # Reputation
-        rep = impacts.get("reputation", 0)
+        rep = 0 if generic_bypassed else impacts.get("reputation", 0)
         if rep:
             gs["group_reputation"] = max(
                 0.0, min(100.0, round(gs.get("group_reputation", 50.0) + rep, 2))
@@ -327,7 +342,7 @@ class BaseSideTrack(ABC):
             extra[f"st_{self.track_id}_rep_r{round_number}"] = rep
 
         # NCD
-        ncd = impacts.get("natural_capital_debt_delta", 0)
+        ncd = 0 if generic_bypassed else impacts.get("natural_capital_debt_delta", 0)
         if ncd:
             for bu in bus:
                 bu["natural_capital_debt"] = max(
@@ -336,7 +351,7 @@ class BaseSideTrack(ABC):
             extra[f"st_{self.track_id}_ncd_r{round_number}"] = ncd
 
         # I2 — Carbon intensity with scope-aware routing
-        ci = impacts.get("carbon_intensity_delta", 0)
+        ci = 0 if generic_bypassed else impacts.get("carbon_intensity_delta", 0)
         ci_routing = opt.get("ci_routing", "uniform")
         if ci:
             try:
@@ -357,7 +372,7 @@ class BaseSideTrack(ABC):
                 extra[f"st_{self.track_id}_ci_by_bu_r{round_number}"] = applied
 
         # Governance risk
-        gov = impacts.get("governance_risk_delta", 0)
+        gov = 0 if generic_bypassed else impacts.get("governance_risk_delta", 0)
         if gov:
             for bu in bus:
                 bu["governance_risk_score"] = max(
@@ -366,7 +381,7 @@ class BaseSideTrack(ABC):
             extra[f"st_{self.track_id}_gov_r{round_number}"] = gov
 
         # Social licence
-        sl = impacts.get("social_license_delta", 0)
+        sl = 0 if generic_bypassed else impacts.get("social_license_delta", 0)
         if sl:
             for bu in bus:
                 bu["social_license_score"] = max(
