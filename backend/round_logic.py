@@ -1164,15 +1164,18 @@ def run_new_engines(
                     extra["active_npc_cascades"] = cascades
                     for cascade in cascades:
                         eff = cascade.get("effects", {})
-                        # Treasury percentage hit
-                        if eff.get("treasury_pct_hit"):
-                            t_hit = round(global_state.get("corporate_treasury", 0) * abs(eff["treasury_pct_hit"]), 2)
-                            global_state["corporate_treasury"] = round(global_state.get("corporate_treasury", 0) - t_hit, 2)
-                            extra[f"npc_cascade_treasury_{cascade['npc_id']}"] = t_hit
-                        # Treasury flat hit
-                        if eff.get("treasury_flat_hit"):
-                            global_state["corporate_treasury"] = round(
-                                global_state.get("corporate_treasury", 0) + eff["treasury_flat_hit"], 2
+                        # Cash effects — F07 / N5 (audit 2026-09-09): the shared
+                        # applicator (fine_basis): a revenue fine on annual
+                        # revenue, a treasury percentage on max(0, treasury),
+                        # a flat amount as given; never a credit.
+                        from fine_basis import apply_cash_effects as _apply_cash, total_charged as _charged
+                        _cash = _apply_cash(eff, global_state, bu_states)
+                        if _cash:
+                            extra[f"npc_cascade_treasury_{cascade['npc_id']}"] = _charged(_cash)
+                        # Cost of capital (D3: the investor cascade acts here)
+                        if eff.get("cost_of_capital_delta"):
+                            global_state["cost_of_capital"] = round(
+                                float(global_state.get("cost_of_capital", 0.05) or 0.05) + eff["cost_of_capital_delta"], 4
                             )
                         # Reputation delta
                         if eff.get("reputation_delta"):

@@ -637,13 +637,16 @@ STAKEHOLDER_REACTION_GATES = {
             "persistence_rounds": 2,
             "action": "divestment_campaign",
             "effects": {
-                "treasury_pct_hit": -0.05,
+                # F07 / N5 / D3 (2026-09-10): a divestment campaign moves the
+                # share price and the cost of capital, not the corporate till.
+                "cost_of_capital_delta": 0.01,
                 "reputation_delta": -8,
                 "cascading_triggers": ["journalist_hostile"],
             },
             "narrative": (
-                "🦅 FutureFirst launches divestment campaign. Share price drops 5%. "
-                "Financial media coverage amplifies reputational damage."
+                "🦅 FutureFirst launches divestment campaign. Share price drops 5%, "
+                "the cost of capital rises. Financial media coverage amplifies "
+                "reputational damage."
             ),
         },
         "proxy_fight": {
@@ -670,12 +673,14 @@ STAKEHOLDER_REACTION_GATES = {
             ],
             "action": "enforcement_action",
             "effects": {
-                "treasury_pct_hit": -0.04,
+                # F07 / N5 / D3: the fine the narrative names — 4% of ANNUAL
+                # revenue (fine_basis), never a share of a negative treasury.
+                "revenue_pct_fine": 0.04,
                 "mandatory_disclosure": True,
                 "cascading_triggers": ["journalist_hostile", "activist_investor_hostile"],
             },
             "narrative": (
-                "🏛️ EU DG FISMA launches enforcement action. Fine: 4% of revenue. "
+                "🏛️ EU DG FISMA launches enforcement action. Fine: 4% of annual revenue. "
                 "Mandatory enhanced disclosure requirements imposed."
             ),
         },

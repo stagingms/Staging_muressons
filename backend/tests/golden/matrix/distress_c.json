@@ -519,7 +519,7 @@
       "treasury_moves": [
         [
           "Autonomous stakeholder agents (triggered events)",
-          -8368719.24
+          -7378103.94
         ]
       ]
     },
@@ -545,7 +545,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 113269641.76,
+      "corporate_treasury": 114260257.06,
       "cost_of_capital": 0.072,
       "green_transition_fund": 0.0,
       "historical_ebitda": 28543068.77,
@@ -620,10 +620,6 @@
       ],
       "treasury_moves": [
         [
-          "Autonomous stakeholder agents (triggered events)",
-          -5408733.0
-        ],
-        [
           "NPC stakeholders (enforcement fines, cascades)",
           -7810672.07
         ]
@@ -656,7 +652,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 62200429.47,
+      "corporate_treasury": 68599777.77,
       "cost_of_capital": 0.1009,
       "green_transition_fund": 0.0,
       "historical_ebitda": 30795418.05,
@@ -731,10 +727,6 @@
       ],
       "treasury_moves": [
         [
-          "Autonomous stakeholder agents (triggered events)",
-          -5408733.0
-        ],
-        [
           "NPC stakeholders (enforcement fines, cascades)",
           -7810672.07
         ]
@@ -770,7 +762,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 1111471.13,
+      "corporate_treasury": 7510819.43,
       "cost_of_capital": 0.1008,
       "green_transition_fund": 0.0,
       "historical_ebitda": 32820925.09,
@@ -845,8 +837,8 @@
       ],
       "treasury_moves": [
         [
-          "Balance sheet (short-term debt interest)",
-          -1153284.02
+          "NPC stakeholders (enforcement fines, cascades)",
+          -7810672.07
         ]
       ]
     },
@@ -864,13 +856,11 @@
       "deny_and_deflect",
       "desalination_built",
       "desalination_payback_started",
-      "distress_detected",
       "greenwashing_checked",
       "insolvency_warning",
       "insurance_only",
       "materiality_ignored",
       "opex_penalty_active",
-      "phase_transition",
       "quiet_patch",
       "reflection_required",
       "regulatory_floor_eroded",
@@ -878,7 +868,6 @@
       "retraining_succeeded",
       "stakeholder_misanalysis_penalty",
       "succeeded",
-      "survival_mode",
       "synergy_multiplier_unlocked",
       "synergy_unlock",
       "technology_lockin_penalty",
@@ -888,7 +877,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": -62703979.89,
+      "corporate_treasury": -59059304.27,
       "cost_of_capital": 0.1018,
       "green_transition_fund": 0.0,
       "historical_ebitda": 35906958.7,
@@ -964,7 +953,7 @@
       "treasury_moves": [
         [
           "Balance sheet (short-term debt interest)",
-          -1057770.9
+          -972419.28
         ],
         [
           "NPC stakeholders (enforcement fines, cascades)",
@@ -986,6 +975,7 @@
       "deny_and_deflect",
       "desalination_built",
       "desalination_payback_started",
+      "distress_detected",
       "divest",
       "dividend_ratchet_triggered",
       "dividends_clamped",
@@ -999,7 +989,9 @@
       "mr_instability_discount",
       "mr_wellbeing_bonus",
       "opex_penalty_active",
+      "phase_transition",
       "quiet_patch",
+      "reflection_required",
       "regulatory_floor_eroded",
       "regulatory_ratchet_active",
       "retraining_succeeded",
@@ -1018,7 +1010,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": -56834860.56,
+      "corporate_treasury": -48214347.64,
       "cost_of_capital": 0.1018,
       "green_transition_fund": 0.0,
       "historical_ebitda": 29656341.86,
@@ -1049,7 +1041,7 @@
   {
     "finale": {
       "archetype": "STRANDED_RELIC",
-      "equity_value": 122107383.39,
+      "equity_value": 139348409.23,
       "equity_wiped_out": 0.0,
       "exit_multiple_applied": 12.67,
       "exit_multiple_wacc_used": 0.1005,
@@ -1059,8 +1051,8 @@
         "instability_discount": -0.4,
         "max_achievable_mr": 1.93
       },
-      "net_debt": 163669721.12,
-      "price_per_share": 18.79,
+      "net_debt": 146428695.28,
+      "price_per_share": 21.44,
       "profile": "stranded_relic",
       "regenerative_multiple": 0.78,
       "terminal_ebitda": 28917198.36,

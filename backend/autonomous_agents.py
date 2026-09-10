@@ -71,7 +71,10 @@ AGENT_PROFILES = {
                 "Fine: 4% of annual revenue. Mandatory disclosure regime imposed."
             ),
             "effects": {
-                "treasury_pct_hit": -0.04,
+                # F07 / D3 (2026-09-10): the fine the narrative names — 4% of
+                # ANNUAL revenue (fine_basis.annual_revenue), never a share of
+                # a negative treasury.
+                "revenue_pct_fine": 0.04,
                 "reputation_delta": -12,
                 "governance_risk_delta": -8,  # paradoxically improves via forced reform
                 "opex_pct_increase": 0.06,
@@ -168,7 +171,8 @@ AGENT_PROFILES = {
                 "Three other institutional investors follow within 48 hours."
             ),
             "effects": {
-                "treasury_pct_hit": -0.08,
+                # F07 / D3: a divestment moves the share price and the cost of
+                # capital, not the corporate till — no treasury hit.
                 "reputation_delta": -15,
                 "cost_of_capital_delta": 0.02,
             },
@@ -263,8 +267,9 @@ AGENT_PROFILES = {
                 "Board calls emergency session. '#MuressonsExposed' trends #1 globally."
             ),
             "effects": {
+                # F07 / D3: an exposé costs reputation, social licence and
+                # governance standing — no treasury hit.
                 "reputation_delta": -20,
-                "treasury_pct_hit": -0.03,
                 "social_license_delta": -10,
                 "governance_risk_delta": 10,
             },
@@ -698,21 +703,16 @@ def process_agent_tick(
         te = profile["triggered_event"]
         effects = te["effects"]
 
-        # Treasury percentage hit
-        if effects.get("treasury_pct_hit"):
-            hit = round(
-                gs.get("corporate_treasury", 0) * abs(effects["treasury_pct_hit"]), 2
-            )
-            gs["corporate_treasury"] = round(
-                gs.get("corporate_treasury", 0) - hit, 2
-            )
-            diagnostics[f"agent_treasury_hit_{triggered_id}"] = hit
-
-        # Treasury flat hit
-        if effects.get("treasury_flat_hit"):
-            gs["corporate_treasury"] = round(
-                gs.get("corporate_treasury", 0) + effects["treasury_flat_hit"], 2
-            )
+        # Cash effects — F07 / N5 (audit 2026-09-09): one applicator
+        # (fine_basis.apply_cash_effects). A revenue fine is charged on
+        # annual revenue; a treasury percentage on max(0, treasury); a flat
+        # amount as given. A charge can only ever lower the treasury — the
+        # old `treasury × |pct|` credited cash to a team in emergency credit.
+        from fine_basis import apply_cash_effects, total_charged
+        _cash = apply_cash_effects(effects, gs, bus)
+        if _cash:
+            diagnostics[f"agent_treasury_hit_{triggered_id}"] = total_charged(_cash)
+            diagnostics[f"agent_treasury_hit_{triggered_id}_basis"] = dict(_cash)
 
         # Reputation
         if effects.get("reputation_delta"):

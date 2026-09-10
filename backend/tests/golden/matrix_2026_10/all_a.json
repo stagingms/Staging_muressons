@@ -645,7 +645,7 @@
       "treasury_moves": [
         [
           "Autonomous stakeholder agents (triggered events)",
-          -11045905.39
+          -8365984.17
         ],
         [
           "NPC stakeholders (enforcement fines, cascades)",
@@ -688,7 +688,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 149505044.99,
+      "corporate_treasury": 152184966.21,
       "cost_of_capital": 0.0534,
       "green_transition_fund": 0.0,
       "historical_ebitda": 51399224.21,
@@ -764,7 +764,11 @@
       "treasury_moves": [
         [
           "Autonomous stakeholder agents (triggered events)",
-          -12094564.77
+          -8365984.17
+        ],
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -7317643.09
         ]
       ]
     },
@@ -806,7 +810,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 139087494.8,
+      "corporate_treasury": 153861980.79,
       "cost_of_capital": 0.0789,
       "green_transition_fund": 0.0,
       "historical_ebitda": 56159605.42,
@@ -882,7 +886,11 @@
       "treasury_moves": [
         [
           "Autonomous stakeholder agents (triggered events)",
-          -12094564.77
+          -8365984.17
+        ],
+        [
+          "NPC stakeholders (enforcement fines, cascades)",
+          -7317643.09
         ]
       ]
     },
@@ -924,7 +932,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 177260179.12,
+      "corporate_treasury": 192034665.11,
       "cost_of_capital": 0.0774,
       "green_transition_fund": 0.0,
       "historical_ebitda": 53815502.31,
@@ -1051,7 +1059,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 190770669.28,
+      "corporate_treasury": 205545155.27,
       "cost_of_capital": 0.0866,
       "green_transition_fund": 0.0,
       "historical_ebitda": 53110099.44,
@@ -1082,7 +1090,7 @@
   {
     "finale": {
       "archetype": "FRAGILE_GIANT",
-      "equity_value": 795586251.99,
+      "equity_value": 810360737.98,
       "equity_wiped_out": 0.0,
       "exit_multiple_applied": 15.32,
       "exit_multiple_wacc_used": 0.0866,
@@ -1095,8 +1103,8 @@
         "max_achievable_mr": 1.93,
         "resilience_bonus": 0.2
       },
-      "net_debt": -140770669.28,
-      "price_per_share": 122.4,
+      "net_debt": -155545155.27,
+      "price_per_share": 124.67,
       "profile": "fragile_giant",
       "regenerative_multiple": 0.8,
       "terminal_ebitda": 53067306.7,

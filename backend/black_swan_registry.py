@@ -705,7 +705,10 @@ def evaluate_black_swans(
             # ── Impact calculation — difficulty multiplier applied here only ──
             treasury_hit = 0
             if "treasury_pct_hit" in impacts:
-                treasury_hit += round(treasury * abs(impacts["treasury_pct_hit"]) * impact_mult, 2)
+                # F07 / N5 (audit 2026-09-09): a percentage of the POSITIVE
+                # balance — a black swan on a team in emergency credit was a
+                # windfall (treasury × |pct| < 0, then subtracted).
+                treasury_hit += round(max(0.0, float(treasury or 0)) * abs(impacts["treasury_pct_hit"]) * impact_mult, 2)
             if "treasury_flat_hit" in impacts:
                 treasury_hit += round(abs(impacts["treasury_flat_hit"]) * impact_mult, 2)
 

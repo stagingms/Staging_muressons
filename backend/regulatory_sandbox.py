@@ -843,8 +843,8 @@ def _evaluate_exogenous_trigger(
             rate_bump = effects["ncd_interest_rate_bps_increase"] / 10_000
             bu["natural_capital_debt"] = round(ncd * (1 + rate_bump), 2)
 
-        treasury_hit = round(
-            gs.get("corporate_treasury", 0) * abs(effects.get("treasury_pct_hit", 0)), 2
+        treasury_hit = round(   # F07 / N5: never a credit on a negative balance
+            max(0.0, float(gs.get("corporate_treasury", 0) or 0)) * abs(effects.get("treasury_pct_hit", 0)), 2
         )
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - treasury_hit, 2)
         gs["group_reputation"] = max(0, round(
@@ -1125,8 +1125,8 @@ def trigger_exogenous_event(
             gs["corporate_treasury"] = round(
                 gs["corporate_treasury"] - efx["fine_amount"], 2
             )
-        if efx.get("treasury_pct_hit"):
-            hit = round(gs["corporate_treasury"] * abs(efx["treasury_pct_hit"]), 2)
+        if efx.get("treasury_pct_hit"):   # F07 / N5: never a credit on a negative balance
+            hit = round(max(0.0, float(gs["corporate_treasury"] or 0)) * abs(efx["treasury_pct_hit"]), 2)
             gs["corporate_treasury"] = round(gs["corporate_treasury"] - hit, 2)
         if efx.get("reputation_delta"):
             gs["group_reputation"] = max(0, round(

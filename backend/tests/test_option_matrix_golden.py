@@ -127,9 +127,18 @@ _PRE_TICK_SIGNATURE_FLAGS = frozenset({
 })
 # The distress cascade, which lived on all_c until server-derived crisis severity
 # made that path solvent. distress_c carries it now.
+#
+# insolvency_warning joined the set with F07 / D3 (2026-09-10): the investor
+# and journalist agents and the divestment cascade stopped draining a
+# percentage of the till (they act through cost of capital and reputation
+# now), so production all_c ends R10 at $37.8M instead of $29.6M and its
+# treasury trend no longer projects insolvency within three rounds. The
+# reduced mode's all_c still goes to −$33.5M at R9 and warns there — the same
+# "all_c is solvent only in production" story as the six flags above.
 _DISTRESS_CASCADE_FLAGS = frozenset({
     "survival_mode", "cfo_austerity_active", "dividends_clamped",
     "dividend_ratchet_triggered", "distress_detected", "phase_transition",
+    "insolvency_warning",
 })
 # The reader divergence on legacy_mixed, from tests/golden/financial_trace.json.
 _RAW_READER_MR = 1.25
