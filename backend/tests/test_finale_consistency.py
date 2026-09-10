@@ -71,11 +71,18 @@ def _assert_one_closing_number(final: dict):
     tonnage = sum(b.get("carbon_intensity", 0) * b.get("revenue_base", 0) / 1_000_000 for b in bus)
     assert flags["carbon_tonnage_group"] == pytest.approx(tonnage, rel=1e-6)
     # Equity bridge recomputed from the persisted state equals the stamped one.
+    # The debt stack mirrors round_logic._equity_and_solvency: revolver +
+    # green bonds + the CapEx term loan (F-05) + short-term debt + the
+    # emergency credit line (FIN-05). The last term was missing here, so this
+    # test failed by exactly $1,000,000 in every unseeded game that happened
+    # to draw the line (5 of 12 probe runs, 2026-09-10) — the "N6 flake" of
+    # the audit response, a defect of the recompute, not of the engine.
     bs = gs.get("balance_sheet") or flags.get("balance_sheet") or {}
     ncl, cl = bs.get("non_current_liabilities", {}), bs.get("current_liabilities", {})
     debt = (ncl.get("revolving_credit_facility", 50_000_000) + ncl.get("green_bonds_outstanding", 0.0)
             + max(ncl.get("capex_term_loan", 0.0), float(flags.get("capex_loan_balance", 0.0) or 0.0))
-            + cl.get("short_term_debt", 0.0))
+            + cl.get("short_term_debt", 0.0)
+            + max(cl.get("emergency_credit_line", 0.0), float(flags.get("emergency_credit_balance", 0.0) or 0.0)))
     bridge = calculate_equity_bridge(enterprise_value=flags["terminal_value"],
                                      net_debt=round(debt - gs["corporate_treasury"], 2),
                                      shares_outstanding=TV_SHARES_OUTSTANDING,
