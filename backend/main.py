@@ -595,6 +595,28 @@ async def _timeout_as_service_unavailable(request: Request, exc: asyncio.Timeout
     )
 
 
+# N2 (audit 2026-09-09, F01 generalised): a round-bound write found the
+# session on a later round. The write was NOT applied; the caller's state is
+# stale. 409 with a code the cockpit can act on (refresh, then redo the
+# action on the current round) — never a 500.
+from store_errors import StaleStateError as _StaleStateError
+
+
+@app.exception_handler(_StaleStateError)
+async def _stale_state_as_conflict(request: Request, exc: _StaleStateError):
+    logging.warning("Stale write refused on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=409,
+        content={"detail": {
+            "code": "stale_state",
+            "expected_round": exc.expected_round,
+            "current_round": exc.actual_round,
+            "message": "The round advanced while this was being saved, so nothing was changed. "
+                       "Refresh the board and try again on the current round.",
+        }},
+    )
+
+
 # LOW-009: Generic error handler — never expose internal tracebacks in production
 @app.exception_handler(Exception)
 async def _global_exception_handler(request: Request, exc: Exception):

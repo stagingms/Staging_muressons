@@ -1523,16 +1523,23 @@ async def update_latest_global_state(
     session_id: str,
     global_state: dict,
     bu_states: list[dict],
+    *,
+    expected_round: int | None = None,
 ) -> None:
     """
     Update the LATEST round's global and BU states in place.
     Used by God Mode overrides.
+
+    N2 (audit 2026-09-09): `expected_round` binds the write to the round the
+    caller read — parity with database.update_latest_global_state.
     """
     rounds = _global_states.get(session_id, [])
     if not rounds:
         return
 
     latest = rounds[-1]
+    if expected_round is not None and int(latest.get("round_number", 0) or 0) != int(expected_round):
+        raise StaleStateError(session_id, expected_round, int(latest.get("round_number", 0) or 0))
     latest["corporate_treasury"] = global_state["corporate_treasury"]
     latest["group_reputation"] = global_state["group_reputation"]
     latest["synergy_multiplier"] = global_state.get("synergy_multiplier", 1.0)
@@ -1588,8 +1595,7 @@ async def update_latest_global_state(
     _persist()
 
 
-class StaleStateError(Exception):
-    """Parity with database.StaleStateError (F01, audit 2026-09-09)."""
+from store_errors import StaleStateError  # noqa: E402  (F01 / N2 — shared with the Postgres store)
 
 
 async def update_draft_fields(session_id: str, round_number: int, draft: dict) -> bool:

@@ -176,3 +176,30 @@ def test_pillar_draft_round_trips_through_postgres(monkeypatch):
     assert r.status_code == 200, r.text[:200]
     assert d["global_state"]["saved_pillar_decisions"] == pillars
     assert d["global_state"]["saved_round"] == 1
+
+
+def test_update_latest_global_state_is_round_bound_on_postgres(monkeypatch):
+    """N2: the general write helper refuses a write bound to a round the
+    session has left — both by the round it finds (StaleStateError before
+    any UPDATE) and, for the SELECT→UPDATE gap, via the append-only trigger."""
+    from store_errors import StaleStateError
+
+    async def go():
+        import database as db
+        async with httpx.AsyncClient(transport=ASGITransport(app=main.app), base_url="http://t") as ac:
+            await _login(ac, monkeypatch)
+            cid = await _cohort(ac)
+            sid, _, h = await _player(ac, cid, "PGn2")
+            r1 = await db.fetch_latest_state(sid)
+            assert (await _commit(ac, sid, h)).status_code == 201
+            stale_gs = dict(r1["global_state"]); stale_gs["corporate_treasury"] = 1.0
+            refused = None
+            try:
+                await db.update_latest_global_state(sid, stale_gs, r1["bu_states"], expected_round=1)
+            except StaleStateError as exc:
+                refused = exc
+            after = await db.fetch_latest_state(sid)
+            return refused, after
+    refused, after = _run_pg(go())
+    assert refused is not None and refused.expected_round == 1 and refused.actual_round == 2
+    assert after["round_number"] == 2 and after["global_state"]["corporate_treasury"] != 1.0

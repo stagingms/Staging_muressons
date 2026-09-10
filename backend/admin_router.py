@@ -337,6 +337,8 @@ def require_sim_manager(role: str = Depends(get_fac_role)):
 
 import database as db
 import materiality_db as mat_db
+from store_errors import StaleStateError
+
 from config import MASTER_PASSWORD, PROJECT_ADMIN_PASSWORD, SIM_ROUNDS, SIM_INITIAL_BUDGET
 from master_credentials import verify_master_password, set_master_password, master_override_active
 from password_hashing import hash_password, verify_password, maybe_upgrade_password
@@ -401,6 +403,30 @@ admin_router = APIRouter(prefix="/api/admin", tags=["Admin \u2014 God Mode"])
 import logging
 import logging as _ar_logging
 _ar_log = _ar_logging.getLogger("muressons.admin")
+
+
+async def _rmw_latest(session_id: str, mutate, attempts: int = 2):
+    """N2 (audit 2026-09-09): a facilitator read-modify-write of a team's
+    latest state that survives the team committing in the same instant.
+    Reads the latest state, applies `mutate(gs, bus, latest)`, writes it back
+    bound to the round it read; if the team's round advanced meanwhile the
+    write is refused (StaleStateError) and the mutation is re-applied ONCE to
+    the fresh state — the facilitator's action lands on the team's current
+    round instead of silently replacing the new round with the old one.
+    Returns the state it read, or None when the session has no state."""
+    for attempt in range(attempts):
+        latest = await db.fetch_latest_state(session_id)
+        if not latest:
+            return None
+        gs, bus = latest["global_state"], latest["bu_states"]
+        mutate(gs, bus, latest)
+        try:
+            await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
+            return latest
+        except StaleStateError:
+            if attempt == attempts - 1:
+                raise
+    return None
 
 
 # _get_session_paradigm imported from admin_shared
@@ -1197,14 +1223,14 @@ async def patch_cohort_settings(
             if latest:
                 gs = latest["global_state"]
                 _stamp_seed(gs, _seed)
-                await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+                await db.update_latest_global_state(session_id, gs, latest["bu_states"], expected_round=latest["round_number"])
                 for child in await db.get_child_sessions(session_id):
                     child_state = await db.fetch_latest_state(child["session_id"])
                     if not child_state:
                         continue
                     child_gs = child_state["global_state"]
                     _stamp_seed(child_gs, _seed)
-                    await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
+                    await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"], expected_round=child_state["round_number"])
         except Exception as _e:  # never fail the settings write on a stamping hiccup
             _ar_log.warning(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
 
@@ -1905,7 +1931,7 @@ async def switch_session_ending_pathway(session_id: str, request: Request, body:
 
     gs = latest["global_state"]
     gs.setdefault("active_event_flags", {})["ending_pathway"] = new_pathway
-    await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+    await db.update_latest_global_state(session_id, gs, latest["bu_states"], expected_round=latest["round_number"])
 
     # Also update all child player sessions
     children = await db.get_child_sessions(session_id)
@@ -1914,7 +1940,7 @@ async def switch_session_ending_pathway(session_id: str, request: Request, body:
         if child_state:
             child_gs = child_state["global_state"]
             child_gs.setdefault("active_event_flags", {})["ending_pathway"] = new_pathway
-            await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
+            await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"], expected_round=child_state["round_number"])
 
     _ar_log.info(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
     return {
@@ -1968,7 +1994,7 @@ async def configure_cohort_interview(session_id: str, request: Request, body: di
     # The parent write is the authoritative one; child propagation is
     # best-effort catch-up and must not be able to fail the operation.
     try:
-        await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+        await db.update_latest_global_state(session_id, gs, latest["bu_states"], expected_round=latest["round_number"])
     except HTTPException:
         raise
     except Exception as exc:
@@ -1992,7 +2018,7 @@ async def configure_cohort_interview(session_id: str, request: Request, body: di
                 child_flags["ceo_interview_enabled"] = flags["ceo_interview_enabled"]
             if "ceo_interview_voice_gender" in body:
                 child_flags["ceo_interview_voice_gender"] = flags.get("ceo_interview_voice_gender", "female")
-            await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
+            await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"], expected_round=child_state["round_number"])
             child_ok += 1
         except Exception:
             # A bad child does not undo the parent write, and does not fail the
@@ -4005,7 +4031,7 @@ async def set_session_interventions(
             flags["override_rounds"] = req.override_rounds
             flags["swipe_rounds"] = req.swipe_rounds
             gs["active_event_flags"] = flags
-            await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+            await db.update_latest_global_state(session_id, gs, latest["bu_states"], expected_round=latest["round_number"])
     except Exception:
         pass  # Non-critical: in-memory cache is still set
 
@@ -4181,7 +4207,7 @@ async def override_materiality_dictionary(
     if "materiality_cost_overrides" in global_state:
         del global_state["materiality_cost_overrides"]
         
-    await db.update_latest_global_state(session_id, global_state, bu_states)
+    await db.update_latest_global_state(session_id, global_state, bu_states, expected_round=current["round_number"])
     return {"status": "success", "message": "Cohort-specific dictionary enabled."}
 
 @admin_router.delete("/{session_id}/materiality-dictionary", summary="Revert cohort to God Mode dictionary")
@@ -4204,7 +4230,7 @@ async def revert_materiality_dictionary(
     if "materiality_dictionary_override" in global_state:
         del global_state["materiality_dictionary_override"]
         
-    await db.update_latest_global_state(session_id, global_state, bu_states)
+    await db.update_latest_global_state(session_id, global_state, bu_states, expected_round=current["round_number"])
     return {"status": "success", "message": "Reverted to God Mode defaults."}
 
 
@@ -6599,7 +6625,7 @@ async def apply_override(session_id: str, body: OverrideRequest, request: Reques
         )
 
     # Persist the mutated state
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=current["round_number"])
 
     # Auto-inject a mailbox message so the player sees the override in their inbox
     override_msg = {
@@ -6731,7 +6757,7 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, req
     gs["active_event_flags"]["custom_black_swans"] = existing_swans
 
     # ── Persist mutated state ──
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=current["round_number"])
 
     # ── Inject mailbox message ──
     message = {
@@ -6864,25 +6890,32 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
 
     children = await db.fetch_child_session_ids(cohort_id)   # F-28: indexed
     applied = 0
+    skipped_stale = []
     for sid in children:
-        cur = await db.fetch_latest_state(sid)
+        def _shock(gs, bus, latest):
+            gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) + ev["financial_impact"], 2)
+            gs["group_reputation"] = max(0, min(100, round(gs.get("group_reputation", 50) + ev["reputation_impact"], 2)))
+            rec = {
+                "type": "shockwave", "event_id": event_id, "title": ev["title"], "narrative": ev["narrative"],
+                "financial_impact": ev["financial_impact"], "reputation_impact": ev["reputation_impact"],
+                "injected_at": datetime.now(timezone.utc).isoformat(),
+            }
+            gs.setdefault("active_event_flags", {})
+            if not isinstance(gs["active_event_flags"], dict):
+                gs["active_event_flags"] = {}
+            sw = gs["active_event_flags"].get("custom_black_swans", [])
+            sw.append(rec)
+            gs["active_event_flags"]["custom_black_swans"] = sw
+        # N2: read → mutate → write bound to the round read; a team that commits
+        # in this very instant gets the shockwave re-applied to its new round
+        # rather than its new round overwritten by the old one.
+        try:
+            cur = await _rmw_latest(sid, _shock)
+        except StaleStateError:
+            skipped_stale.append(sid)
+            continue
         if not cur:
             continue
-        gs = cur["global_state"]; bus = cur["bu_states"]
-        gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) + ev["financial_impact"], 2)
-        gs["group_reputation"] = max(0, min(100, round(gs.get("group_reputation", 50) + ev["reputation_impact"], 2)))
-        rec = {
-            "type": "shockwave", "event_id": event_id, "title": ev["title"], "narrative": ev["narrative"],
-            "financial_impact": ev["financial_impact"], "reputation_impact": ev["reputation_impact"],
-            "injected_at": datetime.now(timezone.utc).isoformat(),
-        }
-        gs.setdefault("active_event_flags", {})
-        if not isinstance(gs["active_event_flags"], dict):
-            gs["active_event_flags"] = {}
-        sw = gs["active_event_flags"].get("custom_black_swans", [])
-        sw.append(rec)
-        gs["active_event_flags"]["custom_black_swans"] = sw
-        await db.update_latest_global_state(sid, gs, bus)
         msg = {
             "id": f"shockwave_{datetime.now(timezone.utc).timestamp():.0f}_{sid[:6]}",
             "round": cur["round_number"], "type": "crisis", "title": f"🌊 {ev['title']}",
@@ -6899,8 +6932,10 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
         "countdown": countdown, "cohort_id": cohort_id,
     })
     await manager.broadcast_admin({"type": "shockwave_detonated", "cohort_id": cohort_id, "event_id": event_id, "applied": applied})
-    _audit("shockwave_detonated", details={"cohort_id": cohort_id, "event_id": event_id, "applied": applied})
-    return {"status": "detonated", "event_id": event_id, "teams_hit": applied, "event": ev}
+    _audit("shockwave_detonated", details={"cohort_id": cohort_id, "event_id": event_id, "applied": applied,
+                                            "skipped_stale": skipped_stale})
+    return {"status": "detonated", "event_id": event_id, "teams_hit": applied, "event": ev,
+            "skipped_stale": skipped_stale}
 
 
 @admin_router.get(
@@ -7369,7 +7404,7 @@ async def set_bu_composition(session_id: str, request: Request, body: dict = Bod
     new_bu_states = build_bu_states(substitutions)
 
     # Persist to cohort session
-    await db.update_latest_global_state(session_id, global_state, new_bu_states)
+    await db.update_latest_global_state(session_id, global_state, new_bu_states, expected_round=current["round_number"])
 
     # Cascade to all child player sessions
     children = await db.get_child_sessions(session_id)
@@ -7379,7 +7414,8 @@ async def set_bu_composition(session_id: str, request: Request, body: dict = Bod
             child_gs = child_state["global_state"]
             child_gs["bu_substitutions"] = substitutions
             await db.update_latest_global_state(
-                child["session_id"], child_gs, new_bu_states
+                child["session_id"], child_gs, new_bu_states,
+                expected_round=child_state["round_number"],
             )
 
     # Audit log
@@ -7660,7 +7696,7 @@ async def get_r2_bu_selection(session_id: str, request: Request):
         active_bus = get_active_bus(subs)
         selected_bu = event_rng(global_state.get("active_event_flags") or {}, 2, "r2_materiality_bu").choice(active_bus)
         global_state["r2_selected_bu"] = selected_bu
-        await db.update_latest_global_state(session_id, global_state, current["bu_states"])
+        await db.update_latest_global_state(session_id, global_state, current["bu_states"], expected_round=current["round_number"])
 
     # Dynamic label lookup from profiles
     profile = BU_PROFILES.get(selected_bu, {})
@@ -12358,7 +12394,7 @@ async def turnaround_open(session_id: str, request: Request,
         raise HTTPException(409, f"Not eligible: M_R {mr} is not below {TURNAROUND_ARC_MR_THRESHOLD}")
 
     result = te.enter_arc(gs, bus)
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     _audit("turnaround_opened", details={"session_id": session_id, "by": fac_id})
     return {"ok": True, **result}
 
@@ -12384,7 +12420,7 @@ async def turnaround_commit(session_id: str, request: Request, body: dict = Body
         result = te.apply_commit(gs, bus, choice)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     _audit("turnaround_committed", details={
         "session_id": session_id, "choice": choice,
         "round": result.get("turnaround_round"), "phase": result.get("phase"),
@@ -12406,7 +12442,7 @@ async def turnaround_abort(session_id: str, request: Request,
     if not gs.get("turnaround_mode"):
         raise HTTPException(409, "No active turnaround to abort")
     result = te.abort_arc(gs, bus)
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     _audit("turnaround_aborted", details={"session_id": session_id})
     return {"ok": True, **result}
 
@@ -12758,7 +12794,7 @@ async def apply_industry_vertical(vertical_id: str, session_id: str, request: Re
     gs["industry_vertical_label"] = vertical["label"]
     gs["industry_vertical_icon"] = vertical.get("icon", "🏢")
 
-    await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+    await db.update_latest_global_state(session_id, gs, latest["bu_states"], expected_round=latest["round_number"])
 
     # Propagate to child player sessions
     children = await db.get_child_sessions(session_id)
@@ -12770,7 +12806,7 @@ async def apply_industry_vertical(vertical_id: str, session_id: str, request: Re
             cgs.setdefault("active_event_flags", {})["industry_vertical_applied"] = vertical_id
             cgs["industry_vertical_label"] = vertical["label"]
             cgs["industry_vertical_icon"] = vertical.get("icon", "🏢")
-            await db.update_latest_global_state(child["session_id"], cgs, child_state["bu_states"])
+            await db.update_latest_global_state(child["session_id"], cgs, child_state["bu_states"], expected_round=child_state["round_number"])
 
     issues = cfg.get("issues", [])
     q1_issues = [i for i in issues if _cq_v2(i) == "q1"]  # F-6: single classifier
@@ -12927,7 +12963,7 @@ async def submit_mod4_crisis_choices(session_id: str, request: Request, body: di
             sum(b.get("reputation", 70) for b in bu_states) / len(bu_states), 1
         )
 
-    await db.update_latest_global_state(session_id, gs, bu_states)
+    await db.update_latest_global_state(session_id, gs, bu_states, expected_round=latest["round_number"])
 
     # Propagate to child player sessions
     children = await db.get_child_sessions(session_id)
@@ -12952,7 +12988,7 @@ async def submit_mod4_crisis_choices(session_id: str, request: Request, body: di
                 bu["social_license"] = max(0, min(100, (bu.get("social_license", 75) + impacts["slo_delta"])))
                 bu["governance_risk"] = max(0, min(100, (bu.get("governance_risk", 20) + impacts["governance_risk_delta"])))
                 bu["reputation"] = max(0, min(100, (bu.get("reputation", 70) + impacts["reputation_delta"])))
-            await db.update_latest_global_state(child["session_id"], cgs, cbu)
+            await db.update_latest_global_state(child["session_id"], cgs, cbu, expected_round=child_state["round_number"])
 
     _audit("mod4_crisis_submitted", details={
         "session_id": session_id,

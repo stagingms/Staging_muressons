@@ -1582,13 +1582,26 @@ async def update_latest_global_state(
     session_id: str,
     global_state: dict,
     bu_states: list[dict],
+    *,
+    expected_round: int | None = None,
 ) -> None:
-    """Update the LATEST round's global and BU states in place."""
+    """Update the LATEST round's global and BU states in place.
+
+    N2 (audit 2026-09-09 F01 generalised): every caller of this function
+    reads the latest state, mutates it, and hands it back — a read-modify-
+    write that used to resolve "latest" AGAIN here, at write time. A commit
+    landing between the read and the write made the write land on the NEW
+    round with the OLD round's economics. `expected_round` binds the write to
+    the round the caller read: if the session has moved on, StaleStateError
+    is raised and nothing is written (main.py answers 409 stale_state). The
+    append-only trigger closes the remaining gap between the SELECT and the
+    UPDATE — its refusal is reported the same way.
+    """
     pool = await get_pool()
     async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         grs = await conn.fetchrow(
             """
-            SELECT state_id FROM global_round_states
+            SELECT state_id, round_number FROM global_round_states
             WHERE session_id = $1
             ORDER BY round_number DESC LIMIT 1
             """,
@@ -1596,6 +1609,8 @@ async def update_latest_global_state(
         )
         if grs is None:
             return
+        if expected_round is not None and int(grs["round_number"]) != int(expected_round):
+            raise StaleStateError(session_id, expected_round, int(grs["round_number"]))
 
         state_id = grs["state_id"]
 
@@ -1609,70 +1624,74 @@ async def update_latest_global_state(
             if k not in explicit_global_columns:
                 flags[k] = v
 
-        async with conn.transaction():
-            # Update global state
-            await conn.execute(
-                """
-                UPDATE global_round_states SET
-                    corporate_treasury = $2,
-                    group_reputation = $3,
-                    synergy_multiplier = $4,
-                    cost_of_capital = $5,
-                    active_event_flags = $6
-                WHERE state_id = $1
-                """,
-                state_id,
-                global_state["corporate_treasury"],
-                global_state["group_reputation"],
-                global_state["synergy_multiplier"],
-                global_state.get("cost_of_capital", 0.05),
-                _dumps(flags),
-            )
-
-            # Update BU states
-            for bu in bu_states:
-                explicit_columns = {
-                    "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
-                    "social_license_score", "reputation_score", "governance_risk_score",
-                    "water_dependency", "carbon_intensity"
-                }
-                rf = dict(bu.get("risk_factors", {}))
-                for k, v in bu.items():
-                    if k not in explicit_columns and k != "risk_factors":
-                        rf[k] = v
-
+        try:
+            async with conn.transaction():
+                # Update global state
                 await conn.execute(
                     """
-                    UPDATE bu_round_states SET
-                        revenue_base = $3,
-                        opex_base = $4,
-                        natural_capital_debt = $5,
-                        social_license_score = $6,
-                        reputation_score = $7,
-                        governance_risk_score = $8,
-                        water_dependency = $9,
-                        carbon_intensity = $10,
-                        risk_factors = $11
-                    WHERE global_state_id = $1 AND bu_id = $2
+                    UPDATE global_round_states SET
+                        corporate_treasury = $2,
+                        group_reputation = $3,
+                        synergy_multiplier = $4,
+                        cost_of_capital = $5,
+                        active_event_flags = $6
+                    WHERE state_id = $1
                     """,
                     state_id,
-                    bu["bu_id"],
-                    bu["revenue_base"],
-                    bu["opex_base"],
-                    bu.get("natural_capital_debt", 0),
-                    bu.get("social_license_score", 50),
-                    bu.get("reputation_score", 50),
-                    bu.get("governance_risk_score", 0),
-                    bu.get("water_dependency", 0),
-                    bu.get("carbon_intensity", 0),
-                    _dumps(rf),
+                    global_state["corporate_treasury"],
+                    global_state["group_reputation"],
+                    global_state["synergy_multiplier"],
+                    global_state.get("cost_of_capital", 0.05),
+                    _dumps(flags),
                 )
 
+                # Update BU states
+                for bu in bu_states:
+                    explicit_columns = {
+                        "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+                        "social_license_score", "reputation_score", "governance_risk_score",
+                        "water_dependency", "carbon_intensity"
+                    }
+                    rf = dict(bu.get("risk_factors", {}))
+                    for k, v in bu.items():
+                        if k not in explicit_columns and k != "risk_factors":
+                            rf[k] = v
 
-class StaleStateError(Exception):
-    """A round-bound write found that the session is no longer on that round
-    (F01, audit 2026-09-09). Callers translate it to 409 — never retry it on
-    the newer round: whatever was being written belonged to the old one."""
+                    await conn.execute(
+                        """
+                        UPDATE bu_round_states SET
+                            revenue_base = $3,
+                            opex_base = $4,
+                            natural_capital_debt = $5,
+                            social_license_score = $6,
+                            reputation_score = $7,
+                            governance_risk_score = $8,
+                            water_dependency = $9,
+                            carbon_intensity = $10,
+                            risk_factors = $11
+                        WHERE global_state_id = $1 AND bu_id = $2
+                        """,
+                        state_id,
+                        bu["bu_id"],
+                        bu["revenue_base"],
+                        bu["opex_base"],
+                        bu.get("natural_capital_debt", 0),
+                        bu.get("social_license_score", 50),
+                        bu.get("reputation_score", 50),
+                        bu.get("governance_risk_score", 0),
+                        bu.get("water_dependency", 0),
+                        bu.get("carbon_intensity", 0),
+                        _dumps(rf),
+                    )
+        except asyncpg.RaiseError as exc:
+            # fn_immutable_guard: the row is no longer the current round — a
+            # commit inserted the next round between the SELECT and this UPDATE.
+            if expected_round is not None and "Immutability violation" in (getattr(exc, "message", None) or ""):
+                raise StaleStateError(session_id, expected_round) from exc
+            raise
+
+
+from store_errors import StaleStateError  # noqa: E402  (F01 / N2 — shared with the memory store)
 
 
 async def update_draft_fields(session_id: str, round_number: int, draft: dict) -> bool:

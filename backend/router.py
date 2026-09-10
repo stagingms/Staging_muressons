@@ -704,7 +704,7 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
                             "Facilitator advance / timeout — committed with defaults (Option B, $1 per business unit)"
                         )
                         ng["active_event_flags"] = nflags
-                        await db.update_latest_global_state(sid, ng, newest["bu_states"])
+                        await db.update_latest_global_state(sid, ng, newest["bu_states"], expected_round=newest["round_number"])
                 except Exception as _ac_exc:
                     _log.warning(f"[FREE-ADVANCE] disclosure stamp failed for {sid}: {_ac_exc}")
         except Exception as exc:
@@ -1426,7 +1426,7 @@ async def _join_session_impl(session_id: str, req: JoinSessionRequest, *,
                     # the stale top-level value (verified step-by-step).
                     _cgs["ending_pathway"] = _cohort_ep
                     _cgs.setdefault("active_event_flags", {})["ending_pathway"] = _cohort_ep
-                    await db.update_latest_global_state(player_sid, _cgs, _child_latest["bu_states"])
+                    await db.update_latest_global_state(player_sid, _cgs, _child_latest["bu_states"], expected_round=_child_latest["round_number"])
     except Exception:
         pass  # never block a join over pathway bookkeeping
 
@@ -1760,7 +1760,8 @@ async def start_simulation(body: StartSessionRequest, request: Request):
                 gs = result["global_state"]
                 gs.setdefault("active_event_flags", {})["ending_pathway"] = _ending_pathway
                 await db.update_latest_global_state(
-                    str(result["session_id"]), gs, result["business_units"]
+                    str(result["session_id"]), gs, result["business_units"],
+                    expected_round=1,   # N2: a session is created on round 1
                 )
                 _log.info(f"[session-start] Ending pathway set to '{_ending_pathway}' for {result['session_id']}")
             except Exception as exc:
@@ -3571,6 +3572,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 session_id=session_id,
                 global_state=new_global,
                 bu_states=new_bus,
+                expected_round=current_round,   # N2: the R10 in-place persist names its round
             )
             # R10-2 (2026-08-02): actually log them. This loop was `pass` with a
             # comment claiming they were "logged inline by insert_next_round" —
@@ -3637,7 +3639,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             if total_teams is not None:
                 new_global["team_commits_this_round"] = committed_count
                 new_global["cohort_team_count"] = total_teams
-                await db.update_latest_global_state(session_id, new_global, new_bus)
+                await db.update_latest_global_state(session_id, new_global, new_bus, expected_round=new_round)
     except Exception as exc:
         _log.warning(f"[WARN] Cohort commit count update failed: {exc}")
 
@@ -4268,7 +4270,7 @@ async def submit_shadow_board_rejection(
         gs["autonomous_agents"] = agent_state
 
     # Persist updated global state
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
 
     _log.info(
         f"[shadow-board] Session {session_id}: "
@@ -4364,7 +4366,7 @@ async def open_negotiation_room(request: Request, session_id: str, body: Negotia
     if "error" in result:
         # not_hostile / meeting_cap / room_already_open / unknown_agent → 400
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     return result
 
 
@@ -4409,7 +4411,7 @@ async def say_in_negotiation_room(request: Request, session_id: str, body: Negot
     result = negotiation.say(gs, bus, rn, body.text, llm_reply=llm_reply)
     if "error" in result:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     return result
 
 
@@ -4439,7 +4441,7 @@ async def accept_in_negotiation_room(request: Request, session_id: str, body: Ne
         # no_open_room / unknown_concession / not_on_this_agents_menu /
         # one_promised_concession_per_meeting / one_free_action_per_meeting → 400
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     return result
 
 
@@ -4462,7 +4464,7 @@ async def walk_out_of_negotiation_room(request: Request, session_id: str):
     result = negotiation.walk_out(gs, rn)
     if "error" in result:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     return result
 
 
@@ -4802,7 +4804,7 @@ async def commission_materiality_panel(request: Request, session_id: str, body: 
         commissioned.add(body.group)
         gs[_PANELS_COMMISSIONED_KEY] = {g: True for g in sorted(commissioned)}
         try:
-            await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+            await db.update_latest_global_state(session_id, gs, latest["bu_states"], expected_round=latest["round_number"])
         except Exception as exc:  # never lose the hint over a persistence hiccup
             _log.warning(f"[MATERIALITY] could not record panel commission for {session_id[:8]}: {exc}")
     return {
@@ -5244,7 +5246,7 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     }
 
     # Persist once, after all state (treasury, flags, debrief, marker) is final.
-    await db.update_latest_global_state(session_id, global_state, bu_states)
+    await db.update_latest_global_state(session_id, global_state, bu_states, expected_round=current["round_number"])
 
     msg_parts = [f"Materiality Matrix accepted. Accuracy: {round(full_accuracy*100)}%."]
     msg_parts.append(
@@ -5434,7 +5436,7 @@ async def submit_stakeholder_map(request: Request, session_id: str, body: Stakeh
             "treasury_penalty": result.get("treasury_penalty", 0),
             "reputation_penalty": result.get("reputation_penalty", 0),
         }
-        await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+        await db.update_latest_global_state(session_id, gs, latest["bu_states"], expected_round=latest["round_number"])
 
     return {
         "accuracy_percentage": result["accuracy_percentage"],
@@ -5594,7 +5596,7 @@ async def award_learning_bonus(request: Request, session_id: str, body: Learning
         gs["bonus_score"] = gs.get("bonus_score", 0) + points
         awarded[claim_key] = {"points": points, "attempt": 1}
         gs[awarded_key] = awarded
-        await db.update_latest_global_state(session_id, gs, bu_states)
+        await db.update_latest_global_state(session_id, gs, bu_states, expected_round=latest["round_number"])
         return {
             "status": "success",
             "points_awarded": points,
@@ -5647,7 +5649,7 @@ async def award_learning_bonus(request: Request, session_id: str, body: Learning
         "best_score_percent": max(body.score_percent, prev.get("best_score_percent", 0)),
     }
     gs[awarded_key] = awarded
-    await db.update_latest_global_state(session_id, gs, bu_states)
+    await db.update_latest_global_state(session_id, gs, bu_states, expected_round=latest["round_number"])
 
     attempts_remaining = MAX_QUIZ_ATTEMPTS - current_attempt
 
@@ -6668,6 +6670,7 @@ async def commit_side_track_turn(request: Request, session_id: str, track_id: st
                 session_id=session_id,
                 global_state=main_gs,
                 bu_states=main_state["bu_states"],
+                expected_round=main_state["round_number"],
             )
             events["write_back_flags"] = write_back.flags_to_set
             events["side_track_completed"] = True
@@ -7078,7 +7081,7 @@ async def submit_interview_responses(request: Request, session_id: str, body: di
         flags["ceo_interview_evidence"] = evidence_citations
         flags["ceo_interview_llm_used"] = llm_used
         gs["active_event_flags"] = flags
-        await db.update_latest_global_state(session_id, gs, bus)
+        await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     except Exception as e:
         _log.warning(f"[ceo-interview] Failed to persist assessment: {e}")
 
@@ -7186,7 +7189,7 @@ async def submit_self_assessment(request: Request, session_id: str, body: dict):
     flags = gs.get("active_event_flags", {})
     flags["ceo_interview_self_assessment"] = ratings
     gs["active_event_flags"] = flags
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
     return {"status": "ok", "stored_dimensions": list(ratings.keys())}
 
 
@@ -7572,7 +7575,7 @@ async def board_vote(request: Request, session_id: str, body: dict):
 
     # Persist
     gs["board_governance"] = board
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
 
     return result
 
@@ -7611,7 +7614,7 @@ async def supply_chain_audit(request: Request, session_id: str, body: dict):
 
     result = conduct_supply_chain_audit(sc, audit_depth, gs)
     gs["supply_chain"] = sc
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
 
     return result
 
@@ -7766,7 +7769,7 @@ async def activate_regulation(request: Request, session_id: str, body: dict):
         raise HTTPException(status_code=400, detail=result["error"])
 
     gs["regulatory_sandbox"] = sandbox
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
 
     # Audit log — captured in GodModeAuditLog under 🧪 Sandbox filter
     try:
@@ -7873,7 +7876,7 @@ async def trigger_exogenous(request: Request, session_id: str, body: dict, _guar
         raise HTTPException(status_code=400, detail=result["error"])
 
     gs["regulatory_sandbox"] = sandbox
-    await db.update_latest_global_state(session_id, gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus, expected_round=latest["round_number"])
 
     # Audit log
     try:
