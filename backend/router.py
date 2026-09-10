@@ -610,11 +610,30 @@ async def _run_commit_locked(session_id: str, body):
             commit_lock.release()
 
 
+# The draft a team autosaves between commits (save_decisions). Bound to the
+# round it was saved in (saved_round); it never outlives that round's commit.
+_DRAFT_KEYS = ("saved_allocations", "saved_decision_choice", "saved_round", "saved_pillar_decisions")
+
+
+def _draft_for_round(global_state: dict, round_number: int) -> dict:
+    """The saved draft IF it belongs to `round_number`, else nothing. A draft
+    stamped with another round (a stale row, an older build's forwarded
+    flags) is never committed as this round's decisions."""
+    gs = global_state or {}
+    if not any(gs.get(k) for k in ("saved_allocations", "saved_decision_choice", "saved_pillar_decisions")):
+        return {}
+    saved_round = gs.get("saved_round")
+    if saved_round is not None and int(saved_round) != int(round_number):
+        return {}
+    return {k: gs.get(k) for k in _DRAFT_KEYS}
+
+
 def _auto_commit_request(global_state: dict, bu_states: list, round_number: int,
                          shuffle_seed=None, paradigm: str = "legacy_abc"):
     """Build a CommitTurnRequest from a team's SAVED decisions (a near-no-op
     roll-forward when nothing was saved). The engine recomputes investment_ratio
     from capex/csf_pool, so we only need a valid capex (>= $1) per BU.
+    Only a draft saved IN `round_number` counts (_draft_for_round).
 
     F-33 (launch audit 2026-09-01): the request is fed through the same commit
     path as a real player submission, which DESHUFFLES `choice_selected` as a
@@ -625,14 +644,15 @@ def _auto_commit_request(global_state: dict, bu_states: list, round_number: int,
     The default is now expressed in the session's display space, so it always
     deshuffles back to canonical option_b."""
     from models import CommitTurnRequest, BUDecision
-    saved = (global_state or {}).get("saved_allocations") or {}
-    choice = (global_state or {}).get("saved_decision_choice")
+    draft = _draft_for_round(global_state, round_number)
+    saved = draft.get("saved_allocations") or {}
+    choice = draft.get("saved_decision_choice")
     # F04 (audit 2026-09-09): a pillar-mode team's saved selections travel
     # with the auto-commit exactly as a live commit sends them; the commit
     # path aggregates them when the paradigm is a pillar paradigm and, with
     # no saved pillar draft, takes its existing legacy fallback (D2 2026-09-10:
     # kept, and disclosed by _auto_commit_laggards).
-    saved_pillars = (global_state or {}).get("saved_pillar_decisions") or None
+    saved_pillars = draft.get("saved_pillar_decisions") or None
     if not isinstance(saved_pillars, dict) or not saved_pillars:
         saved_pillars = None
     if not choice:
@@ -693,8 +713,9 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
             # AC-1 (UX audit §7.8): remember whether a saved draft existed so the
             # disclosure below can tell the player exactly what was submitted.
             _gs = state.get("global_state") or {}
-            _had_pillar_draft = bool(_gs.get("saved_pillar_decisions"))
-            had_draft = bool(_gs.get("saved_allocations") or _gs.get("saved_decision_choice")
+            _draft = _draft_for_round(_gs, latest)        # only THIS round's draft counts
+            _had_pillar_draft = bool(_draft.get("saved_pillar_decisions"))
+            had_draft = bool(_draft.get("saved_allocations") or _draft.get("saved_decision_choice")
                              or _had_pillar_draft)
             _sinfo = await db.get_session_info(sid) or {}
             _paradigm = _sinfo.get("decision_paradigm") or "legacy_abc"
@@ -3489,15 +3510,20 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         events.setdefault("engine_failures", []).append(
             {"engine": "Hidden resource triggers", "error": f"{type(exc).__name__}: {exc}"[:300]})
 
-    # Clear saved decisions since turn was committed
-    if "saved_allocations" in new_global:
-        del new_global["saved_allocations"]
-    if "saved_decision_choice" in new_global:
-        del new_global["saved_decision_choice"]
-    if "saved_round" in new_global:
-        del new_global["saved_round"]
-    if "saved_pillar_decisions" in new_global:   # F04
-        del new_global["saved_pillar_decisions"]
+    # Clear saved decisions since turn was committed. The draft belongs to
+    # the round just committed and dies with it — from the top level AND from
+    # the new round's flags: on Postgres the draft keys live in
+    # active_event_flags (the dynamic-field pack) and the "preserve history"
+    # merge above copied them from the previous round, so the persisted
+    # R(n+1) row carried R(n)'s draft while this response did not (found by
+    # the PostgreSQL burst drill, 2026-09-10: the console showed a draft for
+    # every team that had saved one the round before, and a Force Advance
+    # re-committed last round's allocations, option and pillars).
+    for _draft_key in _DRAFT_KEYS:
+        new_global.pop(_draft_key, None)
+        _flags_after = new_global.get("active_event_flags")
+        if isinstance(_flags_after, dict):
+            _flags_after.pop(_draft_key, None)
 
     # FIX AUDIT-002: Removed duplicate R10 terminal valuation block.
     # The authoritative R10 calculation lives in round_logic.py →

@@ -203,3 +203,43 @@ def test_update_latest_global_state_is_round_bound_on_postgres(monkeypatch):
     refused, after = _run_pg(go())
     assert refused is not None and refused.expected_round == 1 and refused.actual_round == 2
     assert after["round_number"] == 2 and after["global_state"]["corporate_treasury"] != 1.0
+
+
+def test_a_committed_rounds_draft_does_not_reach_the_next_row_or_a_force_advance_on_postgres(monkeypatch):
+    """Found by the burst drill (2026-09-10) ON THIS STORE: the draft keys live
+    in active_event_flags here, the commit's flag merge forwarded them, and
+    a Force Advance re-committed last round's pillar draft as this round's
+    decisions. The memory store hid it (its dashboard reads the row's top
+    level, which the commit did clear)."""
+    from pillar_configs import get_pillar_config
+    cfg = get_pillar_config(1)
+    pillars_r1 = {area: list(spec["options"])[0] for area, spec in cfg["areas"].items()}
+
+    async def go():
+        import database as db
+        async with httpx.AsyncClient(transport=ASGITransport(app=main.app), base_url="http://t") as ac:
+            await _login(ac, monkeypatch)
+            cid = await _cohort(ac, "multi_toggles")
+            sid, _, h = await _player(ac, cid, "PGdraft")
+            r = await ac.post(f"/api/simulations/{sid}/save-decisions", headers=h,
+                              json={"allocations": {"pharma": 4_000_000.0}, "decision_choice": None,
+                                    "pillar_decisions": pillars_r1, "expected_round": 1})
+            assert r.status_code == 200, r.text[:200]
+            assert (await _commit(ac, sid, h, choice="", pillars=pillars_r1)).status_code == 201
+            row2 = await db.fetch_latest_state(sid)
+            d2 = await _dash(ac, sid, h)
+            pulse = await ac.get(f"/api/admin/cohort-pulse/{cid}")
+            advanced = await _router._auto_commit_laggards(cid, 3)
+            d3 = await _dash(ac, sid, h)
+            return row2, d2, pulse, advanced, d3
+    row2, d2, pulse, advanced, d3 = _run_pg(go())
+    flags2 = row2["global_state"].get("active_event_flags") or {}
+    for k in ("saved_allocations", "saved_decision_choice", "saved_round", "saved_pillar_decisions"):
+        assert k not in flags2, k
+        assert not d2["global_state"].get(k), k
+    team = next(t for t in pulse.json()["teams"] if t.get("session_id") == d2["session_id"])
+    assert team["has_saved_draft"] is False
+    assert advanced == 1 and d3["current_round"] == 3
+    f3 = d3["global_state"]["active_event_flags"]
+    assert f3.get("auto_committed_source") == "legacy_fallback", f3.get("auto_committed_source")
+    assert not f3.get("r2_pillar_flags"), "R1's pillar selections were replayed as R2's decisions"

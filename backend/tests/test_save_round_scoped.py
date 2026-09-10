@@ -94,6 +94,10 @@ def test_commit_path_clears_the_stamp_with_the_save():
     stamp must go with them or a later save-less round could false-match."""
     src = (REPO / "backend" / "router.py").read_text(encoding="utf-8")
     i = src.index("Clear saved decisions since turn was committed")
-    block = src[i:i + 500]
+    block = src[i:i + 1200]
+    # 2026-09-10 (PG drill): the four keys are one tuple, popped from the top
+    # level AND from the new round's flags — the pin follows the tuple.
+    assert 'for _draft_key in _DRAFT_KEYS:' in block and 'new_global.pop(_draft_key, None)' in block
+    assert '_flags_after.pop(_draft_key, None)' in block, "commit must clear the draft from the new round's flags too"
     for key in ("saved_allocations", "saved_decision_choice", "saved_round", "saved_pillar_decisions"):
-        assert f'del new_global["{key}"]' in block, f"commit must clear {key}"
+        assert f'"{key}"' in src[src.index("_DRAFT_KEYS = ("):src.index("_DRAFT_KEYS = (") + 160], f"commit must clear {key}"
