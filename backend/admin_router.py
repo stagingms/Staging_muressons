@@ -9411,19 +9411,17 @@ async def admin_websocket(websocket: WebSocket, facilitator_id: str = None, toke
     try:
         while True:
             data = await websocket.receive_text()
-            # Admin can request a leaderboard refresh
+            # Admin can request a leaderboard refresh. F08 (audit 2026-09-09):
+            # this socket never answers with data. A cookie-authenticated
+            # facilitator who opened it WITHOUT the ?facilitator_id= query
+            # used to receive fetch_all_sessions() here — every cohort's
+            # metadata (rosters, credentials) regardless of ownership, with
+            # none of the REST guards. The trigger is the only answer now; the
+            # frontend fetches its own, scoped, leaderboard over REST.
             if data == "refresh":
-                if effective_token:
-                    # Instruct facilitator frontend to fetch securely scoped leaderboard
-                    await websocket.send_text(json.dumps({
-                        "type": "sessions_refresh_trigger",
-                    }))
-                else:
-                    sessions = await db.fetch_all_sessions()
-                    await websocket.send_text(json.dumps({
-                        "type": "sessions_refresh",
-                        "sessions": sessions,
-                    }))
+                await websocket.send_text(json.dumps({
+                    "type": "sessions_refresh_trigger",
+                }))
     except WebSocketDisconnect:
         manager.disconnect_admin(websocket)
 
