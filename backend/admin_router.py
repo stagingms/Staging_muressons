@@ -9383,55 +9383,80 @@ async def download_config_excel(_guard: None = Depends(require_super_admin)):
 #  WEBSOCKET ENDPOINTS
 # ═════════════════════════════════════════════════════════════════
 
-def _ws_authenticate_facilitator(websocket: "WebSocket", token: str | None) -> bool:
-    """MED-004: Validate a WebSocket connection as an authenticated facilitator.
+def _ws_facilitator_identity(websocket: "WebSocket", token: str | None) -> str | None:
+    """MED-004 / F08 residual (2026-09-10): WHO is on this WebSocket.
 
-    Priority order:
-    1. JWT in HttpOnly cookie (mur_session) — preferred path; set by login endpoint.
-    2. JWT passed as ?token= query parameter — fallback for WS clients that cannot
-       send cookies (e.g. native mobile apps, curl-based tooling).
-    3. Legacy facilitator_id string match — kept only for the migration window;
-       remove once all clients have been updated to JWT-based auth.
+    Returns the facilitator id the signed token names ("god_mode" for the
+    break-glass identity), or None when no path authenticates. Priority:
+    1. JWT in the HttpOnly cookie (mur_session) — set by the login endpoint.
+    2. JWT passed as ?token= — for WS clients that cannot send cookies.
+    (H-2: a bare facilitator_id string is NOT accepted.)
 
-    Returns True if any path succeeds, False otherwise.
+    Every socket keeps its identity so pushes can be scoped to the cohorts
+    that facilitator may observe — the same owner / co-facilitator / admin
+    rule the REST listing endpoints apply (can_observe_session).
     """
     from auth_jwt import decode_facilitator_token, COOKIE_NAME
+
+    def _registered(fac_id: str) -> str | None:
+        if fac_id == "god_mode":
+            return fac_id
+        if any(f["facilitator_id"] == fac_id and not f.get("deleted_at") for f in _facilitator_registry):
+            return fac_id
+        return None
 
     # ── 1. JWT cookie ───────────────────────────────────────────────────
     cookie_token = websocket.cookies.get(COOKIE_NAME, "")
     if cookie_token:
         try:
-            payload = decode_facilitator_token(cookie_token)
-            fac_id = payload.get("sub", "")
-            if fac_id == "god_mode":
-                return True
-            return any(
-                f["facilitator_id"] == fac_id and not f.get("deleted_at")
-                for f in _facilitator_registry
-            )
+            return _registered(decode_facilitator_token(cookie_token).get("sub", ""))
         except Exception:
             pass  # Invalid or expired cookie — try next path
 
     # ── 2. JWT as query parameter (?token=<signed-jwt>) ────────────────
     if token:
-        # First, try to decode it as a JWT
         try:
-            payload = decode_facilitator_token(token)
-            fac_id = payload.get("sub", "")
-            if fac_id == "god_mode":
-                return True
-            return any(
-                f["facilitator_id"] == fac_id and not f.get("deleted_at")
-                for f in _facilitator_registry
-            )
+            return _registered(decode_facilitator_token(token).get("sub", ""))
         except Exception:
             pass  # Not a valid JWT — no further fallback
 
-        # H-2 security fix: Legacy facilitator_id string match REMOVED.
-        # Previously a bare facilitator_id was accepted without crypto verification.
-        # Now only signed JWTs (cookie or query param) are accepted.
+    return None
 
+
+def _ws_authenticate_facilitator(websocket: "WebSocket", token: str | None) -> bool:
+    """MED-004: is this WebSocket an authenticated facilitator? (identity above)"""
+    return _ws_facilitator_identity(websocket, token) is not None
+
+
+async def _ws_facilitator_may_observe(fac_id: str, session_id: str) -> bool:
+    """F08 residual: may this facilitator SEE this session's pushes? The
+    read predicate the console's listing endpoints use — owner, admin, or a
+    co-facilitator of the session or of its parent cohort (a team session
+    carries the cohort's facilitator_id but not its co-facilitator list)."""
+    if fac_id == "god_mode":
+        return True
+    fac = next((f for f in _facilitator_registry
+                if f.get("facilitator_id") == fac_id and not f.get("deleted_at")), None)
+    if fac is None:
+        return False
+    if is_admin_role(get_role(fac)):
+        return True
+    info = await db.get_session_info(session_id)
+    if not info:
+        return False
+    if can_observe_session(fac, info):
+        return True
+    parent_id = info.get("parent_cohort_id")
+    if parent_id:
+        parent = await db.get_session_info(parent_id)
+        if parent and can_observe_session(fac, parent):
+            return True
     return False
+
+
+# The push manager asks this before delivering a session-bound message to
+# an admin socket (admin_ws.ConnectionManager.admin_scope).
+manager.admin_scope = _ws_facilitator_may_observe
 
 
 @admin_router.websocket("/ws/admin")
@@ -9440,10 +9465,13 @@ async def admin_websocket(websocket: WebSocket, facilitator_id: str = None, toke
     MED-004: Authenticates via JWT cookie, JWT query param, or legacy facilitator_id."""
     # Accept the effective token from either ?token= or legacy ?facilitator_id=
     effective_token = token or facilitator_id
-    if not _ws_authenticate_facilitator(websocket, effective_token):
+    fac_id = _ws_facilitator_identity(websocket, effective_token)
+    if fac_id is None:
         await websocket.close(code=4001, reason="Unauthorized: valid facilitator token required")
         return
-    await manager.connect_admin(websocket)
+    # F08 residual: the socket carries its facilitator, so a push about a
+    # session reaches only the facilitators who may observe that session.
+    await manager.connect_admin(websocket, facilitator_id=fac_id)
     try:
         while True:
             data = await websocket.receive_text()
@@ -9472,11 +9500,19 @@ async def session_websocket(websocket: WebSocket, session_id: str, token: str = 
     channel; when a client cannot present a ticket it simply degrades to REST
     polling, so the classroom flow is unaffected."""
     from auth_jwt import verify_player_ws_ticket
-    is_facilitator = _ws_authenticate_facilitator(websocket, token)
     is_player = verify_player_ws_ticket(token or "", session_id)
-    if not is_facilitator and not is_player:
-        await websocket.close(code=4001, reason="Unauthorized: valid session token required")
-        return
+    if not is_player:
+        fac_id = _ws_facilitator_identity(websocket, token)
+        if fac_id is None:
+            await websocket.close(code=4001, reason="Unauthorized: valid session token required")
+            return
+        # F08 residual (2026-09-10): a facilitator observes only sessions in
+        # cohorts they own, co-facilitate or administer — the same rule as
+        # the REST monitoring endpoints. Any signed facilitator token used to
+        # open any team's push channel.
+        if not await _ws_facilitator_may_observe(fac_id, session_id):
+            await websocket.close(code=4003, reason="Forbidden: this session is not in a cohort you may observe")
+            return
     await manager.connect_player(websocket, session_id)
     try:
         while True:
