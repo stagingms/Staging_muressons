@@ -115,7 +115,8 @@ def test_timed_auto_commit_keeps_the_flags_and_uses_the_draft(monkeypatch):
             # B saves a draft: option C, $2M per BU
             dB = await _dash(ac, sidB, hB)
             r = await ac.post(f"/api/simulations/{sidB}/save-decisions", headers=hB,
-                              json={"allocations": {b["bu_id"]: 2_000_000 for b in dB["business_units"]}, "decision_choice": "option_c"})
+                              json={"allocations": {b["bu_id"]: 2_000_000 for b in dB["business_units"]}, "decision_choice": "option_c",
+                                    "expected_round": dB["current_round"]})   # F01: drafts name their round
             assert r.status_code == 200, r.text[:200]
             # timed pacing with an interval (the API path the UI does not use)
             r = await ac.post(f"/api/admin/sessions/{cid}/pacing", json={"mode": "timed", "interval_seconds": 180})

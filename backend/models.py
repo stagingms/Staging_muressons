@@ -169,6 +169,9 @@ class GlobalStateOut(BaseModel):
     # in-progress allocations (not correct). Pydantic drops undeclared keys, so
     # a field added to the store must be declared here too.
     saved_round: Optional[int] = None
+    # F04 (audit 2026-09-09): the saved pillar selections, restored by page.js
+    # under the same saved_round guard as the allocations.
+    saved_pillar_decisions: Optional[dict] = None
     materiality_budget_allocated: Optional[list] = None
     materiality_bu_id: Optional[str] = None
     csrd_completed: Optional[bool] = False
@@ -275,6 +278,16 @@ class BUDecision(BaseModel):
 class SaveDecisionsRequest(BaseModel):
     allocations: dict[str, float]
     decision_choice: Optional[str] = None
+    # F01/F04 (audit 2026-09-09): the draft is bound to the round the client
+    # is showing. The server refuses a save whose round is not the session's
+    # current round (409 stale_draft) instead of stamping it onto whatever row
+    # is latest — that is how a second tab's old draft hydrated the NEXT round.
+    # Required from this build on; an older client without it gets a 409 too
+    # (the same "refresh the page" the commit path applies to expected_round).
+    expected_round: Optional[int] = None
+    # F04: the pillar selections (multi_toggles / brsr_ngrbc) — the third part
+    # of the draft, which never reached the server before.
+    pillar_decisions: Optional[dict[str, str]] = None
 
 
 class JourneyResponseRequest(BaseModel):

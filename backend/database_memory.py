@@ -992,6 +992,7 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "saved_allocations": grs.get("saved_allocations"),
             "saved_decision_choice": grs.get("saved_decision_choice"),
             "saved_round": grs.get("saved_round"),
+            "saved_pillar_decisions": grs.get("saved_pillar_decisions"),   # F04
             "materiality_budget_allocated": grs.get("materiality_budget_allocated"),
             "materiality_bu_id": grs.get("materiality_bu_id"),
             "csrd_completed": grs.get("csrd_completed", False),
@@ -1204,6 +1205,7 @@ async def insert_next_round(
         "saved_allocations": global_state.get("saved_allocations"),
         "saved_decision_choice": global_state.get("saved_decision_choice"),
         "saved_round": global_state.get("saved_round"),
+        "saved_pillar_decisions": global_state.get("saved_pillar_decisions"),   # F04
         "materiality_budget_allocated": global_state.get("materiality_budget_allocated"),
         "materiality_bu_id": global_state.get("materiality_bu_id"),
         "csrd_completed": global_state.get("csrd_completed", False),
@@ -1477,6 +1479,7 @@ async def update_latest_global_state(
     latest["saved_allocations"] = global_state.get("saved_allocations")
     latest["saved_decision_choice"] = global_state.get("saved_decision_choice")
     latest["saved_round"] = global_state.get("saved_round")
+    latest["saved_pillar_decisions"] = global_state.get("saved_pillar_decisions")   # F04
     latest["materiality_budget_allocated"] = global_state.get("materiality_budget_allocated")
     latest["materiality_bu_id"] = global_state.get("materiality_bu_id")
     latest["csrd_completed"] = global_state.get("csrd_completed", latest.get("csrd_completed", False))
@@ -1507,6 +1510,37 @@ async def update_latest_global_state(
     if session_id in _bu_states:
         _bu_states[session_id][rn] = copy.deepcopy(bu_states)
     _persist()
+
+
+class StaleStateError(Exception):
+    """Parity with database.StaleStateError (F01, audit 2026-09-09)."""
+
+
+async def update_draft_fields(session_id: str, round_number: int, draft: dict) -> bool:
+    """F01 (audit 2026-09-09) — parity with database.update_draft_fields.
+
+    Write the mid-round draft keys onto the row for EXACTLY `round_number`,
+    and only if that row is still the session's latest. Touches no economic
+    field. Returns False (caller answers 409) when the session has moved on —
+    the draft belonged to the round that just closed and must not hydrate the
+    next one.
+    """
+    rounds = _global_states.get(session_id, [])
+    if not rounds:
+        return False
+    latest = rounds[-1]
+    if int(latest.get("round_number", 0) or 0) != int(round_number):
+        return False
+    for k, v in (draft or {}).items():
+        latest[k] = copy.deepcopy(v)
+    # Parity with the Postgres row, where the draft lives in the JSONB flags
+    # column (the dynamic-field pack in database.update_latest_global_state).
+    flags = latest.get("active_event_flags")
+    if isinstance(flags, dict):
+        for k, v in (draft or {}).items():
+            flags[k] = copy.deepcopy(v)
+    _persist()
+    return True
 
 
 # ── Reset / Delete Operations ─────────────────────────────────

@@ -81,7 +81,8 @@ def test_issued_password_blocks_every_write_with_a_message_then_one_change_unblo
 
     # the SAME token now writes — no re-login, no new session
     r = player.post(f"/api/simulations/{sid}/save-decisions", headers=H,
-                    json={"allocations": {"pharma": 0.2}, "decision_choice": "option_a"})
+                    json={"allocations": {"pharma": 0.2}, "decision_choice": "option_a",
+                          "expected_round": 1})   # F01: drafts name their round
     assert r.status_code == 200, r.text[:200]
     r = player.post(f"/api/simulations/{sid}/stakeholder-map", headers=H, json={"mapping": {}})
     assert r.status_code == 200, r.text[:200]

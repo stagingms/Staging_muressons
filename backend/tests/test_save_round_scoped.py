@@ -48,6 +48,7 @@ def test_save_decisions_stamps_the_current_round(client):
     r = client.post(f"/api/simulations/{sid}/save-decisions", json={
         "allocations": {"pharma": 3_000_000},
         "decision_choice": "option_b",
+        "expected_round": 1,   # F01 (audit 2026-09-09): every draft names its round
     })
     assert r.status_code == 200, r.text
 
@@ -94,5 +95,5 @@ def test_commit_path_clears_the_stamp_with_the_save():
     src = (REPO / "backend" / "router.py").read_text(encoding="utf-8")
     i = src.index("Clear saved decisions since turn was committed")
     block = src[i:i + 500]
-    for key in ("saved_allocations", "saved_decision_choice", "saved_round"):
+    for key in ("saved_allocations", "saved_decision_choice", "saved_round", "saved_pillar_decisions"):
         assert f'del new_global["{key}"]' in block, f"commit must clear {key}"

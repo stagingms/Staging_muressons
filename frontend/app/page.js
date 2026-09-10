@@ -703,7 +703,15 @@ export default function CockpitPage() {
     if (globalState?.saved_decision_choice && savedForThisRound && !decisionChoice) {
       setDecisionChoice(globalState.saved_decision_choice);
     }
-  }, [globalState?.saved_allocations, globalState?.saved_decision_choice, globalState?.saved_round, roundNumber]);
+    // F04 (audit 2026-09-09): the pillar selections are the third part of the
+    // draft — restored under the same round guard, only onto an empty board.
+    const savedPillars = globalState?.saved_pillar_decisions;
+    if (savedPillars && typeof savedPillars === 'object' && Object.keys(savedPillars).length > 0
+        && savedForThisRound && Object.keys(pillarSelections).length === 0) {
+      setPillarSelections(savedPillars);
+    }
+  }, [globalState?.saved_allocations, globalState?.saved_decision_choice, globalState?.saved_pillar_decisions,
+      globalState?.saved_round, roundNumber]);
 
   // Block alert state
   const [blockAlert, setBlockAlert] = useState(null);
@@ -843,27 +851,41 @@ export default function CockpitPage() {
   // "Your decisions are saved". The draft is now saved ~2 s after the last
   // change (allocations OR option), and once more, keepalive, when the page is
   // hidden or unloaded. Anything a participant has touched is worth keeping.
-  const draftRef = useRef({ allocations, decisionChoice });
-  useEffect(() => { draftRef.current = { allocations, decisionChoice }; }, [allocations, decisionChoice]);
+  // F01/F04 (audit 2026-09-09): the draft carries the round it belongs to
+  // (the server refuses any other round — a second tab's late save can no
+  // longer hydrate the next round) and, in pillar mode, the pillar selections
+  // (which used to be the one part of the draft that was never saved).
+  // (isPillarMode itself is declared further down, after the gates.)
+  const draftIsPillarMode = decisionParadigm === 'multi_toggles' || decisionParadigm === 'brsr_ngrbc';
+  const draftRef = useRef({ allocations, decisionChoice, pillarSelections, roundNumber, pillarMode: draftIsPillarMode });
+  useEffect(() => {
+    draftRef.current = { allocations, decisionChoice, pillarSelections, roundNumber, pillarMode: draftIsPillarMode };
+  }, [allocations, decisionChoice, pillarSelections, roundNumber, draftIsPillarMode]);
   const saveDraft = sim.saveDecisions;   // useCallback keyed on the session id — stable across polls
+  // Read through the ref so the unload flush (registered once per draft) always
+  // sends the CURRENT round, selections and paradigm mode, never a stale closure.
+  const draftPayload = () => ({
+    allocations: draftRef.current.allocations,
+    decision_choice: draftRef.current.decisionChoice,
+    pillar_decisions: draftRef.current.pillarMode ? draftRef.current.pillarSelections : null,
+    expected_round: draftRef.current.roundNumber,
+  });
   const hasDraft = !sim.gameOver && !!sim.sessionId
-    && (!!decisionChoice || Object.values(allocations || {}).some((v) => Number(v) > 0));
+    && (!!decisionChoice || Object.values(allocations || {}).some((v) => Number(v) > 0)
+        || (draftIsPillarMode && Object.keys(pillarSelections || {}).length > 0));
   useEffect(() => {
     if (!hasDraft) return;
     const t = setTimeout(() => {
-      saveDraft({ allocations: draftRef.current.allocations, decision_choice: draftRef.current.decisionChoice }, { quiet: true })
+      saveDraft(draftPayload(), { quiet: true })
         .then(() => setLastSavedAt(new Date()))
-        .catch(() => { /* retried on the next change / on unload */ });
+        .catch(() => { /* stale / commit in flight / offline — retried on the next change or on unload */ });
     }, 2_000);
     return () => clearTimeout(t);
-  }, [hasDraft, saveDraft, allocations, decisionChoice]);
+  }, [hasDraft, saveDraft, allocations, decisionChoice, pillarSelections]);
   useEffect(() => {
     if (!hasDraft) return;
     const flush = () => {
-      saveDraft(
-        { allocations: draftRef.current.allocations, decision_choice: draftRef.current.decisionChoice },
-        { quiet: true, keepalive: true },
-      ).catch(() => {});
+      saveDraft(draftPayload(), { quiet: true, keepalive: true }).catch(() => {});
     };
     const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
     window.addEventListener('beforeunload', flush);

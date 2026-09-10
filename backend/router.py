@@ -597,6 +597,14 @@ def _auto_commit_request(global_state: dict, bu_states: list, round_number: int,
     from models import CommitTurnRequest, BUDecision
     saved = (global_state or {}).get("saved_allocations") or {}
     choice = (global_state or {}).get("saved_decision_choice")
+    # F04 (audit 2026-09-09): a pillar-mode team's saved selections travel
+    # with the auto-commit exactly as a live commit sends them; the commit
+    # path aggregates them when the paradigm is a pillar paradigm and, with
+    # no saved pillar draft, takes its existing legacy fallback (D2 2026-09-10:
+    # kept, and disclosed by _auto_commit_laggards).
+    saved_pillars = (global_state or {}).get("saved_pillar_decisions") or None
+    if not isinstance(saved_pillars, dict) or not saved_pillars:
+        saved_pillars = None
     if not choice:
         choice = "option_b"
         if shuffle_seed is not None and paradigm == "legacy_abc":
@@ -621,7 +629,7 @@ def _auto_commit_request(global_state: dict, bu_states: list, round_number: int,
             time_to_decision_seconds=0,
             # TEAM-3 (UX audit #7): an auto-commit is the canonical "no team
             # answered" case — recording 'majority' here was the fiction.
-            team_consensus="not_recorded", pillar_decisions=None,
+            team_consensus="not_recorded", pillar_decisions=saved_pillars,
         ))
     # FLOW-08 (Wave 3): the server's own auto-commit carries the round it is
     # committing, like every current client does — expected_round is required now.
@@ -655,8 +663,18 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
             # AC-1 (UX audit §7.8): remember whether a saved draft existed so the
             # disclosure below can tell the player exactly what was submitted.
             _gs = state.get("global_state") or {}
-            had_draft = bool(_gs.get("saved_allocations") or _gs.get("saved_decision_choice"))
+            _had_pillar_draft = bool(_gs.get("saved_pillar_decisions"))
+            had_draft = bool(_gs.get("saved_allocations") or _gs.get("saved_decision_choice")
+                             or _had_pillar_draft)
             _sinfo = await db.get_session_info(sid) or {}
+            _paradigm = _sinfo.get("decision_paradigm") or "legacy_abc"
+            if _paradigm == "legacy_abc" and _sinfo.get("parent_cohort_id"):
+                _parent_sinfo = await db.get_session_info(_sinfo["parent_cohort_id"]) or {}
+                _paradigm = _parent_sinfo.get("decision_paradigm") or _paradigm
+            # D2 (2026-09-10): a pillar-mode team with NO pillar draft keeps
+            # the legacy fallback — the commit path runs that one round under
+            # legacy_abc with Option B's legacy flags. Say exactly that.
+            _pillar_fallback = _paradigm in ("multi_toggles", "brsr_ngrbc") and not _had_pillar_draft
             body = _auto_commit_request(state["global_state"], state["bu_states"], latest,
                                         shuffle_seed=_sinfo.get("shuffle_seed"),
                                         paradigm=_sinfo.get("decision_paradigm", "legacy_abc"))
@@ -674,8 +692,13 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
                         ng = newest["global_state"]
                         nflags = ng.get("active_event_flags") or {}
                         nflags["auto_committed"] = True
-                        nflags["auto_committed_source"] = "draft" if had_draft else "default"
+                        nflags["auto_committed_source"] = (
+                            "legacy_fallback" if _pillar_fallback else ("draft" if had_draft else "default"))
                         nflags["auto_committed_reason"] = (
+                            "Facilitator advance / timeout — no pillar draft was saved, so this round was "
+                            "committed under the legacy option path (Option B) with that path's flags"
+                            + (" and your saved allocations" if had_draft else " and $1 per business unit")
+                            if _pillar_fallback else
                             "Facilitator advance / timeout — committed from your saved draft"
                             if had_draft else
                             "Facilitator advance / timeout — committed with defaults (Option B, $1 per business unit)"
@@ -3422,6 +3445,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         del new_global["saved_decision_choice"]
     if "saved_round" in new_global:
         del new_global["saved_round"]
+    if "saved_pillar_decisions" in new_global:   # F04
+        del new_global["saved_pillar_decisions"]
 
     # FIX AUDIT-002: Removed duplicate R10 terminal valuation block.
     # The authoritative R10 calculation lives in round_logic.py →
@@ -3774,8 +3799,26 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
 )
 async def save_decisions(request: Request, session_id: str, body: SaveDecisionsRequest):
     """
-    Saves the user's current slider allocations and chosen decision
-    to the global_state so they can resume after leaving the page.
+    Saves the user's current slider allocations, chosen decision and pillar
+    selections so they can resume after leaving the page.
+
+    F01 (audit 2026-09-09, P0). This handler used to read the latest round,
+    mutate the whole global_state dict and write it back through
+    update_latest_global_state — a read-modify-write of every economic field,
+    taken under no lock, against a store helper that resolved "latest" again
+    at write time. The autosave fires 2 s after any slider change and on
+    tab-hide (page.js FLOW-05), i.e. routinely while a commit is in flight;
+    when its read preceded the commit's INSERT and its write followed it, the
+    new round's treasury, reputation and BU economics were replaced by the
+    previous round's, the round number stayed advanced, and the save reported
+    success. A second tab's late save was worse than a race: the server
+    stamped it with the NEW round, so the old draft hydrated the next round.
+
+    Now: the draft is bound to the round the client is showing
+    (`expected_round`), refused while this session's commit lock is held, and
+    written by db.update_draft_fields — a single statement that touches only
+    the draft keys of exactly that round's row and fails closed when the
+    session has moved on. No economic field is read or written here.
     """
     await _assert_player_owns_session(request, session_id)
     current = await db.fetch_latest_state(session_id)
@@ -3784,24 +3827,61 @@ async def save_decisions(request: Request, session_id: str, body: SaveDecisionsR
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session {session_id} not found."
         )
+    current_round = int(current.get("round_number") or 0)
+    gs = current.get("global_state") or {}
 
-    global_state = current["global_state"]
-    bu_states = current["bu_states"]
+    if body.expected_round is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "expected_round_required",
+                    "message": "expected_round is required. Refresh the page to load the current client."},
+        )
+    if int(body.expected_round) != current_round:
+        # The client is showing a round this session has already left (a
+        # second tab, or a save that lost the race with a commit). The draft
+        # belongs to that closed round; it must not be stamped onto this one.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "stale_draft", "current_round": current_round,
+                    "message": "This draft is for a round that has already been committed."},
+        )
+    if gs.get("game_over") or (gs.get("active_event_flags") or {}).get("game_over"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "game_over", "message": "The simulation has finished; nothing to draft."},
+        )
+    if _get_commit_lock(session_id).locked():
+        # A commit for this session is mid-flight on this worker. The commit
+        # clears every draft key when it lands, so a save now is either
+        # pointless or (if it landed after the INSERT) the F01 overwrite —
+        # skip it; the client re-saves on the next change.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "commit_in_progress",
+                    "message": "A commit is in progress for this session; the draft was not saved."},
+        )
 
-    global_state["saved_allocations"] = body.allocations
-    global_state["saved_decision_choice"] = body.decision_choice
-    # BUG-2026-07-20: round-stamp the save. Without this, a save carried into
-    # the next round (engine snapshot copies saved_* forward before the commit
-    # path deletes them) hydrated the NEW round's sliders with the OLD round's
-    # allocations — every round started pre-set at last round's values instead
-    # of zero. The client only hydrates when saved_round matches its current
-    # round, so a stale save can never leak across a round boundary again.
-    global_state["saved_round"] = current.get("round_number", global_state.get("round_number"))
+    draft = {
+        "saved_allocations": body.allocations,
+        "saved_decision_choice": body.decision_choice,
+        # F04: the pillar selections are part of the draft (multi_toggles).
+        "saved_pillar_decisions": body.pillar_decisions,
+        # BUG-2026-07-20: round-stamp the save. The client only hydrates when
+        # saved_round matches its current round, so a stale save can never
+        # leak across a round boundary. The stamp is now the round the CLIENT
+        # named and the server verified, never "whatever is latest now".
+        "saved_round": current_round,
+    }
+    if not await db.update_draft_fields(session_id, current_round, draft):
+        # The round advanced between the check above and the write (the write
+        # names its round, so it landed nowhere). Same answer as a stale draft.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "stale_draft", "current_round": current_round,
+                    "message": "This draft is for a round that has already been committed."},
+        )
 
-    # Update latest state in DB
-    await db.update_latest_global_state(session_id, global_state, bu_states)
-
-    return {"status": "success", "message": "Decisions saved successfully."}
+    return {"status": "success", "message": "Decisions saved successfully.", "saved_round": current_round}
 
 
 # ─────────────────────────────────────────────────────────────────

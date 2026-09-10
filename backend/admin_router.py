@@ -12031,6 +12031,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
                 "auto_committed_last_round": bool(flags.get("auto_committed", False)),
                 "has_saved_draft": bool(
                     latest.get("saved_allocations") or latest.get("saved_decision_choice")
+                    or latest.get("saved_pillar_decisions")   # F04
                 ),
             })
 

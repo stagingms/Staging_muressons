@@ -136,6 +136,11 @@ export default function useSimulation() {
 
     // Track round to auto-open crisis modal
     const prevRoundRef = useRef(1);
+    // F01 (audit 2026-09-09): the round the board is SHOWING, readable from
+    // callbacks whose identity must not change per round (saveDecisions is
+    // keyed on the session id so page.js's autosave effects stay stable).
+    const roundNumberRef = useRef(1);
+    useEffect(() => { roundNumberRef.current = roundNumber; }, [roundNumber]);
     const [roundChanged, setRoundChanged] = useState(false);
 
     // audit #11: surface connection health so the UI can show a reconnecting /
@@ -733,6 +738,11 @@ export default function useSimulation() {
     );
 
     // ── Save uncommitted decisions ────────────────────────────
+    // F01 (audit 2026-09-09): every draft names its round (expected_round —
+    // filled in from the board being shown when the caller omits it); the
+    // server refuses any other round (409 stale_draft) and a save sent while
+    // this session's commit is in flight (409 commit_in_progress). Both mean
+    // "keep the draft, nothing was saved" — skipped quietly, never bannered.
     const saveDecisions = useCallback(
         async (payload, { quiet = false, keepalive = false } = {}) => {
             if (!sessionId || sessionId === 'demo') return null;
@@ -740,13 +750,15 @@ export default function useSimulation() {
             // unload save run in the background — no spinner, no error banner
             // for a draft that will be retried on the next change.
             if (!quiet) { setLoading(true); setError(null); }
+            const expectedRound = payload?.expected_round ?? roundNumberRef.current;
+            const reqBody = { ...payload, expected_round: expectedRound };
             try {
                 const res = await fetch(
                     `${API_BASE}/api/simulations/${sessionId}/save-decisions`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
-                        body: JSON.stringify(payload),
+                        body: JSON.stringify(reqBody),
                         // keepalive lets the request outlive the page on beforeunload
                         keepalive,
                     }
@@ -756,6 +768,14 @@ export default function useSimulation() {
                     // F-01: raise the forced change-password screen; the page
                     // renders it as soon as the flag is set.
                     if (isPasswordChangeRequired(res, body)) setMustChangePassword(true);
+                    const code = body?.detail?.code;
+                    if (res.status === 409 && (code === 'stale_draft' || code === 'commit_in_progress'
+                        || code === 'expected_round_required' || code === 'game_over')) {
+                        const skipped = new Error(`draft not saved: ${code}`);
+                        skipped.code = code;
+                        skipped.draftSkipped = true;
+                        throw skipped;   // page.js: no "saved" tick, retried on the next change
+                    }
                     throw new Error(errorDetailText(body.detail, `Save failed: ${res.status}`));
                 }
                 const data = await res.json();
@@ -764,12 +784,16 @@ export default function useSimulation() {
                 setGlobalState(prev => prev ? {
                     ...prev,
                     saved_allocations: payload.allocations,
-                    saved_decision_choice: payload.decision_choice
+                    saved_decision_choice: payload.decision_choice,
+                    saved_pillar_decisions: payload.pillar_decisions ?? null,   // F04
+                    saved_round: expectedRound,
                 } : prev);
 
                 return data;
             } catch (err) {
-                if (!quiet) setError(err.message);
+                // A skipped draft (stale round / commit in flight) is not an
+                // error the player can act on — never banner it.
+                if (!quiet && !err?.draftSkipped) setError(err.message);
                 throw err;
             } finally {
                 if (!quiet) setLoading(false);

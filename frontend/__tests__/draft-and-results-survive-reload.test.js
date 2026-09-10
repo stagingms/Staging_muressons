@@ -27,7 +27,7 @@ describe('FLOW-05 — the draft is saved on change and on unload', () => {
     expect(page).not.toMatch(/setInterval\(\(\) => \{\s*handleSaveDecisions\(\);/);
     expect(page).toMatch(/setTimeout\(\(\) => \{\s*saveDraft\(/);
     expect(page).toMatch(/\}, 2_000\);/);
-    expect(page).toMatch(/\[hasDraft, saveDraft, allocations, decisionChoice\]/);
+    expect(page).toMatch(/\[hasDraft, saveDraft, allocations, decisionChoice, pillarSelections\]/);
   });
   test('an untouched option no longer gates the save — any positive allocation is a draft', () => {
     expect(page).toMatch(/!!decisionChoice \|\| Object\.values\(allocations \|\| \{\}\)\.some\(\(v\) => Number\(v\) > 0\)/);
@@ -40,6 +40,41 @@ describe('FLOW-05 — the draft is saved on change and on unload', () => {
     expect(hook).toMatch(/async \(payload, \{ quiet = false, keepalive = false \} = \{\}\)/);
     expect(hook).toMatch(/keepalive,\s*\}/);
     expect(hook).toMatch(/if \(!quiet\) \{ setLoading\(true\); setError\(null\); \}/);
+  });
+});
+
+describe('F01 / F04 (audit 2026-09-09) — the draft names its round and carries the pillars', () => {
+  const page = read('page.js');
+  const hook = read('hooks/useSimulation.js');
+  test('every draft payload carries expected_round and (in pillar mode) pillar_decisions', () => {
+    expect(page).toMatch(/expected_round: draftRef\.current\.roundNumber/);
+    expect(page).toMatch(/pillar_decisions: draftRef\.current\.pillarMode \? draftRef\.current\.pillarSelections : null/);
+    // both the debounced save and the unload flush go through the same payload builder
+    expect(page).toMatch(/saveDraft\(draftPayload\(\), \{ quiet: true \}\)/);
+    expect(page).toMatch(/saveDraft\(draftPayload\(\), \{ quiet: true, keepalive: true \}\)/);
+    // the hook fills the round in from the board it is showing when a caller omits it
+    expect(hook).toMatch(/const expectedRound = payload\?\.expected_round \?\? roundNumberRef\.current;/);
+    expect(hook).toMatch(/const reqBody = \{ \.\.\.payload, expected_round: expectedRound \};/);
+  });
+  test('a pillar selection alone is a draft worth saving', () => {
+    expect(page).toMatch(/\(draftIsPillarMode && Object\.keys\(pillarSelections \|\| \{\}\)\.length > 0\)/);
+  });
+  test('a stale / in-flight / finished draft is skipped quietly — no error banner, no "saved" tick', () => {
+    expect(hook).toMatch(/code === 'stale_draft' \|\| code === 'commit_in_progress'/);
+    expect(hook).toMatch(/skipped\.draftSkipped = true;/);
+    expect(hook).toMatch(/if \(!quiet && !err\?\.draftSkipped\) setError\(err\.message\);/);
+    // page.js only stamps lastSavedAt in the .then of a successful save
+    expect(page).toMatch(/saveDraft\(draftPayload\(\), \{ quiet: true \}\)\s*\.then\(\(\) => setLastSavedAt\(new Date\(\)\)\)/);
+  });
+  test('saved pillars are restored under the same saved_round guard, only onto an empty board', () => {
+    const start = page.indexOf('Save State Hydration');
+    const effect = page.slice(start, start + 2600);
+    expect(effect).toMatch(/const savedPillars = globalState\?\.saved_pillar_decisions;/);
+    expect(effect).toMatch(/&& savedForThisRound && Object\.keys\(pillarSelections\)\.length === 0\) \{\s*setPillarSelections\(savedPillars\);/);
+    expect(effect).toMatch(/globalState\?\.saved_pillar_decisions,/);
+    // the local cache written after a successful save carries the pillars and the round
+    expect(hook).toMatch(/saved_pillar_decisions: payload\.pillar_decisions \?\? null,/);
+    expect(hook).toMatch(/saved_round: expectedRound,/);
   });
 });
 

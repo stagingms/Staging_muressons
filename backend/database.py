@@ -1655,6 +1655,60 @@ async def update_latest_global_state(
                 )
 
 
+class StaleStateError(Exception):
+    """A round-bound write found that the session is no longer on that round
+    (F01, audit 2026-09-09). Callers translate it to 409 — never retry it on
+    the newer round: whatever was being written belonged to the old one."""
+
+
+async def update_draft_fields(session_id: str, round_number: int, draft: dict) -> bool:
+    """F01 (audit 2026-09-09): write a mid-round DRAFT without touching the
+    round's economics.
+
+    `save-decisions` used to read the latest row, mutate the whole global
+    state dict and hand it to update_latest_global_state — which re-resolved
+    "latest" at write time and wrote treasury, reputation, synergy, CoC, flags
+    and every BU column from the stale dicts. An autosave whose read overlapped
+    a commit therefore replaced the committed round's economics with the
+    previous round's, and the save still reported success.
+
+    This is one statement: merge the draft keys into the JSONB flags of the
+    row for EXACTLY the round the client was showing. It reads nothing, so
+    there is nothing stale to write back; it names its round, so it can never
+    land on the next one; and it is a single row-level UPDATE, so it is atomic
+    against the commit's INSERT. Returns True when a row was updated. Returns
+    False when that round is no longer the session's latest — either no row
+    matched, or the append-only trigger refused an UPDATE on what is now a
+    historical round — so the caller can answer 409 and the client can keep
+    its draft for the round it belongs to.
+    """
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        try:
+            status = await conn.execute(
+                """
+                UPDATE global_round_states
+                SET active_event_flags = active_event_flags || $3::jsonb
+                WHERE session_id = $1 AND round_number = $2
+                """,
+                uuid.UUID(session_id),
+                int(round_number),
+                _dumps(draft),
+            )
+        except asyncpg.RaiseError as exc:
+            # The immutability trigger (fn_immutable_guard, above) RAISEs on an
+            # UPDATE to a non-current round: a commit inserted the next round
+            # between the client's read and this write. That is the race this
+            # function exists to lose safely. (RaiseError is the plpgsql RAISE
+            # class; .message is the trigger's own text, not a stringified
+            # container — see test_no_stringified_flag_reads.)
+            if "Immutability violation" in (getattr(exc, "message", None) or ""):
+                return False
+            raise
+    # asyncpg returns the command tag, e.g. "UPDATE 1".
+    return status.strip().endswith(" 1")
+
+
 # ── Undo / Rollback Operations ────────────────────────────────
 
 async def undo_latest_round(session_id: str) -> dict:
