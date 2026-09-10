@@ -530,12 +530,7 @@
         "journalist:critical",
         "regulator:investigation"
       ],
-      "treasury_moves": [
-        [
-          "Biodiversity engine (restoration projects, Nature's Invoice)",
-          -44237.11
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "ai_monetised",
@@ -759,16 +754,7 @@
         "journalist:critical",
         "regulator:investigation"
       ],
-      "treasury_moves": [
-        [
-          "Autonomous stakeholder agents (triggered events)",
-          -8365984.17
-        ],
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -7317643.09
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "ai_monetised",
@@ -880,16 +866,7 @@
         "journalist:critical",
         "regulator:investigation"
       ],
-      "treasury_moves": [
-        [
-          "Autonomous stakeholder agents (triggered events)",
-          -8365984.17
-        ],
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -7317643.09
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "ai_monetised",

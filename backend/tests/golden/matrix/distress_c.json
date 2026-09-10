@@ -428,16 +428,7 @@
         "journalist:critical",
         "regulator:investigation"
       ],
-      "treasury_moves": [
-        [
-          "Biodiversity engine (restoration projects, Nature's Invoice)",
-          -20954.42
-        ],
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6872716.47
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "active",
@@ -743,12 +734,7 @@
         "journalist:critical",
         "regulator:investigation"
       ],
-      "treasury_moves": [
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -7810672.07
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "active",
@@ -855,7 +841,7 @@
       ],
       "treasury_moves": [
         [
-          "Balance sheet (short-term debt interest)",
+          "Balance sheet \u2014 covenant surcharge",
           -1116106.91
         ]
       ]
@@ -970,7 +956,7 @@
       ],
       "treasury_moves": [
         [
-          "Balance sheet (short-term debt interest)",
+          "Balance sheet \u2014 covenant surcharge",
           -985531.79
         ],
         [

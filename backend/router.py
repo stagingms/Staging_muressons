@@ -7613,6 +7613,8 @@ async def board_vote(request: Request, session_id: str, body: dict):
 
     resolution_id = body.get("resolution_id")
     recommendation = body.get("recommendation", "support")
+    if recommendation not in ("support", "oppose"):
+        raise HTTPException(status_code=400, detail="recommendation must be 'support' or 'oppose'")
 
     from board_governance import simulate_board_vote, SHAREHOLDER_RESOLUTIONS
 
@@ -7620,7 +7622,33 @@ async def board_vote(request: Request, session_id: str, body: dict):
     if not resolution:
         raise HTTPException(status_code=404, detail=f"Resolution '{resolution_id}' not found")
 
+    # G08 (audit 2026-09-09; EVAL: "no caller, owner-bound; guard when
+    # convenient"): a resolution is on the table only in the round it is
+    # tabled (round_available — the round whose commit lists it as pending)
+    # and the one after; and it is voted once. Before, any catalogue id could
+    # be voted in any round, as often as the caller liked, each passed vote
+    # crediting the reputation impact and charging the cost again.
+    current_round = int(latest.get("round_number", 0) or 0)
+    tabled = int(resolution.get("round_available", 0) or 0)
+    if current_round not in (tabled, tabled + 1):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "resolution_not_on_the_table", "resolution_id": resolution_id,
+                    "tabled_round": tabled, "current_round": current_round,
+                    "message": f"'{resolution['title']}' is on the table in rounds {tabled}–{tabled + 1}."},
+        )
+    voted = board.setdefault("resolutions_voted", {})
+    if resolution_id in voted:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "resolution_already_voted", "resolution_id": resolution_id,
+                    "voted_in_round": voted[resolution_id].get("round"),
+                    "message": f"'{resolution['title']}' has already been put to the board."},
+        )
+
     result = simulate_board_vote(board, resolution, recommendation, gs)
+    voted[resolution_id] = {"round": current_round, "recommendation": recommendation,
+                            "passed": bool(result.get("passed")), "support_percentage": result.get("support_percentage")}
 
     # Apply impacts if passed
     if result["passed"]:

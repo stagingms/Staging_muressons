@@ -413,12 +413,7 @@
         "journalist:neutral",
         "regulator:investigation"
       ],
-      "treasury_moves": [
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6785688.05
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "balance_sheet_balanced",
@@ -517,12 +512,7 @@
         "journalist:neutral",
         "regulator:investigation"
       ],
-      "treasury_moves": [
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6785688.05
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "balance_sheet_balanced",
@@ -621,12 +611,7 @@
         "journalist:neutral",
         "regulator:monitoring"
       ],
-      "treasury_moves": [
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6785688.05
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "balance_sheet_balanced",
@@ -726,12 +711,7 @@
         "journalist:neutral",
         "regulator:monitoring"
       ],
-      "treasury_moves": [
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6785688.05
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "balance_sheet_balanced",
@@ -832,12 +812,7 @@
         "journalist:neutral",
         "regulator:monitoring"
       ],
-      "treasury_moves": [
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6785688.05
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "balance_sheet_balanced",
@@ -941,12 +916,7 @@
         "journalist:neutral",
         "regulator:monitoring"
       ],
-      "treasury_moves": [
-        [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6785688.05
-        ]
-      ]
+      "treasury_moves": []
     },
     "flags": [
       "balance_sheet_balanced",

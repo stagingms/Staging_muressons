@@ -934,6 +934,25 @@ def run_new_engines(
         _wf_cursor["treasury"] = now
         _wf_cursor["label"] = label
 
+    def _wf_itemise(items: list[tuple[str, float]]) -> None:
+        """Attribute the movement since the last mark to NAMED items (a charge
+        is a negative delta) instead of the mark's single label; whatever the
+        items do not explain stays under the mark's label. Used after a step
+        that moves the treasury for more than one reason (the balance sheet:
+        short-term debt interest and the covenant surcharge)."""
+        now = float(global_state.get("corporate_treasury", 0.0) or 0.0)
+        delta = round(now - _wf_cursor["treasury"], 2)
+        attributed = 0.0
+        for item_label, amount in items:
+            amount = round(float(amount or 0.0), 2)
+            if abs(amount) >= 0.01:
+                _wf_moves.append({"engine": item_label, "delta": amount})
+                attributed = round(attributed + amount, 2)
+        rest = round(delta - attributed, 2)
+        if abs(rest) >= 0.01:
+            _wf_moves.append({"engine": _wf_cursor["label"], "delta": rest})
+        _wf_cursor["treasury"] = now
+
     # Read pedagogical toggles for this session
     try:
         from pedagogical_engine import get_pedagogical_toggles
@@ -1452,7 +1471,7 @@ def run_new_engines(
     except Exception as exc:
         _engine_failed(extra, "Treasury floor", exc)
 
-    _wf_mark('Balance sheet (short-term debt interest)')
+    _wf_mark('Balance sheet')
     # ── SE-6: Balance Sheet Engine ────────────────────────────
     if _toggles.get("balance_sheet_enabled", True):
         try:
@@ -1510,6 +1529,16 @@ def run_new_engines(
             )
             global_state["balance_sheet"] = bs
             extra["balance_sheet"] = bs_diag
+            # FIN-06 hygiene (2026-09-10): the statement moves the treasury for
+            # two reasons — the revolver interest on negative cash swept to
+            # short-term debt, and the covenant surcharge — and the waterfall
+            # used to show both under one "short-term debt interest" label.
+            _wf_itemise([
+                ("Balance sheet — short-term debt interest",
+                 -float(bs_diag.get("short_term_debt_interest_charged", 0.0) or 0.0)),
+                ("Balance sheet — covenant surcharge",
+                 -float(bs_diag.get("covenant_surcharge_applied", 0.0) or 0.0)),
+            ])
             # FIN-10: a covenant surcharge the floor forgave joins the round's
             # floor-clamp term so the treasury law still closes.
             _forgiven = float(bs_diag.get("covenant_surcharge_forgiven_by_floor", 0.0) or 0.0)
@@ -1562,8 +1591,12 @@ def run_new_engines(
             _engine_failed(extra, "Collaboration gap analytics", exc)
 
     _wf_mark("(after the engines)")
-    if _wf_moves:
-        extra["_treasury_moves"] = _wf_moves   # FIN-06: read by the router's waterfall bridge
+    # FIN-06: read by the router's waterfall bridge (which pops it before the
+    # flags are stored). Always THIS round's list — an empty one when nothing
+    # moved. It used to be written only when something did, so a driver that
+    # keeps the engines' extra on the flags (the golden harness) forwarded the
+    # previous round's list through every quiet round.
+    extra["_treasury_moves"] = _wf_moves
     return extra
 
 
