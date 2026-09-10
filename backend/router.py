@@ -8072,6 +8072,29 @@ async def get_balance_sheet(session_id: str, request: Request):
 
 
 @router.get(
+    "/{session_id}/player-visibility",
+    summary="Which panels this team's cockpit shows (the facilitator's player-audience settings)",
+)
+async def get_player_visibility(session_id: str, request: Request):
+    """Found by the scripted classroom rehearsal (2026-09-10): the cockpit read
+    its player-audience visibility from the console-only
+    /api/admin/cohort/{id}/analytics-visibility (F-21 made it facilitator-
+    guarded), got 401 as a player, and failed open — so every "what the
+    players see" toggle the facilitator set (a debrief surface, the
+    boardroom showdown, the strategy report) was saved on the console and
+    ignored on every participant's screen. This is the team-readable answer:
+    the PLAYER column only, resolved exactly as the console resolves it."""
+    if not await db.get_session_info(session_id):
+        # the ownership guard leaves "no such session" to the caller — without
+        # this a random id answered 200 with the default column (the G04 sweep)
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    await _assert_player_owns_session(request, session_id, allow_observer=True)
+    from admin_analytics import resolve_analytics_visibility
+    effective = resolve_analytics_visibility(session_id)
+    return {"session_id": session_id, "effective": {"player": effective.get("player") or {}}}
+
+
+@router.get(
     "/{session_id}/board-governance",
     summary="Get board governance state",
 )

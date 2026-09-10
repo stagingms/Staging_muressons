@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { playerIdHeader } from './useSimulation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -38,12 +39,24 @@ export function useAnalyticsVisibility(sessionId) {
     useEffect(() => {
         if (!sessionId) return undefined;
         let cancelled = false;
+        // The console route carries both columns and is facilitator-guarded
+        // (F-21). A participant's tab gets 401 there — and used to fail open,
+        // so every player-audience toggle the facilitator set was ignored on
+        // the participant's screen (found by the 2026-09-10 rehearsal). A
+        // team reads its own player column from the team-readable route.
         fetch(`${API}/api/admin/cohort/${sessionId}/analytics-visibility`, { credentials: 'include' })
             .then(r => (r.ok ? r.json() : null))
-            .then(d => {
-                if (cancelled || !d) return;
-                const eff = d.effective || {};
-                setVis({ facilitator: eff.facilitator || null, player: eff.player || null });
+            .then(async d => {
+                if (cancelled) return;
+                if (d) {
+                    const eff = d.effective || {};
+                    setVis({ facilitator: eff.facilitator || null, player: eff.player || null });
+                    return;
+                }
+                const r = await fetch(`${API}/api/simulations/${sessionId}/player-visibility`, { headers: { ...playerIdHeader() } });
+                if (!r.ok || cancelled) return;
+                const pd = await r.json();
+                setVis({ facilitator: null, player: (pd.effective || {}).player || null });
             })
             .catch(() => { /* fail-open: keep nulls → everything stays visible */ });
         return () => { cancelled = true; };
