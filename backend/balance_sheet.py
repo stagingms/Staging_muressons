@@ -842,7 +842,58 @@ def process_balance_sheet_tick(
         "interest_rate_used": round(_esg_wacc, 4),
     }
 
-    # ── Step 8: Calculate Totals and Close A = L + E ─────────────────────────
+    # ── Step 8: Covenant assessment (pre-charge) ─────────────────────────────
+    # F02 (audit 2026-09-09): covenant EBITDA. gross_profit is revenue − OPEX,
+    # BEFORE depreciation (Step 7 deducts depreciation from it to reach taxable
+    # income), so it is already an earnings-before-D&A figure. The old FIX-4
+    # added total_depreciation back on top — D&A that was never deducted — and
+    # overstated EBITDA by the period's depreciation (≈12–15 % on the default
+    # composition, the width of the amber → red band once CapEx term loans are
+    # on the books). Decision D1 (2026-09-10): covenant EBITDA is revenue −
+    # OPEX − expensed CapEx — after every operating expense, before D&A,
+    # interest and tax. terminal_valuation's EBITDA (revenue − OPEX − carbon
+    # cost) agrees with it at zero carbon tax and zero expensed CapEx.
+    #
+    # The assessment is made on the statement BEFORE the surcharge (the
+    # lender looks at the period's position; the penalty is the consequence),
+    # and its figures are kept in diagnostics["covenants"] unchanged.
+    true_ebitda = round(gross_profit - capex_expensed, 2)
+
+    covenant_status, covenant_diag = check_covenants(bs, true_ebitda, esg_wacc=_esg_wacc)
+    bs["covenant_status"]    = covenant_status
+    bs["net_debt_to_ebitda"] = covenant_diag["ratio"]
+    diagnostics["covenants"] = covenant_diag
+
+    # ── Step 8b: Covenant surcharge — the round's last cash movement ─────────
+    # F03 (audit 2026-09-09): the surcharge used to be applied AFTER the
+    # statement had been closed (totals, RE, bridge, D/E, liquidity, history),
+    # and a partial recompute refreshed only totals / net_assets / RE — so the
+    # bridge, its residual, total_equity, D/E and the liquidity ratio in the
+    # history row were the pre-charge figures beside a post-charge RE. Every
+    # cash movement now happens BEFORE the statement is closed, once.
+    surcharge = covenant_diag.get("treasury_surcharge", 0.0)
+    if surcharge > 0 and "corporate_treasury" in gs:
+        # FIN-10 (audit 2026-09-04): the surcharge is the last writer of the
+        # round and used to push the treasury through FINANCIAL_TREASURY_FLOOR
+        # after round_logic had already enforced it. Whatever the floor
+        # forgives is disclosed here and folded into the round's floor-clamp
+        # ledger term by run_new_engines.
+        _floor = events.get("treasury_floor_effective")
+        _after = round(gs["corporate_treasury"] - surcharge, 2)
+        if _floor is not None and _after < float(_floor):
+            _forgiven = round(float(_floor) - _after, 2)
+            _after = round(float(_floor), 2)
+            surcharge = round(surcharge - _forgiven, 2)
+            diagnostics["covenant_surcharge_forgiven_by_floor"] = _forgiven
+        gs["corporate_treasury"] = _after
+        bs["current_assets"]["cash_and_equivalents"] = gs["corporate_treasury"]
+        diagnostics["covenant_surcharge_applied"] = surcharge
+        # §3.1: the surcharge re-synced cash from the (possibly negative)
+        # treasury — re-sweep so the closed statement stays real. Interest
+        # was already charged in the Step-0 sweep; never twice per tick.
+        _sweep_negative_cash(bs, gs, diagnostics, charge_interest=False)
+
+    # ── Step 9: Calculate Totals and Close A = L + E — once, after all cash ──
     # FIX-8: Only GAAP balance sheet items count toward total_assets.
     # esg_capitals dict is excluded (non-GAAP disclosure).
     total_tangible   = sum(bs["tangible_assets"].values())
@@ -906,17 +957,7 @@ def process_balance_sheet_tick(
     else:
         bs["debt_to_equity"] = 99.0
 
-    # ── Step 9: Covenant Check (ESG-WACC aware, true EBITDA) ───────────────
-    # FIX-4: True EBITDA = gross profit + depreciation (D&A added back).
-    # Previously this was just gross profit, understating EBITDA and overstating the ratio.
-    true_ebitda = round(gross_profit + total_depreciation, 2)
-
-    covenant_status, covenant_diag = check_covenants(bs, true_ebitda, esg_wacc=_esg_wacc)
-    bs["covenant_status"]    = covenant_status
-    bs["net_debt_to_ebitda"] = covenant_diag["ratio"]
-    diagnostics["covenants"] = covenant_diag
-
-    # Liquidity Ratio check
+    # Liquidity Ratio check (on the closed statement)
     cash = bs["current_assets"]["cash_and_equivalents"]
     total_assets = bs["total_assets"]
     liquidity_ratio = round(cash / total_assets, 4) if total_assets > 0 else 0.0
@@ -928,48 +969,6 @@ def process_balance_sheet_tick(
             f"⚠️ Liquidity Ratio ({liquidity_ratio:.1%}) is below the required "
             f"minimum of {CONSTRAINT_MIN_LIQUIDITY_RATIO:.1%}."
         )
-
-
-    # Apply covenant surcharge to treasury (lender penalty for red/breached status)
-    surcharge = covenant_diag.get("treasury_surcharge", 0.0)
-    if surcharge > 0 and "corporate_treasury" in gs:
-        # FIN-10 (audit 2026-09-04): the surcharge is the last writer of the
-        # round and used to push the treasury through FINANCIAL_TREASURY_FLOOR
-        # after round_logic had already enforced it. Whatever the floor
-        # forgives is disclosed here and folded into the round's floor-clamp
-        # ledger term by run_new_engines.
-        _floor = events.get("treasury_floor_effective")
-        _after = round(gs["corporate_treasury"] - surcharge, 2)
-        if _floor is not None and _after < float(_floor):
-            _forgiven = round(float(_floor) - _after, 2)
-            _after = round(float(_floor), 2)
-            surcharge = round(surcharge - _forgiven, 2)
-            diagnostics["covenant_surcharge_forgiven_by_floor"] = _forgiven
-        gs["corporate_treasury"] = _after
-        bs["current_assets"]["cash_and_equivalents"] = gs["corporate_treasury"]
-        diagnostics["covenant_surcharge_applied"] = surcharge
-        # §3.1: the surcharge re-synced cash from the (possibly negative)
-        # treasury — re-sweep so the recomputed statement stays real. Interest
-        # was already charged in the Step-0 sweep; never twice per tick.
-        _sweep_negative_cash(bs, gs, diagnostics, charge_interest=False)
-
-        # ── Recalculate totals after cash mutation ──────────────────────
-        # The surcharge reduced cash_and_equivalents after Step 8 had already
-        # finalised total_assets/net_assets/retained_earnings.  Re-derive all
-        # downstream figures so the accounting equation (A = L + E) holds and
-        # the frontend subtotals reconcile to the displayed total.
-        bs["total_assets"] = round(
-            sum(bs["tangible_assets"].values())
-            + sum(bs["intangible_assets"].values())
-            + sum(bs["current_assets"].values()), 2
-        )
-        bs["total_liabilities"] = round(
-            sum(bs["non_current_liabilities"].values())
-            + sum(bs["current_liabilities"].values()), 2
-        )
-        bs["net_assets"] = round(bs["total_assets"] - bs["total_liabilities"], 2)
-        fixed_equity = bs["share_capital"] + bs["other_reserves"]
-        bs["retained_earnings"] = round(bs["net_assets"] - fixed_equity, 2)
 
     # ── History ─────────────────────────────────────────────────────────────
     # Summary figures (kept flat for backward compatibility) PLUS a deep-copied
