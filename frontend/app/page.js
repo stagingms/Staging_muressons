@@ -339,10 +339,11 @@ export default function CockpitPage() {
       } else if (!sim.sessionId) {
         const cachedId = localStorage.getItem('muressons_session_id');
         if (cachedId) {
-          // NEW-07: Keep localStorage ID even on failure — don't wipe it, so the player can retry
+          // NEW-07 / F06 (audit 2026-09-09): the hook keeps the pointer and
+          // retries by itself on a transient failure (network, 5xx, 429); it
+          // clears the pointer only when the server says the session is gone.
           sim.resumeSession(cachedId).catch((err) => {
-            console.error('Failed to resume session — will retry on next load:', err);
-            // Do NOT removeItem here — preserve the session pointer for reconnection
+            console.error('Failed to resume session:', err);
           });
         }
       }

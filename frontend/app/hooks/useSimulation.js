@@ -349,7 +349,11 @@ export default function useSimulation() {
                         const errData = await res.json().catch(() => ({}));
                         if (handlePlayerAuthFailure(res, errData)) return null;
                     }
-                    throw new Error(`Dashboard fetch failed: ${res.status}`);
+                    // F06 (audit 2026-09-09): carry the status so resumeSession
+                    // can tell "this session is gone" from "the network is".
+                    const failed = new Error(`Dashboard fetch failed: ${res.status}`);
+                    failed.status = res.status;
+                    throw failed;
                 }
                 const data = await res.json();
 
@@ -953,7 +957,19 @@ export default function useSimulation() {
     }, [sessionId, roundNumber, gameOver, commitResults, fetchRoundConfig, fetchDashboard, mergeHistory]);
 
     // ── Resume Session from Storage ───────────────────────────
-    const resumeSession = useCallback(async (sid) => {
+    // F06 (audit 2026-09-09): a reload during a 90-second wifi drop used to
+    // clear the session pointer and show "SESSION_EXPIRED" — for ANY failure
+    // of the first dashboard fetch (network error, 429, 5xx, a backend
+    // restart), while page.js promised the pointer would be kept. The pointer
+    // is now dropped only when the server says the session is gone (403 /
+    // 404 / 410; 401 is handled by handlePlayerAuthFailure). Everything else
+    // keeps the identity, raises the reconnecting banner and retries with
+    // backoff (2, 4, 8, then every 15 s) until the board loads.
+    const RESUME_TERMINAL_STATUSES = [403, 404, 410];
+    const resumeRetryRef = useRef(null);
+    const resumeRef = useRef(null);
+    const resumeSession = useCallback(async (sid, { attempt = 0 } = {}) => {
+        if (resumeRetryRef.current) { clearTimeout(resumeRetryRef.current); resumeRetryRef.current = null; }
         setSessionId(sid);
         // TEAM-1: restore observer status on refresh BEFORE the board renders,
         // so a watcher never briefly sees a writable cockpit.
@@ -989,20 +1005,40 @@ export default function useSimulation() {
             setRoundChanged(true);
             return data;
         } catch (err) {
-            // Stale session — clear localStorage and show friendly error
-            if (typeof window !== 'undefined') {
-                localStorage.removeItem('muressons_session_id');
+            const status = err?.status;
+            if (RESUME_TERMINAL_STATUSES.includes(status)) {
+                // The server knows this session and says it is gone (or not
+                // ours) — clear localStorage and show the friendly error.
+                if (typeof window !== 'undefined') {
+                    localStorage.removeItem('muressons_session_id');
+                }
+                setSessionId(null);
+                setError('SESSION_EXPIRED: Your previous session could not be restored. Please rejoin using your session code.');
+                // Auto-clear after 5s so the JoinCohortModal shows
+                setTimeout(() => setError(null), 5000);
+                return null;
             }
-            setSessionId(null);
-            setError('SESSION_EXPIRED: Your previous session could not be restored. Please rejoin using your session code.');
-            // Auto-clear after 5s so the JoinCohortModal shows
-            setTimeout(() => setError(null), 5000);
+            // Retryable: no response at all, or the server is busy / restarting.
+            // Keep the pointer and the identity; the ConnectionBanner shows
+            // "reconnecting" until a fetch succeeds.
+            _dashFailuresRef.current += 1;
+            setConnectionState('stale');
+            setError(null);   // the banner is the signal; "Failed to fetch" is not actionable
+            const delay = Math.min(15_000, 2_000 * (2 ** attempt));
+            console.warn(`[resume] dashboard fetch failed (${status ?? err?.message}); retrying in ${delay / 1000}s`);
+            resumeRetryRef.current = setTimeout(() => {
+                resumeRetryRef.current = null;
+                if (resumeRef.current) resumeRef.current(sid, { attempt: attempt + 1 }).catch(() => {});
+            }, delay);
             return null;
         }
     }, [fetchDashboard, fetchRoundConfig]);
+    useEffect(() => { resumeRef.current = resumeSession; }, [resumeSession]);
+    useEffect(() => () => { if (resumeRetryRef.current) clearTimeout(resumeRetryRef.current); }, []);
 
     // ── Logout — clears local session, game state persists on server ──
     const logout = useCallback(() => {
+        if (resumeRetryRef.current) { clearTimeout(resumeRetryRef.current); resumeRetryRef.current = null; }   // F06
         if (typeof window !== 'undefined') {
             localStorage.removeItem('muressons_session_id');
             localStorage.removeItem('muressons_username');
