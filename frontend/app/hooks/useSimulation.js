@@ -41,6 +41,40 @@ export function clearPendingResults(sid) {
     if (typeof window !== 'undefined' && sid) window.sessionStorage.removeItem(PENDING_RESULTS_KEY(sid));
   } catch { /* nothing to clear */ }
 }
+// F06(b) (audit 2026-09-09): the round this tab was SHOWING, so a resume can
+// tell "the server is one round ahead of what I last saw" — the signature of
+// a commit whose response never arrived — from an ordinary reload.
+const LAST_SHOWN_ROUND_KEY = (sid) => `muressons_last_round_${sid}`;
+export function readLastShownRound(sid) {
+  try {
+    if (typeof window === 'undefined' || !sid) return null;
+    const raw = window.sessionStorage.getItem(LAST_SHOWN_ROUND_KEY(sid));
+    const n = raw == null ? NaN : Number(raw);
+    return Number.isFinite(n) ? n : null;
+  } catch { return null; }
+}
+export function writeLastShownRound(sid, round) {
+  try {
+    if (typeof window === 'undefined' || !sid || !Number.isFinite(Number(round))) return;
+    window.sessionStorage.setItem(LAST_SHOWN_ROUND_KEY(sid), String(round));
+  } catch { /* private mode — recovery simply falls back */ }
+}
+// The stored commit response of a round (server: GET /commit-result/{round}),
+// in the shape commitResults uses. null when the server has none.
+export async function fetchStoredCommitResult(apiBase, sid, round) {
+  const res = await fetch(`${apiBase}/api/simulations/${sid}/commit-result/${round}`, { headers: { ...playerIdHeader() } });
+  if (!res.ok) return null;
+  const p = await res.json();
+  if (!p || typeof p !== 'object') return null;
+  return {
+    roundCommitted: Number(p.round_committed),
+    newRoundNumber: Number(p.new_round_number),
+    events: p.events || {},
+    globalState: p.global_state,
+    businessUnits: p.business_units,
+    recovered: true,
+  };
+}
 
 export function playerIdHeader() {
     try {
@@ -141,6 +175,11 @@ export default function useSimulation() {
     // keyed on the session id so page.js's autosave effects stay stable).
     const roundNumberRef = useRef(1);
     useEffect(() => { roundNumberRef.current = roundNumber; }, [roundNumber]);
+    // F06(b): and remembered per tab, for lost-response recovery on resume.
+    useEffect(() => {
+        // only once the board holds real state — never the default 1 before hydration
+        if (sessionId && sessionId !== 'demo' && globalState) writeLastShownRound(sessionId, roundNumber);
+    }, [sessionId, roundNumber, globalState]);
     const [roundChanged, setRoundChanged] = useState(false);
 
     // audit #11: surface connection health so the UI can show a reconnecting /
@@ -604,6 +643,23 @@ export default function useSimulation() {
                         if (conflict?.detail?.code === 'stale_round') {
                             console.warn('[commitTurn] stale round — an earlier attempt already committed; re-syncing');
                             setRoundLocked(false);
+                            // F06(b) (audit 2026-09-09): the earlier attempt's response
+                            // was lost, not its commit. The server kept it — put the
+                            // results screen up from the stored copy instead of jumping
+                            // to the next briefing with commitResults=null.
+                            const recovered = await fetchStoredCommitResult(API_BASE, sessionId, roundNumber).catch(() => null);
+                            if (recovered && recovered.roundCommitted === roundNumber) {
+                                setEvents(recovered.events || {});
+                                if (recovered.events?.profile || recovered.newRoundNumber > 10) {
+                                    if (recovered.globalState) setGlobalState(recovered.globalState);
+                                    if (Array.isArray(recovered.businessUnits)) setBusinessUnits(recovered.businessUnits);
+                                    setGameOver(true);
+                                    setFinalReport(recovered.events);
+                                }
+                                setCommitResults(recovered);
+                                writePendingResults(sessionId, recovered);
+                                return null;
+                            }
                             try { await fetchDashboard(sessionId); } catch { /* the poller will catch up */ }
                             return null;
                         }
@@ -970,6 +1026,9 @@ export default function useSimulation() {
     const resumeRef = useRef(null);
     const resumeSession = useCallback(async (sid, { attempt = 0 } = {}) => {
         if (resumeRetryRef.current) { clearTimeout(resumeRetryRef.current); resumeRetryRef.current = null; }
+        // F06(b): read what this tab last showed BEFORE the session id is set
+        // (the write effect above would otherwise stamp the default).
+        const lastShown = readLastShownRound(sid);
         setSessionId(sid);
         // TEAM-1: restore observer status on refresh BEFORE the board renders,
         // so a watcher never briefly sees a writable cockpit.
@@ -987,7 +1046,20 @@ export default function useSimulation() {
             // results screen back exactly as it was: the committed round's
             // pre-commit state (history row K = state entering K) under the
             // commit response; Advance then brings the next briefing as usual.
-            const pending = readPendingResults(sid);
+            let pending = readPendingResults(sid);
+            // F06(b): no pending results, but the server is exactly one round
+            // ahead of what this tab last showed and the round was not
+            // force-advanced — a commit whose response never arrived. Rebuild
+            // the results screen from the stored response.
+            const resumeFlags = data?.global_state?.active_event_flags || {};
+            if (!pending && data?.current_round && lastShown && data.current_round === lastShown + 1
+                && !resumeFlags.auto_committed && !resumeFlags.profile) {
+                const recovered = await fetchStoredCommitResult(API_BASE, sid, lastShown).catch(() => null);
+                if (recovered && recovered.newRoundNumber === data.current_round) {
+                    pending = recovered;
+                    setEvents(recovered.events || {});
+                }
+            }
             if (pending && data?.current_round === pending.newRoundNumber && !data?.global_state?.active_event_flags?.profile) {
                 const row = (data.history || []).find((h) => h.round_number === pending.roundCommitted);
                 if (row?.global_state) {

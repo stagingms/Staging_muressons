@@ -61,6 +61,8 @@ db/*.tmp
 db/*.corrupt-*
 sessions.json
 db/admin_audit.jsonl
+# F06(b): memory-store commit-results journal (runtime state, never committed)
+db/commit_results.jsonl
 backend/db/muressons_state.db
 
 # Phase 5 calibration sweep data — the evidence behind

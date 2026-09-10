@@ -115,6 +115,23 @@ CREATE INDEX idx_dal_round         ON decision_audit_log (round_number);
 CREATE INDEX idx_dal_node          ON decision_audit_log (decision_node_id);
 
 -- ============================================================
+-- 5. COMMIT RESULTS
+-- F06(b) / N3 (audit 2026-09-09): the commit response of every round, so a
+-- client whose response was lost can rebuild its results screen and the
+-- facilitator can re-show any round. All ten rounds are kept (D6 2026-09-10).
+-- NOT under the immutability guard: it is a cache of a response, re-written
+-- by an undo-then-recommit of the same round. Mirrors the auto-schema copy
+-- in backend/database.py (get_pool) — keep the two in sync.
+-- ============================================================
+CREATE TABLE commit_results (
+    session_id      UUID        NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    round_number    SMALLINT    NOT NULL CHECK (round_number BETWEEN 1 AND 10),
+    payload         JSONB       NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (session_id, round_number)
+);
+
+-- ============================================================
 -- IMMUTABILITY GUARD
 -- Prevent UPDATE / DELETE on round-state & audit tables.
 -- Only INSERTs are permitted for historical data.

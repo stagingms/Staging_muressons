@@ -193,6 +193,20 @@ async def get_pool() -> asyncpg.Pool:
                 CREATE INDEX IF NOT EXISTS idx_dal_session ON decision_audit_log (session_id);
                 CREATE INDEX IF NOT EXISTS idx_dal_round   ON decision_audit_log (round_number);
                 CREATE INDEX IF NOT EXISTS idx_dal_node    ON decision_audit_log (decision_node_id);
+
+                -- F06(b) / N3 (audit 2026-09-09): the commit response of every
+                -- round, so a client whose response was lost can rebuild its
+                -- results screen and the facilitator can re-show any round.
+                -- All ten rounds are kept (D6 2026-09-10). Not under the
+                -- append-only guard: it is a cache of a response, re-written
+                -- by an undo-then-recommit of the same round.
+                CREATE TABLE IF NOT EXISTS commit_results (
+                    session_id      UUID        NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+                    round_number    SMALLINT    NOT NULL CHECK (round_number BETWEEN 1 AND 10),
+                    payload         JSONB       NOT NULL,
+                    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    PRIMARY KEY (session_id, round_number)
+                );
             """)
             # Immutability triggers (idempotent — DROP IF EXISTS + CREATE)
             #
@@ -1709,6 +1723,35 @@ async def update_draft_fields(session_id: str, round_number: int, draft: dict) -
     return status.strip().endswith(" 1")
 
 
+async def save_commit_result(session_id: str, round_number: int, payload: dict) -> None:
+    """F06(b) / N3 (audit 2026-09-09): keep the commit response of
+    `round_number` (the round COMMITTED). Upsert — an undo-then-recommit of
+    the same round replaces it. All ten rounds are kept (D6)."""
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        await conn.execute(
+            """
+            INSERT INTO commit_results (session_id, round_number, payload)
+            VALUES ($1, $2, $3::jsonb)
+            ON CONFLICT (session_id, round_number)
+            DO UPDATE SET payload = EXCLUDED.payload, created_at = now()
+            """,
+            uuid.UUID(session_id), int(round_number), _dumps(payload),
+        )
+
+
+async def fetch_commit_result(session_id: str, round_number: int) -> Optional[dict]:
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        raw = await conn.fetchval(
+            "SELECT payload FROM commit_results WHERE session_id = $1 AND round_number = $2",
+            uuid.UUID(session_id), int(round_number),
+        )
+    if raw is None:
+        return None
+    return json.loads(raw) if isinstance(raw, str) else raw
+
+
 # ── Undo / Rollback Operations ────────────────────────────────
 
 async def undo_latest_round(session_id: str) -> dict:
@@ -1752,6 +1795,12 @@ async def undo_latest_round(session_id: str) -> dict:
             await conn.execute(
                 "DELETE FROM global_round_states WHERE state_id = $1",
                 state_id,
+            )
+            # F06(b): the row entering `deleted_round` was written by the
+            # commit of round deleted_round − 1 — its stored result goes too.
+            await conn.execute(
+                "DELETE FROM commit_results WHERE session_id = $1 AND round_number = $2",
+                uuid.UUID(session_id), deleted_round - 1,
             )
 
     return {
@@ -1913,6 +1962,10 @@ async def delete_session(session_id: str, hard: bool = False) -> bool:
                     uuid.UUID(session_id),
                 )
                 await conn.execute(
+                    "DELETE FROM commit_results WHERE session_id = $1",   # F06(b)
+                    uuid.UUID(session_id),
+                )
+                await conn.execute(
                     """
                     DELETE FROM bu_round_states
                     WHERE global_state_id IN (
@@ -2032,8 +2085,9 @@ async def reset_session_to_round1(session_id: str) -> bool:
             await _allow_immutable_purge(conn)
 
             try:
-                # 1. Delete audit log entries
+                # 1. Delete audit log entries (and the stored commit results — F06(b))
                 await conn.execute("DELETE FROM decision_audit_log WHERE session_id = $1", uuid.UUID(session_id))
+                await conn.execute("DELETE FROM commit_results WHERE session_id = $1", uuid.UUID(session_id))
                 # 2. Delete BU round states
                 await conn.execute(
                     """

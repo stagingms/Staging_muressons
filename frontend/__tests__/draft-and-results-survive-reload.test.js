@@ -86,7 +86,7 @@ describe('FLOW-06 — the results screen survives a reload', () => {
     expect(hook).toMatch(/const PENDING_RESULTS_KEY = \(sid\) => `muressons_pending_results_\$\{sid\}`/);
   });
   test('resume restores the committed round under the pending results and skips the next briefing', () => {
-    expect(hook).toMatch(/const pending = readPendingResults\(sid\);/);
+    expect(hook).toMatch(/let pending = readPendingResults\(sid\);/);   // F06(b): may be rebuilt from the stored response
     expect(hook).toMatch(/data\?\.current_round === pending\.newRoundNumber/);
     expect(hook).toMatch(/setRoundNumber\(pending\.roundCommitted\)/);
     expect(hook).toMatch(/setCommitResults\(pending\);\s*prevRoundRef\.current = pending\.roundCommitted;\s*setRoundChanged\(false\);/);

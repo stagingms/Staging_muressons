@@ -27,6 +27,11 @@ from runtime_paths import data_file as _data_file
 _SNAPSHOT_PATH = _data_file("memory_snapshot.json")
 # RES-1: rolling one-generation backup of the last-known-good snapshot.
 _BACKUP_PATH = _SNAPSHOT_PATH.with_suffix(".bak")
+# F06(b) / N3: commit results live in their own append-only journal, NOT in
+# the snapshot — a snapshot that carried every round's response would grow by
+# ~50 KB per commit and be re-serialised in full on every write (quadratic in
+# a long-running process). One line per write, replayed in order at load.
+_COMMIT_RESULTS_PATH = _data_file("commit_results.jsonl")
 _save_lock = threading.Lock()
 _async_write_lock = asyncio.Lock()
 
@@ -63,6 +68,9 @@ _sessions = {}
 _global_states = {}      # session_id → [round_states]
 _bu_states = {} # session_id → {round_num → [bu_dicts]}
 _decision_log = []
+# F06(b) / N3 (audit 2026-09-09): the commit response of every round, keyed
+# session_id -> round_committed -> payload. Retained for all ten rounds (D6).
+_commit_results: dict[str, dict[int, dict]] = {}
 
 
 # ── Persistence Helpers ─────────────────────────────────────────
@@ -259,6 +267,71 @@ def _write_snapshot_now():
                 print(f"[persistence] Failed to save snapshot: {e}")
 
 
+# ── Commit-results journal (F06b / N3) ──────────────────────────────────
+# Defined ABOVE _apply_snapshot / _load_from_disk: the module restores its
+# snapshot at import time (the _load_from_disk() call below the loader), and
+# a name that is only bound further down the file raised NameError inside
+# _apply_snapshot — which RES-1 read as a corrupt snapshot and QUARANTINED
+# (found on the 2026-09-10 drill server's boot log; pinned by
+# tests/test_snapshot_restores_at_import.py).
+
+def _journal_commit_result(record: dict) -> None:
+    """Append one line to the commit-results journal (best effort)."""
+    try:
+        _COMMIT_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_COMMIT_RESULTS_PATH, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, default=_datetime_serializer, ensure_ascii=False) + "\n")
+    except Exception as exc:
+        try:
+            from admin_shared import record_persistence_failure
+            record_persistence_failure("commit_results", exc, str(_COMMIT_RESULTS_PATH))
+        except Exception:
+            pass
+
+
+def _load_commit_results_journal() -> None:
+    """Rebuild _commit_results from the journal, in write order; a tombstone
+    line ({"deleted": true}) drops a round or a whole session."""
+    _commit_results.clear()
+    try:
+        if not _COMMIT_RESULTS_PATH.exists():
+            return
+        with open(_COMMIT_RESULTS_PATH, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                sid = rec.get("session_id")
+                if not sid:
+                    continue
+                if rec.get("deleted"):
+                    if rec.get("round_number") is None:
+                        _commit_results.pop(sid, None)
+                    else:
+                        (_commit_results.get(sid) or {}).pop(int(rec["round_number"]), None)
+                    continue
+                if rec.get("round_number") is None or rec.get("payload") is None:
+                    continue
+                _commit_results.setdefault(sid, {})[int(rec["round_number"])] = rec["payload"]
+    except Exception as exc:
+        print(f"[persistence] commit_results journal unreadable: {exc}")
+
+
+def _drop_commit_results(session_id: str, round_number: int | None = None) -> None:
+    """Forget a round's (or a session's) stored results, in memory and in the journal."""
+    if round_number is None:
+        if _commit_results.pop(session_id, None) is not None:
+            _journal_commit_result({"session_id": session_id, "deleted": True})
+    else:
+        if (_commit_results.get(session_id) or {}).pop(int(round_number), None) is not None:
+            _journal_commit_result({"session_id": session_id, "round_number": int(round_number), "deleted": True})
+
+
+
 def _apply_snapshot(snapshot: dict) -> int:
     """Populate the in-memory stores from a parsed snapshot dict.
 
@@ -279,6 +352,7 @@ def _apply_snapshot(snapshot: dict) -> int:
     _decision_log = decision_log
     _bu_states.clear()
     _bu_states.update(bu_states)
+    _load_commit_results_journal()
 
     # Restore cohort_marketplaces (best-effort -- never fail the whole restore).
     try:
@@ -392,6 +466,7 @@ def _load_from_disk():
     _global_states = {}
     _decision_log = []
     _bu_states.clear()
+    _commit_results.clear()
     print(
         "\n============================================================\n"
         "  RES-1 -- STARTING WITH EMPTY STATE.\n"
@@ -422,6 +497,7 @@ def _cleanup_expired_records():
         _sessions.pop(sid, None)
         _global_states.pop(sid, None)
         _bu_states.pop(sid, None)
+        _drop_commit_results(sid)
         
     if expired_sids:
         _decision_log = [d for d in _decision_log if d.get("session_id") not in expired_sids]
@@ -1543,6 +1619,21 @@ async def update_draft_fields(session_id: str, round_number: int, draft: dict) -
     return True
 
 
+async def save_commit_result(session_id: str, round_number: int, payload: dict) -> None:
+    """F06(b) / N3 (audit 2026-09-09) — parity with database.save_commit_result.
+    Keep the commit response of `round_number` (the round COMMITTED) so a
+    client whose response was lost can rebuild its results screen, and the
+    facilitator can re-show any round. Upsert; all ten rounds are kept (D6)."""
+    _commit_results.setdefault(session_id, {})[int(round_number)] = copy.deepcopy(payload)
+    _journal_commit_result({"session_id": session_id, "round_number": int(round_number), "payload": payload})
+
+
+async def fetch_commit_result(session_id: str, round_number: int) -> Optional[dict]:
+    rounds = _commit_results.get(session_id) or {}
+    payload = rounds.get(int(round_number))
+    return copy.deepcopy(payload) if payload is not None else None
+
+
 # ── Reset / Delete Operations ─────────────────────────────────
 
 async def fetch_sessions_by_facilitator(facilitator_id: str) -> list[dict]:
@@ -1581,6 +1672,7 @@ async def delete_session(session_id: str, hard: bool = False) -> bool:
         _sessions.pop(session_id, None)
         _global_states.pop(session_id, None)
         _bu_states.pop(session_id, None)
+        _drop_commit_results(session_id)
         global _decision_log
         _decision_log = [d for d in _decision_log if d.get("session_id") != session_id]
     else:
@@ -1597,6 +1689,8 @@ async def delete_all_sessions(hard: bool = False) -> int:
         _sessions.clear()
         _global_states.clear()
         _bu_states.clear()
+        for _sid in list(_commit_results):
+            _drop_commit_results(_sid)
         global _decision_log
         _decision_log = []
     else:
@@ -1701,6 +1795,7 @@ async def reset_session_to_round1(session_id: str) -> bool:
 
     # Remove decision log entries for this session
     _decision_log = [d for d in _decision_log if d.get("session_id") != session_id]
+    _drop_commit_results(session_id)   # F06(b): a reset run has no results to re-show
 
     # Also reset all child player sessions
     child_ids = [
@@ -1713,6 +1808,7 @@ async def reset_session_to_round1(session_id: str) -> bool:
         _global_states[child_id] = [child_global]
         _bu_states[child_id] = {1: copy.deepcopy(bus)}
         _decision_log = [d for d in _decision_log if d.get("session_id") != child_id]
+        _drop_commit_results(child_id)
 
     _persist()
     return True
@@ -1748,6 +1844,9 @@ async def undo_latest_round(session_id: str) -> dict:
         d for d in _decision_log
         if not (d.get("session_id") == session_id and d.get("round_number") == deleted_round)
     ]
+    # F06(b): the row entering `deleted_round` was written by the commit of
+    # round deleted_round − 1 — drop that commit's stored result with it.
+    _drop_commit_results(session_id, deleted_round - 1)
 
     _persist()
     return {

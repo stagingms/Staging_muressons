@@ -3778,7 +3778,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     except Exception as exc:
         _log.warning(f"[WARN] Facilitator notification failed: {exc}")
 
-    return CommitTurnResponse(
+    response = CommitTurnResponse(
         session_id=session_id,
         new_round_number=new_round,
         global_state=GlobalStateOut(**new_global),
@@ -3786,6 +3786,62 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                         for bu in new_bus],
         events=events,
     )
+
+    # ── F06(b) / N3 (audit 2026-09-09): keep the response ─────────
+    # The events dict existed only in this HTTP response. A participant whose
+    # response was lost (proxy timeout, phone asleep, venue wifi) retried,
+    # got 409 stale_round, and the client re-synced to the next round with
+    # commitResults=null — the round's results screen was gone for good,
+    # because nothing could rebuild it. The compact response (decisions_raw
+    # lives in the audit log) is stored per round committed, for all ten
+    # rounds (D6), and served by GET /{sid}/commit-result/{round}. Best
+    # effort: a storage failure is logged, never returned as a commit failure.
+    try:
+        await db.save_commit_result(session_id, current_round, _compact_commit_result(response, current_round))
+    except Exception as _cr_exc:
+        _log.error("[COMMIT-RESULT] store failed for %s R%s: %s", session_id, current_round, _cr_exc)
+
+    return response
+
+
+def _compact_commit_result(response: "CommitTurnResponse", round_committed: int) -> dict:
+    """The stored form of a commit response: what the results screen needs,
+    minus what the audit log already holds (decisions_raw)."""
+    from fastapi.encoders import jsonable_encoder
+    events = {k: v for k, v in (response.events or {}).items() if k != "decisions_raw"}
+    return jsonable_encoder({
+        "round_committed": int(round_committed),
+        "new_round_number": int(response.new_round_number),
+        "events": events,
+        "global_state": response.global_state,
+        "business_units": list(response.business_units),
+    })
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/commit-result/{round_number}
+# ─────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/commit-result/{round_number}",
+    summary="The stored commit response of a round (results screen recovery / re-show)",
+)
+async def get_commit_result(request: Request, session_id: str, round_number: int):
+    """F06(b) / N3 (audit 2026-09-09). Owner-bound (a team observer and the
+    session's facilitator may read it too — it is the round's outcome, not a
+    write). 404 when the round has not been committed (or predates this
+    build)."""
+    await _assert_player_owns_session(request, session_id, allow_observer=True)
+    if not 1 <= int(round_number) <= 10:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Round must be 1–10.")
+    payload = await db.fetch_commit_result(session_id, int(round_number))
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "no_commit_result",
+                    "message": f"No stored result for round {round_number} of this session."},
+        )
+    return payload
 
 
 # ─────────────────────────────────────────────────────────────────
