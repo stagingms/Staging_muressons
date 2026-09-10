@@ -33,7 +33,9 @@ export default function SystemEngineMetrics({ globalState, pedToggles, isHealthc
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--type-caption)', color: '#64748b' }}>
           <span>Risk: {bio.species_risk_score} Spp</span>
-          <span>ESV: {fmtCurrency(bio.ecosystem_services_value)}/yr</span>
+          {/* N4: the engine values ecosystem services per ROUND (biodiversity_engine.ESV_BASE is $/round,
+              and "Nature's Invoice" is charged per round) — the label said "/yr". */}
+          <span>ESV: {fmtCurrency(bio.ecosystem_services_value)}/round</span>
         </div>
       </div>
     );

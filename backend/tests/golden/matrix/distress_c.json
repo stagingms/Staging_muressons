@@ -132,7 +132,12 @@
         "journalist:critical",
         "regulator:investigation"
       ],
-      "treasury_moves": []
+      "treasury_moves": [
+        [
+          "Biodiversity engine (restoration projects, Nature's Invoice)",
+          -11641.34
+        ]
+      ]
     },
     "flags": [
       "balance_sheet_balanced",
@@ -149,7 +154,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 89824162.87,
+      "corporate_treasury": 89812521.53,
       "cost_of_capital": 0.05,
       "green_transition_fund": 0.0,
       "historical_ebitda": 38917787.22,
@@ -222,7 +227,12 @@
         "journalist:critical",
         "regulator:investigation"
       ],
-      "treasury_moves": []
+      "treasury_moves": [
+        [
+          "Biodiversity engine (restoration projects, Nature's Invoice)",
+          -20954.42
+        ]
+      ]
     },
     "flags": [
       "active",
@@ -241,7 +251,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 104116831.2,
+      "corporate_treasury": 104084235.44,
       "cost_of_capital": 0.0543,
       "green_transition_fund": 0.0,
       "historical_ebitda": 40692296.97,
@@ -316,6 +326,10 @@
       ],
       "treasury_moves": [
         [
+          "Biodiversity engine (restoration projects, Nature's Invoice)",
+          -20954.42
+        ],
+        [
           "NPC stakeholders (enforcement fines, cascades)",
           -6872716.47
         ]
@@ -341,7 +355,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 113116448.39,
+      "corporate_treasury": 113062898.21,
       "cost_of_capital": 0.0562,
       "green_transition_fund": 0.0,
       "historical_ebitda": 38117441.16,
@@ -416,6 +430,10 @@
       ],
       "treasury_moves": [
         [
+          "Biodiversity engine (restoration projects, Nature's Invoice)",
+          -20954.42
+        ],
+        [
           "NPC stakeholders (enforcement fines, cascades)",
           -6872716.47
         ]
@@ -443,7 +461,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 113743916.6,
+      "corporate_treasury": 113690366.42,
       "cost_of_capital": 0.063,
       "green_transition_fund": 0.0,
       "historical_ebitda": 39462705.91,
@@ -545,7 +563,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 114260257.06,
+      "corporate_treasury": 114206706.88,
       "cost_of_capital": 0.072,
       "green_transition_fund": 0.0,
       "historical_ebitda": 28543068.77,
@@ -652,7 +670,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 68599777.77,
+      "corporate_treasury": 68546227.59,
       "cost_of_capital": 0.1009,
       "green_transition_fund": 0.0,
       "historical_ebitda": 30795418.05,
@@ -762,7 +780,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 7510819.43,
+      "corporate_treasury": 7457269.25,
       "cost_of_capital": 0.1008,
       "green_transition_fund": 0.0,
       "historical_ebitda": 32820925.09,
@@ -838,7 +856,7 @@
       "treasury_moves": [
         [
           "Balance sheet (short-term debt interest)",
-          -1115571.4
+          -1116106.91
         ]
       ]
     },
@@ -877,7 +895,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": -60174875.67,
+      "corporate_treasury": -60218251.32,
       "cost_of_capital": 0.1018,
       "green_transition_fund": 0.0,
       "historical_ebitda": 35906958.7,
@@ -953,7 +971,11 @@
       "treasury_moves": [
         [
           "Balance sheet (short-term debt interest)",
-          -984579.01
+          -985531.79
+        ],
+        [
+          "Biodiversity engine (restoration projects, Nature's Invoice)",
+          -34924.03
         ],
         [
           "NPC stakeholders (enforcement fines, cascades)",
@@ -1010,7 +1032,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": -49442480.19,
+      "corporate_treasury": -49538711.28,
       "cost_of_capital": 0.1018,
       "green_transition_fund": 0.0,
       "historical_ebitda": 29656341.86,
@@ -1041,7 +1063,7 @@
   {
     "finale": {
       "archetype": "STRANDED_RELIC",
-      "equity_value": 136892144.13,
+      "equity_value": 136699681.95,
       "equity_wiped_out": 0.0,
       "exit_multiple_applied": 12.67,
       "exit_multiple_wacc_used": 0.1005,
@@ -1051,8 +1073,8 @@
         "instability_discount": -0.4,
         "max_achievable_mr": 1.93
       },
-      "net_debt": 148884960.38,
-      "price_per_share": 21.06,
+      "net_debt": 149077422.56,
+      "price_per_share": 21.03,
       "profile": "stranded_relic",
       "regenerative_multiple": 0.78,
       "terminal_ebitda": 28917198.36,

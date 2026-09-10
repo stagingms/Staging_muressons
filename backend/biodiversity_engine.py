@@ -31,13 +31,23 @@ from rules import rule_on
 #  INITIAL STATE
 # ═══════════════════════════════════════════════════════════════
 
+# N4 (audit 2026-09-09 → EVAL 2026-09-10): the $/round value of the services
+# nature provides at a REFERENCE ecology (Costanza et al. 2014 style
+# valuation). The live ESV is a LEVEL — this base scaled by the current
+# ecology (calc_ecosystem_services_value) — never last round's value scaled
+# again, which compounded ~12 %/round at the starting state ($8M → $27M by
+# R10 with nothing changing) and then invoiced the team every round after a
+# single EHI drop.
+ESV_BASE = 8_000_000.0
+
+
 def create_initial_biodiversity_state() -> dict[str, Any]:
     """Create the starting biodiversity state for a new session."""
-    return {
+    state = {
         "ecosystem_health_index": 65.0,       # 0-100, starts moderate
         "species_risk_score": 12,              # count of threatened species in footprint
         "habitat_integrity": 0.55,             # 0-1, fraction of intact habitat
-        "ecosystem_services_value": 8_000_000, # $/round from pollination, water filtration, etc.
+        "ecosystem_services_value": ESV_BASE,  # $/round from pollination, water filtration, etc. (levelled below)
         "biodiversity_dependency_score": 0.35,  # 0-1, how much BUs depend on nature
         "deforestation_rate": 2.5,             # hectares/year lost
         "water_stress_index": 0.40,            # 0-1, local watershed stress
@@ -52,6 +62,17 @@ def create_initial_biodiversity_state() -> dict[str, Any]:
         "cumulative_habitat_restored_ha": 0.0,
         "biodiversity_history": [],
     }
+    # N4: the value is a level of the ecology, so the starting value is the
+    # level AT the starting ecology — R1 then shows a change only if the
+    # ecology changed, not a jump from a bare base.
+    state["ecosystem_services_value"], _ = calc_ecosystem_services_value(
+        ESV_BASE,
+        state["ecosystem_health_index"],
+        state["pollinator_health"],
+        state["water_stress_index"],
+        state["habitat_integrity"],
+    )
+    return state
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -176,15 +197,25 @@ def calc_ecosystem_services_value(
     pollinator_health: float,
     water_stress_index: float,
     habitat_integrity: float,
+    base_value: float = ESV_BASE,
 ) -> tuple[float, dict]:
     """
-    Dollar value of ecosystem services the company receives for free
-    (pollination, water filtration, soil fertility, flood protection, etc.).
+    Dollar value ($/round) of ecosystem services the company receives for
+    free (pollination, water filtration, soil fertility, flood protection…).
 
     Based on Costanza et al. (2014) ecosystem services valuation.
 
-    Value = Base × EHI_factor × Pollinator_factor × Water_factor
+    Value = Base × EHI_factor × Pollinator_factor × Water_factor × Habitat_factor
     where factors are 0.5–1.5 range multipliers.
+
+    N4: the value is a LEVEL of the current ecology, computed from `base_value`
+    every round. `current_value` is last round's level and is used only to
+    report the change (services_lost). Multiplying `current_value` by the
+    composite — what this did before — made the composite a per-round growth
+    rate: ≈1.12 at the starting state, so ESV tripled over ten rounds with
+    no ecological change, and a single drop in EHI became a lower-than-1
+    composite that shrank the value (and charged "Nature's Invoice") every
+    round thereafter.
     """
     ehi_factor = 0.5 + (ehi / 100.0)  # 0.5 at EHI=0, 1.5 at EHI=100
     pollinator_factor = 0.7 + (pollinator_health * 0.6)  # 0.7–1.3
@@ -192,7 +223,7 @@ def calc_ecosystem_services_value(
     habitat_factor = 0.6 + (habitat_integrity * 0.8)  # 0.6–1.4
 
     composite = ehi_factor * pollinator_factor * water_factor * habitat_factor
-    new_value = round(current_value * composite, 2)
+    new_value = round(base_value * composite, 2)
 
     # Floor: even degraded ecosystems provide some services
     new_value = max(500_000, new_value)
@@ -492,9 +523,17 @@ def process_biodiversity_tick(
     bio_state["species_risk_score"] = new_risk
     diagnostics["species_risk"] = risk_diag
 
-    # 3. Ecosystem Services Value
+    # 3. Ecosystem Services Value — a level of this round's ecology (N4)
+    prev_esv = float(bio_state.get("ecosystem_services_value", ESV_BASE) or 0.0)
+    # A state written before N4 carries `_prev_esv` and a value that was
+    # compounded, not levelled (up to ~3× the level by R10). The first tick
+    # under the new rule re-levels it and must not invoice the team for the
+    # difference — nothing ecological happened. The marker is dropped so this
+    # holds for exactly one round.
+    legacy_compounded = "_prev_esv" in bio_state
+    bio_state.pop("_prev_esv", None)
     new_esv, esv_diag = calc_ecosystem_services_value(
-        bio_state["ecosystem_services_value"],
+        prev_esv,
         new_ehi,
         bio_state.get("pollinator_health", 0.5),
         bio_state.get("water_stress_index", 0.4),
@@ -508,9 +547,11 @@ def process_biodiversity_tick(
     bio_state["biodiversity_dependency_score"] = dep_score
     diagnostics["dependency"] = dep_diag
 
-    # 5. Financial impact: Ecosystem services loss hits OPEX
-    if new_esv < bio_state.get("_prev_esv", 8_000_000):
-        services_lost = bio_state.get("_prev_esv", 8_000_000) - new_esv
+    # 5. Financial impact: a FALL in the level of services — the ecology got
+    # worse this round — is replaced commercially, once, in proportion to the
+    # fall. A level that merely stays low is not re-invoiced.
+    if new_esv < prev_esv and not legacy_compounded:
+        services_lost = round(prev_esv - new_esv, 2)
         # Companies must replace lost ecosystem services commercially
         replacement_cost = round(services_lost * dep_score * 0.3, 2)
         if replacement_cost > 0:
@@ -522,8 +563,8 @@ def process_biodiversity_tick(
                 f"purification, pollination, and flood protection costs "
                 f"${replacement_cost:,.0f} this round."
             )
-
-    bio_state["_prev_esv"] = new_esv
+    elif legacy_compounded:
+        diagnostics["esv_relevelled_from_legacy"] = {"previous_value": prev_esv, "new_value": new_esv}
 
     # 6. TNFD disclosure credit (IMP-17: was labelled an M_R bonus that no
     # M_R arbiter ever read — reported as what it is, a disclosure credit)

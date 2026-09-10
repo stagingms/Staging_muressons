@@ -422,8 +422,8 @@
       ],
       "treasury_moves": [
         [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6649912.61
+          "Biodiversity engine (restoration projects, Nature's Invoice)",
+          -44237.11
         ]
       ]
     },
@@ -457,7 +457,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 136300486.57,
+      "corporate_treasury": 136256249.46,
       "cost_of_capital": 0.05,
       "green_transition_fund": 0.0,
       "historical_ebitda": 36060405.37,
@@ -532,8 +532,8 @@
       ],
       "treasury_moves": [
         [
-          "NPC stakeholders (enforcement fines, cascades)",
-          -6649912.61
+          "Biodiversity engine (restoration projects, Nature's Invoice)",
+          -44237.11
         ]
       ]
     },
@@ -568,7 +568,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 160910398.9,
+      "corporate_treasury": 160866161.79,
       "cost_of_capital": 0.0503,
       "green_transition_fund": 0.0,
       "historical_ebitda": 47467457.21,
@@ -686,7 +686,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 152184966.21,
+      "corporate_treasury": 152140729.1,
       "cost_of_capital": 0.0528,
       "green_transition_fund": 0.0,
       "historical_ebitda": 51388455.72,
@@ -807,7 +807,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 153845827.68,
+      "corporate_treasury": 153801590.57,
       "cost_of_capital": 0.0781,
       "green_transition_fund": 0.0,
       "historical_ebitda": 56142434.57,
@@ -928,7 +928,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 191997141.09,
+      "corporate_treasury": 191952903.98,
       "cost_of_capital": 0.0772,
       "green_transition_fund": 0.0,
       "historical_ebitda": 53791614.34,
@@ -1054,7 +1054,7 @@
     "global": {
       "avg_carbon_intensity": 0.0,
       "avg_social_license": 0.0,
-      "corporate_treasury": 205477905.67,
+      "corporate_treasury": 205433668.56,
       "cost_of_capital": 0.0864,
       "green_transition_fund": 0.0,
       "historical_ebitda": 53091526.92,
@@ -1085,7 +1085,7 @@
   {
     "finale": {
       "archetype": "FRAGILE_GIANT",
-      "equity_value": 807083125.0,
+      "equity_value": 807038887.89,
       "equity_wiped_out": 0.0,
       "exit_multiple_applied": 15.36,
       "exit_multiple_wacc_used": 0.0864,
@@ -1095,8 +1095,8 @@
         "max_achievable_mr": 1.93,
         "resilience_bonus": 0.2
       },
-      "net_debt": -155477905.67,
-      "price_per_share": 124.17,
+      "net_debt": -155433668.56,
+      "price_per_share": 124.16,
       "profile": "fragile_giant",
       "regenerative_multiple": 0.8,
       "terminal_ebitda": 53027768.5,
