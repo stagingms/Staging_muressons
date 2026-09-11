@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Dialog from './Dialog';
 import styles from './CreateCohortModal.module.css';
+import { isAdminRole } from '../utils/roleRouting';
 import { CURRENCIES } from '../contexts/CurrencyContext';
 import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META } from '../lib/verticalCatalog';
 import { PLAYER_VISIBILITY_CARDS, playerVisibilityGroups, visibilityForAudiences } from '../config/playerVisibilityRegistry';
@@ -145,7 +146,14 @@ export function wizardSchedulesToIso(schedules) {
 }
 
 export default function CreateCohortModal({ isOpen, onClose, onCreated, currentFacilitatorId, currentFacilitatorRole = 'facilitator', editSession = null }) {
-    const isSuperAdmin = currentFacilitatorRole === 'super_admin' || currentFacilitatorRole === 'admin';
+    // Level, not string (CLAUDE.md role model, rule 1): god_mode sits ABOVE
+    // super_admin and must see everything super_admin sees. The string
+    // comparison this replaced dropped god_mode into the base-facilitator
+    // branch, so the god-mode console could create a cohort but never choose
+    // its decision paradigm, ending pathway, modules or interventions — every
+    // cohort it set up was Narrative Crises with the hidden sections' defaults
+    // (found setting up the 2026-09 classroom cohort).
+    const isSuperAdmin = isAdminRole(currentFacilitatorRole);
     const isLeadFacilitator = currentFacilitatorRole === 'lead_facilitator';
     // F-6 (v3): project_admin is a PROVISIONING role, not a base facilitator.
     // The old catch-all sent it down the most-restricted branch (locked to
@@ -359,7 +367,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
     // lead_facilitator and super_admin may assign any registered track without
     // needing a global God Mode pre-authorization.
-    const canAssignAllTracks = currentFacilitatorRole === 'lead_facilitator' || currentFacilitatorRole === 'super_admin';
+    const canAssignAllTracks = isLeadFacilitator || isSuperAdmin;
 
     useEffect(() => {
         if (!isOpen) return;
