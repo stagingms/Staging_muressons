@@ -26,6 +26,18 @@ import { currencySymbol } from '../utils/format';
  *     lookup now tries the semantic key first, then falls back to the
  *     positional key for that option's index.
  *
+ * September 2026 fix:
+ *
+ *  3. DOUBLE TOOLTIP. Each option row also carried the description as a native
+ *     `title` attribute ("fallback for touch/no-hover"). On a desktop browser
+ *     that is not a fallback but a second surface: after ~1 s the browser drew
+ *     its plain title box on top of the formatted hover card, so every option
+ *     showed the same text twice, one box overlapping the other. The native
+ *     title is gone; the formatted card is the one hover surface. (It was
+ *     never a real touch fallback either — touch browsers do not show titles
+ *     on tap, and a tap selects and closes the menu.) Pinned by
+ *     __tests__/pillar-option-descriptions.test.js.
+ *
  * Props:
  *   - options:        Object { optKey: { title, description, cost, impacts } }
  *   - value:          string | null — currently selected optKey
@@ -234,7 +246,6 @@ export default function PillarSelectDropdown({
                   role="option"
                   tabIndex={-1}
                   aria-selected={isSelected}
-                  title={describe(optKey)}   /* native fallback for touch/no-hover */
                 >
                   {opt.title} ({fmtCurrency?.(opt.cost || 0) || `${currencySymbol()}0`})
                 </div>

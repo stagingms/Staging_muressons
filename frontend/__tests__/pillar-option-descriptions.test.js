@@ -16,9 +16,21 @@
  *     so the card rendered but was clipped out of view. Both layers must be
  *     portalled to <body>; the CSS must therefore NOT re-introduce
  *     position/left/top on .menu or .tooltip.
+ *
+ *  3. DOUBLE TOOLTIP (Sept 2026, seen on production with the Classroom-50
+ *     cohort). Each option row also carried the description in a native
+ *     `title` attribute, meant as a touch/no-hover fallback. On a desktop
+ *     browser the title box appeared after ~1 s ON TOP of the formatted hover
+ *     card, so every option showed its description twice, one box overlapping
+ *     the other. The option rows must carry no `title`; the formatted card is
+ *     the only hover surface, and the description appears in the DOM exactly
+ *     once while an option is hovered.
  */
 const fs = require('fs');
 const path = require('path');
+const React = require('react');
+const { render, fireEvent, act } = require('@testing-library/react');
+const PillarSelectDropdown = require('../app/components/PillarSelectDropdown').default;
 
 const APP = path.join(__dirname, '..', 'app');
 const component = fs.readFileSync(path.join(APP, 'components/PillarSelectDropdown.js'), 'utf8');
@@ -85,8 +97,58 @@ describe('pillar option descriptions', () => {
     expect(component).toContain('option_${idx + 1}');           // positional fallback
     expect(component).toContain('createPortal');                 // actually used now
     expect(component).toContain('document.body');                // escapes the clip
-    // Native title attribute as a touch/no-hover fallback
-    expect(component).toMatch(/title=\{describe\(optKey\)\}/);
+    // No native title on the option rows — it drew a second, overlapping
+    // tooltip on top of the formatted card (defect 3).
+    expect(component).not.toMatch(/title=\{describe\(/);
+    expect(component).not.toMatch(/role="option"[\s\S]{0,400}?\btitle=/);
+  });
+
+  describe('rendered: one hover surface per option (defect 3)', () => {
+    const OPTIONS = {
+      renewable_ppa: {
+        title: 'Renewable PPA', cost: 2000000, description: 'short engine copy',
+        impacts: { revenue_delta: 100000, carbon: -8, reputation: 3 },
+      },
+      fossil_status_quo: { title: 'Fossil Status Quo', cost: 0, description: 'stay put', impacts: {} },
+    };
+    const DESCS = { option_1: 'Sign a long-term renewable power purchase agreement.' };
+    const fmt = (v) => `₹${(v / 1e6).toFixed(1)}M`;
+
+    async function openMenu() {
+      const utils = render(
+        React.createElement(PillarSelectDropdown, {
+          options: OPTIONS, value: null, onChange: () => {}, fmtCurrency: fmt, detailedDescs: DESCS,
+        }),
+      );
+      await act(async () => { fireEvent.click(utils.getByRole('button')); });
+      return utils;
+    }
+
+    const optionRows = () =>
+      [...document.querySelectorAll('[role="option"]')].filter((el) => el.textContent.trim() !== '— Select —');
+
+    test('option rows carry no native title attribute', async () => {
+      await openMenu();
+      const rows = optionRows();
+      expect(rows.length).toBe(2);
+      for (const row of rows) expect(row.hasAttribute('title')).toBe(false);
+    });
+
+    test('hovering an option shows its description exactly once, in the formatted card', async () => {
+      await openMenu();
+      const row = optionRows().find((el) => /Renewable PPA/.test(el.textContent));
+      await act(async () => { fireEvent.mouseEnter(row); });
+      const text = document.body.textContent;
+      const occurrences = text.split(DESCS.option_1).length - 1;
+      expect(occurrences).toBe(1);
+      // the card is the formatted one: title, cost, impact chips
+      expect(text).toMatch(/💰 ₹2\.0M/);
+      expect(text).toMatch(/\+100000 revenue_delta/);
+      expect(text).toMatch(/-8 Carbon/);
+      expect(text).toMatch(/\+3 Reputation/);
+      // and nothing in the DOM repeats the description as a title
+      expect(document.querySelector(`[title="${DESCS.option_1}"]`)).toBeNull();
+    });
   });
 
   test('CSS does not re-introduce clipping-prone positioning', () => {
