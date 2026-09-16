@@ -476,7 +476,7 @@ export default function RoundBriefing({
           ) : (
           <div className={styles.narrative}>
             {b.narrative.map((para, i) => (
-              <p key={i} dangerouslySetInnerHTML={{ __html: sanitizeHtml(showTheory ? para : stripPedagogy(para)) }} />
+              <p key={i} dangerouslySetInnerHTML={{ __html: sanitizeHtml(localiseAuthored(showTheory ? para : stripPedagogy(para))) }} />
             ))}
           </div>
           )}
@@ -562,7 +562,7 @@ export default function RoundBriefing({
               </div>
               <ul className={styles.objectivesList}>
                 {b.objectives.map((obj, i) => (
-                  <li key={i}>{obj}</li>
+                  <li key={i}>{localiseAuthored(obj)}</li>
                 ))}
               </ul>
 
@@ -575,7 +575,7 @@ export default function RoundBriefing({
                 {b.metrics.map((m, i) => (
                   <div key={i} className={styles.metricChip}>
                     <span className={styles.metricIcon}>{m.icon}</span>
-                    <span className={styles.metricLabel}>{m.label}</span>
+                    <span className={styles.metricLabel}>{localiseAuthored(m.label)}</span>
                   </div>
                 ))}
               </div>
@@ -586,7 +586,7 @@ export default function RoundBriefing({
                   <span className={styles.warningIcon}>⚠️</span>
                   <div
                     className={styles.warningText}
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(b.warning.text) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(localiseAuthored(b.warning.text)) }}
                   />
                 </div>
               )}
