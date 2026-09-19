@@ -12,6 +12,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 from typing import Optional
@@ -106,14 +107,14 @@ async def synthesize_interview_audio(
         List of base64-encoded audio strings (None for failures)
     """
     voice_id = persona.get("elevenlabs_voice_id", "21m00Tcm4TlvDq8ikWAM")
-    results = []
-    for segment in text_segments:
-        audio = await synthesize_speech(
+    tasks = [
+        synthesize_speech(
             text=segment,
             voice_id=voice_id,
         )
-        results.append(audio)
-    return results
+        for segment in text_segments
+    ]
+    return list(await asyncio.gather(*tasks))
 
 
 async def check_api_status() -> dict:

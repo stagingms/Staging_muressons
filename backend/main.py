@@ -137,8 +137,15 @@ def _is_postgres_available() -> bool:
         parsed = urlparse(DATABASE_URL)
         host = parsed.hostname or "localhost"
         port = parsed.port or 5432
-        with socket.create_connection((host, port), timeout=1.0):
-            return True
+        import time as _probe_time
+        for attempt in range(4):
+            try:
+                with socket.create_connection((host, port), timeout=1.5):
+                    return True
+            except Exception:
+                if attempt < 3:
+                    _probe_time.sleep(1.0 * (attempt + 1))
+        return False
     except Exception:
         return False
 
@@ -478,7 +485,10 @@ app = FastAPI(
 # Set CORS_ORIGINS env var to a comma-separated list for production.
 # Railway auto-injects RAILWAY_PUBLIC_DOMAIN when a public domain is assigned.
 import os as _os
-_cors_origins = _os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
+_cors_origins = _os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:3001,https://staging.mastersustainability.org"
+).split(",")
 _cors_origins = [o.strip() for o in _cors_origins if o.strip()]
 
 # Auto-detect Railway public domain

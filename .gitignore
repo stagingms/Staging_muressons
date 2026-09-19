@@ -51,6 +51,7 @@ db/*.json
 # (database.py:120 picks it by filename). Every seed file needs a line here.
 !db/seed_round1.json
 !db/seed_healthcare.json
+!db/facilitator_registry.json
 sessions.json
 
 
