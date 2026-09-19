@@ -763,6 +763,63 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
     return advanced
 
 
+async def _auto_commit_single_team(sid: str) -> bool:
+    """Auto-commit a single specific team session using its saved decisions or defaults.
+    Does NOT affect cohort pacing or any other teams."""
+    try:
+        latest = await db.fetch_latest_round(sid)
+        if latest is None:
+            return False
+        state = await db.fetch_latest_state(sid)
+        if not state:
+            return False
+        gs_list = await db.fetch_round_history(sid, include_final=True)
+        latest_item = gs_list[-1] if gs_list else {}
+        if latest_item.get("is_final"):
+            return False
+        _gs = state.get("global_state") or {}
+        _draft = _draft_for_round(_gs, latest)
+        _had_pillar_draft = bool(_draft.get("saved_pillar_decisions"))
+        had_draft = bool(_draft.get("saved_allocations") or _draft.get("saved_decision_choice")
+                         or _had_pillar_draft)
+        _sinfo = await db.get_session_info(sid) or {}
+        _paradigm = _sinfo.get("decision_paradigm") or "legacy_abc"
+        if _paradigm == "legacy_abc" and _sinfo.get("parent_cohort_id"):
+            _parent_sinfo = await db.get_session_info(_sinfo["parent_cohort_id"]) or {}
+            _paradigm = _parent_sinfo.get("decision_paradigm") or _paradigm
+        _pillar_fallback = _paradigm in ("multi_toggles", "brsr_ngrbc") and not _had_pillar_draft
+        body = _auto_commit_request(state["global_state"], state["bu_states"], latest,
+                                    shuffle_seed=_sinfo.get("shuffle_seed"),
+                                    paradigm=_sinfo.get("decision_paradigm", "legacy_abc"))
+        _commit_timestamps.pop(sid, None)
+        if await _run_commit_locked(sid, body) is not None:
+            try:
+                newest = await db.fetch_latest_state(sid)
+                if newest:
+                    ng = newest["global_state"]
+                    nflags = ng.get("active_event_flags") or {}
+                    nflags["auto_committed"] = True
+                    nflags["auto_committed_source"] = (
+                        "legacy_fallback" if _pillar_fallback else ("draft" if had_draft else "default"))
+                    nflags["auto_committed_reason"] = (
+                        "Facilitator single-team commit — no pillar draft was saved, so this round was "
+                        "committed under the legacy option path (Option B) with that path's flags"
+                        + (" and your saved allocations" if had_draft else " and $1 per business unit")
+                        if _pillar_fallback else
+                        "Facilitator single-team commit — committed from your saved draft"
+                        if had_draft else
+                        "Facilitator single-team commit — committed with defaults (Option B, $1 per business unit)"
+                    )
+                    ng["active_event_flags"] = nflags
+                    await db.update_latest_global_state(sid, ng, newest["bu_states"], expected_round=newest["round_number"])
+            except Exception as _ac_exc:
+                _log.warning(f"[SINGLE-TEAM-COMMIT] disclosure stamp failed for {sid}: {_ac_exc}")
+            return True
+    except Exception as exc:
+        _log.warning(f"[SINGLE-TEAM-COMMIT] auto-commit failed for {sid}: {exc}")
+    return False
+
+
 async def _cohort_advance_status(session_info, committed=None, teams=None,
                                  rounds: list[int] | None = None):
     """Compute the free-advance barrier state for a cohort sub-session and
@@ -2129,9 +2186,30 @@ async def get_session_info(session_id: str, request: Request):
     if not _assigned_bu and _sim_mode == "single_bu" and _industry_vert:
         _assigned_bu = VERTICAL_SLOT_MAP.get(_industry_vert, _industry_vert)
 
+    # Derive cohort readiness status (Issue #34)
+    _cohort_status = (
+        session.get("cohort_status")
+        or session.get("status")
+        or (parent.get("cohort_status") if parent_id and parent else None)
+        or (parent.get("status") if parent_id and parent else None)
+    )
+    if not _cohort_status:
+        try:
+            from admin_shared import _get_pacing, is_round_unlocked
+            _target_cohort = parent_id or session_id
+            _p = _get_pacing(_target_cohort)
+            if _p.get("mode") == "manual" and not is_round_unlocked(_target_cohort, 1):
+                _cohort_status = "waiting"
+            else:
+                _cohort_status = "active"
+        except Exception:
+            _cohort_status = "active"
+
     return {
         "session_id": session_id,
         "cohort_name": session.get("cohort_name"),
+        "status": _cohort_status,
+        "cohort_status": _cohort_status,
         "decision_paradigm": session.get("decision_paradigm", "legacy_abc"),
         "currency_symbol": session.get("currency_symbol") or parent_currency or "$",
         "parent_currency_symbol": parent_currency,

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { loadCrisisConfig, saveCrisisConfig } from './CrisisAlerts';
+import { useConfirm } from './ConfirmModal';
 import styles from './CrisisTriggerConfig.module.css';
 
 /* ═════════════════════════════════════════════════════════════════
@@ -47,6 +48,7 @@ const CRISIS_TYPES = [
 export default function CrisisTriggerConfig() {
   const [config, setConfig] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [confirm, confirmModal] = useConfirm();
 
   useEffect(() => {
     setConfig(loadCrisisConfig());
@@ -68,9 +70,18 @@ export default function CrisisTriggerConfig() {
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const handleManualInject = (crisisKey) => {
+  const handleManualInject = async (crisisKey) => {
     if (typeof window === 'undefined') return;
-    if (!confirm(`Fire "${crisisKey === 'activist_threat' ? 'Activist Threat' : 'CEO Liquidity Panic'}" to ALL active player sessions?`)) return;
+    const crisisName = crisisKey === 'activist_threat' ? 'Activist Threat' : 'CEO Liquidity Panic';
+    const ok = await confirm({
+      title: `⚡ Manual Inject: ${crisisName}`,
+      message: `Fire "${crisisName}" to ALL active player sessions across the platform?`,
+      impact: 'Every active student team will receive this crisis alert immediately on their Executive Cockpit.',
+      requirePhrase: 'FIRE',
+      confirmLabel: 'Fire Crisis Alert',
+      danger: true,
+    });
+    if (!ok) return;
     const bc = new BroadcastChannel('muressons_crisis_inject');
     bc.postMessage({ crisisType: crisisKey });
     bc.close();
@@ -218,6 +229,8 @@ export default function CrisisTriggerConfig() {
           💾 Save Configuration
         </button>
       </div>
+
+      {confirmModal}
     </div>
   );
 }

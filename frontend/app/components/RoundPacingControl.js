@@ -153,6 +153,7 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
             }
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
@@ -177,7 +178,10 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
             const res = await fetch(`${API}/api/admin/cohort-pulse/${sessionId}`, { credentials: 'include' });
             if (res.ok) {
                 const d = await res.json();
-                return d?.commit_progress || null;
+                return {
+                    progress: d?.commit_progress || null,
+                    teams: (d?.teams || []).filter(t => !t.is_cohort_shell),
+                };
             }
         } catch { /* fall through */ }
         return null;
@@ -271,14 +275,27 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
 
     const forceAdvance = async () => {
         if (!sessionId || loading) return;
-        const tally = await fetchCommitTally();
+        const data = await fetchCommitTally();
+        const tally = data?.progress;
+        const teams = data?.teams || [];
         const impact = [];
         if (tally && tally.total_players > 0) {
             const behind = tally.total_players - tally.committed_count;
             impact.push(`${tally.committed_count} of ${tally.total_players} players have committed Round ${tally.target_round ?? '—'}.`);
-            impact.push(behind > 0
-                ? `${behind} player(s) will be AUTO-COMMITTED — from their saved draft if one exists, otherwise with defaults (Option B, $1 per business unit).`
-                : 'Every player has already committed — this releases the barrier only.');
+            if (behind > 0) {
+                const uncommitted = teams.filter(t => !t.committed);
+                if (uncommitted.length > 0) {
+                    impact.push(`Uncommitted teams (${uncommitted.length}):`);
+                    uncommitted.forEach(t => {
+                        const draftNote = t.has_saved_draft ? 'saved draft present' : 'no draft (defaults will apply)';
+                        impact.push(`• ${t.name || t.session_id}: ${draftNote}`);
+                    });
+                } else {
+                    impact.push(`${behind} player(s) will be AUTO-COMMITTED — from their saved draft if one exists, otherwise with defaults.`);
+                }
+            } else {
+                impact.push('Every player has already committed — this releases the barrier only.');
+            }
         } else {
             impact.push('Any player who hasn’t committed will be auto-committed from saved decisions (or defaults if nothing was saved).');
         }
@@ -510,7 +527,7 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
                     </button>
                 )}
 
-                {mode === 'manual' && relockWindow && (
+                {relockWindow && (
                     <button
                         className={styles.btnWarning}
                         onClick={relockRound}

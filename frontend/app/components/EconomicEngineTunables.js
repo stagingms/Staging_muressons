@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useCurrency, CURRENCIES } from '../contexts/CurrencyContext';
+import { useConfirm } from './ConfirmModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -294,6 +295,7 @@ export default function EconomicEngineTunables() {
     const [error, setError] = useState(null);
     const [activePreset, setActivePreset] = useState(null);
     const [dirty, setDirty] = useState(false);
+    const [confirm, confirmModal] = useConfirm();
 
     // API-backed presets (merged from ScenarioPresets)
     const [presets, setPresets] = useState([]);
@@ -329,6 +331,7 @@ export default function EconomicEngineTunables() {
         try {
             const res = await fetch(`${API}/api/admin/engine-tunables`, {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(tunables),
             });
             if (res.ok) { setSaved(true); setDirty(false); setTimeout(() => setSaved(false), 2500); }
@@ -340,7 +343,7 @@ export default function EconomicEngineTunables() {
     const applyPreset = async (presetId) => {
         setApplyingPreset(presetId);
         try {
-            const res = await fetch(`${API}/api/admin/scenario-presets/apply/${presetId}`, { method: 'POST' });
+            const res = await fetch(`${API}/api/admin/scenario-presets/apply/${presetId}`, { method: 'POST', credentials: 'include' });
             if (res.ok) {
                 const d = await res.json();
                 setTunables(d.tunables);
@@ -356,6 +359,7 @@ export default function EconomicEngineTunables() {
         try {
             const res = await fetch(`${API}/api/admin/scenario-presets`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ name: newPresetName, description: newPresetDesc, icon: newPresetIcon, tunables }),
             });
             if (res.ok) { loadPresets(); setShowCreatePreset(false); setNewPresetName(''); setNewPresetDesc(''); }
@@ -363,8 +367,15 @@ export default function EconomicEngineTunables() {
     };
 
     const deletePreset = async (presetId) => {
-        if (!confirm('Delete this custom preset?')) return;
-        await fetch(`${API}/api/admin/scenario-presets/${presetId}`, { method: 'DELETE' });
+        const ok = await confirm({
+            title: 'Delete Scenario Preset',
+            message: 'Delete this custom preset?',
+            impact: 'This custom tunables preset will be permanently removed.',
+            confirmLabel: 'Delete Preset',
+            danger: true,
+        });
+        if (!ok) return;
+        await fetch(`${API}/api/admin/scenario-presets/${presetId}`, { method: 'DELETE', credentials: 'include' });
         loadPresets();
     };
 
@@ -687,6 +698,7 @@ export default function EconomicEngineTunables() {
                     {saving ? '⏳ Saving…' : saved ? '✓ Saved' : '💾 Save All Tunables'}
                 </button>
             </div>
+            {confirmModal}
         </div>
     );
 }

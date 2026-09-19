@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { isAdminRole } from '../../utils/roleRouting';
+import { cookiesWritable } from '../../utils/storageHealth';
+import { OVERLAY_PRIORITY } from '../../components/overlayPriority';
 import styles from '../page.module.css'; // Reuse existing admin layout
 
 import LeaderboardMatrix from '../../components/LeaderboardMatrix';
@@ -90,10 +94,21 @@ const LIVE_ROUND_GROUP_IDS = filterSidebarForLiveRound(FACILITATOR_SIDEBAR).map(
  * ═════════════════════════════════════════════════════════════════ */
 
 function FacilitatorLoginGate({ onLogin }) {
+    const router = useRouter();
     const [facId, setFacId] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [capsLock, setCapsLock] = useState(false);
+    const [cookiesBlocked, setCookiesBlocked] = useState(false);
+
+    useEffect(() => {
+        setCookiesBlocked(!cookiesWritable());
+    }, []);
+
+    const handleKeyDown = (e) => {
+        if (e.getModifierState) setCapsLock(e.getModifierState('CapsLock'));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -108,25 +123,19 @@ function FacilitatorLoginGate({ onLogin }) {
                     facilitator_id: facId.trim(),
                     password: password.trim(),
                 }),
-                // C-3: credentials:'include' is required so the browser stores
-                // the HttpOnly mur_session JWT cookie returned by the server.
-                // Without this the Set-Cookie response header is silently ignored.
                 credentials: 'include',
             });
             if (res.ok) {
                 const data = await res.json();
-                // C-2: Store only the display-safe subset in localStorage.
-                // Sensitive profile fields (email, contact, programme) must not
-                // be persisted to localStorage — XSS can read everything there.
-                // The JWT cookie (HttpOnly) holds the real session credential.
-                // RBAC-F1 (2026-08-01): `permissions` is no longer cached — the
-                // server no longer sends it and nothing reads it. Capability is
-                // role-derived (allowed_tabs + server-side guards).
                 const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, may_create_cohorts } = data;
-                localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, may_create_cohorts }
-                ));
-                onLogin(data);
+                const subset = { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, may_create_cohorts };
+                localStorage.setItem('facilitator_auth', JSON.stringify(subset));
+                if (isAdminRole(role, is_admin)) {
+                    localStorage.setItem('godmode_auth', JSON.stringify(subset));
+                    router.push('/admin/god-mode');
+                } else {
+                    onLogin(data);
+                }
             } else {
                 const err = await res.json();
                 setError(err.detail || 'Login failed');
@@ -151,12 +160,25 @@ function FacilitatorLoginGate({ onLogin }) {
             <div style={{
                 background: 'var(--bg-card)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 'var(--radius-lg, 12px)',
                 padding: '3rem',
                 maxWidth: '420px',
                 width: '100%',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
             }}>
+                {cookiesBlocked && (
+                    <div style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '6px',
+                        padding: '0.75rem 1rem',
+                        marginBottom: '1.5rem',
+                        fontSize: '0.82rem',
+                        color: 'var(--gauge-red)',
+                    }}>
+                        ⚠️ Cookies are blocked or disabled in your browser. Authentication requires cookies.
+                    </div>
+                )}
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎓</div>
                     <h1 style={{
@@ -198,17 +220,17 @@ function FacilitatorLoginGate({ onLogin }) {
                             style={{
                                 width: '100%',
                                 padding: '0.7rem 1rem',
-                                borderRadius: 'var(--radius-md)',
+                                borderRadius: 'var(--radius-md, 6px)',
                                 border: '1px solid var(--border-subtle)',
                                 background: 'var(--bg-body)',
                                 color: 'var(--text-primary)',
                                 fontSize: '0.9rem',
-                                fontFamily: 'var(--font-mono)',
                                 outline: 'none',
                                 boxSizing: 'border-box',
                             }}
                         />
                     </div>
+
                     <div>
                         <label style={{
                             display: 'block',
@@ -221,15 +243,18 @@ function FacilitatorLoginGate({ onLogin }) {
                         }}>
                             Password
                         </label>
-                        <PasswordInput
+                        <input
+                            type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter password"
+                            onKeyDown={handleKeyDown}
+                            onKeyUp={handleKeyDown}
+                            placeholder="••••••••"
                             disabled={loading}
                             style={{
                                 width: '100%',
                                 padding: '0.7rem 1rem',
-                                borderRadius: 'var(--radius-md)',
+                                borderRadius: 'var(--radius-md, 6px)',
                                 border: '1px solid var(--border-subtle)',
                                 background: 'var(--bg-body)',
                                 color: 'var(--text-primary)',
@@ -238,72 +263,58 @@ function FacilitatorLoginGate({ onLogin }) {
                                 boxSizing: 'border-box',
                             }}
                         />
+                        {capsLock && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--accent-gold)', marginTop: '0.3rem' }}>
+                                ⇪ Caps Lock is ON
+                            </div>
+                        )}
                     </div>
 
                     {error && (
                         <div style={{
-                            padding: '0.6rem 1rem',
-                            borderRadius: 'var(--radius-md)',
                             background: 'rgba(239, 68, 68, 0.1)',
                             border: '1px solid rgba(239, 68, 68, 0.3)',
-                            color: '#ef4444',
-                            fontSize: '0.8rem',
-                            fontWeight: 600,
+                            borderRadius: 'var(--radius-md, 6px)',
+                            padding: '0.6rem 0.8rem',
+                            color: 'var(--gauge-red)',
+                            fontSize: '0.82rem',
                         }}>
                             {error}
                         </div>
                     )}
 
-                    {/* suppressHydrationWarning — see AdminLogin. */}
                     <button
                         type="submit"
                         suppressHydrationWarning
-                        disabled={loading || !facId.trim() || !password.trim()}
+                        disabled={loading}
                         style={{
+                            width: '100%',
                             padding: '0.8rem',
-                            borderRadius: 'var(--radius-md)',
+                            borderRadius: 'var(--radius-md, 6px)',
                             border: 'none',
                             background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
                             color: '#fff',
                             fontSize: '0.9rem',
                             fontWeight: 700,
-                            cursor: 'pointer',
+                            cursor: loading ? 'not-allowed' : 'pointer',
                             opacity: loading ? 0.7 : 1,
-                            transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
-                            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+                            marginTop: '0.5rem',
                         }}
                     >
-                        {loading ? '⏳ Authenticating...' : '🔐 Sign In'}
+                        {loading ? 'Authenticating…' : 'Sign In →'}
                     </button>
                 </form>
-                <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
-                    <a href="/admin" style={{
-                        fontSize: '0.8rem',
-                        // A11Y-F8 (WCAG 1.4.3): --text-muted already clears AA,
-                        // but `opacity: 0.7` composited it down to 4.34:1 in
-                        // light mode. Opacity on text is invisible to a token
-                        // audit and to jsdom — only a real-browser scan catches
-                        // it. Use the stronger token and drop the fade.
-                        color: 'var(--text-secondary)',
-                        textDecoration: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                    }}>
-                        ← Back to Admin Portal
-                    </a>
-                </div>
             </div>
         </div>
     );
 }
 
-
 /* ═════════════════════════════════════════════════════════════════
- *  MAIN FACILITATOR DASHBOARD (wrapped with login gate)
+ *  MAIN FACILITATOR DASHBOARD (unified auth with /admin)
  * ═════════════════════════════════════════════════════════════════ */
 
 export default function FacilitatorPage() {
+    const router = useRouter();
     const [authData, setAuthData] = useState(null);
     const [checked, setChecked] = useState(false);
     const [sessionExpired, setSessionExpired] = useState(false);
@@ -319,10 +330,14 @@ export default function FacilitatorPage() {
     useEffect(() => {
         let cachedAuth = null;
         try {
-            const stored = localStorage.getItem('facilitator_auth');
+            const stored = localStorage.getItem('facilitator_auth') || localStorage.getItem('godmode_auth');
             if (stored) {
                 cachedAuth = JSON.parse(stored);
                 setAuthData(cachedAuth);
+                if (isAdminRole(cachedAuth.role, cachedAuth.is_admin)) {
+                    localStorage.setItem('facilitator_auth', JSON.stringify(cachedAuth));
+                    localStorage.setItem('godmode_auth', JSON.stringify(cachedAuth));
+                }
             }
         } catch { /* ignore */ }
         setChecked(true);
@@ -367,6 +382,9 @@ export default function FacilitatorPage() {
                             situation_room_enabled: data.situation_room_enabled ?? cachedAuth.situation_room_enabled,
                         };
                         localStorage.setItem('facilitator_auth', JSON.stringify(synced));
+                        if (isAdminRole(synced.role, synced.is_admin)) {
+                            localStorage.setItem('godmode_auth', JSON.stringify(synced));
+                        }
                         setAuthData(synced);
                         setIdentityVerified(true);
                     }
@@ -422,13 +440,12 @@ export default function FacilitatorPage() {
     };
 
     if (!checked) return null; // Avoid flash
-
     if (!authData) {
         return (
             <>
                 {sessionExpired && (
                     <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
+                        position: 'fixed', top: 0, left: 0, right: 0, zIndex: OVERLAY_PRIORITY.BROADCAST_BANNER,
                         background: 'linear-gradient(90deg, #3b82f6, #06b6d4)',
                         color: '#fff', padding: '0.75rem 1.5rem',
                         display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -459,6 +476,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
     const [clockTime, setClockTime] = useState('');
     const wsRef = useRef(null);
     const [showChangePw, setShowChangePw] = useState(false);
+    const [replayTour, setReplayTour] = useState(false);
 
     // Phase 4 (F1): admin-WS liveness. The dashboard previously fetched the
     // leaderboard once and then depended forever on a socket with no
@@ -521,7 +539,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
     const [scaffoldingStatus, setScaffoldingStatus] = useState(null);
     const [scaffoldingSync, setScaffoldingSync] = useState({ at: null, failed: false });
     const refreshScaffolding = useCallback(() => {
-        fetch(`${API}/api/admin/scaffolding-status`)
+        fetch(`${API}/api/admin/scaffolding-status`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(d => {
                 if (d) { setScaffoldingStatus(d); setScaffoldingSync({ at: Date.now(), failed: false }); }
@@ -531,7 +549,11 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
     }, []);
     useEffect(() => {
         refreshScaffolding();
-        const interval = setInterval(refreshScaffolding, 30000);
+        const interval = setInterval(() => {
+            if (document.visibilityState !== 'hidden') {
+                refreshScaffolding();
+            }
+        }, 30000);
         return () => clearInterval(interval);
     }, [refreshScaffolding]);
 
@@ -634,7 +656,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
 
     /* ── Fetch God Mode visibility settings ── */
     useEffect(() => {
-        fetch(`${API}/api/admin/god/analytics-visibility`)
+        fetch(`${API}/api/admin/god/analytics-visibility`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : {})
             .then(d => {
                 const fv = d.facilitator || {};
@@ -1279,31 +1301,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                             </section>
                         )}
 
-                        <section className={styles.logPanel}>
-                            {/* F11: this log is in-memory only (50 entries, cleared on
-                                refresh) — it must not present itself as the audit trail. */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                                <h2>Live Feed (this browser session)</h2>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                    Entries are kept in memory only and cleared on refresh — the durable record is{' '}
-                                    <button
-                                        onClick={() => setActiveTab('decision_replay')}
-                                        style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.75rem', padding: 0 }}
-                                    >
-                                        Decision History
-                                    </button>.
-                                </span>
-                            </div>
-                            <div className={styles.logBox}>
-                                {activityLog.map((log, i) => (
-                                    <div key={i} className={`${styles.logEntry} ${styles[log.type]}`}>
-                                        <span className={styles.logTime}>{log.timestamp}</span>
-                                        {log.type === 'system' ? '💻' : log.type === 'override' ? '⚡' : '✉️'}
-                                        <strong>{log.type.toUpperCase()}</strong>: {log.message}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
+                        <AuditTrail sessionId={selectedSession} />
                     </div>
                 );
 
@@ -1395,6 +1393,8 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 userId={authData.facilitator_id}
                 onStepChange={(tab) => setActiveTab(tab)}
                 deferred={showChangePw || !!authData?.must_change_password}
+                forceOpen={replayTour}
+                onComplete={() => setReplayTour(false)}
             />
 
             {/* ── Sidebar ── */}
@@ -1438,9 +1438,47 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                 👤 {authData.username ? authData.username.toUpperCase() : authData.name} ({authData.facilitator_id})
                             </span>
                             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                {isAdminRole(authData?.role, authData?.is_admin) && (
+                                    <a
+                                        href="/admin/god-mode"
+                                        style={{
+                                            background: 'rgba(245, 158, 11, 0.15)',
+                                            border: '1px solid rgba(245, 158, 11, 0.4)',
+                                            color: '#f59e0b',
+                                            fontSize: 'var(--type-caption)',
+                                            fontWeight: 700,
+                                            padding: '3px 8px',
+                                            borderRadius: '4px',
+                                            textDecoration: 'none',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                        }}
+                                        title="Switch to God Mode Console"
+                                    >
+                                        👑 God Mode
+                                    </a>
+                                )}
                                 <span data-tour="notification-bell" style={{ display: 'inline-flex' }}>
                                     <NotificationBell activityLog={activityLog} />
                                 </span>
+                                <button
+                                    onClick={() => setReplayTour(true)}
+                                    style={{
+                                        background: 'none',
+                                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                                        color: '#a78bfa',
+                                        fontSize: 'var(--type-caption)',
+                                        fontWeight: 700,
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
+                                    }}
+                                    title="Replay guided tour"
+                                >
+                                    🧭 Tour
+                                </button>
                                 <button
                                     onClick={() => setShowChangePw(true)}
                                     style={{
@@ -1716,6 +1754,32 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 </header>
 
                 <div className={styles.mainContent}>
+                    {scaffoldingStatus?.system_frozen && (
+                        <div
+                            role="alert"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '0.75rem 1.25rem',
+                                marginBottom: '1rem',
+                                borderRadius: '8px',
+                                background: 'rgba(239, 68, 68, 0.15)',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                color: '#f87171',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                            }}
+                        >
+                            <span style={{ fontSize: '1.25rem' }}>🧊</span>
+                            <div>
+                                <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>SYSTEM FROZEN:</span>{' '}
+                                <span style={{ fontWeight: 500, color: '#fca5a5' }}>
+                                    All simulation activity, decisions, and pacing are paused by God Mode.
+                                </span>
+                            </div>
+                        </div>
+                    )}
                     {/* RB-2 (UX audit §9): persistent Run Bar — round, commit
                         tally, pacing and backend health stay visible on EVERY
                         tab while a cohort is selected. */}
@@ -1744,14 +1808,18 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                     padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 700, fontSize: 'var(--type-caption)',
                     textTransform: 'uppercase', letterSpacing: '0.05em',
                     background: authData?.role === 'super_admin' ? 'rgba(245,158,11,0.15)' :
-                                authData?.role === 'lead_facilitator' ? 'rgba(99,102,241,0.15)' : 'rgba(59,130,246,0.15)',
+                                authData?.role === 'lead_facilitator' ? 'rgba(99,102,241,0.15)' :
+                                authData?.role === 'project_admin' ? 'rgba(168,85,247,0.15)' : 'rgba(59,130,246,0.15)',
                     color: authData?.role === 'super_admin' ? '#f59e0b' :
-                           authData?.role === 'lead_facilitator' ? '#818cf8' : '#60a5fa',
+                           authData?.role === 'lead_facilitator' ? '#818cf8' :
+                           authData?.role === 'project_admin' ? '#c084fc' : '#60a5fa',
                     border: `1px solid ${authData?.role === 'super_admin' ? 'rgba(245,158,11,0.3)' :
-                                          authData?.role === 'lead_facilitator' ? 'rgba(99,102,241,0.3)' : 'rgba(59,130,246,0.3)'}`,
+                                          authData?.role === 'lead_facilitator' ? 'rgba(99,102,241,0.3)' :
+                                          authData?.role === 'project_admin' ? 'rgba(168,85,247,0.3)' : 'rgba(59,130,246,0.3)'}`,
                 }}>
                     {authData?.role === 'super_admin' ? '👑 Super Admin' :
-                     authData?.role === 'lead_facilitator' ? '⭐ Lead' : '🎓 Facilitator'}
+                     authData?.role === 'lead_facilitator' ? '⭐ Lead' :
+                     authData?.role === 'project_admin' ? '📁 Provisioning Admin' : '🎓 Facilitator'}
                 </span>
 
                 {/* Phase 4 (F1): connection truth — a facilitator must be able to
@@ -1984,21 +2052,27 @@ function QuizControlPanel({ sessions = [] }) {
 
     // Fetch current difficulty
     useEffect(() => {
-        fetch(`${API}/api/admin/quiz-difficulty`).then(r => r.json()).then(d => setQuizDifficulty(d.difficulty || 'medium')).catch(() => {});
+        fetch(`${API}/api/admin/quiz-difficulty`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : {})
+            .then(d => setQuizDifficulty(d.difficulty || 'medium'))
+            .catch(() => {});
     }, []);
 
     // Fetch per-cohort quiz enabled states
     useEffect(() => {
         if (sessions.length === 0) return;
         const fetchAll = async () => {
-            const map = {};
-            for (const s of sessions) {
+            const entries = await Promise.all(sessions.map(async (s) => {
                 try {
-                    const res = await fetch(`${API}/api/admin/quiz-enabled/${s.session_id}`);
-                    if (res.ok) { const d = await res.json(); map[s.session_id] = d.quiz_enabled; }
-                } catch { map[s.session_id] = true; }
-            }
-            setQuizEnabledMap(map);
+                    const res = await fetch(`${API}/api/admin/quiz-enabled/${s.session_id}`, { credentials: 'include' });
+                    if (res.ok) {
+                        const d = await res.json();
+                        return [s.session_id, d.quiz_enabled];
+                    }
+                } catch {}
+                return [s.session_id, true];
+            }));
+            setQuizEnabledMap(Object.fromEntries(entries));
         };
         fetchAll();
     }, [sessions]);

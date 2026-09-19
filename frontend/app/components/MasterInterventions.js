@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './MasterInterventions.module.css';
+import { useConfirm } from './ConfirmModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -28,6 +29,7 @@ const SEED_SWIPES = [
 ];
 
 export default function MasterInterventions() {
+    const [confirm, confirmModal] = useConfirm();
     const [overrides, setOverrides] = useState(SEED_OVERRIDES);
     const [swipes, setSwipes] = useState(SEED_SWIPES);
     const [loading, setLoading] = useState(true);
@@ -44,13 +46,12 @@ export default function MasterInterventions() {
     }, []);
 
     const fetchMasterData = async () => {
-        setLoading(true);
         try {
             const res = await fetch(`${API}/api/admin/interventions/master`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
-                setOverrides(data.overrides || SEED_OVERRIDES);
-                setSwipes(data.swipes || SEED_SWIPES);
+                if (data.overrides) setOverrides(data.overrides);
+                if (data.swipes) setSwipes(data.swipes);
             }
         } catch {
             // Silent — use seed data when backend is offline
@@ -60,10 +61,16 @@ export default function MasterInterventions() {
     };
 
     const handleDelete = async (type, id) => {
-        if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
+        const ok = await confirm({
+            title: `Delete ${type === 'override' ? 'Override' : 'Swipe File'}`,
+            message: `Are you sure you want to delete this ${type}?`,
+            danger: true,
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${API}/api/admin/interventions/master/${type}/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include',
             });
             if (res.ok) {
                 fetchMasterData();
@@ -78,6 +85,7 @@ export default function MasterInterventions() {
         fd.append('file', file);
         const res = await fetch(`${API}/api/admin/interventions/upload-media`, {
             method: 'POST',
+            credentials: 'include',
             body: fd,
         });
         if (!res.ok) throw new Error('Upload failed');
@@ -102,6 +110,7 @@ export default function MasterInterventions() {
             const res = await fetch(`${API}/api/admin/interventions/master/${editingType}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(payload)
             });
             if (res.ok) {
@@ -448,6 +457,7 @@ export default function MasterInterventions() {
                 </div>
             </div>
             </>)}
+            {confirmModal}
         </div>
     );
 }

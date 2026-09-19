@@ -6,6 +6,7 @@ import styles from './PeerEvaluation.module.css';
 // must carry the HttpOnly JWT cookie — adminFetch is the single authed path
 // (plain fetch drops the cookie in cross-origin deployments).
 import { adminFetch } from '../utils/adminFetch';
+import { useConfirm } from './ConfirmModal';
 
 export default function PeerEvaluation({ sessionId }) {
     const [evals, setEvals] = useState([]);
@@ -17,6 +18,7 @@ export default function PeerEvaluation({ sessionId }) {
     const [leadership, setLeadership] = useState(3);
     const [comment, setComment] = useState('');
     const [loading, setLoading] = useState(false);
+    const [confirm, confirmModal] = useConfirm();
 
     const fetchEvals = useCallback(async () => {
         if (!sessionId) return;
@@ -44,7 +46,14 @@ export default function PeerEvaluation({ sessionId }) {
     };
 
     const handleDelete = async (evalId) => {
-        if (!confirm('Delete this evaluation?')) return;
+        const ok = await confirm({
+            title: 'Delete Peer Evaluation',
+            message: 'Delete this evaluation?',
+            impact: 'This evaluation will be removed from the team peer assessment metrics.',
+            confirmLabel: 'Delete Evaluation',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             const res = await adminFetch(`/api/admin/${sessionId}/peer-evaluations/${evalId}`, { method: 'DELETE' });
             if (res.ok) fetchEvals();
@@ -123,6 +132,7 @@ export default function PeerEvaluation({ sessionId }) {
                     </div>
                 ))}
             </div>
+            {confirmModal}
         </div>
     );
 }

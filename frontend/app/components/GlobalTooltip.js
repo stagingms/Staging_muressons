@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { OVERLAY_PRIORITY } from './overlayPriority';
 
 /**
  * GlobalTooltip — portal-based tooltip that renders at document.body level.
@@ -18,6 +19,7 @@ export default function GlobalTooltip() {
     const [placement, setPlacement] = useState('above');
     const [arrowOffset, setArrowOffset] = useState(0); // px offset from center after clamping
     const timerRef = useRef(null);
+    const hideTimerRef = useRef(null);
     const activeElRef = useRef(null);
     const tooltipRef = useRef(null);
 
@@ -26,14 +28,22 @@ export default function GlobalTooltip() {
     const show = useCallback((e) => {
         const target = e.target;
         if (!target || typeof target.closest !== 'function') return;
+        if (tooltipRef.current && tooltipRef.current.contains(target)) {
+            clearTimeout(hideTimerRef.current);
+            return;
+        }
         const el = target.closest('[data-tooltip]');
         if (!el) return;
         const tip = el.getAttribute('data-tooltip');
         if (!tip) return;
 
-        if (activeElRef.current === el && visible) return;
+        if (activeElRef.current === el && visible) {
+            clearTimeout(hideTimerRef.current);
+            return;
+        }
 
         clearTimeout(timerRef.current);
+        clearTimeout(hideTimerRef.current);
         activeElRef.current = el;
 
         const rect = el.getBoundingClientRect();
@@ -63,14 +73,20 @@ export default function GlobalTooltip() {
         const el = target.closest('[data-tooltip]');
 
         const related = e.relatedTarget;
+        if (related && related instanceof Node && tooltipRef.current && tooltipRef.current.contains(related)) {
+            return;
+        }
         if (related && typeof related.closest === 'function') {
             const relatedEl = related.closest('[data-tooltip]');
             if (relatedEl && relatedEl === el) return;
         }
 
         clearTimeout(timerRef.current);
-        setVisible(false);
-        activeElRef.current = null;
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = setTimeout(() => {
+            setVisible(false);
+            activeElRef.current = null;
+        }, 120);
     }, []);
 
     useEffect(() => {
@@ -86,11 +102,17 @@ export default function GlobalTooltip() {
         /* SC 1.4.13 also requires the content be dismissible without moving
            the pointer or the focus. */
         const hideOnEscape = (e) => {
-            if (e.key === 'Escape') { clearTimeout(timerRef.current); setVisible(false); activeElRef.current = null; }
+            if (e.key === 'Escape') {
+                clearTimeout(timerRef.current);
+                clearTimeout(hideTimerRef.current);
+                setVisible(false);
+                activeElRef.current = null;
+            }
         };
         document.addEventListener('keydown', hideOnEscape);
         const hideOnScroll = () => {
             clearTimeout(timerRef.current);
+            clearTimeout(hideTimerRef.current);
             setVisible(false);
             activeElRef.current = null;
         };
@@ -104,6 +126,7 @@ export default function GlobalTooltip() {
             document.removeEventListener('keydown', hideOnEscape);
             document.removeEventListener('scroll', hideOnScroll, true);
             clearTimeout(timerRef.current);
+            clearTimeout(hideTimerRef.current);
         };
     }, [mounted, show, handleOut]);
 
@@ -151,7 +174,7 @@ export default function GlobalTooltip() {
 
     const tooltipStyle = {
         position: 'fixed',
-        zIndex: 999999,
+        zIndex: OVERLAY_PRIORITY.TOOLTIP,
         left: `${pos.x}px`,
         top: isAbove ? 'auto' : `${pos.y}px`,
         bottom: isAbove ? `${window.innerHeight - pos.y}px` : 'auto',
@@ -178,7 +201,7 @@ export default function GlobalTooltip() {
         lineHeight: 1.6,
         letterSpacing: '0.015em',
         color: fg,
-        pointerEvents: 'none',
+        pointerEvents: 'auto',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.18s cubic-bezier(0.23,1,0.32,1), transform 0.18s cubic-bezier(0.23,1,0.32,1)',
         overflow: 'hidden',
@@ -223,12 +246,12 @@ export default function GlobalTooltip() {
 
                     let paraColor  = isFirst ? fg : (isLight ? '#475569' : '#94a3b8');
                     let paraWeight = isFirst ? 600 : 400;
-                    let paraSize   = isFirst ? '0.78rem' : '0.74rem';
+                    let paraSize   = isFirst ? '0.8rem' : '0.75rem';
 
                     if (isAnswers) { paraColor = isLight ? '#2563eb' : '#93c5fd'; paraWeight = 500; }
-                    if (isTag)     { paraColor = isLight ? '#7c3aed' : '#c4b5fd'; paraWeight = 700; paraSize = '0.7rem'; }
+                    if (isTag)     { paraColor = isLight ? '#7c3aed' : '#c4b5fd'; paraWeight = 700; paraSize = '0.75rem'; }
                     if (isMsg)     { paraColor = isLight ? '#0369a1' : '#7dd3fc'; paraWeight = 600; }
-                    if (isDanger)  { paraColor = isLight ? '#92400e' : '#fbbf24'; paraWeight = 500; paraSize = '0.72rem'; }
+                    if (isDanger)  { paraColor = isLight ? '#92400e' : '#fbbf24'; paraWeight = 500; paraSize = '0.75rem'; }
 
                     return (
                         <div
@@ -250,11 +273,12 @@ export default function GlobalTooltip() {
                                     border: `1px solid ${isLight ? 'rgba(124,58,237,0.2)' : 'rgba(196,181,253,0.2)'}`,
                                     borderRadius: '4px',
                                     padding: '2px 8px',
-                                    fontSize: 'var(--type-caption)',
+                                    fontSize: '0.75rem',
                                     fontWeight: 700,
                                     letterSpacing: '0.07em',
                                     textTransform: 'uppercase',
                                     color: paraColor,
+                                    lineHeight: 1.4,
                                 }}>
                                     🏷 {para.replace('Tag: ', '')}
                                 </span>
@@ -267,7 +291,26 @@ export default function GlobalTooltip() {
     };
 
     return createPortal(
-        <div ref={tooltipRef} id="global-tooltip" role="tooltip" style={tooltipStyle}>
+        <div
+            ref={tooltipRef}
+            id="global-tooltip"
+            role="tooltip"
+            style={tooltipStyle}
+            onMouseEnter={() => {
+                clearTimeout(hideTimerRef.current);
+            }}
+            onMouseLeave={(e) => {
+                const related = e.relatedTarget;
+                if (related && related instanceof Node && activeElRef.current && activeElRef.current.contains(related)) {
+                    return;
+                }
+                clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = setTimeout(() => {
+                    setVisible(false);
+                    activeElRef.current = null;
+                }, 120);
+            }}
+        >
             <div style={arrowStyle} />
             {renderContent()}
         </div>,

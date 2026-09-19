@@ -266,7 +266,7 @@ export default function ESGLeadershipProfile({ data = {}, flags = {}, sessionId,
   useEffect(() => {
     const API = process.env.NEXT_PUBLIC_API_URL || '';
     const q = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
-    fetch(`${API}/api/admin/global-settings${q}`)
+    fetch(`${API}/api/admin/global-settings${q}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((s) => { if (s && s.esg_profile_weights) setEsgWeights(s.esg_profile_weights); })
       .catch(() => {});

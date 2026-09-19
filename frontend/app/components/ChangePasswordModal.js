@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import PasswordInput from './PasswordInput';
 import Dialog from './Dialog';
+import { OVERLAY_PRIORITY } from './overlayPriority';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -103,34 +104,35 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
             dismissible={!isForced}
             labelledBy="change-password-title"
             style={{
-                position: 'fixed', inset: 0, zIndex: 9999,
+                position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.MODAL,
                 background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
         >
             <div style={{
-                background: '#fff', borderRadius: '14px', width: '90%', maxWidth: '420px',
-                boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden',
+                background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+                borderRadius: '14px', width: '90%', maxWidth: '420px',
+                boxShadow: '0 24px 64px rgba(0,0,0,0.5)', overflow: 'hidden',
             }}>
                 {/* Header */}
                 <div style={{
-                    padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0',
-                    background: isForced ? '#fef3c7' : '#f8fafc',
+                    padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-subtle)',
+                    background: isForced ? 'rgba(245, 158, 11, 0.12)' : 'var(--bg-elevated)',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 }}>
-                    <h2 id="change-password-title" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: isForced ? '#92400e' : '#1e293b' }}>
+                    <h2 id="change-password-title" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: isForced ? '#fbbf24' : 'var(--text-primary)' }}>
                         {isForced ? '🔒 Set Your New Password' : '🔑 Change Password'}
                     </h2>
                     {!isForced && (
-                        <button onClick={handleClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#94a3b8' }}>×</button>
+                        <button onClick={handleClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>×</button>
                     )}
                 </div>
 
                 {/* Forced change banner */}
                 {isForced && !success && (
                     <div style={{
-                        background: '#fffbeb', borderBottom: '1px solid #fde68a',
-                        padding: '0.65rem 1.5rem', fontSize: '0.82rem', color: '#92400e',
+                        background: 'rgba(245, 158, 11, 0.08)', borderBottom: '1px solid rgba(245, 158, 11, 0.2)',
+                        padding: '0.65rem 1.5rem', fontSize: '0.82rem', color: '#fde68a',
                         display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
                     }}>
                         <span>⚠️</span>
@@ -145,8 +147,8 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                     {success ? (
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
-                            <h3 style={{ color: '#1e293b', margin: '0 0 0.5rem' }}>Password Updated</h3>
-                            <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
+                            <h3 style={{ color: 'var(--text-primary)', margin: '0 0 0.5rem' }}>Password Updated</h3>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                                 Your password has been changed successfully. Use it next time you log in.
                             </p>
                             <button
@@ -223,7 +225,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                                         type="button"
                                         onClick={handleClose}
                                         style={{
-                                            background: 'transparent', border: '1px solid #cbd5e1', color: '#475569',
+                                            background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)',
                                             padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem',
                                             fontWeight: 500, cursor: 'pointer',
                                         }}
@@ -258,15 +260,15 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
 const labelStyle = {
     fontSize: '0.85rem',
     fontWeight: 600,
-    color: '#334155',
+    color: 'var(--text-secondary)',
 };
 
 const inputStyle = {
-    background: '#f1f5f9',
-    border: '1.5px solid #cbd5e1',
+    background: 'var(--bg-elevated)',
+    border: '1.5px solid var(--border-subtle)',
     borderRadius: '6px',
     padding: '0.7rem 0.85rem',
-    color: '#1e293b',
+    color: 'var(--text-primary)',
     fontSize: '0.9rem',
     width: '100%',
     boxSizing: 'border-box',

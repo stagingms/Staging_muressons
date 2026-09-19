@@ -200,7 +200,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     // ────────────────────────────────────────────────────────
     const fetchFacilitators = useCallback(async () => {
         try {
-            const res = await fetch(`${API}/api/admin/facilitators`);
+            const res = await fetch(`${API}/api/admin/facilitators`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setFacilitators(data.facilitators || []);
@@ -211,7 +211,11 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
 
     useEffect(() => {
         fetchFacilitators();
-        const interval = setInterval(fetchFacilitators, 10000);
+        const interval = setInterval(() => {
+            if (document.visibilityState !== 'hidden') {
+                fetchFacilitators();
+            }
+        }, 10000);
 
         // Fetch available ending pathways
         fetch(`${API}/api/admin/ending-pathways`, { credentials: 'include' })
@@ -268,7 +272,9 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
         setFacilitators(prev => prev.map(f => f.facilitator_id === facId ? { ...f, enabled: newVal } : f));
         try {
             const res = await fetch(`${API}/api/admin/facilitators/${facId}/enabled`, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ enabled: newVal }),
             });
             if (res.ok) {

@@ -63,7 +63,7 @@
 }
 
 .stepBadge {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   padding: var(--space-1) 8px;
   border-radius: var(--radius-card);
@@ -83,7 +83,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-chip);
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
@@ -107,7 +107,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-chip);
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
@@ -258,7 +258,7 @@
 }
 
 .kpiPillLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -276,7 +276,7 @@
 
 /* -- Section Titles Inside Steps ------------------------- */
 .sectionTitle {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -350,7 +350,7 @@
 }
 
 .decisionSummaryTitle {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   color: var(--brand);
@@ -502,7 +502,7 @@
 }
 
 .focusResultLabel {
-  font-size: 0.68rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -527,7 +527,7 @@
 }
 
 .commitRecapTitle {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   text-transform: uppercase;
   color: var(--brand);

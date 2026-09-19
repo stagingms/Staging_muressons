@@ -324,8 +324,15 @@ export default function GodModePage() {
 
     useEffect(() => {
         try {
-            const stored = localStorage.getItem('godmode_auth');
-            if (stored) setAuthData(JSON.parse(stored));
+            const stored = localStorage.getItem('godmode_auth') || localStorage.getItem('facilitator_auth');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (isAdminRole(parsed.role, parsed.is_admin)) {
+                    setAuthData(parsed);
+                    localStorage.setItem('godmode_auth', JSON.stringify(parsed));
+                    localStorage.setItem('facilitator_auth', JSON.stringify(parsed));
+                }
+            }
         } catch { /* ignore */ }
         setChecked(true);
     }, []);
@@ -421,7 +428,11 @@ function useGodSystemStatus(intervalMs = 10000) {
 
     useEffect(() => {
         load();
-        const t = setInterval(load, intervalMs);
+        const t = setInterval(() => {
+            if (document.visibilityState !== 'hidden') {
+                load();
+            }
+        }, intervalMs);
         return () => clearInterval(t);
     }, [load, intervalMs]);
 
@@ -512,6 +523,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
     const [activeTab, setActiveTab] = useState('system_overview');
     const [showChangePw, setShowChangePw] = useState(false);
     const [showMasterPw, setShowMasterPw] = useState(false);
+    const [replayTour, setReplayTour] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [openCategories, setOpenCategories] = useState({
         command_center: true,
@@ -538,7 +550,11 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
             .then(d => d?.leaderboard && setLeaderboard(d.leaderboard))
             .catch(() => {});
         fetchLb();
-        const t = setInterval(fetchLb, 30000);
+        const t = setInterval(() => {
+            if (document.visibilityState !== 'hidden') {
+                fetchLb();
+            }
+        }, 30000);
         return () => clearInterval(t);
     }, [authData]);
 
@@ -791,6 +807,8 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 userId={authData.facilitator_id}
                 onStepChange={(tab) => setActiveTab(tab)}
                 deferred={showChangePw}
+                forceOpen={replayTour}
+                onComplete={() => setReplayTour(false)}
             />
 
             {/* ── Sidebar ── */}
@@ -823,7 +841,43 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                             }}>
                                 👤 {authData.name} ({authData.facilitator_id})
                             </span>
-                            <div style={{ display: 'flex', gap: '4px' }}>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <a
+                                    href="/admin/facilitator"
+                                    style={{
+                                        background: 'rgba(59, 130, 246, 0.15)',
+                                        border: '1px solid rgba(59, 130, 246, 0.4)',
+                                        color: '#60a5fa',
+                                        fontSize: 'var(--type-caption)',
+                                        fontWeight: 700,
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                    }}
+                                    title="Switch to Facilitator Workshop View"
+                                >
+                                    🎓 Facilitator
+                                </a>
+                                <button
+                                    onClick={() => setReplayTour(true)}
+                                    style={{
+                                        background: 'none',
+                                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                                        color: '#a78bfa',
+                                        fontSize: 'var(--type-caption)',
+                                        fontWeight: 700,
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
+                                    }}
+                                    title="Replay guided tour"
+                                >
+                                    🧭 Tour
+                                </button>
                                 <button
                                     onClick={() => setShowChangePw(true)}
                                     style={{

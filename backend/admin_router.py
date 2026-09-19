@@ -3562,6 +3562,46 @@ async def force_advance_cohort(session_id: str, request: Request, _guard: None =
     }
 
 
+@admin_router.post("/sessions/{cohort_id}/teams/{team_id}/force-commit", summary="Force-commit a single uncommitted team")
+async def force_commit_team(cohort_id: str, team_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
+    """Facilitator 'Commit Team': auto-commit a single uncommitted team using its saved
+    decisions or defaults, without triggering cohort-wide advance or auto-committing other teams."""
+    await _assert_session_ownership(request, cohort_id)
+    info = await db.get_session_info(team_id)
+    if not info:
+        raise HTTPException(status_code=404, detail="Team session not found")
+    parent = (info or {}).get("parent_cohort_id") or team_id
+    if parent != cohort_id and team_id != cohort_id:
+        raise HTTPException(status_code=403, detail="Team does not belong to this cohort")
+    from router import _auto_commit_single_team
+    advanced = await _auto_commit_single_team(team_id)
+    return {
+        "status": "ok" if advanced else "skipped",
+        "cohort": cohort_id,
+        "team_id": team_id,
+        "advanced": advanced,
+        "message": "Team committed successfully." if advanced else "Team was already committed or could not be advanced.",
+    }
+
+
+@admin_router.post("/sessions/{session_id}/commit-default", summary="Force-commit a single uncommitted team by session ID")
+async def commit_default_team(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
+    info = await db.get_session_info(session_id)
+    if not info:
+        raise HTTPException(status_code=404, detail="Session not found")
+    cohort_id = (info or {}).get("parent_cohort_id") or session_id
+    await _assert_session_ownership(request, cohort_id)
+    from router import _auto_commit_single_team
+    advanced = await _auto_commit_single_team(session_id)
+    return {
+        "status": "ok" if advanced else "skipped",
+        "cohort": cohort_id,
+        "team_id": session_id,
+        "advanced": advanced,
+        "message": "Team committed successfully." if advanced else "Team was already committed or could not be advanced.",
+    }
+
+
 # ── ESG Leadership Profile weights (facilitator dashboard; no project_admin) ─
 class EsgWeightsRequest(BaseModel):
     weights: dict
@@ -6255,7 +6295,9 @@ _WARMAP_STAGE_RANK = {"dormant": 0, "watching": 1, "agitated": 2, "hostile": 3, 
 @admin_router.get("/war-map", summary="Cohort-aggregate operations & stakeholder map state")
 async def get_war_map(request: Request, facilitator_id: Optional[str] = None,
                       session_id: Optional[str] = None,
+                      cohort: Optional[str] = None,
                       _guard: None = Depends(require_facilitator)):
+    session_id = session_id or cohort
     from autonomous_agents import AGENT_PROFILES
     from collections import Counter
     sessions = await db.fetch_all_sessions()
@@ -12078,6 +12120,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request,
             teams.append({
                 "name": sess.get("cohort_name") or sess.get("player_name") or sid[:10],
                 "session_id": sid,
+                "team_id": sid,
                 "history": history,
                 "current": {
                     "treasury": latest.get("corporate_treasury", 0),

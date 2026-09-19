@@ -18,7 +18,38 @@ import CFOOverrideModal from './components/CFOOverrideModal';
 // IDENTICAL to the previous magic numbers; this only names the contract.
 import { OVERLAY_PRIORITY } from './components/overlayPriority';
 
-const FullScreenLoader = () => <div style={{position: 'fixed', inset: 0, background: '#080c18', zIndex: 20000}}></div>;
+const ModuleLoadingSkeleton = () => (
+  <div
+    role="status"
+    aria-busy="true"
+    aria-live="polite"
+    style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'var(--bg-primary)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '1rem',
+      zIndex: OVERLAY_PRIORITY.MODAL,
+      fontFamily: "'DM Sans', sans-serif",
+    }}
+  >
+    <svg width="40" height="40" viewBox="0 0 40 40" style={{ display: 'block' }}>
+      <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(59, 130, 246, 0.2)" strokeWidth="3" />
+      <circle cx="20" cy="20" r="16" fill="none" stroke="var(--accent-blue)" strokeWidth="3" strokeDasharray="28 72" strokeLinecap="round">
+        <animateTransform attributeName="transform" type="rotate" from="0 20 20" to="360 20 20" dur="0.9s" repeatCount="indefinite" />
+      </circle>
+    </svg>
+    <div style={{ color: 'var(--text-primary)', fontSize: '0.95rem', fontWeight: 600 }}>
+      Loading simulation module…
+    </div>
+    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--type-caption)' }}>
+      Initializing Muressons workspace
+    </div>
+  </div>
+);
 
 /* Phase C (player redesign): the ten always-visible launcher pills collapse
    into one ⋯ More menu. Every handler is passed through UNCHANGED — this is
@@ -122,8 +153,8 @@ function PlayerUtilityDock({ inlineItems = [], menuItems = [] }) {
 }
 
 const DoubleMaterialityMatrix = dynamic(() => import('./components/DoubleMaterialityMatrix'), { ssr: false });
-const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false, loading: FullScreenLoader });
-const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false, loading: FullScreenLoader });
+const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false, loading: ModuleLoadingSkeleton });
+const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false, loading: ModuleLoadingSkeleton });
 import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
 import DecisionPressureTimer from './components/DecisionPressureTimer';
@@ -568,6 +599,7 @@ export default function CockpitPage() {
               simulation_mode:   siData.simulation_mode   || null,
               assigned_bu:       siData.assigned_bu       || null,
               industry_vertical: siData.industry_vertical || null,
+              status:            siData.status || siData.cohort_status || null,
             });
           }
           const sessionBu = siData.assigned_bu || '';
@@ -596,9 +628,14 @@ export default function CockpitPage() {
     };
     fetchParadigm(); // immediate first check
     fetchAssignedBu();
-    const interval = setInterval(fetchParadigm, 8000);
+    const interval = setInterval(() => {
+      fetchParadigm();
+      if (sim.sessionMeta?.status === 'waiting') {
+        fetchAssignedBu();
+      }
+    }, 5000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [sim.sessionId]);
+  }, [sim.sessionId, sim.sessionMeta?.status]);
 
   // ── Side Track availability check ──────────────────────────
   useEffect(() => {
@@ -1024,15 +1061,6 @@ export default function CockpitPage() {
     return () => clearInterval(id);
   }, [sim.sessionId]);
 
-  // ── Auto-clear lock after 30s to let user retry ─────────────
-  useEffect(() => {
-    if (!sim.roundLocked) return;
-    const timer = setTimeout(() => {
-      sim.setRoundLocked(false);
-    }, 30_000);
-    return () => clearTimeout(timer);
-  }, [sim.roundLocked]);
-
   const isSelfLearning = globalState?.self_learning_mode === true;
   const hasSubmittedMatrix = csrdDone || globalState?.csrd_completed === true ||
     (Array.isArray(globalState?.materiality_budget_allocated) && globalState.materiality_budget_allocated.length > 0);
@@ -1441,15 +1469,76 @@ export default function CockpitPage() {
     return (
       <div style={{
         position: 'fixed', inset: 0,
-        background: '#080c18',
+        background: 'var(--bg-primary)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 20000,
+        zIndex: OVERLAY_PRIORITY.MODAL,
       }}>
         <UsernamePromptModal
           userId={sim.playerId || (typeof window !== 'undefined' ? localStorage.getItem('muressons_playerId') : null) || sim.sessionId}
           role="player"
           onComplete={sim.setUsername}
         />
+      </div>
+    );
+  }
+
+  // ── Pre-Round 1 Waiting Lobby (Issue #34) ──────────────────
+  if (sim.sessionId && sim.username && roundNumber === 1 && sim.sessionMeta?.status === 'waiting') {
+    const isConnOk = sim.connectionState === 'ok';
+    const isConnDegraded = sim.connectionState === 'degraded' || sim.connectionState === 'stale';
+    const connDotColor = isConnOk ? 'var(--positive)' : isConnDegraded ? 'var(--caution)' : 'var(--danger)';
+    const connBgColor = isConnOk ? 'var(--positive-soft)' : isConnDegraded ? 'var(--caution-soft)' : 'var(--danger-soft)';
+    const connBorderColor = isConnOk ? 'rgba(34, 197, 94, 0.3)' : isConnDegraded ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+    const connTextColor = isConnOk ? 'var(--positive)' : isConnDegraded ? 'var(--caution)' : 'var(--danger)';
+    const connLabel = isConnOk ? 'Waiting for Facilitator Launch' : isConnDegraded ? 'Connection Degraded — Reconnecting…' : 'Offline — Reconnecting…';
+
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: 'var(--bg-primary)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1.5rem',
+        fontFamily: "'DM Sans', sans-serif",
+        zIndex: OVERLAY_PRIORITY.MODAL,
+      }}>
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '16px',
+          padding: '2.5rem',
+          maxWidth: '480px',
+          width: '100%',
+          textAlign: 'center',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem',
+        }}>
+          <div style={{ fontSize: '2.5rem' }}>🏛️</div>
+          <h2 style={{ color: 'var(--text-primary)', fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
+            Cohort Waiting Lobby
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6, margin: 0 }}>
+            Welcome, <strong>{sim.username}</strong>. You are connected to{' '}
+            <strong>{sim.sessionMeta?.cohort_name || 'your cohort'}</strong>. Round 1 will begin shortly when your facilitator initiates the simulation.
+          </p>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 14px',
+            borderRadius: '9999px',
+            background: connBgColor,
+            border: `1px solid ${connBorderColor}`,
+            color: connTextColor,
+            fontSize: 'var(--type-caption)',
+            fontWeight: 600,
+          }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: connDotColor }} />
+            {connLabel}
+          </div>
+        </div>
       </div>
     );
   }
@@ -1605,21 +1694,24 @@ export default function CockpitPage() {
 
       {/* Username screen is now an architectural early return above — no overlay needed here */}
 
-      {/* Round Locked overlay */}
+      {/* Round Locked overlay — strictly server-authoritative (non-dismissible) */}
       {sim.roundLocked && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(27,42,74,0.92)',
-          backdropFilter: 'blur(6px)', zIndex: 15000,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.2rem',
-          fontFamily: "'DM Sans', sans-serif",
-        }}>
+        <div
+          aria-label="Simulation Round Locked"
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(27,42,74,0.92)',
+            backdropFilter: 'blur(6px)', zIndex: OVERLAY_PRIORITY.RESULTS_OVERLAY,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.2rem',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
           <div style={{ fontSize: '3rem' }}>{sim.roundLockReason?.kind === 'teams' ? '⏳' : '🔒'}</div>
           <h2 style={{ color: '#f1f5f9', fontSize: '1.4rem', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>
             {sim.roundLockReason?.kind === 'teams' ? 'Waiting for Other Teams' : 'Waiting for Facilitator'}
           </h2>
           <p style={{ color: '#94a3b8', fontSize: '0.85rem', maxWidth: 380, textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
             {sim.roundLockReason?.kind === 'teams'
-              ? (sim.roundLockReason.message || 'Round opens when every team has committed, when the auto-advance timeout lapses, or when the facilitator advances.')
+              ? (sim.roundLockReason.message || 'Round opens when all teams have committed, when the auto-advance timeout lapses, or when the facilitator advances.')
               : <>Round {roundNumber} is locked. Your facilitator will unlock when the cohort is ready.</>}
           </p>
           {sim.roundLockReason?.kind === 'teams' && sim.roundLockReason.teams ? (
@@ -1627,11 +1719,6 @@ export default function CockpitPage() {
               {sim.roundLockReason.committed ?? '—'} / {sim.roundLockReason.teams} teams committed
             </p>
           ) : null}
-          <button onClick={() => sim.setRoundLocked(false)} style={{
-            padding: '8px 20px', background: 'transparent',
-            border: '1px solid rgba(241,245,249,0.2)', borderRadius: 4, color: '#94a3b8', cursor: 'pointer',
-            fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
-          }}>Dismiss</button>
         </div>
       )}
 
@@ -1749,6 +1836,7 @@ export default function CockpitPage() {
                 ...(decisionParadigm === 'brsr_ngrbc' ? [{ icon: '🇮🇳', label: 'BRSR', shortcut: null, onClick: () => setBrsrDashboardOpen(true) }] : []),
                 ...(isPlayerVisible('glossary') ? [{ icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) }] : []),
                 { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound on' : 'Muted', shortcut: null, keepOpen: true, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
+                { icon: '🧭', label: 'Replay Tour', shortcut: null, onClick: () => setShowOnboarding(true) },
                 { icon: '👋', label: 'Log out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
               ]}
             />

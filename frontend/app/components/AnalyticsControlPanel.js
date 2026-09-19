@@ -180,7 +180,7 @@ export default function AnalyticsControlPanel({ sessionId }) {
             ? `${API}/api/admin/cohort/${sessionId}/analytics-visibility` 
             : `${API}/api/admin/god/analytics-visibility`;
             
-        fetch(endpoint)
+        fetch(endpoint, { credentials: 'include' })
             .then(r => r.json())
             .then(d => {
                 const data = sessionId ? (d.cohort_overrides || {}) : d;
@@ -207,6 +207,7 @@ export default function AnalyticsControlPanel({ sessionId }) {
             const res = await fetch(endpoint, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(updated),
             });
             if (res.ok) {

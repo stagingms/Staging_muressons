@@ -117,7 +117,7 @@ export default function JoinCohortModal({ sim }) {
                 {/* Form Section */}
                 <div className={styles.formSection}>
                     <h2 className={styles.title} style={{ color: '#00e5c3' }}>Sign in</h2>
-                    <p className={styles.subtitle}>Enter the team ID and password your facilitator gave you.</p>
+                    <p className={styles.subtitle}>Enter the Company Access Code and password your facilitator gave you.</p>
 
                     <form onSubmit={handleLogin} className={styles.form}>
                         <div className={styles.field}>
@@ -127,7 +127,7 @@ export default function JoinCohortModal({ sim }) {
                                 supplied an accessible name, which disappears the
                                 moment the user types. First screen every
                                 participant sees. */}
-                            <label className={styles.label} htmlFor="join-player-id">Team ID</label>
+                            <label className={styles.label} htmlFor="join-player-id">Team ID / Company Access Code</label>
                             <input
                                 id="join-player-id"
                                 type="text"
@@ -164,8 +164,8 @@ export default function JoinCohortModal({ sim }) {
                                 handler, no effect. Dead UI on the first screen
                                 a participant ever sees; removed. In its place,
                                 the one fact worth stating here: */}
-                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', letterSpacing: '0.03em' }}>
-                                One person drives and signs in with the team ID. Everyone else
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', letterSpacing: '0.03em' }}>
+                                One participant leads the session with the primary access code. Everyone else
                                 watches with the view-only code — the same ID with -VIEW on the end.
                             </span>
                             <button
@@ -182,7 +182,7 @@ export default function JoinCohortModal({ sim }) {
                                 background: 'rgba(245,158,11,0.08)',
                                 border: '1px solid rgba(245,158,11,0.3)',
                                 color: 'var(--caution-text)', padding: '0.6rem', borderRadius: 6,
-                                fontSize: '0.72rem', lineHeight: 1.5, marginBottom: '0.6rem',
+                                fontSize: '0.75rem', lineHeight: 1.5, marginBottom: '0.6rem',
                             }}>⚠ {STORAGE_BLOCKED_MESSAGE}</div>
                         )}
 
@@ -217,10 +217,10 @@ export default function JoinCohortModal({ sim }) {
                     )}
 
                     <p style={{
-                        marginTop: '1rem', fontSize: '0.68rem', color: '#475569',
+                        marginTop: '1rem', fontSize: '0.75rem', color: '#94a3b8',
                         textAlign: 'center', lineHeight: 1.5, letterSpacing: '0.02em'
                     }}>
-                        Your team ID looks like <strong style={{ color: '#00e5c3' }}>MUR-001</strong>. Your facilitator gives you both it and a temporary password, and you will be asked to set your own the first time you sign in.
+                        Your access code looks like <strong style={{ color: '#00e5c3' }}>MUR-001</strong>. Your facilitator gives you both it and a temporary password, and you will be asked to set your own the first time you sign in.
                     </p>
                 </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from './ConfirmModal';
 import styles from './StudentBonuses.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -23,11 +24,12 @@ export default function StudentBonuses({ sessionId }) {
     const [loading, setLoading] = useState(false);
     // Phase R1 (V2-4): visible failure states for award/revoke.
     const [error, setError] = useState('');
+    const [confirm, confirmModal] = useConfirm();
 
     const fetchBonuses = useCallback(async () => {
         if (!sessionId) return;
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/bonuses`);
+            const res = await fetch(`${API}/api/admin/${sessionId}/bonuses`, { credentials: 'include' });
             if (res.ok) { const data = await res.json(); setBonuses(data.bonuses || []); }
         } catch { /* offline */ }
     }, [sessionId]);
@@ -42,6 +44,7 @@ export default function StudentBonuses({ sessionId }) {
             const res = await fetch(`${API}/api/admin/${sessionId}/bonuses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ player_name: playerName.trim(), points, reason: reason.trim(), badge: badge || null }),
             });
             if (res.ok) {
@@ -56,9 +59,17 @@ export default function StudentBonuses({ sessionId }) {
     };
 
     const handleRevoke = async (bonusId) => {
-        if (!confirm('Revoke this bonus?')) return;
+        const bonus = bonuses.find(b => b.bonus_id === bonusId);
+        const ok = await confirm({
+            title: 'Revoke Bonus',
+            message: `Revoke this bonus${bonus ? ` for ${bonus.player_name}` : ''}?`,
+            impact: 'The bonus points and badge will be removed from the player score.',
+            confirmLabel: 'Revoke Bonus',
+            danger: true,
+        });
+        if (!ok) return;
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/bonuses/${bonusId}`, { method: 'DELETE' });
+            const res = await fetch(`${API}/api/admin/${sessionId}/bonuses/${bonusId}`, { method: 'DELETE', credentials: 'include' });
             if (res.ok) { setBonuses(prev => prev.filter(b => b.bonus_id !== bonusId)); setError(''); }
             else setError(`❌ Bonus NOT revoked (HTTP ${res.status}) — it still counts toward the player.`);
         } catch { setError('❌ Bonus NOT revoked — network error. It still counts toward the player.'); }
@@ -117,6 +128,7 @@ export default function StudentBonuses({ sessionId }) {
                     </div>
                 ))}
             </div>
+            {confirmModal}
         </div>
     );
 }

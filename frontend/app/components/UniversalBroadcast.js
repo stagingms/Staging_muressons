@@ -19,7 +19,9 @@ export default function UniversalBroadcast() {
         setSending(true);
         try {
             const res = await fetch(`${API}/api/admin/god/universal-broadcast`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ title, message, priority, target }),
             });
             if (res.ok) {

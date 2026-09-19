@@ -4,6 +4,7 @@ import { getShortCode } from '../utils/sessionUtils';
 import CohortSummaryTooltip from './CohortSummaryTooltip';
 import BulkPlayerUpload from './BulkPlayerUpload';
 import { resolveVerticalMeta } from '../lib/verticalCatalog';
+import { useConfirm } from './ConfirmModal';
 
 const ADJECTIVES = ["blue", "swift", "brave", "quiet", "lucky", "bold", "calm", "proud", "wild", "smart"];
 const NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "hawk", "owl"];
@@ -33,6 +34,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
     const resetToastTimerRef = useRef(null);
     // Bulk upload dialog — { sessionId, cohortName } | null
     const [bulkFor, setBulkFor] = useState(null);
+    const [confirm, confirmModal] = useConfirm();
 
     const copyToClipboard = (text) => {
         if (navigator.clipboard?.writeText) {
@@ -262,7 +264,14 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
     };
 
     const handleResetPassword = async (playerId, sessionId) => {
-        if (!confirm(`Reset password for ${playerId}? The password returns to the default (ID@123), the player must set a personal one at the next login, and every device signed in with the old password is signed out. You must share the default with the player.`)) return;
+        const ok = await confirm({
+            title: `Reset Password for ${playerId}`,
+            message: `Reset password for ${playerId}? The password returns to the default (ID@123), the player must set a personal one at the next login, and every device signed in with the old password is signed out.`,
+            impact: 'The existing session token will be invalidated. You must share the temporary default with the player.',
+            confirmLabel: 'Reset Password',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${API}/api/admin/players/${playerId}/reset-password`, {
                 method: 'POST',
@@ -302,7 +311,14 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
 
 
     const handleDeletePlayer = async (playerId) => {
-        if (!confirm(`Remove player ${playerId}?`)) return;
+        const ok = await confirm({
+            title: `Remove Player ${playerId}`,
+            message: `Are you sure you want to remove player ${playerId}?`,
+            impact: 'This player will be deleted from the cohort and cannot sign in.',
+            confirmLabel: 'Remove Player',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             await fetch(`${API}/api/admin/players/${playerId}`, { method: 'DELETE', credentials: 'include' });
             setPlayers(prev => prev.filter(p => p.player_id !== playerId));
@@ -312,7 +328,15 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
     };
 
     const handleDeleteSession = async (sessionId) => {
-        if (!confirm('Delete this entire cohort and all its players? This cannot be undone.')) return;
+        const ok = await confirm({
+            title: `Delete Cohort ${sessionId}`,
+            message: 'Delete this entire cohort and all its players?',
+            impact: 'This cannot be undone. All teams, decision logs, scores, and player accounts in this cohort will be permanently removed.',
+            requirePhrase: 'DELETE',
+            confirmLabel: 'Delete Cohort',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             await fetch(`${API}/api/admin/sessions/${sessionId}`, { method: 'DELETE', credentials: 'include' });
             setSessions(prev => prev.filter(s => s.session_id !== sessionId));
@@ -324,7 +348,14 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
     };
 
     const handleClearOrphans = async () => {
-        if (!confirm('Remove all orphaned players?')) return;
+        const ok = await confirm({
+            title: 'Remove Orphaned Players',
+            message: 'Remove all orphaned players who do not belong to any active cohort?',
+            impact: 'All unassigned player credentials will be permanently purged.',
+            confirmLabel: 'Purge Orphans',
+            danger: true,
+        });
+        if (!ok) return;
         try {
             await fetch(`${API}/api/admin/players/orphans`, { method: 'DELETE', credentials: 'include' });
             await fetchPlayers();
@@ -897,6 +928,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                 }}
             />
         )}
+        {confirmModal}
     </>
     );
 }

@@ -156,9 +156,13 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
             <div className={styles.header}>
                 <span className={styles.icon}>🔍</span>
                 <div>
-                    <h2 className={styles.title}>Team Impersonation</h2>
-                    <p className={styles.subtitle}>View a team&#39;s dashboard as they see it. Select a session to inspect.</p>
+                    <h2 className={styles.title}>Session State Inspector</h2>
+                    <p className={styles.subtitle}>Inspect financial state, business unit margins, and event flags for any enrolled session.</p>
                 </div>
+            </div>
+
+            <div style={{ padding: '0.5rem 0.75rem', marginBottom: '1rem', background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: '6px', fontSize: '0.8rem', color: '#93c5fd' }}>
+                Participant cockpit view is accessed via view-only credentials (-VIEW). This panel inspects raw session financial state and risk flags.
             </div>
 
             <div className={styles.selectorRow}>
@@ -171,7 +175,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
                     ))}
                 </select>
                 <button className={styles.viewBtn} onClick={handleView} disabled={!viewSession || loading}>
-                    {loading ? '⏳ Loading...' : '🔍 View Dashboard'}
+                    {loading ? '⏳ Loading...' : '🔍 Inspect Session'}
                 </button>
             </div>
 
@@ -180,7 +184,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
             {dashData && (
                 <div className={styles.impersonationView}>
                     <div className={styles.viewHeader}>
-                        <span className={styles.viewBadge}>👁️ IMPERSONATION VIEW</span>
+                        <span className={styles.viewBadge}>👁️ SESSION STATE INSPECTOR</span>
                         <span className={styles.viewSession}>{leaderboard.find(s => s.session_id === dashData.session_id)?.short_code || dashData.session_id?.slice(0, 8)} — Round {dashData.current_round}</span>
                     </div>
 

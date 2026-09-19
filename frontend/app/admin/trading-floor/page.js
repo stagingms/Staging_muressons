@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { RIVAL, rivalBenchmarkEV } from '../../components/rivalIntel';
 import { useConfirm } from '../../components/ConfirmModal';
 import { moneyM } from '../../utils/format';
@@ -38,7 +39,9 @@ function bell() {
   } catch { /* audio not available — silent */ }
 }
 
-export default function TradingFloorPage() {
+function TradingFloorContent() {
+  const searchParams = useSearchParams();
+  const cohortParam = searchParams?.get('cohort') || null;
   const [enabled, setEnabled] = useState(false);
   const [teams, setTeams] = useState([]);
   const [closed, setClosed] = useState(false);
@@ -71,27 +74,34 @@ export default function TradingFloorPage() {
     fetch('/api/admin/leaderboard', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'auth' : 'http'))))
       .then((d) => {
-        const rows = (d.leaderboard || []).filter((x) => x.player_name || x.parent_cohort_id);
+        const rows = (d.leaderboard || []).filter((x) => 
+          (x.player_name || x.parent_cohort_id) &&
+          (!cohortParam || x.parent_cohort_id === cohortParam || x.session_id === cohortParam)
+        );
         rows.sort((a, b) => (b.terminal_value || 0) - (a.terminal_value || 0));
         setTeams(rows);
         setError(false);
         // SEAM-14: money on this board is in the currency of the cohort whose
         // bell this page rings (the same cohort ringBell resolves).
-        const cohortId = rows.find((t) => t.parent_cohort_id)?.parent_cohort_id;
+        const cohortId = cohortParam || rows.find((t) => t.parent_cohort_id)?.parent_cohort_id;
         if (cohortId && currencyLoadedFor.current !== cohortId) {
           currencyLoadedFor.current = cohortId;
           loadSessionCurrency(cohortId);
         }
       })
       .catch((e) => setError(e && e.message === 'auth' ? 'auth' : 'net'));
-  }, [loadSessionCurrency]);
+  }, [cohortParam, loadSessionCurrency]);
 
   // Poll the live leaderboard while enabled and not yet closed.
   useEffect(() => {
     clearInterval(pollRef.current);
     if (!enabled || closed) return;
     load();
-    pollRef.current = setInterval(load, 5000);
+    pollRef.current = setInterval(() => {
+      if (document.visibilityState !== 'hidden') {
+        load();
+      }
+    }, 5000);
     return () => clearInterval(pollRef.current);
   }, [enabled, closed, load]);
 
@@ -106,7 +116,7 @@ export default function TradingFloorPage() {
   const [confirmAction, confirmModal] = useConfirm();
 
   const ringBell = useCallback(() => {
-    const cohortId = teams.find((t) => t.parent_cohort_id)?.parent_cohort_id || 'cohort';
+    const cohortId = cohortParam || teams.find((t) => t.parent_cohort_id)?.parent_cohort_id || 'cohort';
     setBellBusy(true);
     setBellError('');
     fetch(`/api/admin/${encodeURIComponent(cohortId)}/finale/ring-bell`, { method: 'POST', credentials: 'include' })
@@ -138,7 +148,7 @@ export default function TradingFloorPage() {
         `Bell NOT broadcast — players did not see the market close (${e && e.message ? e.message : 'network error'}). The board is still live.`
       ))
       .finally(() => setBellBusy(false));
-  }, [teams]);
+  }, [teams, cohortParam]);
 
   // F-3a (v3): tier-2 confirm in front of the unchanged POST. The one fact a
   // facilitator must see before this click is the honest blast radius: the
@@ -355,17 +365,25 @@ const S = {
   tickerWrap: { overflow: 'hidden', whiteSpace: 'nowrap', borderTop: '1px solid rgba(148,163,184,0.2)', borderBottom: '1px solid rgba(148,163,184,0.2)', padding: '8px 0', marginBottom: 24, background: 'rgba(0,0,0,0.3)' },
   ticker: { display: 'inline-block', animation: 'mur-ticker 30s linear infinite', fontFamily: 'var(--font-mono, monospace)', fontSize: '1rem' },
   tickItem: { marginRight: 48 },
-  board: { maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 },
-  row: { display: 'grid', gridTemplateColumns: '60px 1fr 3fr 130px', alignItems: 'center', gap: 14, padding: '12px 16px', borderRadius: 12, background: 'rgba(22,30,46,0.7)', border: '1px solid rgba(148,163,184,0.12)' },
+  board: { maxWidth: 'min(1600px, 94vw)', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 },
+  row: { display: 'grid', gridTemplateColumns: '90px 1.4fr 2.5fr 180px', alignItems: 'center', gap: 18, padding: '16px 22px', borderRadius: 14, background: 'rgba(22,30,46,0.7)', border: '1px solid rgba(148,163,184,0.12)' },
   winner: { border: '1px solid var(--kpi-good)', animation: 'mur-winner-pulse 2s ease infinite', background: 'rgba(16,185,129,0.08)' },
-  rank: { fontSize: '1.4rem', fontWeight: 900, textAlign: 'center' },
-  team: { fontSize: '1.1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-  barTrack: { height: 12, borderRadius: 6, background: 'rgba(148,163,184,0.15)', overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 6, background: 'linear-gradient(90deg, var(--accent-blue), var(--kpi-good))', transition: 'width 0.8s ease' },
-  value: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 800, textAlign: 'right', color: 'var(--kpi-good)' },
+  rank: { fontSize: '2.4rem', fontWeight: 900, textAlign: 'center' },
+  team: { fontSize: '1.8rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  barTrack: { height: 24, borderRadius: 12, background: 'rgba(148,163,184,0.15)', overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 12, background: 'linear-gradient(90deg, var(--accent-blue), var(--kpi-good))', transition: 'width 0.8s ease' },
+  value: { fontFamily: 'var(--font-mono, monospace)', fontSize: '1.5rem', fontWeight: 800, textAlign: 'right', color: 'var(--kpi-good)' },
   bellBtn: { padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, var(--accent-gold), #d97706)', color: '#1a1005', boxShadow: '0 6px 24px rgba(245,158,11,0.4)' },
   closedBanner: { display: 'inline-block', padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, background: 'rgba(16,185,129,0.12)', color: 'var(--kpi-good)', border: '1px solid var(--kpi-good)' },
   bellError: { display: 'inline-block', maxWidth: 720, padding: '10px 18px', marginBottom: 12, fontSize: '0.95rem', fontWeight: 700, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.45)' },
   reopenBtn: { padding: '8px 18px', fontSize: '0.85rem', fontWeight: 700, borderRadius: 10, border: '1px solid rgba(148,163,184,0.35)', cursor: 'pointer', background: 'transparent', color: '#cbd5e1' },
-  ipoDelta: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' },
+  ipoDelta: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, fontSize: '1.1rem', whiteSpace: 'nowrap' },
 };
+
+export default function TradingFloorPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, color: '#94a3b8' }}>Loading trading floor…</div>}>
+      <TradingFloorContent />
+    </Suspense>
+  );
+}

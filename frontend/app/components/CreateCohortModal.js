@@ -356,18 +356,75 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // the checklist panel with per-item retry instead of a dead-end string.
     const [setupResults, setSetupResults] = useState(null);
     const [retryingIdx, setRetryingIdx] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [previewReport, setPreviewReport] = useState(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    const validateForm = () => {
+        const errs = {};
+        if (cohortName.length > 0 && !cohortName.trim()) {
+            errs.cohortName = 'Cohort Name cannot be whitespace only.';
+        } else if (cohortName.trim().length > 64) {
+            errs.cohortName = 'Cohort Name cannot exceed 64 characters.';
+        }
+        if (!regionId) {
+            errs.regionId = 'Geographic Region is required. Please select a region.';
+        }
+        if (simulationMode === 'single_bu' && !industryVertical) {
+            errs.industryVertical = 'Industry Vertical is required for Single Business mode.';
+        }
+        if (isMultiRegion && simulationMode !== 'single_bu') {
+            const BU_SLOTS = ['pharma', 'electronics', 'consumer_goods', 'software'];
+            const unassigned = BU_SLOTS.filter(slot => !buRegions[slot]);
+            if (unassigned.length > 0) {
+                errs.buRegions = `Multi-Region mode: all BU slots must have a region. Missing: ${unassigned.map(s => s.replace(/_/g, ' ')).join(', ')}.`;
+            }
+        }
+        if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+            errs.endDate = 'End Date cannot be before Start Date.';
+        }
+        if (cohortTimezone && cohortTimezone.trim()) {
+            try {
+                Intl.DateTimeFormat(undefined, { timeZone: cohortTimezone.trim() });
+            } catch {
+                errs.cohortTimezone = `Invalid timezone "${cohortTimezone}". Must be a valid IANA timezone name.`;
+            }
+        }
+        if (roundTimerSeconds !== '' && (Number(roundTimerSeconds) < 0 || Number(roundTimerSeconds) > 7200)) {
+            errs.roundTimerSeconds = 'Round timer duration must be between 0 and 7200 seconds.';
+        }
+        if (quizPassThreshold !== '' && (Number(quizPassThreshold) < 0 || Number(quizPassThreshold) > 100)) {
+            errs.quizPassThreshold = 'Quiz pass threshold must be between 0% and 100%.';
+        }
+        setFieldErrors(errs);
+        return errs;
+    };
 
     // Scroll to error banner and open the relevant tab whenever an error is set
     const setValidationError = (msg, tab = null) => {
         setError(msg);
         if (tab) setOpenTab(tab);
         // Defer scroll so the DOM updates first
-        setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+        setTimeout(() => {
+            if (typeof errorRef.current?.scrollIntoView === 'function') {
+                errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 80);
     };
 
     // lead_facilitator and super_admin may assign any registered track without
     // needing a global God Mode pre-authorization.
     const canAssignAllTracks = isLeadFacilitator || isSuperAdmin;
+
+    useEffect(() => {
+        if (openTab === 'lock' && isEditMode && editSession?.session_id) {
+            setPreviewLoading(true);
+            previewSetup(editSession.session_id).then(rep => {
+                setPreviewReport(rep);
+                setPreviewLoading(false);
+            });
+        }
+    }, [openTab, isEditMode, editSession?.session_id]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -613,6 +670,107 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         }
     }, [selectedExperienceLevel, scenarioPresets, visibilityDefaults, visibilityCustomised]);
 
+    // Seed the PLAYER visibility map from an experience level's audience tags.
+    //
+    // Facilitator visibility is deliberately untouched: an experience level
+    // describes the ROOM, and who is in the room says nothing about which
+    // analytics the person running it should see.
+    //
+    // Applied once, on selection — never re-resolved at read time. So a
+    // facilitator who picks Classroom and then switches four panels back on
+    // keeps those four, exactly as default_pedagogy already behaves.
+    // How many player panels an experience level leaves visible. Derived from the
+    // same helper that applies the profile, so the number the facilitator reads
+    // and the map they get can never disagree.
+    const presetVisibleCount = (preset) => (
+        preset?.default_audiences
+            ? Object.values(visibilityForAudiences(preset.default_audiences)).filter(Boolean).length
+            : PLAYER_ANALYTICS.length
+    );
+
+    // Put the cohort back on its experience level's profile after hand-edits.
+    // Without this, customising is a ONE-WAY door: applyPreset bails once
+    // visibilityCustomised is set, so a facilitator who flipped one switch by
+    // mistake had no way back short of reopening the form.
+    const resetVisibilityToPreset = () => {
+        const preset = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+        if (!preset?.default_audiences) return;
+        setVisibility(prev => ({ ...prev, player: visibilityForAudiences(preset.default_audiences) }));
+        if (typeof preset.results_reveal_round === 'number') setResultsRevealRound(preset.results_reveal_round);
+        setVisibilityCustomised(false);
+    };
+
+    // Check if any visibility setting differs from global defaults
+    const hasVisibilityOverrides = () => {
+        if (!visibilityDefaults) return false;
+        for (const role of ['facilitator', 'player']) {
+            for (const [key, val] of Object.entries(visibility[role] || {})) {
+                if ((visibilityDefaults[role] || {})[key] !== val) return true;
+            }
+        }
+        return false;
+    };
+
+    const buildApplyPayload = () => ({
+        visibility: hasVisibilityOverrides() ? visibility : null,
+        pedagogical_settings: {
+            experience_level: selectedExperienceLevel,
+            difficulty_tier: (scenarioPresets.find(pr => pr.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
+            ...pedagogicalToggles,
+            ...engineModuleToggles,
+            ...(roundTimerSeconds > 0 ? {
+                decision_timer_enabled: true,
+                decision_timer_seconds: roundTimerSeconds,
+            } : {}),
+        },
+        briefing_video_base: briefingVideoBase.trim() || null,
+        ceo_interview: { ceo_interview_enabled: ceoInterviewEnabled, ceo_interview_voice_gender: ceoVoiceGender },
+        side_tracks: selectedSideTracks.length > 0 ? selectedSideTracks : null,
+    });
+
+    const applySetupLive = async (sid) => {
+        try {
+            const res = await fetch(`${API}/api/admin/cohort/${sid}/apply-setup`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...buildApplyPayload(), dry_run: false }),
+            });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch {
+            return null;
+        }
+    };
+
+    const previewSetupLive = async (sid) => {
+        if (!sid) return null;
+        setPreviewLoading(true);
+        try {
+            const res = await fetch(`${API}/api/admin/cohort/${sid}/apply-setup`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...buildApplyPayload(), dry_run: true }),
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            setPreviewReport(data);
+            return data;
+        } catch {
+            return null;
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (openTab === 'lock' && isEditMode && editSession?.session_id) {
+            previewSetupLive(editSession.session_id);
+        }
+    }, [isOpen, openTab, isEditMode, editSession?.session_id]);
+
     if (!isOpen) return null;
 
     const toggleOverride = (id) => {
@@ -704,47 +862,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             ...prev,
             [role]: { ...prev[role], [key]: !prev[role][key] },
         }));
-    };
-
-    // Seed the PLAYER visibility map from an experience level's audience tags.
-    //
-    // Facilitator visibility is deliberately untouched: an experience level
-    // describes the ROOM, and who is in the room says nothing about which
-    // analytics the person running it should see.
-    //
-    // Applied once, on selection — never re-resolved at read time. So a
-    // facilitator who picks Classroom and then switches four panels back on
-    // keeps those four, exactly as default_pedagogy already behaves.
-    // How many player panels an experience level leaves visible. Derived from the
-    // same helper that applies the profile, so the number the facilitator reads
-    // and the map they get can never disagree.
-    const presetVisibleCount = (preset) => (
-        preset?.default_audiences
-            ? Object.values(visibilityForAudiences(preset.default_audiences)).filter(Boolean).length
-            : PLAYER_ANALYTICS.length
-    );
-
-    // Put the cohort back on its experience level's profile after hand-edits.
-    // Without this, customising is a ONE-WAY door: applyPreset bails once
-    // visibilityCustomised is set, so a facilitator who flipped one switch by
-    // mistake had no way back short of reopening the form.
-    const resetVisibilityToPreset = () => {
-        const preset = scenarioPresets.find(p => p.id === selectedExperienceLevel);
-        if (!preset?.default_audiences) return;
-        setVisibility(prev => ({ ...prev, player: visibilityForAudiences(preset.default_audiences) }));
-        if (typeof preset.results_reveal_round === 'number') setResultsRevealRound(preset.results_reveal_round);
-        setVisibilityCustomised(false);
-    };
-
-    // Check if any visibility setting differs from global defaults
-    const hasVisibilityOverrides = () => {
-        if (!visibilityDefaults) return false;
-        for (const role of ['facilitator', 'player']) {
-            for (const [key, val] of Object.entries(visibility[role] || {})) {
-                if ((visibilityDefaults[role] || {})[key] !== val) return true;
-            }
-        }
-        return false;
     };
 
     // ── Edit handler: PATCH metadata + re-apply all sub-configs ──────────────
@@ -906,27 +1023,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         }
     };
 
-    // Single-call equivalent of the 10-step browser chain. Returns the server's
-    // per-section report; the caller falls back to the legacy chain if the
-    // endpoint is unavailable (older backend), so this can never be a
-    // regression for a deployment that hasn't picked up the new route.
-    const buildApplyPayload = () => ({
-        visibility: hasVisibilityOverrides() ? visibility : null,
-        pedagogical_settings: {
-            experience_level: selectedExperienceLevel,
-            difficulty_tier: (scenarioPresets.find(pr => pr.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
-            ...pedagogicalToggles,
-            ...engineModuleToggles,
-            ...(roundTimerSeconds > 0 ? {
-                decision_timer_enabled: true,
-                decision_timer_seconds: roundTimerSeconds,
-            } : {}),
-        },
-        briefing_video_base: briefingVideoBase.trim() || null,
-        ceo_interview: { ceo_interview_enabled: ceoInterviewEnabled, ceo_interview_voice_gender: ceoVoiceGender },
-        side_tracks: selectedSideTracks.length > 0 ? selectedSideTracks : null,
-    });
-
     const runOneStep = async (step) => {
         try {
             const subRes = await fetch(step.url, {
@@ -984,9 +1080,18 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         e.preventDefault();
         setError(null);
         if (!editSession?.session_id) return;
+        const formErrors = validateForm();
+        if (Object.keys(formErrors).length > 0) {
+            const firstMsg = Object.values(formErrors)[0];
+            let targetTab = 'core';
+            if (formErrors.buRegions) targetTab = 'verticals';
+            else if (formErrors.cohortTimezone || formErrors.roundTimerSeconds || formErrors.quizPassThreshold) targetTab = 'advanced';
+            setValidationError(firstMsg, targetTab);
+            return;
+        }
+
         setLoading(true);
         const sid = editSession.session_id;
-        // Phase R3: sub-config execution moved to the shared pipeline above.
 
         try {
             // 1. PATCH core session metadata
@@ -1019,20 +1124,25 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 throw new Error(describeHttpFailure('Metadata update', metaRes.status, d));
             }
 
-            // 2. Re-apply all sub-configs via the shared pipeline (same
-            // endpoints, order, and payloads as before — outcomes per step).
-            const results = await runSubConfigChain(sid);
-            if (results.some(r => !r.ok)) {
+            // 2. Re-apply sub-configs via backend apply-setup with fallback to runSubConfigChain
+            let setupSuccess = false;
+            let results = [];
+            const applied = await applySetupLive(sid);
+            if (applied && applied.all_ok) {
+                setupSuccess = true;
+            } else {
+                results = await runSubConfigChain(sid);
+                setupSuccess = !results.some(r => !r.ok);
+            }
+            if (!setupSuccess) {
                 setSetupResults({
                     session: { session_id: sid, cohort_name: cohortName.trim() || editSession.cohort_name },
-                    steps: results,
+                    steps: results.length > 0 ? results : (applied?.sections || []),
                 });
             } else {
                 onCreated({ session_id: sid, cohort_name: cohortName.trim() });
             }
         } catch (err) {
-            // Raw, not err.message — setError normalises, and `.message` is
-            // undefined for a non-Error throw.
             setError(err);
         } finally {
             setLoading(false);
@@ -1044,26 +1154,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         setError(null);
 
         // Validate mandatory fields
-        if (!regionId) {
-            setValidationError('Geographic Region is required. Please select a region.', 'core');
+        const formErrors = validateForm();
+        if (Object.keys(formErrors).length > 0) {
+            const firstMsg = Object.values(formErrors)[0];
+            let targetTab = 'core';
+            if (formErrors.buRegions) targetTab = 'verticals';
+            else if (formErrors.cohortTimezone || formErrors.roundTimerSeconds || formErrors.quizPassThreshold) targetTab = 'advanced';
+            setValidationError(firstMsg, targetTab);
             return;
-        }
-        if (simulationMode === 'single_bu' && !industryVertical) {
-            setValidationError('Industry Vertical is required for Single Business mode.', 'core');
-            return;
-        }
-        // Multi-region mode: every BU slot must carry an explicit region because
-        // there is no single cohort-level region to fall back to.
-        if (isMultiRegion && simulationMode !== 'single_bu') {
-            const BU_SLOTS = ['pharma', 'electronics', 'consumer_goods', 'software'];
-            const unassigned = BU_SLOTS.filter(slot => !buRegions[slot]);
-            if (unassigned.length > 0) {
-                setValidationError(
-                    `Multi-Region mode: all BU slots must have a region. Missing: ${unassigned.map(s => s.replace(/_/g, ' ')).join(', ')}.`,
-                    'verticals'
-                );
-                return;
-            }
         }
 
         setLoading(true);
@@ -1077,10 +1175,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     cohort_name: cohortName.trim() || `Cohort_${Date.now()}`,
                     facilitator_id: facilitatorId,
                     decision_paradigm: selectedParadigm,
-                    // Filtered again at the boundary, not only at load: the
-                    // checkbox handlers take their argument straight from the
-                    // master rows, so a row with no id can put undefined into
-                    // state on click. This is the last point before the wire.
                     allowed_overrides: stringIds(selectedOverrides),
                     allowed_swipes: stringIds(selectedSwipes),
                     currency_symbol: (CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0]).symbol,
@@ -1107,25 +1201,26 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
             const newSession = await res.json();
 
-            // Phase R3: sub-configs via the shared pipeline (same endpoints,
-            // order, and payloads as the previous inline copy — outcomes are
-            // now captured per step, with retry, instead of one dead-end
-            // warning string).
-            const results = newSession.session_id ? await runSubConfigChain(newSession.session_id) : [];
-            if (results.some(r => !r.ok)) {
-                // StartSessionResponse carries session_id/state but NOT cohort_name,
-                // so the summary header rendered an empty "" — stitch the name the
-                // user just typed back in (the edit path already does this).
+            // Phase R3: Apply sub-configs via backend apply-setup with fallback to runSubConfigChain
+            let setupSuccess = false;
+            let results = [];
+            const applied = newSession.session_id ? await applySetupLive(newSession.session_id) : null;
+            if (applied && applied.all_ok) {
+                setupSuccess = true;
+            } else {
+                results = newSession.session_id ? await runSubConfigChain(newSession.session_id) : [];
+                setupSuccess = !results.some(r => !r.ok);
+            }
+
+            if (!setupSuccess) {
                 setSetupResults({
                     session: { ...newSession, cohort_name: newSession.cohort_name || cohortName.trim() },
-                    steps: results,
+                    steps: results.length > 0 ? results : (applied?.sections || []),
                 });
             } else {
                 onCreated(newSession);
             }
         } catch (err) {
-            // Raw, not err.message — setError normalises, and `.message` is
-            // undefined for a non-Error throw.
             setError(err);
         } finally {
             setLoading(false);
@@ -1282,10 +1377,20 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         <input
                                             type="text"
                                             value={cohortName}
-                                            onChange={(e) => setCohortName(e.target.value)}
+                                            onChange={(e) => {
+                                                setCohortName(e.target.value);
+                                                if (fieldErrors.cohortName) setFieldErrors(prev => ({ ...prev, cohortName: null }));
+                                            }}
                                             placeholder="e.g. Exec MBA Spring 2026"
                                             required
+                                            aria-invalid={fieldErrors.cohortName ? "true" : undefined}
+                                            style={fieldErrors.cohortName ? { borderColor: 'var(--danger)' } : undefined}
                                         />
+                                        {fieldErrors.cohortName && (
+                                            <span role="alert" style={{ color: 'var(--danger-text)', fontSize: 'var(--type-caption)', marginTop: 4, display: 'block' }}>
+                                                {fieldErrors.cohortName}
+                                            </span>
+                                        )}
                                     </div>
 
 {/* ── Simulation Mode toggle ── */}
@@ -1541,9 +1646,19 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <input
                                                 type="date"
                                                 value={endDate}
-                                                onChange={(e) => setEndDate(e.target.value)}
+                                                onChange={(e) => {
+                                                    setEndDate(e.target.value);
+                                                    if (fieldErrors.endDate) setFieldErrors(prev => ({ ...prev, endDate: null }));
+                                                }}
                                                 min={startDate || undefined}
+                                                aria-invalid={fieldErrors.endDate ? "true" : undefined}
+                                                style={fieldErrors.endDate ? { borderColor: 'var(--danger)' } : undefined}
                                             />
+                                            {fieldErrors.endDate && (
+                                                <span role="alert" style={{ color: 'var(--danger-text)', fontSize: 'var(--type-caption)', marginTop: 2, display: 'block' }}>
+                                                    {fieldErrors.endDate}
+                                                </span>
+                                            )}
                                             <span style={{ fontSize: 'var(--type-caption)', color: '#64748b', marginTop: 2 }}>
                                                 Game locked after this date — results stay visible
                                             </span>
@@ -2758,7 +2873,17 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={fld}>
                                                 <label style={lbl}>Pass threshold (%)</label>
                                                 <input type="number" min={0} max={100} step={5} value={quizPassThreshold} disabled={!quizEnabled}
-                                                    onChange={e => setQuizPassThreshold(Number(e.target.value))} style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
+                                                    onChange={e => {
+                                                        setQuizPassThreshold(e.target.value === '' ? '' : Number(e.target.value));
+                                                        if (fieldErrors.quizPassThreshold) setFieldErrors(prev => ({ ...prev, quizPassThreshold: null }));
+                                                    }}
+                                                    aria-invalid={fieldErrors.quizPassThreshold ? "true" : undefined}
+                                                    style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5, ...(fieldErrors.quizPassThreshold ? { borderColor: 'var(--danger)' } : {}) }} />
+                                                {fieldErrors.quizPassThreshold && (
+                                                    <span role="alert" style={{ color: 'var(--danger-text)', fontSize: 'var(--type-caption)', marginTop: 2 }}>
+                                                        {fieldErrors.quizPassThreshold}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div style={fld}>
                                                 <label style={lbl}>Max attempts</label>
@@ -2847,14 +2972,34 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={fld}>
                                                 <label style={lbl}>Cohort timezone</label>
                                                 <input type="text" value={cohortTimezone} placeholder="e.g. Asia/Kolkata (blank = local)"
-                                                    onChange={e => setCohortTimezone(e.target.value)} style={{ ...inp, width: 210 }}
+                                                    onChange={e => {
+                                                        setCohortTimezone(e.target.value);
+                                                        if (fieldErrors.cohortTimezone) setFieldErrors(prev => ({ ...prev, cohortTimezone: null }));
+                                                    }}
+                                                    aria-invalid={fieldErrors.cohortTimezone ? "true" : undefined}
+                                                    style={{ ...inp, width: 210, ...(fieldErrors.cohortTimezone ? { borderColor: 'var(--danger)' } : {}) }}
                                                     data-tooltip="IANA timezone used to render schedules and timers in the cohort's local time. Backend rejects unknown zones. Blank = each player's browser-local time." />
+                                                {fieldErrors.cohortTimezone && (
+                                                    <span role="alert" style={{ color: 'var(--danger-text)', fontSize: 'var(--type-caption)', marginTop: 2 }}>
+                                                        {fieldErrors.cohortTimezone}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div style={fld}>
                                                 <label style={lbl}>Round timer (sec)</label>
                                                 <input type="number" min={0} max={7200} value={roundTimerSeconds}
-                                                    onChange={e => setRoundTimerSeconds(Number(e.target.value))} style={{ ...inp, width: 100 }}
+                                                    onChange={e => {
+                                                        setRoundTimerSeconds(e.target.value === '' ? '' : Number(e.target.value));
+                                                        if (fieldErrors.roundTimerSeconds) setFieldErrors(prev => ({ ...prev, roundTimerSeconds: null }));
+                                                    }}
+                                                    aria-invalid={fieldErrors.roundTimerSeconds ? "true" : undefined}
+                                                    style={{ ...inp, width: 100, ...(fieldErrors.roundTimerSeconds ? { borderColor: 'var(--danger)' } : {}) }}
                                                     data-tooltip="Per-round decision timer duration. Setting a value also enables the Decision Timer engine toggle (0 = leave the toggle's own setting in charge)." />
+                                                {fieldErrors.roundTimerSeconds && (
+                                                    <span role="alert" style={{ color: 'var(--danger-text)', fontSize: 'var(--type-caption)', marginTop: 2 }}>
+                                                        {fieldErrors.roundTimerSeconds}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div style={fld}>
                                                 <label style={lbl}>Late joins</label>
@@ -3349,6 +3494,75 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             </div>
 
                                         </div>{/* end grid */}
+
+                                        {/* ── Server Dry-Run Preview (edit mode) ── */}
+                                        {isEditMode && (
+                                            <div style={{
+                                                background: 'rgba(15,23,42,0.7)',
+                                                border: '1px solid rgba(59,130,246,0.3)',
+                                                borderRadius: 10,
+                                                padding: '12px 16px',
+                                                marginBottom: '1rem',
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#93c5fd' }}>
+                                                            🔍 Server Dry-Run Preview
+                                                        </span>
+                                                        {previewLoading && <span style={{ fontSize: 'var(--type-caption)', color: '#94a3b8' }}>⏳ Validating...</span>}
+                                                        {previewReport && !previewLoading && (
+                                                            <span style={{
+                                                                fontSize: 'var(--type-caption)',
+                                                                fontWeight: 700,
+                                                                padding: '1px 7px',
+                                                                borderRadius: 999,
+                                                                background: previewReport.all_ok ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                                                                color: previewReport.all_ok ? '#4ade80' : '#f87171',
+                                                                border: `1px solid ${previewReport.all_ok ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                                                            }}>
+                                                                {previewReport.all_ok ? '✓ Dry Run Passed' : '⚠️ Issues Found'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => previewSetupLive(editSession?.session_id)}
+                                                        disabled={previewLoading || !editSession?.session_id}
+                                                        style={{
+                                                            fontSize: 'var(--type-caption)',
+                                                            padding: '3px 8px',
+                                                            borderRadius: 5,
+                                                            border: '1px solid rgba(100,116,139,0.3)',
+                                                            background: 'rgba(30,41,59,0.6)',
+                                                            color: '#94a3b8',
+                                                            cursor: previewLoading ? 'wait' : 'pointer',
+                                                        }}
+                                                    >
+                                                        {previewLoading ? 'Refreshing...' : '🔄 Re-run Check'}
+                                                    </button>
+                                                </div>
+                                                {previewReport?.sections && previewReport.sections.length > 0 ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                                                        {previewReport.sections.map((sec, i) => (
+                                                            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--type-caption)', padding: '4px 8px', background: 'rgba(30,41,59,0.4)', borderRadius: 4 }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                    <span>{sec.error ? '❌' : (sec.status === 'preview' || sec.status === 'ok' ? '✓' : '—')}</span>
+                                                                    <span style={{ fontWeight: 600, color: '#e2e8f0' }}>{sec.name}</span>
+                                                                    {sec.detail && <span style={{ color: '#94a3b8' }}>({sec.detail})</span>}
+                                                                </div>
+                                                                <span style={{ color: sec.error ? '#f87171' : (sec.status === 'preview' || sec.status === 'ok' ? '#4ade80' : '#64748b') }}>
+                                                                    {sec.error ? sec.error : (sec.status === 'preview' ? 'Ready to apply' : sec.status)}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ fontSize: 'var(--type-caption)', color: '#64748b', fontStyle: 'italic' }}>
+                                                        {previewLoading ? 'Connecting to backend to validate setup...' : 'Preview report not yet generated.'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* ── Permanent-lock warning (create only) ── */}
                                         {!isEditMode && (

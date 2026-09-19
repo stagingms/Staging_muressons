@@ -1,8 +1,21 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from './ConfirmModal';
 import styles from './CohortPulse.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
+
+const METRICS = [
+  { key: 'treasury', label: 'Treasury', icon: '💰', format: v => `$${(v / 1_000_000).toFixed(1)}M`, tooltip: 'Corporate Treasury across rounds' },
+  { key: 'reputation', label: 'Reputation', icon: '⭐', format: v => Math.round(v), tooltip: 'Group Reputation score' },
+  { key: 'carbon', label: 'Carbon Intensity', icon: '🏭', format: v => v?.toFixed(1) || '—', tooltip: 'Carbon emissions (tCO2e)' },
+  { key: 'social_license', label: 'Social License', icon: '🤝', format: v => Math.round(v || 0), tooltip: 'Average Social License score across BUs' },
+  { key: 'synergy', label: 'Synergy', icon: '🔗', format: v => (v || 1.0).toFixed(2) + '×', tooltip: 'Synergy multiplier' },
+  // Climate-specific metrics (shown for all sessions — values will be empty for non-climate)
+  { key: 'green_fund', label: 'Green Fund', icon: '🌱', format: v => v != null ? `$${(v / 1_000_000).toFixed(1)}M` : '—', tooltip: 'Green Transition Fund' },
+  { key: 'cost_of_capital', label: 'Cost of Capital', icon: '📊', format: v => v != null ? `${(v * 100).toFixed(1)}%` : '—', tooltip: 'Cost of Capital percentage' },
+  { key: 'carbon_fee_paid', label: 'Carbon Fee Paid', icon: '💨', format: v => v != null ? `$${(v / 1_000_000).toFixed(2)}M` : '—', tooltip: 'Cumulative Carbon Fee Paid' },
+];
 
 /**
  * CohortPulse — Facilitator-only real-time heatmap of all team KPIs.
@@ -16,56 +29,78 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
   const [selectedMetric, setSelectedMetric] = useState('treasury');
   const [showToPlayers, setShowToPlayers] = useState(isPlayerVisible);
   const [saving, setSaving] = useState(false);
+  const [committingTeam, setCommittingTeam] = useState(null);
+  const [confirmDialog, confirmModal] = useConfirm();
 
-  const METRICS = [
-    { key: 'treasury', label: 'Treasury', icon: '💰', format: v => `$${(v / 1_000_000).toFixed(1)}M`,
-      tooltip: 'Corporate cash on hand. Funds every decision and allocation; a negative treasury means the team is borrowing to operate. Red cells = teams running dry — a common intervention trigger.' },
-    { key: 'reputation', label: 'Reputation', icon: '⭐', format: v => Math.round(v),
-      tooltip: 'Group reputation, 0–100. Moves with stakeholder reactions, crises, and disclosure choices, and feeds the Regenerative Multiple at valuation. Below ~40 is a warning zone; sustained lows cap pricing power.' },
-    { key: 'carbon', label: 'Carbon Intensity', icon: '🏭', format: v => v?.toFixed(1) || '—',
-      tooltip: 'Average carbon intensity across business units (lower is better). Drives the internal carbon fee, stranded-asset risk, and climate-leadership signals at end-of-game scoring.' },
-    { key: 'social_license', label: 'Social License', icon: '🤝', format: v => Math.round(v || 0),
-      tooltip: 'Community licence to operate, 0–100. Eroded by broken promises and hostile stakeholders; low values trigger the Green Premium Squeeze trap and social-collapse valuation discounts.' },
-    { key: 'synergy', label: 'Synergy', icon: '🔗', format: v => (v || 1.0).toFixed(2) + '×',
-      tooltip: 'Cross-BU synergy multiplier applied to group performance (1.00× = neutral). Built through coherent, mutually reinforcing strategies; instability and governance failures erode it.' },
-    // Climate-specific metrics (shown for all sessions — values will be empty for non-climate)
-    { key: 'green_fund', label: 'Green Fund', icon: '🌱', format: v => v != null ? `$${(v / 1_000_000).toFixed(1)}M` : '—',
-      tooltip: 'Green Transition Fund balance, filled by the internal carbon fee (emissions × $/tonne). Auto-subsidises green CapEx; decarbonising shrinks the inflow. "—" = not used by this cohort’s paradigm.' },
-    { key: 'cost_of_capital', label: 'Cost of Capital', icon: '📊', format: v => v != null ? `${(v * 100).toFixed(1)}%` : '—',
-      tooltip: 'The rate at which markets lend to the team. Rises with governance risk, instability, and climate exposure; every point makes future investment more expensive. Watch it climb after crises.' },
-    { key: 'carbon_fee_paid', label: 'Carbon Fee Paid', icon: '💨', format: v => v != null ? `$${(v / 1_000_000).toFixed(2)}M` : '—',
-      tooltip: 'Cumulative internal carbon fee the team has paid on its emissions. High values with flat Carbon Intensity = paying the fee instead of decarbonising — a classic discussion prompt.' },
-  ];
+  const fetchPulse = useCallback(async () => {
+    if (!cohortId) return;
+    try {
+      // credentials: the endpoint is now auth-guarded (facilitators always;
+      // players only when player_visible) — the JWT cookie must reach it.
+      const res = await fetch(`${API}/api/admin/cohort-pulse/${cohortId}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        // RB-2 (UX audit §7.2): filter the cohort-shell row and keep the
+        // commit-progress block the endpoint now returns.
+        setTeams((data.teams || []).filter(t => !t.is_cohort_shell));
+        setProgress(data.commit_progress || null);
+        if (data.player_visible !== undefined) {
+          setShowToPlayers(!!data.player_visible);
+        }
+      }
+    } catch {
+      // Backend unreachable — show empty state
+    }
+    setLoading(false);
+  }, [cohortId]);
 
   useEffect(() => {
     if (!cohortId) return;
-    let first = true;
-    const fetchPulse = async () => {
-      try {
-        // credentials: the endpoint is now auth-guarded (facilitators always;
-        // players only when player_visible) — the JWT cookie must reach it.
-        const res = await fetch(`${API}/api/admin/cohort-pulse/${cohortId}`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          // RB-2 (UX audit §7.2): filter the cohort-shell row and keep the
-          // commit-progress block the endpoint now returns.
-          setTeams((data.teams || []).filter(t => !t.is_cohort_shell));
-          setProgress(data.commit_progress || null);
-          // Seed toggle from server state on initial load
-          if (first && data.player_visible !== undefined) {
-            setShowToPlayers(!!data.player_visible);
-            first = false;
-          }
-        }
-      } catch {
-        // Backend unreachable — show empty state
-      }
-      setLoading(false);
-    };
     fetchPulse();
-    const interval = setInterval(fetchPulse, 15000); // refresh every 15s
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchPulse();
+    }, 15000);
     return () => clearInterval(interval);
-  }, [cohortId]);
+  }, [cohortId, fetchPulse]);
+
+  const handleCommitTeam = async (team) => {
+    const teamIdentifier = team?.team_id || team?.session_id;
+    if (!teamIdentifier || committingTeam) return;
+    const ok = await confirmDialog({
+      title: `Auto-commit decisions for ${team.name || 'this team'}?`,
+      message: team.has_saved_draft
+        ? 'This team has a saved draft that will be committed.'
+        : 'This team has NO saved draft. Standard Option B default decisions ($1 per BU) will be applied.',
+      impact: [
+        `Team: ${team.name || teamIdentifier}`,
+        `Current Round: R${team.round || progress?.target_round || '—'}`,
+        `Draft status: ${team.has_saved_draft ? 'Draft saved' : 'No draft (defaults will apply)'}`,
+        'Isolation: Only this team will be committed. Other deliberating teams are unaffected.',
+      ],
+      confirmLabel: 'Auto-Commit Team',
+      cancelLabel: 'Cancel',
+      danger: true,
+    });
+    if (!ok) return;
+    setCommittingTeam(team.session_id);
+    try {
+      const endpoint = cohortId
+        ? `${API}/api/admin/sessions/${encodeURIComponent(cohortId)}/teams/${encodeURIComponent(teamIdentifier)}/force-commit`
+        : `${API}/api/admin/sessions/${encodeURIComponent(team.session_id)}/commit-default`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        fetchPulse();
+      }
+    } catch {
+      // Network error
+    } finally {
+      setCommittingTeam(null);
+    }
+  };
 
   const getHeatColor = (value, metric) => {
     // Normalize value to 0-1 range based on metric type
@@ -102,7 +137,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
     return `rgba(239, 68, 68, ${0.15 + (1 - normalized) * 0.3})`;
   };
 
-  const activeMetric = METRICS.find(m => m.key === selectedMetric);
+  const activeMetric = METRICS.find(m => m.key === selectedMetric) || METRICS[0];
 
   if (loading) {
     return (
@@ -220,6 +255,27 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
                     style={{ marginLeft: 6, fontSize: 'var(--type-caption)', fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}
                   >🤝 negotiating</span>
                 )}
+                {!team.committed && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleCommitTeam(team); }}
+                    disabled={committingTeam === team.session_id}
+                    title={team.has_saved_draft ? "Auto-commit this team from saved draft" : "Auto-commit this team with default options"}
+                    style={{
+                      marginLeft: 6,
+                      fontSize: 'var(--type-caption)',
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(245,158,11,0.5)',
+                      background: 'var(--caution-soft)',
+                      color: 'var(--caution-text)',
+                      cursor: committingTeam === team.session_id ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {committingTeam === team.session_id ? '…' : '⚡ Commit'}
+                  </button>
+                )}
               </div>
               {Array.from({ length: 10 }, (_, ri) => {
                 const roundData = team.history?.[ri + 1];
@@ -282,6 +338,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
           ))}
         </div>
       )}
+      {confirmModal}
     </div>
   );
 }

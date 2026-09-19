@@ -16,14 +16,14 @@ const SvgSpecCare = () => (<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 const SvgTelehealth = () => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="5" y="3" width="14" height="18" rx="2"/><polyline points="9,13 11,11 13,15 15,12"/></svg>);
 
 const BU_META = {
-    pharma: { label: 'Pharma', Icon: SvgPharma, accent: 'var(--kpi-good)' },
-    electronics: { label: 'Electronics', Icon: SvgElectronics, accent: '#3b82f6' },
-    consumer_goods: { label: 'Consumer Goods', Icon: SvgConsumer, accent: 'var(--caution)' },
-    software: { label: 'Software', Icon: SvgSoftware, accent: '#8b5cf6' },
-    hospitals: { label: 'Hospitals', Icon: SvgHospital, accent: 'var(--danger)' },
-    clinics: { label: 'Primary Care Clinics', Icon: SvgClinic, accent: 'var(--kpi-good)' },
-    specialised_care: { label: 'Specialised Care', Icon: SvgSpecCare, accent: '#8b5cf6' },
-    telehealth: { label: 'Digital Health', Icon: SvgTelehealth, accent: '#0ea5e9' },
+    pharma: { label: 'Pharma', Icon: SvgPharma, accent: 'var(--bu-pharma)' },
+    electronics: { label: 'Electronics', Icon: SvgElectronics, accent: 'var(--bu-electronics)' },
+    consumer_goods: { label: 'Consumer Goods', Icon: SvgConsumer, accent: 'var(--bu-consumer)' },
+    software: { label: 'Software', Icon: SvgSoftware, accent: 'var(--bu-software)' },
+    hospitals: { label: 'Hospitals', Icon: SvgHospital, accent: 'var(--bu-hospital)' },
+    clinics: { label: 'Primary Care Clinics', Icon: SvgClinic, accent: 'var(--bu-clinics)' },
+    specialised_care: { label: 'Specialised Care', Icon: SvgSpecCare, accent: 'var(--bu-specialised)' },
+    telehealth: { label: 'Digital Health', Icon: SvgTelehealth, accent: 'var(--bu-telehealth)' },
 };
 
 /* ── Animated Number (odometer effect) ────────────────────── */
@@ -72,7 +72,7 @@ function PoolDonut({ pctUsed }) {
 function getSliderColor(pct, accent) {
     if (pct > 100) return 'var(--danger)';
     if (pct > 80) return 'var(--caution)';
-    if (pct > 50) return '#d97706';
+    if (pct > 50) return 'var(--caution-deep)';
     return accent;
 }
 
@@ -293,7 +293,7 @@ export default function InvestmentMatrix({
                   && ((globalState.corporate_treasury * 0.20 < 1_000_000) || (globalState?.active_event_flags?.emergency_credit_balance > 0)) && (
                     <div className={styles.loanWarning} style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.06)' }} data-testid="emergency-credit-banner">
                         <span className={styles.loanIcon}>🚨</span>
-                        <span style={{ fontSize: '0.68rem' }}>
+                        <span style={{ fontSize: 'var(--type-caption)' }}>
                             {globalState?.active_event_flags?.emergency_credit_balance > 0 ? (
                                 <>Emergency credit line <strong>drawn</strong>: <strong>{sym}{(globalState.active_event_flags.emergency_credit_balance / 1_000_000).toFixed(1)}M</strong> outstanding at{' '}</>
                             ) : (
@@ -312,7 +312,7 @@ export default function InvestmentMatrix({
                 {decisionParadigm === 'advanced_climate' && (globalState?.green_transition_fund || 0) > 0 && (
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '4px 0', fontSize: '0.68rem',
+                        padding: '4px 0', fontSize: 'var(--type-caption)',
                     }}>
                         <span style={{ color: 'var(--positive-text)', display: 'flex', alignItems: 'center', gap: 4 }}>
                             🌱 Green Fund Coverage

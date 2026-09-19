@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef } from 'react';
+import { useConfirm } from './ConfirmModal';
 import styles from './SystemExport.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -17,12 +18,13 @@ export default function SystemExport() {
         }
         return [];
     });
+    const [confirm, confirmModal] = useConfirm();
     const fileInputRef = useRef(null);
 
     const handleExport = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/god/export`);
+            const res = await fetch(`${API}/api/admin/god/export`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setExportData(data);
@@ -85,13 +87,21 @@ export default function SystemExport() {
             }
             const sessionCount = Object.keys(data.sessions).length;
             const facCount = data.facilitators?.length || 0;
-            if (!confirm(`⚠️ Import backup from ${new Date(data.exported_at).toLocaleDateString()}?\n\nThis contains ${sessionCount} sessions and ${facCount} facilitators.\n\nNote: This will NOT overwrite existing data — it will be merged. Duplicate session IDs will be skipped.`)) {
+            const ok = await confirm({
+                title: 'Restore Platform Backup',
+                message: `Import backup from ${new Date(data.exported_at).toLocaleDateString()}?`,
+                impact: `This contains ${sessionCount} sessions and ${facCount} facilitators. Note: This will NOT overwrite existing data — it will be merged. Duplicate session IDs will be skipped.`,
+                confirmLabel: 'Import Backup',
+                danger: true,
+            });
+            if (!ok) {
                 setImportStatus('Import cancelled');
                 return;
             }
             const res = await fetch(`${API}/api/admin/god/import`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: text,
             });
             if (res.ok) {
@@ -112,7 +122,7 @@ export default function SystemExport() {
         if (!gdprPlayerId.trim()) return;
         setGdprLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/god/gdpr-export/${encodeURIComponent(gdprPlayerId.trim())}`);
+            const res = await fetch(`${API}/api/admin/god/gdpr-export/${encodeURIComponent(gdprPlayerId.trim())}`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -267,6 +277,7 @@ export default function SystemExport() {
                     </div>
                 </div>
             )}
+            {confirmModal}
         </div>
     );
 }

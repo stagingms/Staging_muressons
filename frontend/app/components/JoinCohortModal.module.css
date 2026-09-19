@@ -138,7 +138,7 @@
 }
 
 .brandSubtitle {
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     letter-spacing: 0.35em;
     color: rgba(0, 229, 195, 0.5);
     margin-top: var(--space-1);
@@ -234,7 +234,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -244,8 +244,8 @@
 }
 
 .checkbox {
-    width: 14px;
-    height: 14px;
+    width: 24px;
+    height: 24px;
     accent-color: #00e5c3;
     cursor: pointer;
 }
@@ -277,7 +277,7 @@
     background: rgba(239, 68, 68, 0.08);
     border: 1px solid rgba(239, 68, 68, 0.2);
     color: var(--gauge-red);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -352,7 +352,7 @@
     border: 1px solid rgba(100, 116, 139, 0.25);
     background: rgba(20, 27, 45, 0.5);
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -380,7 +380,7 @@
     justify-content: center;
     gap: 0.5rem;
     margin-top: var(--space-4);
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -426,7 +426,7 @@
 }
 
 .bottomHash {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: rgba(100, 116, 139, 0.25);
     letter-spacing: 0.1em;
     overflow: hidden;
@@ -441,14 +441,14 @@
 }
 
 .bottomLabel {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.1em;
     color: #f5b942;
 }
 
 .bottomTime {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }

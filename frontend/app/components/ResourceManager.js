@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from './ResourceManager.module.css';
 import GlossaryManager from './GlossaryManager';
+import { useConfirm } from './ConfirmModal';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -19,6 +20,7 @@ export default function ResourceManager() {
     const [sessionResources, setSessionResources] = useState([]);
     const [deploymentGuide, setDeploymentGuide] = useState(null);
     const [status, setStatus] = useState(null);
+    const [confirm, confirmModal] = useConfirm();
 
     // Add Individual Resource State
     const [showAddForm, setShowAddForm] = useState(false);
@@ -38,7 +40,7 @@ export default function ResourceManager() {
     // ── Fetch master library ────────────────────────────────
     const fetchLibrary = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/resources/library`);
+            const res = await fetch(`${API_BASE}/api/admin/resources/library`, { credentials: 'include' });
             if (res.ok) { const d = await res.json(); setLibrary(d.resources || []); }
         } catch (e) { console.error('Failed to fetch library', e); }
     }, []);
@@ -46,7 +48,7 @@ export default function ResourceManager() {
     // ── Fetch sessions ──────────────────────────────────────
     const fetchSessions = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/sessions`);
+            const res = await fetch(`${API_BASE}/api/admin/sessions`, { credentials: 'include' });
             if (res.ok) { const d = await res.json(); setSessions(d.sessions || []); }
         } catch (e) { console.error('Failed to fetch sessions', e); }
     }, []);
@@ -55,7 +57,7 @@ export default function ResourceManager() {
     const fetchSessionResources = useCallback(async (sid) => {
         if (!sid) return;
         try {
-            const res = await fetch(`${API_BASE}/api/admin/sessions/${sid}/resources`);
+            const res = await fetch(`${API_BASE}/api/admin/sessions/${sid}/resources`, { credentials: 'include' });
             if (res.ok) { const d = await res.json(); setSessionResources(d.resources || []); }
         } catch (e) { console.error('Failed to fetch session resources', e); }
     }, []);
@@ -63,7 +65,7 @@ export default function ResourceManager() {
     // ── Fetch deployment guide ──────────────────────────────
     const fetchGuide = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/resources/deployment-guide`);
+            const res = await fetch(`${API_BASE}/api/admin/resources/deployment-guide`, { credentials: 'include' });
             if (res.ok) { const d = await res.json(); setDeploymentGuide(d); }
         } catch (e) { console.error('Failed to fetch guide', e); }
     }, []);
@@ -71,7 +73,7 @@ export default function ResourceManager() {
     // ── Fetch NotebookLM notebooks ────────────────────────────
     const fetchNotebooks = useCallback(async () => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/resources/notebooklm`);
+            const res = await fetch(`${API_BASE}/api/admin/resources/notebooklm`, { credentials: 'include' });
             if (res.ok) { const d = await res.json(); setNotebooks(d.notebooks || []); }
         } catch (e) { console.error('Failed to fetch notebooks', e); }
     }, []);
@@ -516,9 +518,16 @@ export default function ResourceManager() {
     };
 
     const handleNbDelete = async (id) => {
-        if (!confirm('Delete this notebook link?')) return;
+        const ok = await confirm({
+            title: 'Delete Notebook Link',
+            message: 'Delete this notebook link?',
+            impact: 'This NotebookLM link will no longer be visible to students or facilitators in the session.',
+            confirmLabel: 'Delete Notebook',
+            danger: true,
+        });
+        if (!ok) return;
         try {
-            await fetch(`${API_BASE}/api/admin/resources/notebooklm/${id}`, { method: 'DELETE' });
+            await fetch(`${API_BASE}/api/admin/resources/notebooklm/${id}`, { method: 'DELETE', credentials: 'include' });
             fetchNotebooks();
         } catch (e) { console.error(e); }
     };
@@ -681,6 +690,7 @@ export default function ResourceManager() {
             {activeTab === 'guide' && renderGuide()}
             {activeTab === 'notebooklm' && renderNotebookLM()}
             {activeTab === 'glossary' && <GlossaryManager />}
+            {confirmModal}
         </div>
     );
 }

@@ -113,16 +113,17 @@ export default function LeaderboardMatrix({
     // Fetch practice mode status for all top-level cohorts
     const fetchPracticeStates = useCallback(async () => {
         const cohorts = leaderboard.filter(s => !s.player_id && !s.parent_cohort_id);
-        const states = {};
-        for (const cohort of cohorts) {
+        const entries = await Promise.all(cohorts.map(async (cohort) => {
             try {
-                const res = await fetch(`${API}/api/admin/sessions/${cohort.session_id}/practice-mode`);
+                const res = await fetch(`${API}/api/admin/sessions/${cohort.session_id}/practice-mode`, { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
-                    states[cohort.session_id] = data.practice_mode;
+                    return [cohort.session_id, data.practice_mode];
                 }
             } catch { /* ignore */ }
-        }
+            return null;
+        }));
+        const states = Object.fromEntries(entries.filter(Boolean));
         setPracticeStates(prev => ({ ...prev, ...states }));
     }, [leaderboard]);
 
@@ -136,6 +137,7 @@ export default function LeaderboardMatrix({
         try {
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/practice-mode`, {
                 method: isActive ? 'DELETE' : 'POST',
+                credentials: 'include',
             });
             if (res.ok) {
                 setPracticeStates(prev => ({ ...prev, [sessionId]: !isActive }));

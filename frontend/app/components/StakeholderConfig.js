@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useConfirm } from './ConfirmModal';
 import styles from './StakeholderConfig.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -224,6 +225,7 @@ export default function StakeholderConfig() {
     const [savingIdx, setSavingIdx] = useState(null);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState({ message: '', type: 'success' });
+    const [confirm, confirmModal] = useConfirm();
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -296,9 +298,16 @@ export default function StakeholderConfig() {
         }
     };
 
-    const handleDelete = (idx) => {
+    const handleDelete = async (idx) => {
         const sh = stakeholders[idx];
-        if (!confirm(`Delete stakeholder "${sh.name || 'this stakeholder'}"? This cannot be undone.`)) return;
+        const ok = await confirm({
+            title: `Delete Stakeholder: ${sh.name || 'Untitled'}`,
+            message: `Delete stakeholder "${sh.name || 'this stakeholder'}"? This cannot be undone.`,
+            impact: 'This stakeholder and their engagement tactics will be removed from this configuration.',
+            confirmLabel: 'Delete Stakeholder',
+            danger: true,
+        });
+        if (!ok) return;
         setStakeholders(prev => prev.filter((_, i) => i !== idx));
     };
 
@@ -725,6 +734,7 @@ export default function StakeholderConfig() {
                     <p>Select a region and click <strong>Load</strong> to view stakeholder configurations.</p>
                 </div>
             )}
+            {confirmModal}
         </div>
     );
 }

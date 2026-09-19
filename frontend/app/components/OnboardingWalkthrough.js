@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { OVERLAY_PRIORITY } from './overlayPriority';
 
 /**
  * OnboardingWalkthrough — Step-by-step guided tour for first-time players.
@@ -214,7 +215,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
     <>
       {/* ── Active Tour Overlay ── */}
       {tourActive && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, fontFamily: 'Inter, sans-serif', pointerEvents: 'none' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.ONBOARDING_TOUR, fontFamily: 'Inter, sans-serif', pointerEvents: 'none' }}>
 
           {/* Invisible click blocker — prevents interaction with cockpit while tour runs */}
           <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'all' }} />
@@ -265,9 +266,11 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
           {/* Step Card */}
           <div style={{
             ...getCardStyle(),
-            background: '#fff', borderRadius: 16, padding: '1.8rem 2rem',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 16, padding: '1.8rem 2rem',
             maxWidth: 420, width: '90%',
-            boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
+            boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
             minHeight: 200, display: 'flex', flexDirection: 'column'
           }}>
             {/* Progress dots */}
@@ -277,7 +280,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
               {STEPS.map((_, i) => (
                 <div key={i} style={{
                   width: i === currentStep ? 20 : 6, height: 6, borderRadius: 3,
-                  background: i === currentStep ? '#6366f1' : i < currentStep ? '#a5b4fc' : '#e2e8f0',
+                  background: i === currentStep ? '#6366f1' : i < currentStep ? '#a5b4fc' : 'rgba(255, 255, 255, 0.2)',
                   transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s',
                 }} />
               ))}
@@ -290,7 +293,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
               }}>
                 <span style={{
                   display: 'inline-block',
-                  fontSize: '0.68rem', fontWeight: 800,
+                  fontSize: '0.75rem', fontWeight: 800,
                   letterSpacing: '0.12em', textTransform: 'uppercase',
                   padding: '3px 10px', borderRadius: 20,
                   background: 'rgba(16,185,129,0.12)',
@@ -305,10 +308,10 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
             <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: '0.6rem' }}>{step.icon}</div>
             <h2 style={{
               margin: '0 0 0.5rem', fontSize: '1.1rem', fontWeight: 800,
-              color: '#0f172a', textAlign: 'center',
+              color: 'var(--text-primary)', textAlign: 'center',
             }}>{step.title}</h2>
             <p style={{
-              margin: '0 0 1.2rem', fontSize: '0.82rem', color: '#64748b',
+              margin: '0 0 1.2rem', fontSize: '0.82rem', color: 'var(--text-secondary)',
               lineHeight: 1.7, textAlign: 'center', flex: 1,
             }}>{step.body}</p>
 
@@ -316,8 +319,8 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
               <button
                 onClick={handleSkip}
                 style={{
-                  flex: 1, padding: '9px 0', background: '#f1f5f9', color: '#64748b',
-                  border: '1px solid #e2e8f0', borderRadius: 8, fontWeight: 600,
+                  flex: 1, padding: '9px 0', background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)', borderRadius: 8, fontWeight: 600,
                   cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif',
                 }}
               >End Tour</button>

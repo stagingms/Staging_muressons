@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from './ConfirmModal';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const TRIGGER_LABELS = {
@@ -24,6 +25,7 @@ export default function AutoPauseConfig({ sessionId }) {
     const [resetting, setResetting] = useState(false);
     const [status, setStatus]   = useState(null);
     const [loading, setLoading] = useState(false);
+    const [confirm, confirmModal] = useConfirm();
 
     const showStatus = (msg, duration = 3500) => {
         setStatus(msg);
@@ -72,7 +74,15 @@ export default function AutoPauseConfig({ sessionId }) {
     };
 
     const resetToDefaults = async () => {
-        if (!sessionId || !confirm('Reset this cohort\'s auto-pause config to platform defaults?')) return;
+        if (!sessionId) return;
+        const ok = await confirm({
+            title: 'Reset Auto-Pause Triggers',
+            message: "Reset this cohort's auto-pause config to platform defaults?",
+            impact: 'All customized pause triggers for this cohort will be replaced by the default system rules.',
+            confirmLabel: 'Reset to defaults',
+            danger: true,
+        });
+        if (!ok) return;
         setResetting(true);
         try {
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/auto-pause`, {
@@ -207,6 +217,7 @@ export default function AutoPauseConfig({ sessionId }) {
                     </button>
                 </div>
             </div>
+            {confirmModal}
         </div>
     );
 }

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { OVERLAY_PRIORITY } from './overlayPriority';
 
 /**
  * OnboardingWizard — First-time guided tour for admin dashboards.
@@ -46,7 +47,7 @@ const GOD_MODE_STEPS = [
     {
         title: 'Cohort Orchestration',
         icon: '🎓',
-        body: 'Manage facilitators (create accounts, assign roles), provision cohorts, control round pacing, and send universal broadcasts. The 3-tier role system (Super Admin → Lead → Base) is enforced here.',
+        body: 'Manage facilitators (create accounts, assign roles), provision cohorts, control round pacing, and send universal broadcasts. The 5-tier role hierarchy (God Mode → Super Admin → Lead Facilitator → Facilitator → Provisioning Admin) is enforced here.',
         color: '#8b5cf6',
         tabHint: 'facilitator_management',
         target: '[data-tour="nav-orchestration"]',
@@ -105,7 +106,7 @@ const FACILITATOR_STEPS = [
     {
         title: 'Live Classroom',
         icon: '👥',
-        body: 'During live sessions: view the Player Registry, inspect individual sessions with Session Viewer, impersonate any team to see their cockpit, send narrative messages via Swipe File, or broadcast to all teams.',
+        body: 'During live sessions: view the Player Registry, inspect individual sessions with Session Viewer, inspect team financial posture via Session State Inspector, send narrative messages via Swipe File, or broadcast to all participants.',
         color: '#8b5cf6',
         tabHint: 'player_registry',
         target: '[data-tour="nav-classroom"]',
@@ -113,7 +114,7 @@ const FACILITATOR_STEPS = [
     {
         title: 'Analytics & Assessment',
         icon: '📊',
-        body: 'Deep analytics: Decision Heatmaps, Cohort Comparisons, Complexity Feed, and Decision History. Use the Scorecard Sandbox to demonstrate the scoring formula. Export Reports generates CSV/PDF for grading.',
+        body: 'Deep analytics: Decision Heatmaps, Cohort Comparisons, Complexity Feed, and Decision History. Use the Scorecard Sandbox to demonstrate the scoring formula. Export Reports generates CSV and JSON datasets for grading.',
         color: '#06b6d4',
         tabHint: 'decision_heatmap',
         target: '[data-tour="nav-analytics"]',
@@ -152,7 +153,7 @@ const FACILITATOR_STEPS = [
     },
 ];
 
-export default function OnboardingWizard({ mode = 'facilitator', onComplete, userId = '', onStepChange, deferred = false }) {
+export default function OnboardingWizard({ mode = 'facilitator', onComplete, userId = '', onStepChange, deferred = false, forceOpen = false }) {
     const storageKey = `muressons_onboarding_${mode}_${userId}`;
     const [visible, setVisible] = useState(false);
     const [step, setStep] = useState(0);
@@ -165,9 +166,10 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
         // the tour is owed to the user and plays as soon as the blocking
         // interrupt is dismissed.
         if (deferred) { setVisible(false); return; }
+        if (forceOpen) { setVisible(true); setStep(0); return; }
         const seen = localStorage.getItem(storageKey);
         if (!seen) setVisible(true);
-    }, [storageKey, deferred]);
+    }, [storageKey, deferred, forceOpen]);
 
     // Navigate the parent dashboard to the relevant tab when step changes
     useEffect(() => {

@@ -117,34 +117,34 @@ function subTwelve(file) {
 }
 
 const TYPE_FLOOR_DEBT = {
-  'app/components/ExecutiveCockpit.js': 127,   // SEAM-16 (Wave 3): the Cost of Capital label moved to the 12px floor
+  'app/components/ExecutiveCockpit.js': 103,   // SEAM-16 (Wave 3): the Cost of Capital label moved to the 12px floor; retired resultsOverlay
   'app/components/ExecutiveCockpit.module.css': 0,
-  'app/components/FocusOverlay.module.css': 8,
+  'app/components/FocusOverlay.module.css': 0,
   'app/components/RoundBriefing.js': 12,
   'app/components/RoundBriefing.module.css': 2,
-  'app/components/DoubleMaterialityMatrix.js': 22,
-  'app/components/DoubleMaterialityMatrix.module.css': 20,
-  'app/components/InvestmentMatrix.js': 2,
-  'app/components/InvestmentMatrix.module.css': 10,
+  'app/components/DoubleMaterialityMatrix.js': 0,
+  'app/components/DoubleMaterialityMatrix.module.css': 0,
+  'app/components/InvestmentMatrix.js': 0,
+  'app/components/InvestmentMatrix.module.css': 0,
   'app/components/FrontPageReveal.js': 7,
   'app/components/GameOverSummary.js': 38,
   'app/components/GameOverSummary.module.css': 3,
   'app/components/ArchetypeReveal.js': 1,
-  'app/components/JoinCohortModal.js': 3,
-  'app/components/JoinCohortModal.module.css': 8,
-  'app/components/OnboardingWalkthrough.js': 1,
-  'app/components/CrisisAlerts.js': 1,
+  'app/components/JoinCohortModal.js': 0,
+  'app/components/JoinCohortModal.module.css': 0,
+  'app/components/OnboardingWalkthrough.js': 0,
+  'app/components/CrisisAlerts.js': 0,
   'app/components/RoundChecklist.js': 1,
   'app/components/DecisionTile.js': 0,
-  'app/components/CountdownTimer.js': 1,
+  'app/components/CountdownTimer.js': 0,
   'app/components/KPIDashboard.js': 8,
   'app/components/MarketRealityFeed.js': 10,
   'app/components/BenchmarksPanel.js': 7,
   'app/components/CompetitorIntelligence.js': 5,
   'app/components/StockPerformanceChart.module.css': 4,
   'app/components/DecisionModal.module.css': 5,
-  'app/page.js': 8,
-  'app/page.module.css': 3,
+  'app/page.js': 7,
+  'app/page.module.css': 2,
 };
 
 describe('type floor (12px)', () => {
@@ -209,7 +209,7 @@ function directChildren(marker) {
    server refuses every write until then, and the only other renderer
    (JoinCohortModal) is unmounted once a session exists. Nothing is added to
    the board a playing participant sees. */
-const COMPONENT_MOUNTS = { 'app/components/ExecutiveCockpit.js': 58, 'app/page.js': 38 };
+const COMPONENT_MOUNTS = { 'app/components/ExecutiveCockpit.js': 41, 'app/page.js': 38 };
 
 describe('slot budget', () => {
   test('no new component mounts in the player tree', () => {
@@ -340,7 +340,7 @@ const SEMANTIC_HEX = new RegExp(
   ].join('|') + ')\\b', 'gi');
 
 const HUE_DEBT = {
-  'app/components/ExecutiveCockpit.js': 28,
+  'app/components/ExecutiveCockpit.js': 27,
   'app/components/FrontPageReveal.js': 21,
   'app/components/ArchetypeReveal.js': 15,
   'app/components/KPIDashboard.js': 11,
@@ -351,7 +351,7 @@ const HUE_DEBT = {
   'app/components/DoubleMaterialityMatrix.module.css': 4,
   'app/components/InvestmentMatrix.module.css': 3,
   'app/components/DoubleMaterialityMatrix.js': 2,
-  'app/components/InvestmentMatrix.js': 1,
+  'app/components/InvestmentMatrix.js': 0,
   'app/components/GameOverSummary.module.css': 1,
   'app/components/JoinCohortModal.module.css': 1,
   'app/components/CrisisAlerts.js': 1,

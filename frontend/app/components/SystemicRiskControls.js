@@ -30,7 +30,7 @@ export default function SystemicRiskControls() {
     const [error, setError] = useState('');
 
     const fetchSettings = useCallback(() => {
-        fetch(`${API}/api/admin/god/settings`)
+        fetch(`${API}/api/admin/god/settings`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : Promise.reject('Failed'))
             .then(d => { setSettings(d); setLoading(false); })
             .catch(() => { setError('Cannot reach API'); setLoading(false); });
@@ -47,6 +47,7 @@ export default function SystemicRiskControls() {
             const res = await fetch(`${API}/api/admin/god/settings`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ [key]: value }),
             });
             if (!res.ok) throw new Error('Save failed');

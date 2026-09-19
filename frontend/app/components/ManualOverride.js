@@ -23,7 +23,7 @@ export default function ManualOverride({ sessionId, onOverrideApplied }) {
             setOverrides([]);
             return;
         }
-        fetch(`${API}/api/admin/${sessionId}/interventions`)
+        fetch(`${API}/api/admin/${sessionId}/interventions`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : { overrides: [] })
             .then(d => setOverrides(d.overrides || []))
             .catch(() => setOverrides([]));
@@ -39,6 +39,7 @@ export default function ManualOverride({ sessionId, onOverrideApplied }) {
                 const res = await fetch(`${API}/api/admin/${sessionId}/override`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({
                         override_type: override.id,
                         parameters: override.params,

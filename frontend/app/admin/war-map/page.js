@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { MAP_W, MAP_H, buildWarMap } from '../../components/warMapModel';
 
 /**
@@ -27,22 +28,26 @@ const CONTINENTS = [
 ];
 
 // A centred text label with a dark pill behind it, so labels stay readable even
-// when a marker sits near another marker or a continent edge.
-function Label({ x, y, text, size = 10, color = '#cbd5e1', weight = 600 }) {
-  const w = String(text).length * size * 0.56 + 10;
+// when a marker sits near another marker or a continent edge. Room-scale legible.
+function Label({ x, y, text, size = 12, color = '#cbd5e1', weight = 600 }) {
+  const w = String(text).length * size * 0.58 + 10;
   return (
     <g>
-      <rect x={x - w / 2} y={y - size + 1} width={w} height={size + 4} rx="3" fill="rgba(3,7,15,0.78)" />
+      <rect x={x - w / 2} y={y - size + 1} width={w} height={size + 5} rx="3" fill="rgba(3,7,15,0.85)" />
       <text x={x} y={y} textAnchor="middle" fontSize={size} fontWeight={weight} fill={color} fontFamily="var(--font-sans, system-ui, sans-serif)">{text}</text>
     </g>
   );
 }
 
-export default function WarMapPage() {
+function WarMapContent() {
+  const searchParams = useSearchParams();
+  const cohortParam = searchParams?.get('cohort') || null;
   const [enabled, setEnabled] = useState(false);
   const [model, setModel] = useState({ buNodes: [], shNodes: [], crisis: null, events: [], round: 0, teamCount: 0 });
   const [error, setError] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [ambientIdx, setAmbientIdx] = useState(0);
+  const [ambientPaused, setAmbientPaused] = useState(false);
   const pollRef = useRef(null);
 
   // Hover explainer — a floating card that tells the facilitator exactly what
@@ -92,19 +97,77 @@ export default function WarMapPage() {
   };
 
   const load = useCallback(() => {
-    fetch('/api/admin/war-map', { credentials: 'include' })
+    const q = cohortParam ? `?cohort=${encodeURIComponent(cohortParam)}&session_id=${encodeURIComponent(cohortParam)}` : '';
+    fetch(`/api/admin/war-map${q}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'auth' : 'http'))))
       .then((d) => { setModel(buildWarMap(d)); setError(false); })
       .catch((e) => setError(e && e.message === 'auth' ? 'auth' : 'net'));
-  }, []);
+  }, [cohortParam]);
 
   useEffect(() => {
     clearInterval(pollRef.current);
     if (!enabled) return;
     load();
-    pollRef.current = setInterval(load, 5000);
+    pollRef.current = setInterval(() => {
+      if (document.visibilityState !== 'hidden') {
+        load();
+      }
+    }, 5000);
     return () => clearInterval(pollRef.current);
   }, [enabled, load]);
+
+  // Ambient auto-rotating spotlight for room-scale projector screens (Issue #21)
+  const ambientSlides = [];
+  if (model.crisis) {
+    ambientSlides.push({
+      type: 'crisis',
+      badge: '🚨 LIVE CRISIS',
+      text: `R${model.crisis.round} · ${model.crisis.name}: Active shock striking operations. Check team exposure.`,
+      color: '#ef4444',
+    });
+  }
+  const strainedBUs = (model.buNodes || []).filter((n) => n.health < 60);
+  if (strainedBUs.length > 0) {
+    ambientSlides.push({
+      type: 'bu',
+      badge: '⚡ BU STRAIN',
+      text: strainedBUs.map((n) => `${n.label}: Health ${n.health}/100 (${healthWord(n.health)}), SLO ${Math.round(n.slo)}, CI ${Math.round(n.ci)}`).join(' | '),
+      color: '#f59e0b',
+    });
+  } else if ((model.buNodes || []).length > 0) {
+    ambientSlides.push({
+      type: 'bu',
+      badge: '✅ BU STABILITY',
+      text: 'All operating units healthy (Health ≥ 60/100, social licence and carbon contained).',
+      color: '#2dd4bf',
+    });
+  }
+  const hostileSh = (model.shNodes || []).filter((n) => n.hostile > 0 || n.escalated);
+  if (hostileSh.length > 0) {
+    ambientSlides.push({
+      type: 'sh',
+      badge: '⚠️ STAKEHOLDER WATCH',
+      text: hostileSh.map((n) => `${n.name}: ${n.label.toUpperCase()}${n.hostile ? ` (${n.hostile} team${n.hostile > 1 ? 's' : ''} hostile)` : ''}`).join(' | '),
+      color: '#f43f5e',
+    });
+  } else if ((model.shNodes || []).length > 0) {
+    ambientSlides.push({
+      type: 'sh',
+      badge: '🤝 STAKEHOLDER ALIGNMENT',
+      text: 'No reactive stakeholders currently escalated or hostile.',
+      color: '#2dd4bf',
+    });
+  }
+
+  useEffect(() => {
+    if (ambientPaused || ambientSlides.length <= 1) return;
+    const timer = setInterval(() => {
+      setAmbientIdx((prev) => (prev + 1) % ambientSlides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [ambientPaused, ambientSlides.length]);
+
+  const currentSlide = ambientSlides[ambientIdx % (ambientSlides.length || 1)] || null;
 
   return (
     <div style={S.page}>
@@ -165,7 +228,7 @@ export default function WarMapPage() {
                   ? <circle cx={model.crisis.x} cy={model.crisis.y} r="10" fill="none" stroke="#ef4444" strokeWidth="2" className="wm-pulse" />
                   : <circle cx={model.crisis.x} cy={model.crisis.y} r="26" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 4" />}
                 <circle cx={model.crisis.x} cy={model.crisis.y} r="4" fill="#ef4444" />
-                <Label x={model.crisis.x} y={model.crisis.y + 30} text={`R${model.crisis.round} · ${model.crisis.name}`} size={10} weight={700} color="#fca5a5" />
+                <Label x={model.crisis.x} y={model.crisis.y + 32} text={`R${model.crisis.round} · ${model.crisis.name}`} size={15} weight={700} color="#fca5a5" />
               </g>
             )}
 
@@ -175,9 +238,9 @@ export default function WarMapPage() {
                  onMouseEnter={(e) => showTip(e, `Muressons ${n.label} — operating hub`, buTipLines(n))}
                  onMouseMove={moveTip} onMouseLeave={hideTip}>
                 <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} fillOpacity="0.26" stroke={n.color} strokeWidth="1.5" />
-                <text x={n.x} y={n.y + 3} textAnchor="middle" fontSize="9" fontWeight="800" fill="#e2e8f0" fontFamily="var(--font-mono, monospace)">{n.health}</text>
-                <Label x={n.x} y={n.y + n.r + 13} text={n.label} size={10} weight={600} color="#e2e8f0" />
-                <Label x={n.x} y={n.y + n.r + 25} text={`SLO ${Math.round(n.slo)} · CI ${Math.round(n.ci)}`} size={8} weight={400} color="#94a3b8" />
+                <text x={n.x} y={n.y + 5} textAnchor="middle" fontSize="14" fontWeight="800" fill="#e2e8f0" fontFamily="var(--font-mono, monospace)">{n.health}</text>
+                <Label x={n.x} y={n.y + n.r + 15} text={n.label} size={14} weight={600} color="#e2e8f0" />
+                <Label x={n.x} y={n.y + n.r + 32} text={`SLO ${Math.round(n.slo)} · CI ${Math.round(n.ci)}`} size={12} weight={500} color="#94a3b8" />
               </g>
             ))}
 
@@ -191,11 +254,30 @@ export default function WarMapPage() {
                 )}
                 <path d={`M ${n.x} ${n.y + 12} l 6 -12 l -12 0 z`} fill={n.color} />
                 <circle cx={n.x} cy={n.y} r="5" fill={n.color} stroke="#04060c" strokeWidth="1" />
-                <Label x={n.x} y={n.y + 26} text={n.name} size={9.5} weight={500} color="#f1f5f9" />
-                <Label x={n.x} y={n.y + 37} text={`${n.label}${n.hostile ? ` · ${n.hostile}` : ''}`} size={8} weight={500} color={n.color} />
+                <Label x={n.x} y={n.y + 28} text={n.name} size={14} weight={600} color="#f1f5f9" />
+                <Label x={n.x} y={n.y + 44} text={`${n.label}${n.hostile ? ` · ${n.hostile}` : ''}`} size={13} weight={600} color={n.color} />
               </g>
             ))}
           </svg>
+
+          {/* Ambient unhovered summary strip for projector screens (Issue #21) */}
+          {currentSlide && (
+            <div style={{ margin: '14px 0 6px 0', background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(45,212,191,0.25)', borderRadius: 10, padding: '10px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 800, padding: '3px 8px', borderRadius: 4, background: currentSlide.color, color: '#fff', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                {currentSlide.badge}
+              </span>
+              <span style={{ fontSize: '0.95rem', color: '#f1f5f9', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentSlide.text}
+              </span>
+              <button
+                onClick={() => setAmbientPaused((p) => !p)}
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(148,163,184,0.3)', color: '#cbd5e1', borderRadius: 6, padding: '4px 10px', fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                title="Pause/resume auto-rotation across pedagogical signals"
+              >
+                {ambientPaused ? '▶ Resume rotation' : '⏸ Pause rotation'}
+              </button>
+            </div>
+          )}
 
           <div style={S.footer}>
             <div style={S.legend}>
@@ -261,3 +343,11 @@ const S = {
   eventStrip: { display: 'flex', gap: 18, fontSize: 'var(--type-caption)', fontFamily: 'var(--font-mono, monospace)', color: '#fbbf24', overflow: 'hidden', whiteSpace: 'nowrap' },
   eventItem: { whiteSpace: 'nowrap' },
 };
+
+export default function WarMapPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, color: '#94a3b8' }}>Loading operations map…</div>}>
+      <WarMapContent />
+    </Suspense>
+  );
+}

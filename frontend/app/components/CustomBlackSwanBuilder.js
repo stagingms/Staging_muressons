@@ -57,9 +57,6 @@ export default function CustomBlackSwanBuilder({ facilitatorId = null, isAdmin =
             .filter(s => !s.player_id) // Only cohort sessions
             .filter(s => isAdmin || s.custom_black_swan_enabled === true);
           setSessions(sessionList);
-          if (sessionList.length > 0 && !selectedSession) {
-            setSelectedSession(sessionList[0].session_id);
-          }
         }
       } catch { /* ignore */ }
     })();

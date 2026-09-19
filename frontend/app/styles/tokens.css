@@ -108,6 +108,16 @@
     --info:          #2563eb;   /* blue — informational panels             */
     --info-text:     #93c5fd;   /* blue-300 — text on dark surfaces        */
 
+    /* ── Business Unit non-semantic brand tokens (Issue #09) ── */
+    --bu-pharma:       #06b6d4;   /* cyan */
+    --bu-electronics:  #3b82f6;   /* blue */
+    --bu-consumer:     #f97316;   /* tangerine/orange */
+    --bu-software:     #8b5cf6;   /* violet */
+    --bu-hospital:     #ec4899;   /* rose/pink */
+    --bu-clinics:      #14b8a6;   /* teal */
+    --bu-specialised:  #a855f7;   /* purple */
+    --bu-telehealth:   #0ea5e9;   /* sky */
+
     /* ── Elevation — exactly two levels ─────────────────── */
     --elevation-card:    0 4px 16px rgba(0, 0, 0, 0.18);
     --elevation-overlay: 0 20px 60px rgba(0, 0, 0, 0.35);

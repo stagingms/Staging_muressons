@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from './ConfirmModal';
 import styles from './PillarConfigurator.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -162,9 +163,7 @@ function CustomAreaCard({ area, idx, onChange, onDelete }) {
                 </div>
                 <button
                     className={styles.btnDanger}
-                    onClick={() => {
-                        if (confirm(`Delete custom area "${area.label || 'this area'}"?`)) onDelete(idx);
-                    }}
+                    onClick={() => onDelete(idx)}
                 >
                     🗑️ Delete Area
                 </button>
@@ -199,6 +198,7 @@ export default function PillarConfigurator() {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState({ message: '', type: 'success' });
+    const [confirm, confirmModal] = useConfirm();
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -209,7 +209,7 @@ export default function PillarConfigurator() {
         if (!vertical) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/pillar-config/${vertical}`);
+            const res = await fetch(`${API}/api/admin/pillar-config/${vertical}`, { credentials: 'include' });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Failed to load');
             const data = await res.json();
             setConfig(data);
@@ -232,7 +232,16 @@ export default function PillarConfigurator() {
         }));
     };
 
-    const handleAreaDelete = (idx) => {
+    const handleAreaDelete = async (idx) => {
+        const area = config?.custom_areas?.[idx];
+        const ok = await confirm({
+            title: `Delete Area: ${area?.label || 'Untitled'}`,
+            message: `Delete custom area "${area?.label || 'this area'}"?`,
+            impact: 'This custom area and all its configuration options will be removed from this vertical.',
+            confirmLabel: 'Delete Area',
+            danger: true,
+        });
+        if (!ok) return;
         setConfig(prev => ({
             ...prev,
             custom_areas: prev.custom_areas.filter((_, i) => i !== idx),
@@ -253,6 +262,7 @@ export default function PillarConfigurator() {
             const res = await fetch(`${API}/api/admin/pillar-config/${vertical}/order`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ custom_areas: config.custom_areas }),
             });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Save failed');
@@ -347,6 +357,7 @@ export default function PillarConfigurator() {
                     <p>Select an <strong>Industry Vertical</strong> to view and configure pillar areas.</p>
                 </div>
             )}
+            {confirmModal}
         </div>
     );
 }

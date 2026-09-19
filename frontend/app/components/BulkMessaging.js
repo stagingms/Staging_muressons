@@ -21,7 +21,7 @@ export default function BulkMessaging({ leaderboard = [] }) {
 
     const fetchHistory = useCallback(async () => {
         try {
-            const res = await fetch(`${API}/api/admin/broadcast/history`);
+            const res = await fetch(`${API}/api/admin/broadcast/history`, { credentials: 'include' });
             if (res.ok) { const data = await res.json(); setHistory(data.broadcasts || []); }
         } catch { /* offline */ }
     }, []);
@@ -45,6 +45,7 @@ export default function BulkMessaging({ leaderboard = [] }) {
             const res = await fetch(`${API}/api/admin/broadcast`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     title: title.trim(),
                     body: body.trim(),

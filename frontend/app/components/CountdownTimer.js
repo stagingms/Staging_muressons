@@ -210,7 +210,7 @@ export default function CountdownTimer({ sessionId, roundNumber, variant = 'badg
       background: `${urgency}15`, border: `1px solid ${urgency}40`,
       fontFamily: "'JetBrains Mono', monospace",
     }}>
-      <span style={{ fontSize: '0.7rem' }}>⏱️</span>
+      <span style={{ fontSize: 'var(--type-caption)' }}>⏱️</span>
       <span style={{
         fontSize: '0.75rem', fontWeight: 800, color: urgency,
         letterSpacing: '0.03em',

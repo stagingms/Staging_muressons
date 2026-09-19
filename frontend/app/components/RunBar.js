@@ -35,6 +35,8 @@ export default function RunBar({ cohortId, onOpenPacing }) {
     const [healthy, setHealthy] = useState(true);
     const [busy, setBusy] = useState(false);
     const [note, setNote] = useState('');
+    const [relockWindow, setRelockWindow] = useState(null);
+    const relockTimerRef = useRef(null);
     const [confirmDialog, confirmModal] = useConfirm();
     const noteTimer = useRef(null);
 
@@ -58,7 +60,10 @@ export default function RunBar({ cohortId, onOpenPacing }) {
         setPulse(null);
         if (!cohortId) return undefined;
         fetchPulse();
-        const iv = setInterval(fetchPulse, 5000);
+        const iv = setInterval(() => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            fetchPulse();
+        }, 5000);
         return () => clearInterval(iv);
     }, [cohortId, fetchPulse]);
 
@@ -73,11 +78,17 @@ export default function RunBar({ cohortId, onOpenPacing }) {
             }
         };
         check();
-        const iv = setInterval(check, 15000);
+        const iv = setInterval(() => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            check();
+        }, 15000);
         return () => { alive = false; clearInterval(iv); };
     }, []);
 
-    useEffect(() => () => { if (noteTimer.current) clearTimeout(noteTimer.current); }, []);
+    useEffect(() => () => {
+        if (noteTimer.current) clearTimeout(noteTimer.current);
+        if (relockTimerRef.current) clearTimeout(relockTimerRef.current);
+    }, []);
 
     const flash = (msg) => {
         setNote(msg);
@@ -103,8 +114,14 @@ export default function RunBar({ cohortId, onOpenPacing }) {
         if (busy) return;
         const nextRound = (Number(pacing.unlocked_round) || 1) + 1;
         const behind = Math.max(0, total - committed);
+        const actionTitle = mode === 'timed'
+            ? `Unlock Round ${nextRound} early for this cohort?`
+            : `Open Round ${nextRound} for this cohort?`;
+        const actionBtn = mode === 'timed'
+            ? `Unlock Round ${nextRound} Early`
+            : `Unlock Round ${nextRound}`;
         const ok = await confirmDialog({
-            title: `Open Round ${nextRound} for this cohort?`,
+            title: actionTitle,
             message: 'You can relock from Round Pacing within 60 seconds if this was a misclick (as long as nobody has committed into it).',
             impact: total > 0 ? [
                 `${committed} of ${total} players have committed Round ${targetRound ?? '—'}.`,
@@ -113,7 +130,7 @@ export default function RunBar({ cohortId, onOpenPacing }) {
                     : 'Every player has committed the current round.',
                 ...(diverged ? [`⚠ Players are already spread across rounds R${cp.min_round}–R${targetRound}.`] : []),
             ] : null,
-            confirmLabel: `Unlock Round ${nextRound}`,
+            confirmLabel: actionBtn,
             cancelLabel: 'Cancel',
             danger: false,
         });
@@ -130,7 +147,10 @@ export default function RunBar({ cohortId, onOpenPacing }) {
             });
             if (res.ok) {
                 const d = await res.json();
-                flash(`✅ Round ${d.unlocked_round} unlocked — undo available in Round Pacing for 60s`);
+                flash(`✅ Round ${d.unlocked_round} unlocked — undo available for 60s`);
+                if (relockTimerRef.current) clearTimeout(relockTimerRef.current);
+                setRelockWindow({ round: d.unlocked_round, expiresAt: Date.now() + 60_000 });
+                relockTimerRef.current = setTimeout(() => setRelockWindow(null), 60_000);
                 fetchPulse();
             } else if (res.status === 403) {
                 flash('❌ You do not have permission to advance this cohort.');
@@ -139,6 +159,73 @@ export default function RunBar({ cohortId, onOpenPacing }) {
             }
         } catch {
             flash('❌ Connection error — the round was NOT unlocked.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const forceAdvance = async () => {
+        if (busy) return;
+        const behind = Math.max(0, total - committed);
+        const nextRound = (Number(pacing.unlocked_round) || 1) + 1;
+        const impact = total > 0 ? [
+            `${committed} of ${total} players have committed Round ${targetRound ?? '—'}.`,
+            behind > 0
+                ? `${behind} player(s) will be AUTO-COMMITTED — from saved drafts or defaults.`
+                : 'Every player has committed; barrier will be released.',
+            ...(diverged ? [`⚠ Players are already spread across rounds R${cp.min_round}–R${targetRound}.`] : []),
+        ] : ['Any player who hasn\'t committed will be auto-committed.'];
+
+        const ok = await confirmDialog({
+            title: `Force-advance cohort to Round ${nextRound}?`,
+            message: 'This releases the waiting barrier immediately. Auto-committed rounds are flagged and disclosed to the affected players and in the debrief.',
+            impact,
+            confirmLabel: 'Force Advance',
+            cancelLabel: 'Cancel',
+            danger: true,
+        });
+        if (!ok) return;
+        setBusy(true);
+        try {
+            const res = await fetch(`${API}/api/admin/sessions/${cohortId}/force-advance`, {
+                method: 'POST', credentials: 'include',
+            });
+            if (res.ok) {
+                flash('✅ Cohort force-advanced — stragglers auto-committed');
+                fetchPulse();
+            } else {
+                flash('❌ Force-advance failed — see Round Pacing for details.');
+            }
+        } catch {
+            flash('❌ Connection error during force-advance.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const relockRound = async () => {
+        if (!cohortId || busy || !relockWindow) return;
+        setBusy(true);
+        try {
+            const res = await fetch(`${API}/api/admin/sessions/${cohortId}/pacing/relock`, {
+                method: 'POST', credentials: 'include',
+            });
+            if (res.ok) {
+                const d = await res.json();
+                setRelockWindow(null);
+                if (relockTimerRef.current) clearTimeout(relockTimerRef.current);
+                flash(`↩️ Relocked — cohort is back to Round ${d.unlocked_round}`);
+                fetchPulse();
+            } else {
+                let detail = '';
+                try {
+                    const data = await res.json();
+                    detail = typeof data?.detail === 'string' ? data.detail : (data?.message || '');
+                } catch { /* ignore */ }
+                flash(`❌ Could not relock${detail ? ` — ${detail}` : ''}`);
+            }
+        } catch {
+            flash('❌ Connection error during relock.');
         } finally {
             setBusy(false);
         }
@@ -194,7 +281,7 @@ export default function RunBar({ cohortId, onOpenPacing }) {
 
             <span style={{ flex: 1 }} />
 
-            {/* Actions */}
+            {/* Actions across pacing modes */}
             {mode === 'manual' && (
                 <button
                     onClick={advance}
@@ -202,12 +289,56 @@ export default function RunBar({ cohortId, onOpenPacing }) {
                     style={{
                         padding: '0.3rem 0.8rem', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
                         fontWeight: 800, fontSize: 'var(--type-caption)',
-                        border: '1px solid rgba(34,197,94,0.5)', background: 'rgba(34,197,94,0.14)', color: '#4ade80',
+                        border: '1px solid rgba(34,197,94,0.5)', background: 'var(--positive-soft)', color: 'var(--positive-text)',
                         opacity: (Number(pacing.unlocked_round) || 1) >= 10 ? 0.4 : 1,
                     }}
                     title={(Number(pacing.unlocked_round) || 1) >= 10 ? 'All rounds are unlocked' : 'Open the next round (confirmation follows)'}
                 >
                     ⏭ Advance
+                </button>
+            )}
+            {mode === 'free' && (
+                <button
+                    onClick={forceAdvance}
+                    disabled={busy || (Number(pacing.unlocked_round) || 1) >= 10}
+                    style={{
+                        padding: '0.3rem 0.8rem', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
+                        fontWeight: 800, fontSize: 'var(--type-caption)',
+                        border: '1px solid rgba(245,158,11,0.5)', background: 'var(--caution-soft)', color: 'var(--caution-text)',
+                        opacity: (Number(pacing.unlocked_round) || 1) >= 10 ? 0.4 : 1,
+                    }}
+                    title={(Number(pacing.unlocked_round) || 1) >= 10 ? 'All rounds are unlocked' : 'Force advance all teams and release waiting barrier'}
+                >
+                    ⏭ Force Advance
+                </button>
+            )}
+            {mode === 'timed' && (
+                <button
+                    onClick={advance}
+                    disabled={busy || (Number(pacing.unlocked_round) || 1) >= 10}
+                    style={{
+                        padding: '0.3rem 0.8rem', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
+                        fontWeight: 800, fontSize: 'var(--type-caption)',
+                        border: '1px solid rgba(99,102,241,0.5)', background: 'var(--accent-soft)', color: 'var(--accent-text)',
+                        opacity: (Number(pacing.unlocked_round) || 1) >= 10 ? 0.4 : 1,
+                    }}
+                    title={(Number(pacing.unlocked_round) || 1) >= 10 ? 'All rounds are unlocked' : 'Unlock the scheduled round early'}
+                >
+                    ⏭ Unlock Early
+                </button>
+            )}
+            {relockWindow && (
+                <button
+                    onClick={relockRound}
+                    disabled={busy}
+                    style={{
+                        padding: '0.3rem 0.8rem', borderRadius: 8, cursor: busy ? 'wait' : 'pointer',
+                        fontWeight: 700, fontSize: 'var(--type-caption)',
+                        border: '1px solid rgba(245,158,11,0.5)', background: 'var(--caution-soft)', color: 'var(--caution-text)',
+                    }}
+                    title="Relock this round (allowed for 60s if no team has committed)"
+                >
+                    ↩️ Undo (Relock R{relockWindow.round})
                 </button>
             )}
             {onOpenPacing && (

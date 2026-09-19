@@ -325,7 +325,7 @@ export default function MasterVariableEditor() {
 
     const load = async () => {
         try {
-            const res = await fetch(`${API}/api/admin/god/settings`);
+            const res = await fetch(`${API}/api/admin/god/settings`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setSettings(data);
@@ -351,7 +351,9 @@ export default function MasterVariableEditor() {
         setSaving(true); setStatus(''); setError('');
         try {
             const res = await fetch(`${API}/api/admin/god/settings`, {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(form),
             });
             if (res.ok) { setStatus('✅ Master variables published for all future cohorts.'); load(); }

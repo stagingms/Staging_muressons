@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './RegulatorySandboxControl.module.css';
+import { useConfirm } from './ConfirmModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -23,6 +24,7 @@ function getTheoryColor(theory = '') {
 }
 
 export default function RegulatorySandboxControl({ sessionId, isGodMode = false }) {
+    const [confirm, confirmModal]         = useConfirm();
     const [instruments, setInstruments]   = useState({});
     const [customParams, setCustomParams] = useState({});
     const [loading, setLoading]           = useState(true);
@@ -38,7 +40,7 @@ export default function RegulatorySandboxControl({ sessionId, isGodMode = false 
     const fetchInstruments = useCallback(() => {
         if (!sessionId) return;
         setLoading(true);
-        fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/instruments`)
+        fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/instruments`, { credentials: 'include' })
             .then(res => res.ok ? res.json() : null)
             .then(data => {
                 if (data?.instruments) {
@@ -59,7 +61,7 @@ export default function RegulatorySandboxControl({ sessionId, isGodMode = false 
 
     const fetchExoEvents = useCallback(() => {
         if (!sessionId) return;
-        fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/exogenous-events`)
+        fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/exogenous-events`, { credentials: 'include' })
             .then(res => res.ok ? res.json() : null)
             .then(data => { if (data?.exogenous_events) setExoEvents(data.exogenous_events); })
             .catch(() => {});
@@ -82,6 +84,7 @@ export default function RegulatorySandboxControl({ sessionId, isGodMode = false 
             const res = await fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/activate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ instrument_id: instId, parameters: customParams[instId] || {} }),
             });
             if (res.ok) {
@@ -313,7 +316,12 @@ export default function RegulatorySandboxControl({ sessionId, isGodMode = false 
                                         className={styles.exoTriggerBtn}
                                         disabled={fired || !!triggeringEvent}
                                         onClick={async () => {
-                                            if (!confirm(`⚠️ FORCE TRIGGER: "${evt.name}"?\n\nThis will immediately apply all effects to the session. This action cannot be undone.`)) return;
+                                            const ok = await confirm({
+                                                title: `Force Trigger: ${evt.name}`,
+                                                message: `This will immediately apply all effects to the session. This action cannot be undone.`,
+                                                danger: true,
+                                            });
+                                            if (!ok) return;
                                             setTriggeringEvent(evt.event_id);
                                             setActionStatus(`Triggering ${evt.name}...`);
                                             setStatusType('info');
@@ -321,6 +329,7 @@ export default function RegulatorySandboxControl({ sessionId, isGodMode = false 
                                                 const res = await fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/trigger-event`, {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
+                                                    credentials: 'include',
                                                     body: JSON.stringify({ event_id: evt.event_id }),
                                                 });
                                                 if (res.ok) {
@@ -350,6 +359,7 @@ export default function RegulatorySandboxControl({ sessionId, isGodMode = false 
                     </div>
                 </div>
             )}
+            {confirmModal}
         </section>
     );
 }

@@ -164,7 +164,7 @@ export default function useSimulation() {
     // server refuses every mutation from an observer independently.
     const [isObserver, setIsObserver] = useState(false);
     // Session metadata: cohort_name, simulation_mode, etc. — populated from session-info API by page.js
-    const [sessionMeta, setSessionMeta] = useState({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null });
+    const [sessionMeta, setSessionMeta] = useState({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null, status: null });
     const commitInProgressRef = useRef(false); // Guard against double-submit
     const advanceInProgressRef = useRef(false); // Guard against double-advance
 
@@ -944,6 +944,22 @@ export default function useSimulation() {
                 setConnectionState('ok');
                 setLastSyncAt(Date.now());
 
+                // Server-authoritative lock clearance when facilitator unlocks or barrier lifts
+                if (roundLocked) {
+                    const gState = data.global_state || {};
+                    if (roundLockReason?.kind === 'facilitator' && gState.cohort_round_locked === false) {
+                        setRoundLocked(false);
+                        setRoundLockReason(null);
+                    } else if (roundLockReason?.kind === 'teams') {
+                        if (gState.cohort_advance_unblocked === true) {
+                            setRoundLocked(false);
+                            setRoundLockReason(null);
+                        } else if (gState.team_commits_this_round != null) {
+                            setRoundLockReason(prev => prev ? { ...prev, committed: gState.team_commits_this_round } : null);
+                        }
+                    }
+                }
+
                 // Server round is ahead of client round → facilitator or timer advanced
                 if (data.current_round > roundNumber && !commitResults && !advanceInProgressRef.current) {
                     const flags = data.global_state?.active_event_flags || {};
@@ -955,6 +971,8 @@ export default function useSimulation() {
                     setRoundNumber(data.current_round);
                     setGlobalState(data.global_state);
                     setBusinessUnits(data.business_units);
+                    setRoundLocked(false);
+                    setRoundLockReason(null);
                     // F-27: partial history → merge, never replace. If we somehow
                     // hold nothing older (state lost), fall back to one full fetch.
                     if (Array.isArray(data.history) && data.history.length >= data.current_round) {
@@ -1137,7 +1155,7 @@ export default function useSimulation() {
         setCommitResults(null);
         setPracticeReset(false);
         setMustChangePassword(false);
-        setSessionMeta({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null });
+        setSessionMeta({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null, status: null });
     }, [sessionId]);
 
     return {

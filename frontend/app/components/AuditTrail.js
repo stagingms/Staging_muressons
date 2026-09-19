@@ -37,7 +37,7 @@ export default function AuditTrail({ sessionId }) {
         if (!sessionId) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/audit-trail`);
+            const res = await fetch(`${API}/api/admin/${sessionId}/audit-trail`, { credentials: 'include' });
             if (res.ok) {
                 const json = await res.json();
                 setData(json);
@@ -51,7 +51,11 @@ export default function AuditTrail({ sessionId }) {
 
     useEffect(() => {
         fetchAudit();
-        const interval = setInterval(fetchAudit, 15000);
+        const interval = setInterval(() => {
+            if (document.visibilityState !== 'hidden') {
+                fetchAudit();
+            }
+        }, 15000);
         return () => clearInterval(interval);
     }, [fetchAudit]);
 

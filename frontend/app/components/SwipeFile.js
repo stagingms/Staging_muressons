@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useConfirm } from './ConfirmModal';
 import styles from './SwipeFile.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -22,10 +23,22 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
     const [customOpen, setCustomOpen] = useState(false);
     const [customTitle, setCustomTitle] = useState('');
     const [customBody, setCustomBody] = useState('');
+    const [confirm, confirmModal] = useConfirm();
+
+    // Custom presets persisted in localStorage
+    const [userPresets, setUserPresets] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                return JSON.parse(localStorage.getItem('muressons_user_swipes') || '[]');
+            } catch {
+                return [];
+            }
+        }
+        return [];
+    });
 
     // New preset creation
     const [createOpen, setCreateOpen] = useState(false);
-    const [userPresets, setUserPresets] = useState([]);
     const [fetchedSwipes, setFetchedSwipes] = useState([]);
     const [newPreset, setNewPreset] = useState({
         icon: '📢',
@@ -41,7 +54,7 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
             setFetchedSwipes([]);
             return;
         }
-        fetch(`${API}/api/admin/${sessionId}/interventions`)
+        fetch(`${API}/api/admin/${sessionId}/interventions`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : { swipes: [] })
             .then(d => setFetchedSwipes(d.swipes || []))
             .catch(() => setFetchedSwipes([]));
@@ -75,6 +88,7 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
                 const res = await fetch(`${API}/api/admin/${sessionId}/inject-message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify(payload),
                 });
                 if (!res.ok) {
@@ -103,6 +117,7 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
             const res = await fetch(`${API}/api/admin/${sessionId}/inject-message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     session_id: sessionId,
                     message_type: 'admin',
@@ -143,10 +158,17 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
         setCreateOpen(false);
     }, [newPreset]);
 
-    const handleDeletePreset = useCallback((presetId) => {
-        if (!confirm('Remove this custom preset?')) return;
+    const handleDeletePreset = useCallback(async (presetId) => {
+        const ok = await confirm({
+            title: 'Remove Preset',
+            message: 'Remove this custom preset?',
+            impact: 'This message preset will be removed from your swipe file.',
+            confirmLabel: 'Remove Preset',
+            danger: true,
+        });
+        if (!ok) return;
         setUserPresets((prev) => prev.filter((p) => p.id !== presetId));
-    }, []);
+    }, [confirm]);
 
     return (
         <section className={styles.panel}>
@@ -319,6 +341,7 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
                     </div>
                 )}
             </div>
+            {confirmModal}
         </section>
     );
 }

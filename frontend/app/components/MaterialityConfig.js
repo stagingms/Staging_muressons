@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import styles from './MaterialityConfig.module.css';
+import { useConfirm } from './ConfirmModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -10,6 +11,7 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
     const [uploading, setUploading] = useState(false);
     const [dragOver, setDragOver] = useState(false);
     const [result, setResult] = useState(null);  // { status, diff, error }
+    const [confirm, confirmModal] = useConfirm();
 
     const scopeLabel = selectedDict === 'global'
         ? 'Global (Narrative Crisis)'
@@ -43,10 +45,9 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
             setTimeout(() => {
                 a.remove();
                 URL.revokeObjectURL(url);
-            }, 5000);
-        } catch (err) {
-            console.error('[MatDownload] Fetch threw:', err);
-            alert('Network error downloading Excel file: ' + (err?.message || String(err)));
+            }, 100);
+        } catch {
+            alert('Network error downloading materiality template.');
         }
     };
 
@@ -65,7 +66,14 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
             setResult({ error: 'Sector libraries are managed in God Mode. Your edits on this screen apply only to the selected cohort.' });
             return;
         }
-        if (!confirm(`Upload "${file.name}" and REPLACE the ${scopeLabel} materiality dictionary?`)) return;
+        const ok = await confirm({
+            title: 'Replace Materiality Dictionary',
+            message: `Upload "${file.name}" and REPLACE the ${scopeLabel} materiality dictionary?`,
+            impact: 'Existing materiality indicators and definitions will be overwritten with the uploaded spreadsheet.',
+            confirmLabel: 'Upload & Replace',
+            danger: true,
+        });
+        if (!ok) return;
 
         setUploading(true);
         setResult(null);
@@ -226,6 +234,7 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacil
                     )}
                 </div>
             )}
+            {confirmModal}
         </div>
     );
 }
@@ -236,6 +245,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('economic');
     const [showConfigurator, setShowConfigurator] = useState(false);
+    const [confirm, confirmModal] = useConfirm();
 
     // Dictionary selector: loaded dynamically from backend.
     // Only the Global (Narrative Crisis) dictionary is a non-vertical category.
@@ -345,15 +355,22 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     };
 
     const handleDeleteCategory = async (catId) => {
-        if (!confirm(`Remove custom category "${catId}"? Its materiality config will be preserved on disk.`)) return;
+        const ok = await confirm({
+            title: `Remove Category: ${catId}`,
+            message: `Remove custom category "${catId}"? Its materiality config will be preserved on disk.`,
+            impact: 'The category will no longer appear in the active dictionary selector for cohorts.',
+            confirmLabel: 'Remove Category',
+            danger: true,
+        });
+        if (!ok) return;
         try {
-            const res = await fetch(`${API}/api/admin/bu-categories/${catId}`, { method: 'DELETE' });
+            const res = await fetch(`${API}/api/admin/bu-categories/${catId}`, { method: 'DELETE', credentials: 'include' });
             if (!res.ok) {
                 const e = await res.json().catch(() => ({}));
                 alert(e.detail || 'Failed to remove category.');
                 return;
             }
-            const data = await fetch(`${API}/api/admin/bu-categories`).then(r => r.json());
+            const data = await fetch(`${API}/api/admin/bu-categories`, { credentials: 'include' }).then(r => r.json());
             if (data?.categories) {
                 setDictOptions([
                     { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐', is_custom: false },
@@ -434,21 +451,36 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
         if (!sessionId) return;
 
         if (isSandboxed) {
-            if (!confirm("Are you sure you want to disable the custom dictionary? This cohort will revert to the global God Mode defaults, and all local changes will be lost.")) return;
+            const ok = await confirm({
+                title: 'Disable Custom Dictionary',
+                message: 'Are you sure you want to disable the custom dictionary? This cohort will revert to the global God Mode defaults, and all local changes will be lost.',
+                impact: 'All custom weights, issues, and linkages configured for this cohort will be discarded.',
+                confirmLabel: 'Revert to Defaults',
+                danger: true,
+            });
+            if (!ok) return;
             try {
-                await fetch(`${API}/api/admin/${sessionId}/materiality-dictionary`, { method: 'DELETE' });
+                await fetch(`${API}/api/admin/${sessionId}/materiality-dictionary`, { method: 'DELETE', credentials: 'include' });
                 setIsSandboxed(false);
                 fetchConfig(); // Reload from master
             } catch (err) {
                 console.error(err);
             }
         } else {
-            if (!confirm("Enable Sandbox Mode? This will clone the current global dictionary so you can make local edits just for this cohort.")) return;
+            const ok = await confirm({
+                title: 'Enable Sandbox Mode',
+                message: 'Enable Sandbox Mode? This will clone the current global dictionary so you can make local edits just for this cohort.',
+                impact: 'A private copy of the materiality dictionary will be created for this cohort.',
+                confirmLabel: 'Enable Sandbox',
+                danger: false,
+            });
+            if (!ok) return;
             try {
                 // The current `config` is the master. Save it as the override.
                 await fetch(`${API}/api/admin/${sessionId}/materiality-dictionary`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify(config)
                 });
                 setIsSandboxed(true);
@@ -523,7 +555,14 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     };
 
     const handleDeleteIssue = async (id) => {
-        if (!confirm(`Are you sure you want to delete issue "${id}"?`)) return;
+        const ok = await confirm({
+            title: `Delete Issue: ${id}`,
+            message: `Are you sure you want to delete issue "${id}"?`,
+            impact: 'This issue will be removed from the materiality matrix and cannot be selected by teams.',
+            confirmLabel: 'Delete Issue',
+            danger: true,
+        });
+        if (!ok) return;
 
         const updatedConfig = { ...config, issues: config.issues.filter(i => i.id !== id) };
         await saveUpdatedConfig(updatedConfig);
@@ -637,7 +676,14 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 newIssues.push(issue);
             }
 
-            if (!confirm(`Found ${newIssues.length} issues. This will REPLACE your entire existing dictionary. Proceed?`)) return;
+            const ok = await confirm({
+                title: 'Import CSV Dictionary',
+                message: `Found ${newIssues.length} issues. This will REPLACE your entire existing dictionary. Proceed?`,
+                impact: 'All existing issues and interdependencies in this dictionary will be overwritten.',
+                confirmLabel: 'Replace Dictionary',
+                danger: true,
+            });
+            if (!ok) return;
 
             const updatedConfig = { ...config, issues: newIssues, interdependencies: [] };
 
@@ -713,7 +759,14 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 newLinks.push(link);
             }
 
-            if (!confirm(`Found ${newLinks.length} interdependencies. This will REPLACE your existing links. Proceed?`)) return;
+            const ok = await confirm({
+                title: 'Import Interdependencies',
+                message: `Found ${newLinks.length} interdependencies. This will REPLACE your existing links. Proceed?`,
+                impact: 'All existing interdependency links will be overwritten with the imported list.',
+                confirmLabel: 'Replace Links',
+                danger: true,
+            });
+            if (!ok) return;
 
             const updatedConfig = { ...config, interdependencies: newLinks };
 
@@ -1297,6 +1350,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 </div>
             )}
             </>)}
+            {confirmModal}
         </div >
     );
 }

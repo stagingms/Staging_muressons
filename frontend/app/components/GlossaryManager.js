@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from './ConfirmModal';
 
 /**
  * GlossaryManager — God Mode admin panel for managing glossary terms.
@@ -9,6 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function GlossaryManager() {
+  const [confirm, confirmModal] = useConfirm();
   const [terms, setTerms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTerm, setEditingTerm] = useState(null); // null = closed, {} = new, {id:...} = editing
@@ -16,7 +18,7 @@ export default function GlossaryManager() {
 
   const fetchTerms = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/admin/glossary`);
+      const res = await fetch(`${API}/api/admin/glossary`, { credentials: 'include' });
       const data = await res.json();
       setTerms(data.terms || []);
     } catch (e) { console.error('Failed to fetch glossary', e); }
@@ -30,6 +32,7 @@ export default function GlossaryManager() {
       await fetch(`${API}/api/admin/glossary`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(item),
       });
       setEditingTerm(null);
@@ -38,9 +41,17 @@ export default function GlossaryManager() {
   };
 
   const deleteTerm = async (termId) => {
-    if (!confirm('Delete this term?')) return;
+    const ok = await confirm({
+      title: 'Delete Glossary Term',
+      message: 'Are you sure you want to delete this term?',
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await fetch(`${API}/api/admin/glossary/${termId}`, { method: 'DELETE' });
+      await fetch(`${API}/api/admin/glossary/${termId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
       fetchTerms();
     } catch (e) { console.error('Delete failed', e); }
   };
@@ -185,6 +196,7 @@ export default function GlossaryManager() {
           </table>
         </div>
       )}
+      {confirmModal}
     </div>
   );
 }

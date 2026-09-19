@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from './ConfirmModal';
 import styles from './FacilitatorNotes.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -11,11 +12,12 @@ export default function FacilitatorNotes({ sessionId }) {
     const [roundNum, setRoundNum] = useState('');
     const [visible, setVisible] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [confirm, confirmModal] = useConfirm();
 
     const fetchNotes = useCallback(async () => {
         if (!sessionId) return;
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/notes`);
+            const res = await fetch(`${API}/api/admin/${sessionId}/notes`, { credentials: 'include' });
             if (res.ok) { const data = await res.json(); setNotes(data.notes || []); }
         } catch { /* offline */ }
     }, [sessionId]);
@@ -30,6 +32,7 @@ export default function FacilitatorNotes({ sessionId }) {
             const res = await fetch(`${API}/api/admin/${sessionId}/notes`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     text: text.trim(),
                     round_number: roundNum ? parseInt(roundNum) : null,
@@ -42,9 +45,16 @@ export default function FacilitatorNotes({ sessionId }) {
     };
 
     const handleDelete = async (noteId) => {
-        if (!confirm('Delete this note?')) return;
+        const ok = await confirm({
+            title: 'Delete Facilitator Note',
+            message: 'Delete this note?',
+            impact: 'This note will be permanently deleted from the session record.',
+            confirmLabel: 'Delete Note',
+            danger: true,
+        });
+        if (!ok) return;
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/notes/${noteId}`, { method: 'DELETE' });
+            const res = await fetch(`${API}/api/admin/${sessionId}/notes/${noteId}`, { method: 'DELETE', credentials: 'include' });
             if (res.ok) setNotes(prev => prev.filter(n => n.note_id !== noteId));
         } catch { /* error */ }
     };
@@ -99,6 +109,7 @@ export default function FacilitatorNotes({ sessionId }) {
                     ))
                 )}
             </div>
+            {confirmModal}
         </div>
     );
 }

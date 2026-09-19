@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ExecutiveCockpit.module.css';
+import { OVERLAY_PRIORITY } from './overlayPriority';
 import KPIDashboard from './KPIDashboard';
 import TurnaroundPhaseChip from './TurnaroundPhaseChip';
 import MarketRealityFeed from './MarketRealityFeed';
@@ -146,7 +147,7 @@ const SINGLE_CTA = true;
    panel; three separate attempts in this review to narrow this surface made
    one or more of those unreachable, and every one was caught by a screenshot
    rather than by a test. Flip to true, look, then decide. */
-const CONTEXT_DRAWER = false;
+const CONTEXT_DRAWER = true;
 
 /* The arc is ten rounds. It was written as a bare "10" in the left rail's
    R2/10 chip and nowhere else; naming it means the header and the chip cannot
@@ -297,6 +298,7 @@ export default function ExecutiveCockpit({
   // inside it. Content stays MOUNTED (display:none) so child fetch effects
   // and data flow are byte-identical to the always-open version.
   const [railExpanded, setRailExpanded] = useState(false);
+  const [activeIntelTab, setActiveIntelTab] = useState('diary'); // Issue #06: Single-active intelligence panel
   const [leftPanelTab, setLeftPanelTab] = useState('kpis'); // 'kpis' | 'charts' | 'metrics'
   const [hoveredOption, setHoveredOption] = useState(null); // Phase 4.6: What-If shadow
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false); // #8: Keyboard cheatsheet
@@ -1106,6 +1108,7 @@ export default function ExecutiveCockpit({
 
   // Dismiss callback for black swan / crisis alerts — player must manually acknowledge
   const dismissActiveAlert = useCallback(() => {
+    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
     if (blackSwanAlert) {
       const dismissedKey = `bs_dismissed_${blackSwanAlert.title}`;
       sessionStorage.setItem(dismissedKey, '1');
@@ -1269,7 +1272,7 @@ export default function ExecutiveCockpit({
       {/* ═══ CRISIS INTERSTITIAL — Full-screen overlay for Black Swan / critical events ═══ */}
       {activeAlert && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 11000,
+          position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.CRISIS_INTERSTITIAL,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: activeAlert.isBlackSwan
             ? 'radial-gradient(ellipse at 40% 30%, rgba(127, 29, 29, 0.96) 0%, rgba(15, 10, 10, 0.98) 70%)'
@@ -1291,7 +1294,7 @@ export default function ExecutiveCockpit({
                 {activeAlert.icon || '⚠️'}
               </span>
               <div style={{
-                display: 'inline-block', fontSize: '0.68rem', fontWeight: 800,
+                display: 'inline-block', fontSize: 'var(--type-caption)', fontWeight: 800,
                 letterSpacing: '0.16em', textTransform: 'uppercase',
                 borderRadius: 100, padding: '0.3rem 1rem', marginBottom: '0.6rem',
                 color: activeAlert.isBlackSwan ? '#fca5a5' : '#fcd34d',
@@ -1449,7 +1452,6 @@ export default function ExecutiveCockpit({
             >
               {railsPinnedOpen ? 'Narrow panels' : 'Open panels'}
             </button>
-            <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
             {/* Resources, promoted out of the vanished rail. Labelled, not an
                 icon: the library is a destination, and a bare book glyph beside
                 a bare envelope glyph is two puzzles in a row. */}
@@ -1463,6 +1465,27 @@ export default function ExecutiveCockpit({
                 <span aria-hidden="true">📚</span> Resources
                 {hasNewResources && <span className={styles.contextOpenBadge} aria-hidden="true" />}
               </button>
+            )}
+            {/* Visualizer Triggers (Persistent Slot per Issue #03) */}
+            {roundNumber >= 4 && (
+              <>
+                {isPlayerVisible('consequence_dna_sankey') && (
+                  <ConsequenceDNATrigger
+                    ignited={dnaIgnited}
+                    onClick={() => setShowDNAVisualizer(true)}
+                  />
+                )}
+                {isPlayerVisible('esg_constellation_3d') && (
+                  <button
+                    type="button"
+                    className={styles.contextGhostBtn}
+                    onClick={() => setShowConstellation(true)}
+                    title="Open 3D ESG Impact Constellation — visualize causal chains across all rounds"
+                  >
+                    <span aria-hidden="true">🌐</span> Constellation
+                  </button>
+                )}
+              </>
             )}
             {/* PHASE 5.2 — the drawer opener, where the mock puts it: beside
                 the clock, in the header, as an icon button. */}
@@ -1523,6 +1546,20 @@ export default function ExecutiveCockpit({
           {/* Projected cost moved to commit footer for better saliency */}
         </div>
       </header>
+
+      {/* ═══ PERSISTENT KPI STRIP ACROSS ALL ROUND STEPS (Issue #08) ═══ */}
+      <KPIStrip
+        treasury={treasury}
+        reputation={reputation}
+        carbon={tco2e}
+        ebitda={ebitda}
+        projectedCost={projectedCost}
+        fmtCurrency={fmtCurrency}
+        previous={priorRoundState}
+        roundNumber={roundNumber}
+        cohortCommits={cohortCommits}
+        cohortTeamCount={cohortTeamCount}
+      />
 
       {/* ═══ MAIN CONTENT (3 COLUMNS) ═══ */}
       <div
@@ -2151,10 +2188,6 @@ export default function ExecutiveCockpit({
         {/* ── STRATEGY STEP ── */}
         {focusStep === 'strategy' && (
           <div>
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda}
-              projectedCost={projectedCost} fmtCurrency={fmtCurrency}
-              previous={priorRoundState} roundNumber={roundNumber}
-              cohortCommits={cohortCommits} cohortTeamCount={cohortTeamCount} />
             {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
             <TurnaroundPhaseChip active={globalState?.turnaround_mode}
               phase={globalState?.active_event_flags?.turnaround_phase}
@@ -2377,10 +2410,6 @@ export default function ExecutiveCockpit({
         {/* ── ALLOCATION STEP ── */}
         {focusStep === 'allocation' && (
           <div>
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda}
-              projectedCost={projectedCost} fmtCurrency={fmtCurrency}
-              previous={priorRoundState} roundNumber={roundNumber}
-              cohortCommits={cohortCommits} cohortTeamCount={cohortTeamCount} />
             {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
             <TurnaroundPhaseChip active={globalState?.turnaround_mode}
               phase={globalState?.active_event_flags?.turnaround_phase}
@@ -2840,6 +2869,9 @@ export default function ExecutiveCockpit({
                 { id: 'chain',      label: 'See the consequence chain', when: isPlayerVisible('consequence_replay') },
                 { id: 'retrospect', label: 'What the engine did',       when: isPlayerVisible('round_retrospect') },
                 { id: 'ebitda',     label: 'EBITDA bridge',             when: isPlayerVisible('ebitda_waterfall') },
+                { id: 'radar',      label: 'Risk radar',                when: isPlayerVisible('risk_radar') },
+                { id: 'timeline',   label: 'Consequence timeline',      when: isPlayerVisible('consequence_timeline') },
+                { id: 'prediction', label: 'Prediction comparison',     when: isPlayerVisible('prediction_comparison') },
                 { id: 'peers',      label: 'How other teams did',       when: peerLeaderboard.length > 0 && isPlayerVisible('peer_benchmarking') },
               ].filter((p) => p.when);
               if (!panels.length) return null;
@@ -2919,6 +2951,40 @@ export default function ExecutiveCockpit({
               />
             )}
 
+            {/* Risk Radar deep dive */}
+            {resultsPanel === 'radar' && isPlayerVisible('risk_radar') && (
+              <div style={{ marginBottom: 16 }}>
+                <RiskRadar
+                  buStates={commitResults.businessUnits || businessUnits}
+                  allocations={allocations}
+                  tippingState={commitResults.events?.systemic_tipping?.tipping_state || systemicTipping?.tipping_state || {}}
+                />
+              </div>
+            )}
+
+            {/* Consequence Timeline deep dive */}
+            {resultsPanel === 'timeline' && isPlayerVisible('consequence_timeline') && (
+              <div style={{ marginBottom: 16 }}>
+                <ConsequenceTimeline
+                  currentRound={roundNumber}
+                  activeFlags={commitResults.globalState?.active_event_flags || globalState?.active_event_flags || {}}
+                  foreshadowingSignals={commitResults.events?.foreshadowing_signals || foreshadowingSignals}
+                />
+              </div>
+            )}
+
+            {/* Prediction Comparison deep dive */}
+            {resultsPanel === 'prediction' && isPlayerVisible('prediction_comparison') && (
+              <div style={{ marginBottom: 16 }}>
+                <PredictionComparison
+                  predictions={predictions}
+                  roundNumber={roundNumber}
+                  commitResults={commitResults}
+                  globalState={globalState}
+                />
+              </div>
+            )}
+
             {/* ── Reveal-schedule lock notice ── */}
             {peerLockMsg && (
               <div style={{ padding: '10px 14px', background: 'rgba(148,163,184,0.08)', borderRadius: 8, border: '1px dashed rgba(148,163,184,0.35)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, color: '#94a3b8', fontSize: '0.72rem', fontWeight: 600 }}>
@@ -2969,6 +3035,37 @@ export default function ExecutiveCockpit({
                     +{peerLeaderboard.length - 5} more teams
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* B2: Reflection box — optional, never blocks advance */}
+            {isPlayerVisible('quick_reflection_box') && (
+              <div style={{
+                padding: '10px 12px', borderRadius: 10, marginBottom: 14,
+                background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.18)',
+              }}>
+                <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: '#a5b4fc', marginBottom: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  💭 Quick Reflection (optional)
+                </div>
+                <textarea
+                  value={reflectionText}
+                  onChange={(e) => setReflectionText(e.target.value)}
+                  placeholder="What did you predict vs. what actually happened — and why?"
+                  rows={2}
+                  style={{
+                    width: '100%', resize: 'vertical', fontSize: 'var(--type-caption)', lineHeight: 1.5,
+                    padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.15)',
+                    background: 'rgba(15,23,42,0.4)', color: 'var(--text-primary)',
+                    fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = 'rgba(99,102,241,0.5)'}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(148,163,184,0.15)';
+                    if (reflectionText.trim()) {
+                      reflectionsRef.current[roundNumber] = reflectionText.trim();
+                    }
+                  }}
+                />
               </div>
             )}
 
@@ -4490,87 +4587,97 @@ export default function ExecutiveCockpit({
               lands — mid-decision it was regret-bait outranking the current
               choice. The rail keeps a one-line recap link that reveals it on
               demand (reading room, not ambient). CEO Diary stays here. */}
+          {/* V-A (player v2, V-3): Enforce single-active intelligence tab discipline (Issue #06) */}
           <div className={styles.sectionDivider} />
-          <div style={{
-            flex: '1 1 auto', overflowY: 'auto', padding: '8px 10px',
-          }}>
-            {/* Reveal condition (R2+ or post-commit) is preserved; the
-                retrospect switch ANDs onto it. */}
-            {(roundNumber > 1 || !!commitResults) && isPlayerVisible('round_retrospect') && (
-              <div style={{ marginBottom: 6 }}>
-                <button
-                  onClick={() => setRailRecapOpen(v => !v)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                    border: '1px solid #1e293b', background: 'transparent',
-                    color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textAlign: 'left',
-                  }}
-                  aria-expanded={railRecapOpen}
-                >
-                  <span>🔍</span>
-                  <span style={{ flex: 1 }}>Round recap — what happened & the road not taken</span>
-                  <span style={{ transition: 'transform 0.2s', transform: railRecapOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
-                </button>
-                {railRecapOpen && (
-                  <div style={{ marginTop: 6 }}>
+          {(() => {
+            const evs = events || commitResults?.events || {};
+            const aaSummary = (Array.isArray(globalState?.agent_summary) && globalState.agent_summary.length)
+              ? globalState.agent_summary
+              : (evs.agent_summary || []);
+            const aaDiag = evs.autonomous_agents || {};
+            const hasStakeholders = aaSummary.length > 0 || (aaDiag.agent_actions || []).length > 0;
+
+            const intelTabs = [
+              { id: 'diary', label: '📔 CEO Diary', show: isPlayerVisible('ceo_diary') },
+              { id: 'recap', label: '🔍 Recap', show: (roundNumber > 1 || !!commitResults) && isPlayerVisible('round_retrospect') },
+              { id: 'stakeholders', label: '🤝 Stakeholders', show: isPlayerVisible('stakeholder_agent_panel') && hasStakeholders },
+              { id: 'notes', label: '📝 Notes', show: isPlayerVisible('player_annotations') },
+              { id: 'synergy', label: '⚡ Synergy', show: isPlayerVisible('synergy_tracker') },
+            ].filter(t => t.show);
+
+            if (!intelTabs.length) return null;
+            const currentTab = intelTabs.some(t => t.id === activeIntelTab) ? activeIntelTab : intelTabs[0].id;
+
+            return (
+              <div style={{ flex: '1 1 auto', overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column' }}>
+                <div role="tablist" aria-label="Intelligence panels" style={{
+                  display: 'flex', gap: 4, flexWrap: 'wrap', paddingBottom: 8,
+                  borderBottom: '1px solid rgba(148, 163, 184, 0.1)', marginBottom: 8,
+                }}>
+                  {intelTabs.map(tab => {
+                    const active = currentTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        role="tab"
+                        aria-selected={active}
+                        type="button"
+                        onClick={() => setActiveIntelTab(curr => curr === tab.id ? null : tab.id)}
+                        style={{
+                          padding: '4px 10px', borderRadius: 6,
+                          fontSize: 'var(--type-caption)', fontWeight: 600,
+                          background: active ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                          border: active ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid rgba(148, 163, 184, 0.15)',
+                          color: active ? '#a5b4fc' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Single active intelligence body */}
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  {currentTab === 'diary' && (
+                    <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} sections="rest" />
+                  )}
+                  {currentTab === 'recap' && (
                     <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} sections="retrospect" />
-                  </div>
-                )}
+                  )}
+                  {currentTab === 'stakeholders' && (
+                    <StakeholderAgentPanel
+                      agentSummary={aaSummary}
+                      agentActions={aaDiag.agent_actions || []}
+                      cascadesFired={aaDiag.cascades_fired || []}
+                      interferenceActive={aaDiag.interference_active || []}
+                      roundNumber={roundNumber}
+                      onRequestMeeting={pedToggles.negotiation_rooms_enabled
+                        ? (agentId) => setNegotiationAgentId(agentId)
+                        : null}
+                      negotiationHistory={
+                        (globalState?.negotiation_log?.history) || []
+                      }
+                    />
+                  )}
+                  {currentTab === 'notes' && (
+                    <PlayerAnnotations
+                      sessionId={sim?.sessionId || sim?.session_id}
+                      roundNumber={roundNumber}
+                    />
+                  )}
+                  {currentTab === 'synergy' && (
+                    <SynergyTracker
+                      globalState={globalState}
+                      roundNumber={roundNumber}
+                      workforceReady={globalState?.workforce_readiness}
+                    />
+                  )}
+                </div>
               </div>
-            )}
-            {isPlayerVisible('ceo_diary') && (
-              <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} sections="rest" />
-            )}
-            {/* SI-2+: Autonomous Stakeholder Agents Panel */}
-            {(() => {
-              const evs = events || commitResults?.events || {};
-              // Prefer the LIVE persisted summary (globalState.agent_summary, now
-              // sent through the dashboard every round with the fully-mapped fields
-              // name/icon/stage/tolerance/max_tolerance) so the escalation ladder
-              // reflects the accumulated state; fall back to the post-commit summary.
-              const aaSummary = (Array.isArray(globalState?.agent_summary) && globalState.agent_summary.length)
-                ? globalState.agent_summary
-                : (evs.agent_summary || []);
-              const aaDiag = evs.autonomous_agents || {};
-              if (!isPlayerVisible('stakeholder_agent_panel')) return null;
-              if (aaSummary.length > 0 || (aaDiag.agent_actions || []).length > 0) {
-                return (
-                  <StakeholderAgentPanel
-                    agentSummary={aaSummary}
-                    agentActions={aaDiag.agent_actions || []}
-                    cascadesFired={aaDiag.cascades_fired || []}
-                    interferenceActive={aaDiag.interference_active || []}
-                    roundNumber={roundNumber}
-                    onRequestMeeting={pedToggles.negotiation_rooms_enabled
-                      ? (agentId) => setNegotiationAgentId(agentId)
-                      : null}
-                    negotiationHistory={
-                      (globalState?.negotiation_log?.history) || []
-                    }
-                  />
-                );
-              }
-              return null;
-            })()}
-
-            {/* Gap 3: Facilitator Annotations — visible to students when enabled */}
-            {isPlayerVisible('player_annotations') && (
-              <PlayerAnnotations
-                sessionId={sim?.sessionId || sim?.session_id}
-                roundNumber={roundNumber}
-              />
-            )}
-          </div>
-
-          {/* Phase 3.6: Synergy Tracker (R7+ Integration tier) */}
-          {isPlayerVisible('synergy_tracker') && (
-            <SynergyTracker
-              globalState={globalState}
-              roundNumber={roundNumber}
-              workforceReady={globalState?.workforce_readiness}
-            />
-          )}
+            );
+          })()}
           {/* V-B (player v2, V-4): the rail's "Re-enter Focus Mode" button
               removed — three re-entry affordances (this, the left FOCUS MODE
               pill, the stepper) answered the same intent. The left pill and
@@ -4656,7 +4763,7 @@ export default function ExecutiveCockpit({
             onClose={() => setShowKeyboardHelp(false)}
             label="Keyboard shortcuts"
             style={{
-              position: 'fixed', inset: 0, zIndex: 99998,
+              position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.MODAL,
               background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
@@ -4710,7 +4817,7 @@ export default function ExecutiveCockpit({
             onClose={() => setExpandedMessage(null)}
             label={expandedMessage.title || 'Message'}
             style={{
-              position: 'fixed', inset: 0, zIndex: 99999,
+              position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.MODAL_STACKED,
               background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '2rem',
@@ -4779,6 +4886,25 @@ export default function ExecutiveCockpit({
           isOpen={resultsBsModalOpen}
           onClose={() => setResultsBsModalOpen(false)}
           fmtCurrency={fmtCurrency}
+        />
+      )}
+
+      {/* Consequence DNA Visualizer Pop-Out (Persistent Modal Mount per Issue #03) */}
+      {isPlayerVisible('consequence_dna_sankey') && (
+        <ConsequenceDNAVisualizer
+          sessionId={sim?.sessionId}
+          isOpen={showDNAVisualizer}
+          onClose={() => setShowDNAVisualizer(false)}
+          frozen={false}
+        />
+      )}
+
+      {/* 3D ESG Impact Constellation (Persistent Modal Mount per Issue #03) */}
+      {showConstellation && isPlayerVisible('esg_constellation_3d') && (
+        <ESGImpactConstellation
+          history={history}
+          currentRound={roundNumber}
+          onClose={() => setShowConstellation(false)}
         />
       )}
 
@@ -4977,640 +5103,7 @@ export default function ExecutiveCockpit({
         </Dialog>
       )}
 
-      {/* ═══ COMMIT RESULTS OVERLAY ═══ */}
-      <AnimatePresence>
-        {commitResults && !sim.gameOver && (
-          <motion.div
-            className={styles.resultsOverlay}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.div
-              className={styles.resultsPanel}
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-            >
-              <div className={styles.resultsBadge}>Round {roundNumber} Results</div>
-              <p className={styles.resultsSubtitle}>Review your round outcomes before advancing to Round {commitResults.newRoundNumber}.</p>
-
-              <div className={styles.resultsGrid}>
-                {(() => {
-                  const newTreasury = commitResults.globalState?.corporate_treasury || 0;
-                  const newEbitda = commitResults.globalState?.historical_ebitda || 0;
-                  const newRep = commitResults.globalState?.group_reputation ?? 50;
-                  const newCarbon = commitResults.globalState?.tco2e_emissions || 0;
-                  
-                  const dTreasury = newTreasury - treasury;
-                  const dEbitda = newEbitda - ebitda;
-                  const dRep = newRep - reputation;
-                  const dCarbon = newCarbon - tco2e;
-                  
-                  const renderDelta = (v, inverseGood = false) => {
-                    if (!v) return null;
-                    const isGood = inverseGood ? v < 0 : v > 0;
-                    return (
-                      <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: isGood ? 'var(--positive-text)' : 'var(--danger)' }}>
-                        {v > 0 ? '▲' : '▼'} {fmtCurrency ? (inverseGood && v < 500 ? Math.abs(v) : fmtCurrency(Math.abs(v))) : Math.abs(v).toFixed(0)}
-                      </span>
-                    );
-                  };
-
-                  return (
-                    <>
-                      <div className={styles.resultCard}>
-                        <div className={styles.resultCardIcon}>💰</div>
-                        <div className={styles.resultCardLabel}>Treasury</div>
-                        <div className={styles.resultCardValue}>
-                          {fmtCurrency(newTreasury)}
-                          {renderDelta(dTreasury)}
-                        </div>
-                      </div>
-                      <div className={styles.resultCard}>
-                        <div className={styles.resultCardIcon}>📈</div>
-                        <div className={styles.resultCardLabel}>EBITDA</div>
-                        <div className={styles.resultCardValue}>
-                          {fmtCurrency(newEbitda)}
-                          {renderDelta(dEbitda)}
-                        </div>
-                      </div>
-                      <div className={styles.resultCard}>
-                        <div className={styles.resultCardIcon}>🌍</div>
-                        <div className={styles.resultCardLabel}>Reputation</div>
-                        <div className={styles.resultCardValue}>
-                          {newRep.toFixed(0)}
-                          {dRep !== 0 && (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dRep >= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
-                              {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className={styles.resultCard}>
-                        <div className={styles.resultCardIcon}>🏭</div>
-                        <div className={styles.resultCardLabel}>CO₂ Emissions</div>
-                        <div className={styles.resultCardValue}>
-                          {newCarbon.toLocaleString()} t
-                          {dCarbon !== 0 && (
-                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dCarbon <= 0 ? 'var(--positive-text)' : 'var(--danger)' }}>
-                              {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()} t
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {/* Balance Sheet Health Card — clickable to open full IFRS balance sheet */}
-                      {(() => {
-                        const bsData = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
-                        // Null-data guard stays; the visibility switch ANDs onto it.
-                        if (!bsData) return null;
-                        if (!isPlayerVisible('balance_sheet_modal')) return null;
-                        const bs = typeof bsData === 'object' && bsData.net_assets != null ? bsData : {};
-                        const netAssets = bs.net_assets || 0;
-                        const deRatio = bs.debt_to_equity || 0;
-                        const cStatus = bs.covenant_status || 'green';
-                        const fmtMShort = (v) => moneyM(v || 0, { dp: 0 });
-                        const cColors = { green: 'var(--positive-text)', amber: 'var(--caution-text)', red: 'var(--danger)', breached: '#dc2626' };
-                        const cIcons = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
-                        return (
-                          <div
-                            className={styles.resultCard}
-                            style={{ borderTop: `2px solid ${cColors[cStatus] || '#38bdf8'}`, cursor: 'pointer' }}
-                            onClick={() => setResultsBsModalOpen(true)}
-                            /* PHASE 8: the only route to the full balance sheet
-                               from the results stage, and it was mouse-only. */
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setResultsBsModalOpen(true); } }}
-                            title="Click to view full Balance Sheet"
-                          >
-                            <div className={styles.resultCardIcon}>📊</div>
-                            <div className={styles.resultCardLabel}>Balance Sheet</div>
-                            <div className={styles.resultCardValue} style={{ fontSize: '0.85rem' }}>
-                              {fmtMShort(netAssets)} net
-                            </div>
-                            <div style={{ display: 'flex', gap: 6, marginTop: 4, fontSize: '0.68rem', justifyContent: 'center' }}>
-                              <span style={{ color: deRatio < 2.0 ? 'var(--positive-text)' : 'var(--caution)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
-                                D/E: {deRatio.toFixed(2)}×
-                              </span>
-                              <span style={{ color: cColors[cStatus] || '#38bdf8' }}>
-                                {cIcons[cStatus] || '📊'} {cStatus}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: 5, fontWeight: 600, letterSpacing: '0.03em' }}>
-                              🔍 Click to expand
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* Trend Sparklines */}
-              {historyData.length > 1 && (() => {
-                const avgNCD = businessUnits.length > 0
-                  ? businessUnits.reduce((s, bu) => s + (bu.natural_capital_debt || 0), 0) / businessUnits.length
-                  : 0;
-                const stockData = [
-                  { year: 'IPO', yearLabel: 'IPO', price: IPO_PRICE },
-                  ...historyData.map(h => ({
-                    year: h.year,
-                    yearLabel: h.yearLabel,
-                    price: calculateRoundStockPrice({
-                      ebitda: h.ebitda,
-                      synergy_multiplier: globalState?.synergy_multiplier || 1.0,
-                      natural_capital_debt: avgNCD,
-                      group_reputation: h.reputation,
-                    }),
-                  })),
-                ];
-                const prices = stockData.map(d => d.price);
-                const minP = Math.min(...prices);
-                const maxP = Math.max(...prices);
-                const pad = (maxP - minP) * 0.15 || 5;
-                const latestPrice = prices[prices.length - 1];
-                const pctChg = ((latestPrice - IPO_PRICE) / IPO_PRICE * 100);
-
-                return (
-                  <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.6rem',
-                    marginBottom: '1rem',
-                  }}>
-                    {[
-                      { key: 'treasury', label: 'Treasury Trend', color: '#e2e8f0', fmt: (v) => fmtCurrency(v) },
-                      { key: 'ebitda', label: 'EBITDA Trend', color: '#e2e8f0', fmt: (v) => fmtCurrency(v) },
-                      { key: 'reputation', label: 'Reputation Trend', color: '#e2e8f0', fmt: (v) => v?.toFixed(0) },
-                      { key: 'tco2e', label: 'CO₂ Emissions Trend', color: '#e2e8f0', fmt: (v) => `${(v || 0).toLocaleString()} t` },
-                    ].map(({ key, label, color, fmt }) => {
-                      const values = historyData.map(d => d[key] || 0);
-                      const minVal = Math.min(...values);
-                      const maxVal = Math.max(...values);
-                      const padding = (maxVal - minVal) * 0.15 || maxVal * 0.1 || 1;
-                      const yDomain = key === 'reputation'
-                        ? [0, 100]
-                        : [Math.max(0, minVal - padding), maxVal + padding];
-
-                      return (
-                      <div key={key} className={styles.resultCard} style={{
-                        padding: '0.5rem 0.6rem 0.3rem',
-                      }}>
-                        <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }} className={styles.resultCardLabel}>
-                          {label}
-                          {key === 'ebitda' && (
-                            <span style={{ marginLeft: 6, fontSize: '0.56rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'none', letterSpacing: 0 }}>· ⋯ Nordhaven</span>
-                          )}
-                        </div>
-                        <ResponsiveContainer width="100%" height={72}>
-                          <AreaChart data={historyData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
-                            <defs>
-                              <linearGradient id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.18} />
-                                <stop offset="95%" stopColor="#e2e8f0" stopOpacity={0.02} />
-                              </linearGradient>
-                            </defs>
-                            <XAxis dataKey="yearLabel" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                            <YAxis hide domain={yDomain} />
-                            <Tooltip
-                              contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                              formatter={(v, name) => [fmt(v), name === 'competitor_ebitda' ? 'Nordhaven Group (est.)' : label.replace(' Trend', '')]}
-                              labelFormatter={(l) => `${l}`}
-                            />
-                            <Area type="monotone" dataKey={key} stroke="#e2e8f0" strokeWidth={1.5} fill={`url(#grad-${key})`} dot={{ r: 2.5, fill: '#e2e8f0', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#fff', stroke: '#94a3b8', strokeWidth: 1 }} />
-                            {/* W-B (W2a): Nordhaven ghost line — dashed, no fill, display-only */}
-                            {key === 'ebitda' && (
-                              <Area type="monotone" dataKey="competitor_ebitda" stroke="#64748b" strokeDasharray="4 3" strokeWidth={1.2} fill="none" fillOpacity={0} dot={false} activeDot={{ r: 3, fill: '#64748b', strokeWidth: 0 }} connectNulls />
-                            )}
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    );})}
-                    
-                    {/* Stock Price Trend Card */}
-                    <div className={styles.resultCard} style={{
-                      padding: '0.5rem 0.6rem 0.3rem',
-                    }}>
-                      <div style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                        fontSize: '0.68rem', fontWeight: 700,
-                        textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem',
-                      }} className={styles.resultCardLabel}>
-                        <span>📈 Stock Price</span>
-                        <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-                          {currencySymbol()}{atRate(latestPrice).toFixed(2)}
-                        </span>
-                      </div>
-                      <ResponsiveContainer width="100%" height={72}>
-                        <AreaChart data={stockData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
-                          <defs>
-                            <linearGradient id="grad-stock-res" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.18} />
-                              <stop offset="95%" stopColor="#e2e8f0" stopOpacity={0.02} />
-                            </linearGradient>
-                          </defs>
-                          <XAxis dataKey="yearLabel" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                          <YAxis hide domain={[Math.max(0, minP - pad), maxP + pad]} />
-                          <Tooltip
-                            contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                            formatter={(v) => [price(v), 'Stock Price']}
-                            labelFormatter={(l) => `${l}`}
-                          />
-                          <ReferenceLine y={IPO_PRICE} stroke="#475569" strokeDasharray="3 3" />
-                          <Area type="monotone" dataKey="price" stroke="#e2e8f0" strokeWidth={1.5} fill="url(#grad-stock-res)" dot={{ r: 2.5, fill: '#e2e8f0', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#fff', stroke: '#94a3b8', strokeWidth: 1 }} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Phase 3.5: R5 Stochastic Dice Roll Animation */}
-              {roundNumber === 5 && commitResults.events?.stochastic_damage !== undefined && (
-                <StochasticDiceRoll
-                  probability={0.75}
-                  outcome={!!commitResults.events.stochastic_damage}
-                  damageAmount={commitResults.events.stochastic_damage || 12000000}
-                  fmtCurrency={fmtCurrency}
-                />
-              )}
-
-              {/* Events summary */}
-              {commitResults.events && Object.keys(commitResults.events).length > 0 && (
-                <div className={styles.resultsEvents}>
-                  <div className={styles.resultsEventsTitle}>⚡ Key Events</div>
-                  {commitResults.events.talent_penalty_applied > 1 && (
-                    <div className={styles.resultsEventItem}>🧠 Brain-Drain: Software OPEX inflated by {((commitResults.events.talent_penalty_applied - 1) * 100).toFixed(1)}%</div>
-                  )}
-                  {commitResults.events.loan_interest_payment > 0 && (
-                    <div className={styles.resultsEventItem}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
-                  )}
-                  {commitResults.events.auto_injected_messages?.length > 0 && (
-                    <div className={styles.resultsEventItem}>📬 {commitResults.events.auto_injected_messages.length} new swipe file(s) delivered</div>
-                  )}
-                  {commitResults.events.strike_probabilities && (
-                    <div className={styles.resultsEventItem}>
-                      ⚠️ Strike risk: {Object.entries(commitResults.events.strike_probabilities)
-                        .filter(([, p]) => p > 0.1)
-                        .map(([bu, p]) => `${bu} ${(p * 100).toFixed(0)}%`)
-                        .join(', ') || 'Low across all BUs'}
-                    </div>
-                  )}
-                  {commitResults.events.covenant_surcharge > 0 && (
-                    <div className={styles.resultsEventItem}>📊 Covenant Penalty: -{fmtCurrency(commitResults.events.covenant_surcharge)} interest surcharge on breached debt covenants</div>
-                  )}
-                  {commitResults.events.covenant_warning && (
-                    <div className={styles.resultsEventItem}>⚠️ {typeof commitResults.events.covenant_warning === 'string' ? commitResults.events.covenant_warning : 'Debt covenant under pressure — review leverage'}</div>
-                  )}
-                  {commitResults.events.esg_adjusted_wacc && commitResults.events.esg_adjusted_wacc.adjusted_wacc > 0.08 && (
-                    <div className={styles.resultsEventItem}>📊 ESG-WACC at {(commitResults.events.esg_adjusted_wacc.adjusted_wacc * 100).toFixed(1)}% — lender covenant triggers tightening due to ESG risk premium</div>
-                  )}
-                  {commitResults.events.employer_brand_opex_penalty && (
-                    <div className={styles.resultsEventItem}>👥 Talent Crisis: Employer brand at {(commitResults.events.employer_brand_opex_penalty.employer_brand_score || 0).toFixed(0)}/100 — +{((commitResults.events.employer_brand_opex_penalty.multiplier || 0) * 100).toFixed(1)}% OPEX surcharge across all {commitResults.events.employer_brand_opex_penalty.affected_bus || '?'} business units</div>
-                  )}
-                </div>
-              )}
-
-              {/* #7: Post-Commit Delta Card — "What Changed" summary */}
-              {commitResults?.globalState && (
-                <div style={{
-                  padding: '12px 16px', borderRadius: 10, marginBottom: '1rem',
-                  background: 'linear-gradient(135deg, rgba(94,234,212,0.06), rgba(99,102,241,0.04))',
-                  border: '1px solid rgba(94,234,212,0.15)',
-                }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#5eead4', marginBottom: 8 }}>
-                    📊 Round {roundNumber} Impact Summary
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                    {[
-                      { label: 'Treasury', prev: globalState?.corporate_treasury || treasury, post: commitResults.globalState.corporate_treasury, fmt: fmtCurrency },
-                      { label: 'Reputation', prev: globalState?.group_reputation || reputation, post: commitResults.globalState.group_reputation, fmt: v => v?.toFixed(1) },
-                      { label: 'Carbon', prev: globalState?.tco2e_emissions || tco2e, post: commitResults.globalState.tco2e_emissions, fmt: v => `${(v||0).toFixed(0)}t`, invert: true },
-                      { label: 'EBITDA', prev: ebitda, post: commitResults.globalState.historical_ebitda, fmt: fmtCurrency },
-                    ].map(({ label, prev, post, fmt, invert }) => {
-                      const d = (post || 0) - (prev || 0);
-                      const positive = invert ? d < 0 : d > 0;
-                      return (
-                        <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.65rem' }}>
-                          <span style={{ color: '#94a3b8', fontWeight: 600 }}>{label}</span>
-                          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: d === 0 ? '#64748b' : positive ? 'var(--positive-text)' : 'var(--danger-text)' }}>
-                            {d > 0 ? '+' : ''}{fmt(d)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {/* PHASE-3: Risk Intelligence Layer — post-commit analysis */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                {isPlayerVisible('risk_radar') && (
-                <RiskRadar
-                  buStates={commitResults.businessUnits || businessUnits}
-                  allocations={allocations}
-                  tippingState={commitResults.events?.systemic_tipping?.tipping_state || systemicTipping?.tipping_state || {}}
-                />
-                )}
-                <ConsequencePreview
-                  selectedOption={decisionChoice || (Object.keys(pillarSelections || {}).length > 0 ? 'multi_pillars' : null)}
-                  optionConfig={decisionChoice
-                    ? (options[decisionChoice] || {})
-                    : (() => {
-                        // Build synthetic optionConfig from multi_toggles pillar selections
-                        const sels = pillarSelections || {};
-                        const areas = pillarConfig?.areas || {};
-                        if (Object.keys(sels).length === 0) return {};
-                        const mergedImpacts = {};
-                        const labels = [];
-                        for (const [areaKey, optKey] of Object.entries(sels)) {
-                          const opt = areas[areaKey]?.options?.[optKey];
-                          if (!opt) continue;
-                          labels.push(opt.title || optKey);
-                          // Merge impacts from each selected pillar option
-                          const imp = opt.impacts || {};
-                          for (const [k, v] of Object.entries(imp)) {
-                            if (typeof v === 'number') {
-                              mergedImpacts[k] = (mergedImpacts[k] || 0) + v;
-                            }
-                          }
-                          // Also fold in top-level cost as a treasury impact
-                          if (opt.cost && !imp.treasury) {
-                            mergedImpacts.treasury = (mergedImpacts.treasury || 0) + opt.cost;
-                          }
-                        }
-                        return { label: labels.join(' + '), impacts: mergedImpacts };
-                      })()
-                  }
-                  currentState={commitResults.globalState || globalState}
-                  buStates={commitResults.businessUnits || businessUnits}
-                  tippingState={commitResults.events?.systemic_tipping || {}}
-                  whatIfResult={null}
-                />
-              </div>
-              {pedToggles.consequence_map_enabled !== false && isPlayerVisible('consequence_timeline') && (
-                <ConsequenceTimeline
-                  currentRound={roundNumber}
-                  activeFlags={commitResults.globalState?.active_event_flags || globalState?.active_event_flags || {}}
-                  foreshadowingSignals={commitResults.events?.foreshadowing_signals || foreshadowingSignals}
-                />
-              )}
-
-              {/* ── Inline Peer Performance (Results Overlay) ── */}
-              {/* peer_benchmarking is the ONE switch that governs peer data. This
-                  leaderboard was ungated, so a cohort with Peer Benchmarking OFF
-                  still saw peer rankings here. The reveal-schedule notice
-                  (peerLockMsg) is unaffected. */}
-              {peerLeaderboard.length > 0 && isPlayerVisible('peer_benchmarking') && (
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.04))',
-                  border: '1px solid rgba(99,102,241,0.2)',
-                  borderRadius: 12, padding: '1rem 1.2rem', marginBottom: '1rem',
-                }}>
-                  <div style={{
-                    fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em',
-                    textTransform: 'uppercase', marginBottom: '0.8rem',
-                    display: 'flex', alignItems: 'center', gap: '0.4rem',
-                    color: '#818cf8',
-                  }}>
-                    <span>📊</span> Cohort Leaderboard — How You Compare
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                        <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>#</th>
-                        <th style={{ textAlign: 'left', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Team</th>
-                        <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Treasury</th>
-                        <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Rep</th>
-                        <th style={{ textAlign: 'right', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>CO₂</th>
-                        <th style={{ textAlign: 'center', padding: '4px 6px', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.6rem', textTransform: 'uppercase' }}>Trend</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {peerLeaderboard.map(team => (
-                        <tr key={team.rank} style={{
-                          background: team.isYou ? 'rgba(99,102,241,0.1)' : 'transparent',
-                          borderBottom: '1px solid rgba(255,255,255,0.04)',
-                        }}>
-                          <td style={{ padding: '6px', fontSize: '0.78rem' }}>
-                            {team.rank <= 3 ? ['🥇', '🥈', '🥉'][team.rank - 1] : team.rank}
-                          </td>
-                          <td style={{
-                            padding: '6px', fontWeight: team.isYou ? 800 : 600,
-                            color: team.isYou ? '#a5b4fc' : '#e2e8f0',
-                          }}>
-                            {team.name}
-                            {team.isYou && <span style={{
-                              marginLeft: 6, fontSize: '0.68rem', fontWeight: 800,
-                              background: 'rgba(99,102,241,0.3)', color: '#c7d2fe',
-                              padding: '1px 6px', borderRadius: 4,
-                            }}>YOU</span>}
-                          </td>
-                          <td style={{ padding: '6px', textAlign: 'right', fontWeight: 700, color: 'var(--positive-text)', fontFamily: "'JetBrains Mono', monospace" }}>
-                            {currencySymbol()}{atRate((team.treasury || 0) / 1_000_000).toFixed(1)}M
-                          </td>
-                          <td style={{ padding: '6px', textAlign: 'right', color: '#cbd5e1' }}>
-                            {team.reputation?.toFixed(0) ?? '—'}
-                          </td>
-                          <td style={{ padding: '6px', textAlign: 'right', color: '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>
-                            {(team.co2 || 0).toLocaleString()}t
-                          </td>
-                          <td style={{
-                            padding: '6px', textAlign: 'center', fontSize: '0.85rem',
-                            color: team.trend === '↑' ? 'var(--positive-text)' : team.trend === '↓' ? 'var(--danger-text)' : '#94a3b8',
-                          }}>{team.trend}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {peerLoading && (
-                <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', padding: '8px 0' }}>Loading peer data…</div>
-              )}
-
-              {/* Pedagogical: Post-Commit Scaffolding */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {pedToggles.round_recap_enabled && (
-                  <RoundRecap recapData={{
-                    round: roundNumber,
-                    three_word_anchor: commitResults.events?.three_word_anchor,
-                    causal_chains: commitResults.events?.causal_chains || [],
-                    summary_sentence: commitResults.events?.round_summary,
-                  }} />
-                )}
-                {/* Phase 3.4: Prediction vs Reality Comparison */}
-                {isPlayerVisible('prediction_comparison') && (
-                  <PredictionComparison
-                    predictions={predictions}
-                    roundNumber={roundNumber}
-                    commitResults={commitResults}
-                    globalState={globalState}
-                  />
-                )}
-                {pedToggles.real_world_cards_enabled && (
-                  <RealWorldCard roundNumber={roundNumber} />
-                )}
-                {pedToggles.board_room_moments_enabled && (
-                  <BoardRoomMoment
-                    roundNumber={roundNumber}
-                    triggerReason={`Round ${roundNumber} results reviewed`}
-                  />
-                )}
-                {pedToggles.mid_game_checkpoint_enabled && roundNumber === 5 && (
-                  <MidGameCheckpoint checkpointData={checkpointData} />
-                )}
-                {/* IMP-04 (WP-22): the three journey panels are reflection
-                    exercises (no engine effect) — OFF unless the facilitator
-                    switches them on; answers go to the player journey endpoint. */}
-                {roundNumber === 6 && pedToggles.r6_revelation_enabled === true && (
-                  <R6RevelationPanel
-                    onVisible={() => setR6Pending(true)}
-                    onMicroDecision={(data) => {
-                      setR6Done(true);
-                      postJourneyResponse('r6_response', data);
-                    }} />
-                )}
-                {/* Journey: R7 Budget Allocation variant */}
-                {roundNumber === 7 && pedToggles.r7_budget_allocation_enabled === true && (
-                  <BudgetAllocationPanel
-                    onVisible={() => setR7Pending(true)}
-                    onAllocate={(allocs) => {
-                      setR7Done(true);
-                      postJourneyResponse('r7_allocs', allocs);
-                    }} />
-                )}
-                {/* Journey: R8 Stakeholder Tribunal variant */}
-                {roundNumber === 8 && pedToggles.r8_tribunal_enabled === true && (
-                  <StakeholderTribunal
-                    onVisible={() => setR8Pending(true)}
-                    onResponses={(responses) => {
-                      setR8Done(true);
-                      postJourneyResponse('r8_responses', responses);
-                    }} />
-                )}
-              </div>
-
-              {/* MP-02 + Journey Gate: block advance until teams committed AND minigames done */}
-              {(() => {
-                const teamCount = globalState?.cohort_team_count || 0;
-                const commitsCount = globalState?.team_commits_this_round || 0;
-                const isMultiTeam = teamCount > 1;
-                // Free-advance auto-release: the barrier also lifts when the
-                // facilitator's timeout lapses or Force Advance is pressed
-                // (cohort_advance_unblocked), so one absent team can't deadlock
-                // everyone.
-                const unblocked = globalState?.cohort_advance_unblocked === true;
-                const allCommitted = commitsCount >= teamCount || unblocked;
-                const deadlineAt = globalState?.cohort_advance_deadline;
-                let secsLeft = null;
-                if (deadlineAt) {
-                  const ms = new Date(deadlineAt).getTime() - Date.now();
-                  secsLeft = ms > 0 ? Math.ceil(ms / 1000) : 0;
-                }
-
-                if (isMultiTeam && !allCommitted) {
-                  return (
-                    <div style={{
-                      padding: '12px 16px', borderRadius: 10, textAlign: 'center',
-                      background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
-                    }}>
-                      <div style={{ fontSize: '1rem', marginBottom: 4 }}>⏳</div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>
-                        Waiting for Other Teams
-                      </div>
-                      <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
-                        {commitsCount}/{teamCount} teams committed
-                        {secsLeft != null
-                          ? ` — auto-advances in ~${secsLeft}s`
-                          : ' — cannot advance yet'}
-                      </div>
-                    </div>
-                  );
-                }
-
-                if (journeyBlocksAdvance) {
-                  return (
-                    <div style={{
-                      padding: '14px 16px', borderRadius: 10, textAlign: 'center',
-                      background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)',
-                    }}>
-                      <div style={{ fontSize: '1.2rem', marginBottom: 6 }}>⚠️</div>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--caution)', marginBottom: 4 }}>
-                        Complete the Activity Above First
-                      </div>
-                      <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
-                        Submit your response in the panel above to unlock Round {commitResults.newRoundNumber}
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <>
-                    {/* B2: Reflection box — optional, never blocks advance */}
-                    {isPlayerVisible('quick_reflection_box') && (
-                    <div style={{
-                      padding: '10px 12px', borderRadius: 10, marginBottom: 8,
-                      background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.18)',
-                    }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#a5b4fc', marginBottom: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                        💭 Quick Reflection (optional)
-                      </div>
-                      <textarea
-                        value={reflectionText}
-                        onChange={(e) => setReflectionText(e.target.value)}
-                        placeholder="What did you predict vs. what actually happened — and why?"
-                        rows={2}
-                        style={{
-                          width: '100%', resize: 'vertical', fontSize: '0.78rem', lineHeight: 1.5,
-                          padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.15)',
-                          background: 'rgba(15,23,42,0.4)', color: 'var(--text-primary)',
-                          fontFamily: 'inherit', outline: 'none',
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = 'rgba(99,102,241,0.5)'}
-                        onBlur={(e) => {
-                          e.target.style.borderColor = 'rgba(148,163,184,0.15)';
-                          // Persist to ref on blur
-                          if (reflectionText.trim()) {
-                            reflectionsRef.current[roundNumber] = reflectionText.trim();
-                          }
-                        }}
-                      />
-                    </div>
-                    )}
-                    <motion.button
-                      className={styles.advanceBtnLarge}
-                      onClick={() => {
-                        // Save reflection before advancing
-                        if (reflectionText.trim()) {
-                          reflectionsRef.current[roundNumber] = reflectionText.trim();
-                        }
-                        setReflectionText('');
-                        onAdvance();
-                      }}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      ⏩ Advance to Round {commitResults.newRoundNumber}
-                    </motion.button>
-                  </>
-                );
-              })()}
-              {/* Balance Sheet full modal — triggered from results card */}
-              {isPlayerVisible('balance_sheet_modal') && (
-                <BalanceSheetModal
-                  balanceSheet={commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet || null}
-                  isOpen={resultsBsModalOpen}
-                  onClose={() => setResultsBsModalOpen(false)}
-                  fmtCurrency={fmtCurrency}
-                />
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ═══ COMMIT RESULTS OVERLAY (Retired per Issue #01) ═══ */}
     </div>
   );
 }

@@ -156,7 +156,7 @@
     justify-content: center;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
 }
 
 .xAxisLabel {
@@ -167,7 +167,7 @@
     color: var(--csrd-axis, var(--text-muted));
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     padding-top: var(--space-2);
 }
 
@@ -234,7 +234,7 @@
 
 .quadrantHeader {
     width: 100%;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--text-muted);
     margin-bottom: var(--space-1);
     font-weight: 700;
@@ -291,7 +291,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    font-size: 0.65rem;
+    font-size: var(--type-caption);
     font-weight: 800;
 }
 
@@ -658,7 +658,7 @@
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     border-radius: 5px;
     color: var(--csrd-text, var(--text-primary));
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     font-family: var(--font-sans);
     cursor: pointer;
 }
@@ -670,7 +670,7 @@
     border: none;
     border-radius: 5px;
     font-weight: 700;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     cursor: pointer;
     font-family: var(--font-sans);
     transition: opacity 0.15s;
@@ -687,7 +687,7 @@
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     border-radius: 5px;
     color: var(--csrd-muted, var(--text-muted));
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     cursor: pointer;
     font-family: var(--font-sans);
     transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
@@ -887,15 +887,15 @@
     display: flex;
     align-items: center;
     gap: var(--space-1);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-muted);
     letter-spacing: 0.02em;
 }
 
-/* â”€â”€ Cost Badge on Chips (Fix 7) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Cost Badge on Chips (Fix 7) ────────────────────────── */
 .costBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     color: var(--accent-gold);
     background: rgba(245, 158, 11, 0.1);
@@ -907,13 +907,13 @@
     letter-spacing: 0.02em;
 }
 
-/* â”€â”€ ESRS Subtitle Labels (Fix 8) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── ESRS Subtitle Labels (Fix 8) ───────────────────────── */
 .esrsSubtitle {
     position: absolute;
     bottom: 6px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 500;
     font-style: italic;
     color: rgba(148, 163, 184, 0.4);
@@ -922,7 +922,7 @@
     letter-spacing: 0.02em;
 }
 
-/* â”€â”€ Empty Quadrant State (Fix 5) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Empty Quadrant State (Fix 5) ───────────────────────── */
 .emptyQuadrant {
     position: absolute;
     top: 50%;
@@ -942,7 +942,7 @@
 }
 
 .emptyQuadrant span:last-child {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -953,9 +953,9 @@
     opacity: 0.5;
 }
 
-/* â”€â”€ IRO Badge (Fix 10) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── IRO Badge (Fix 10) ─────────────────────────────────── */
 .iroBadge {
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     padding: var(--space-0) var(--space-1);
     border-radius: 3px;
@@ -1150,7 +1150,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 800;
     flex-shrink: 0;
     letter-spacing: 0;
@@ -1164,7 +1164,7 @@
     padding: 0 4px;
     height: 16px;
     border-radius: 3px;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     flex-shrink: 0;
     background: rgba(148, 163, 184, 0.12);
@@ -1173,7 +1173,7 @@
     letter-spacing: 0.04em;
 }
 
-/* â”€â”€ R1 Blindspot Chip State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── R1 Blindspot Chip State ──────────────────────────────── */
 .chipBlindspot {
     border-left-color: var(--accent-gold) !important;
     opacity: 0.78;
@@ -1189,12 +1189,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.72rem;
+    font-size: var(--type-caption);
     color: var(--accent-gold);
     flex-shrink: 0;
 }
 
-/* â”€â”€ Stakeholder Boost Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Stakeholder Boost Badge ──────────────────────────────── */
 .chipBoosted {
     border-left-color: var(--accent-purple) !important;
 }
@@ -1203,7 +1203,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.68rem;
+    font-size: var(--type-caption);
     color: var(--accent-purple);
     flex-shrink: 0;
 }
@@ -1246,7 +1246,7 @@
     gap: 2px;
     padding: var(--space-0) var(--space-2);
     border-radius: 4px;
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.03em;
     cursor: help;
@@ -1275,7 +1275,7 @@
     gap: var(--space-1);
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.63rem;
+    font-size: var(--type-caption);
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -1291,7 +1291,7 @@
 }
 
 .panelFeeLabel {
-    font-size: 0.6rem;
+    font-size: var(--type-caption);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--caution);
@@ -1306,7 +1306,7 @@
 }
 
 .netCsfAmount {
-    font-size: 0.7rem;
+    font-size: var(--type-caption);
     color: #94a3b8;
     margin-top: var(--space-0);
 }

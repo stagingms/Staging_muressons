@@ -124,3 +124,9 @@ _to_delete/
 
 # W4.3 telemetry output — contains team names, never committed
 COHORT_TELEMETRY_LATEST.md
+
+# Agent team workspaces and session scratch (preserve committed skills)
+.agents/*
+!.agents/skills/
+ORIGINAL_REQUEST.md
+

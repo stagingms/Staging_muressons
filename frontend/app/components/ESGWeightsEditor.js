@@ -10,6 +10,7 @@
  * /api/admin/esg-profile-weights; the end-of-game ESG radar applies it.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from './ConfirmModal';
 import { DEFAULT_ESG_WEIGHTS, mergeEsgWeights } from './ESGLeadershipProfile';
 
 const DIMENSIONS = [
@@ -60,6 +61,7 @@ export default function ESGWeightsEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const [confirm, confirmModal] = useConfirm();
 
   const flash = (msg, ok = true) => { setStatus({ msg, ok }); setTimeout(() => setStatus(null), 4000); };
 
@@ -88,8 +90,10 @@ export default function ESGWeightsEditor() {
     for (const dim of Object.keys(DEFAULT_ESG_WEIGHTS)) {
       clean[dim] = {};
       for (const k of Object.keys(DEFAULT_ESG_WEIGHTS[dim])) {
-        const n = Number(weights?.[dim]?.[k]);
-        clean[dim][k] = Number.isFinite(n) ? n : DEFAULT_ESG_WEIGHTS[dim][k];
+        const raw = weights?.[dim]?.[k];
+        clean[dim][k] = raw === '' || raw === undefined || raw === null
+          ? DEFAULT_ESG_WEIGHTS[dim][k]
+          : Number(raw);
       }
     }
     try {
@@ -105,7 +109,14 @@ export default function ESGWeightsEditor() {
   };
 
   const resetDefaults = async () => {
-    if (!window.confirm('Reset all ESG signal weights to their defaults?')) return;
+    const ok = await confirm({
+      title: 'Reset ESG Weights',
+      message: 'Reset all ESG signal weights to their platform defaults?',
+      impact: 'All 5 ESG dimensions will revert to default baseline weights across all sessions.',
+      confirmLabel: 'Reset Weights',
+      danger: true,
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const r = await fetch(`${API}/api/admin/esg-profile-weights/reset`, { method: 'POST', credentials: 'include' });
@@ -170,6 +181,7 @@ export default function ESGWeightsEditor() {
           </div>
         ))}
       </div>
+      {confirmModal}
     </div>
   );
 }

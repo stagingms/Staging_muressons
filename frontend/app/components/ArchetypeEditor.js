@@ -65,7 +65,7 @@ export default function ArchetypeEditor() {
   const loadArchetypes = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/admin/archetypes`);
+      const res = await fetch(`${API}/api/admin/archetypes`, { credentials: 'include' });
       const data = await res.json();
       setArchetypes(data.archetypes || []);
       setDefaults(data.defaults || []);
@@ -89,6 +89,7 @@ export default function ArchetypeEditor() {
       const res = await fetch(`${API}/api/admin/archetypes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ ...form, mr_threshold: parseFloat(form.mr_threshold) }),
       });
       if (!res.ok) {
@@ -139,6 +140,7 @@ export default function ArchetypeEditor() {
         res = await fetch(`${API}/api/admin/archetypes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ ...updates, is_default: false }),
         });
       } else {
@@ -146,6 +148,7 @@ export default function ArchetypeEditor() {
         res = await fetch(`${API}/api/admin/archetypes/${originalKey}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(updates),
         });
       }
@@ -522,6 +525,7 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
       const res = await fetch(`${API}/api/admin/side-track-archetypes/${track.key_prefix}/${originalKey}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(updates),
       });
       if (res.ok) {
